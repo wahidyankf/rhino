@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 167] = [
+pub const VOCABULARY: [&str; 169] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -62,7 +62,9 @@ pub const VOCABULARY: [&str; 167] = [
     "file {string} contains {int} words",
     "file {string} exceeds its declared word budget",
     "file {string} has an empty {string} directory map followed by {int} words",
+    "file {string} cannot be opened",
     "file {string} has title {string} and an empty directory map",
+    "file {string} holds bytes that are not text",
     "file {string} vanishes between the walk and the read",
     "harness {string} declares a command directory",
     "harness {string} declares an instruction overlay",

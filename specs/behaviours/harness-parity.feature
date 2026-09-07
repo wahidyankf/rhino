@@ -277,6 +277,18 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the only violation starts with "root-instructions.md: missing-instruction:"
 
+  Scenario: A file that is not text is not an instruction source
+    Given a valid one-skill one-agent one-capability harness contract
+    And file "logo.png" holds bytes that are not text
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A file that cannot be opened still stops the run
+    Given a valid one-skill one-agent one-capability harness contract
+    And file "notes.md" cannot be opened
+    When I inspect harness parity
+    Then the exit code is 2
+
   Scenario: An unusable prohibited-source glob stops the instruction check
     Given a valid one-skill one-agent one-capability harness contract
     And a file imports the canonical instruction body

@@ -90,6 +90,10 @@ fn inspect(tree: &dyn Tree, directory: &str, report: &mut Report) -> Result<(), 
     let text = match tree.read(&readme) {
         Ok(text) => text,
         Err(TreeError::Unreadable(reason)) => return Err(format!("{readme}: {reason}")),
+        // A README the repository declared as this directory's map, holding no
+        // text to read it from. Refused rather than reported as missing, on the
+        // same reasoning as above: the file is there.
+        Err(TreeError::NotText) => return Err(format!("{readme}: holds no text")),
         Err(TreeError::NotFound) => {
             report.found(Finding::new(
                 "missing-readme",

@@ -112,6 +112,13 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
                 contents.insert(path.clone(), text);
             }
             Err(TreeError::NotFound) => {}
+            // Alone among the walks, this one reads every file rather than
+            // every file of a declared kind, so it is the only one that meets
+            // a repository's images and archives. None of them can be an
+            // instruction body, a skill, an agent, or a capability
+            // declaration, and refusing the run over a logo would put parity
+            // out of reach of any repository that ships one.
+            Err(TreeError::NotText) => {}
             Err(TreeError::Unreadable(reason)) => {
                 refusal.get_or_insert(format!("{path}: {reason}"));
             }

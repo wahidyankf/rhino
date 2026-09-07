@@ -17,6 +17,16 @@ use std::collections::{BTreeMap, BTreeSet};
 pub enum TreeError {
     NotFound,
     Unreadable(String),
+    /// The file opened and holds no text.
+    ///
+    /// A separate kind from `Unreadable` because the two oblige different
+    /// answers. A file RHINO could not open might have held anything, so a
+    /// validator that skipped it would be reporting on a repository it had not
+    /// read. A file it did open and found bytes in is simply not the sort of
+    /// thing any rule here is about -- an image, an archive, a compiled
+    /// artifact -- and refusing the run over one would mean no repository with
+    /// a logo in it could be inspected at all.
+    NotText,
 }
 
 /// A repository as RHINO is allowed to see it: read, list, and nothing else.
@@ -92,6 +102,7 @@ pub struct MemoryTree {
     files: BTreeMap<String, String>,
     unreadable: BTreeSet<String>,
     vanished: BTreeSet<String>,
+    binary: BTreeSet<String>,
     links: BTreeSet<String>,
 }
 
@@ -124,6 +135,12 @@ impl MemoryTree {
             .insert(path.trim_start_matches('/').to_string());
     }
 
+    /// A file whose bytes are not text. It opens; there is simply nothing in it
+    /// to read as a document.
+    pub fn mark_binary(&mut self, path: &str) {
+        self.binary.insert(path.trim_start_matches('/').to_string());
+    }
+
     /// A filesystem link. Never reported, because following one can leave the
     /// repository entirely.
     pub fn mark_link(&mut self, path: &str) {
@@ -136,6 +153,9 @@ impl Tree for MemoryTree {
         let path = path.trim_start_matches('/');
         if self.unreadable.contains(path) {
             return Err(TreeError::Unreadable("permission denied".to_string()));
+        }
+        if self.binary.contains(path) {
+            return Err(TreeError::NotText);
         }
         if self.vanished.contains(path) {
             return Err(TreeError::NotFound);
@@ -173,6 +193,7 @@ impl Tree for MemoryTree {
                 .collect()
         };
         Ok(Box::new(Self {
+            binary: strip(&self.binary),
             files: self
                 .files
                 .iter()

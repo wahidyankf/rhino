@@ -298,6 +298,20 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             world.vanished.insert(matched.string(0).to_string());
             Outcome::Passed
         }
+        "file {string} holds bytes that are not text" => {
+            // Written as an ordinary file first so the walk lists it. What
+            // makes it interesting is only what a reader finds inside.
+            let path = matched.string(0).to_string();
+            world.files.insert(path.clone(), String::new());
+            world.binary.insert(path);
+            Outcome::Passed
+        }
+        "file {string} cannot be opened" => {
+            let path = matched.string(0).to_string();
+            world.files.insert(path.clone(), String::new());
+            world.unreadable.insert(path);
+            Outcome::Passed
+        }
         "a loose file sits directly under the canonical skills root" => {
             world.files.insert(
                 format!("{}/README.md", harness::SKILLS_ROOT),

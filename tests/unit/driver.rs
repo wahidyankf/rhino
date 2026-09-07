@@ -30,6 +30,9 @@ impl Driver for UnitDriver {
         for path in repository.vanished {
             tree.mark_vanished(path);
         }
+        for path in repository.binary {
+            tree.mark_binary(path);
+        }
         for path in repository.links {
             tree.mark_link(path);
         }

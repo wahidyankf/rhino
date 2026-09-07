@@ -118,6 +118,11 @@ Feature: Markdown internal-link validation
     Then the exit code is 0
     And 0 links were inspected
 
+  Scenario: A Markdown source that holds no text is refused
+    Given file "notes.md" holds bytes that are not text
+    When I inspect internal links
+    Then the exit code is 2
+
   Scenario: A source that cannot be read is refused
     Given file "rules/README.md" contains this Markdown:
       """

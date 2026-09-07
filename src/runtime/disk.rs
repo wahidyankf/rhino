@@ -96,6 +96,10 @@ impl Tree for DiskTree {
         match std::fs::read_to_string(&resolved) {
             Ok(text) => Ok(text),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err(TreeError::NotFound),
+            // The one failure that is about the bytes rather than about access.
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+                Err(TreeError::NotText)
+            }
             Err(error) => Err(TreeError::Unreadable(error.to_string())),
         }
     }

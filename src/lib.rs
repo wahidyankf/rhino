@@ -160,6 +160,7 @@ fn load(tree: &dyn Tree) -> Result<config::Config, ConfigError> {
     let text = tree.read(config::PATH).map_err(|error| match error {
         TreeError::NotFound => ConfigError::Missing,
         TreeError::Unreadable(reason) => ConfigError::Unreadable(reason),
+        TreeError::NotText => ConfigError::Unreadable("holds no text".to_string()),
     })?;
     config::parse(&text)
 }

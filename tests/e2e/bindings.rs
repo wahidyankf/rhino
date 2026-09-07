@@ -515,6 +515,10 @@ pub const BINDINGS: &[Binding] = &[
         "internal-link",
         "A link with an empty target names nothing to resolve",
     ),
+    (
+        "internal-link",
+        "A Markdown source that holds no text is refused",
+    ),
     ("internal-link", "A source that cannot be read is refused"),
     (
         "directory-map",
@@ -532,6 +536,14 @@ pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
         "A narrowed inspection refuses a harness the repository does not declare",
+    ),
+    (
+        "harness-parity",
+        "A file that is not text is not an instruction source",
+    ),
+    (
+        "harness-parity",
+        "A file that cannot be opened still stops the run",
     ),
     (
         "harness-parity",

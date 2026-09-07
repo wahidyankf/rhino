@@ -42,6 +42,10 @@ impl Corpus {
                 // this repository's policy being violated.
                 Err(TreeError::NotFound) => {}
                 Err(TreeError::Unreadable(reason)) => return Err(format!("{path}: {reason}")),
+                // Refusal follows the claim. This walk selected the file
+                // because its name says Markdown; a name that says text over
+                // bytes that are not is a fault to report, not to work around.
+                Err(TreeError::NotText) => return Err(format!("{path}: holds no text")),
             }
         }
 

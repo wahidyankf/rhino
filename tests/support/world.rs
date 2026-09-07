@@ -164,6 +164,11 @@ pub struct World<D> {
     /// Paths the walk lists and the read can no longer find, which is what a
     /// file removed between the two looks like.
     pub vanished: BTreeSet<String>,
+    /// Paths that open cleanly and hold bytes that are not text. A different
+    /// fact from `unreadable`, and the difference is the behaviour: one is a
+    /// file RHINO could not open and must fail closed on, the other is a file
+    /// it opened and found no text in.
+    pub binary: BTreeSet<String>,
     /// What a `--file -` selection should read. Held on the world rather than
     /// reached for from the process, so the same sentence means the same thing
     /// at a boundary that has no standard input to reach for.
@@ -187,6 +192,7 @@ impl<D> World<D> {
             files: &self.files,
             unreadable: &self.unreadable,
             vanished: &self.vanished,
+            binary: &self.binary,
             links: &self.links,
             stdin: self.stdin.as_deref(),
         }
@@ -217,6 +223,7 @@ pub struct Repository<'a> {
     pub files: &'a BTreeMap<String, String>,
     pub unreadable: &'a BTreeSet<String>,
     pub vanished: &'a BTreeSet<String>,
+    pub binary: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
     pub stdin: Option<&'a str>,
 }

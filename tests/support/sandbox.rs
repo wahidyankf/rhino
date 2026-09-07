@@ -51,6 +51,9 @@ impl Sandbox {
                 &fixtures::render(repository.declaration),
             );
         }
+        for path in repository.binary {
+            sandbox.fill_with_bytes(path);
+        }
         for path in repository.links {
             sandbox.link(path);
         }
@@ -59,6 +62,17 @@ impl Sandbox {
             sandbox.seal(path);
         }
         sandbox
+    }
+
+    /// Replace a written file's content with bytes no decoder will accept, so
+    /// the file opens and yields no text -- an image or an archive, as far as a
+    /// walk that reads everything is concerned.
+    fn fill_with_bytes(&self, path: &str) {
+        let target = self.root.join(path);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).expect("the fixture's parent directory is creatable");
+        }
+        std::fs::write(&target, [0xff, 0xfe, 0x00, 0x80]).expect("the fixture file is writable");
     }
 
     /// Replace a written file with a symbolic link pointing outside the
