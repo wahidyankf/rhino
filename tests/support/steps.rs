@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 163] = [
+pub const VOCABULARY: [&str; 167] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -35,8 +35,12 @@ pub const VOCABULARY: [&str; 163] = [
     "I scan the declared surfaces",
     "Markdown text containing a heading marker, Hello, can't-stop, naïve, and {int}",
     "a canonical skill declares a name that is not its directory",
-    "a file imports the canonical instruction body",
+    "a documentation page carries a stray backtick before the canonical import",
+    "a documentation page hides the canonical import behind an unclosed fence",
+    "a documentation page shows the canonical import in a code span containing a backtick",
+    "a documentation page shows the canonical import in an inline code span",
     "a documentation page shows the canonical import inside a fenced example",
+    "a file imports the canonical instruction body",
     "a loose file sits directly under the canonical skills root",
     "a nested repository instruction file exists",
     "a nested repository under {string} scans a directory the outer repository excludes",

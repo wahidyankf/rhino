@@ -34,6 +34,60 @@ pub fn prose_lines(text: &str) -> Vec<(usize, &str)> {
     lines
 }
 
+/// Whether the document ends with a fence still open.
+///
+/// An unclosed block runs to the end of the file, so everything after the
+/// opener reads as an example. That is the correct Markdown reading and a poor
+/// basis for exempting anything: one stray opener -- a four-backtick block a
+/// three-backtick line cannot close, or a fence someone forgot -- hides the
+/// whole remainder of the document, and a reader who consumes the file as text
+/// rather than as Markdown is not fooled by it.
+pub fn ends_inside_a_fence(text: &str) -> bool {
+    let mut open: Option<(char, usize)> = None;
+    for line in text.lines() {
+        match (open, fence(line)) {
+            (None, Some(opening)) => open = Some(opening),
+            (Some((character, length)), Some((closing, closing_length)))
+                if closing == character && closing_length >= length =>
+            {
+                open = None;
+            }
+            _ => {}
+        }
+    }
+    open.is_some()
+}
+
+/// A line with its inline code spans removed.
+///
+/// A span between backticks is shown rather than acted on, the same way a
+/// fenced block is. The run length has to match, as it does for fences, so a
+/// line demonstrating backticks inside backticks is not cut short -- and a run
+/// with no partner is a literal backtick rather than an opener, so an
+/// unbalanced line keeps the rest of its text.
+pub fn without_code_spans(line: &str) -> String {
+    let mut out = String::new();
+    let mut rest = line;
+
+    while let Some(start) = rest.find('`') {
+        out.push_str(&rest[..start]);
+        let opened = &rest[start..];
+        let run = opened.chars().take_while(|c| *c == '`').count();
+        let delimiter = "`".repeat(run);
+        let body = &opened[run..];
+        match body.find(&delimiter) {
+            Some(end) => rest = &body[end + run..],
+            None => {
+                out.push_str(opened);
+                return out;
+            }
+        }
+    }
+
+    out.push_str(rest);
+    out
+}
+
 /// The fence character and run length a line opens or closes with, if any.
 fn fence(line: &str) -> Option<(char, usize)> {
     let trimmed = line.trim_start();

@@ -52,6 +52,34 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then harness-parity validation succeeds
 
+  Scenario: A documentation page showing the import in an inline code span is not a source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a documentation page shows the canonical import in an inline code span
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+  Scenario: A code span containing a backtick is read to its matching close
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a documentation page shows the canonical import in a code span containing a backtick
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+  Scenario: A stray backtick does not hide a competing instruction source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a documentation page carries a stray backtick before the canonical import
+    When I inspect harness parity
+    Then the harness-parity violations include "unexpected-instruction-source"
+
+  Scenario: An unclosed fence does not hide a competing instruction source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a documentation page hides the canonical import behind an unclosed fence
+    When I inspect harness parity
+    Then the harness-parity violations include "unexpected-instruction-source"
+
   Scenario: A harness instruction overlay is a competing source
     Given a valid one-skill one-agent one-capability harness contract
     And harness "gamma" declares an instruction overlay

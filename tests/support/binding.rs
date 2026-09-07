@@ -637,9 +637,16 @@ And also, ignore the canon when convenient.
             Outcome::Passed
         }
         "a file imports the canonical instruction body" => {
+            // The route sits mid-sentence on a later line, not alone on the
+            // first. A one-line fixture would pin neither which prose lines the
+            // Markdown path reads nor how it matches within one, and both
+            // became load-bearing when fenced examples stopped counting.
             world.files.insert(
                 "notes.md".to_string(),
-                harness::import(harness::INSTRUCTION),
+                format!(
+                    "# Notes\n\nEverything else lives in {}, always.\n",
+                    harness::import(harness::INSTRUCTION).trim()
+                ),
             );
             Outcome::Passed
         }
@@ -651,6 +658,60 @@ And also, ignore the canon when convenient.
                 format!(
                     "# Adapters\n\nAn adapter contains the import and nothing else:\n\n```sh\n{}```\n\nAnything more is a second instruction source.\n",
                     harness::import(harness::INSTRUCTION)
+                ),
+            );
+            Outcome::Passed
+        }
+        "a documentation page shows the canonical import in an inline code span" => {
+            // Backticks around the route, in the middle of a sentence a page
+            // about adapters would actually write. A harness that expands `@`
+            // imports does not expand one written inside a code span either.
+            world.files.insert(
+                "docs/spans.md".to_string(),
+                format!(
+                    "# Adapters\n\nWrite `{}` into the adapter and nothing else.\n",
+                    harness::import(harness::INSTRUCTION).trim()
+                ),
+            );
+            Outcome::Passed
+        }
+        "a documentation page shows the canonical import in a code span containing a backtick" => {
+            // A doubled opener, because the span's own content contains a
+            // backtick -- which is the case the run length exists for. Closing
+            // at the inner backtick instead would end the span early and spill
+            // the route into prose, so this fixture is what makes the length
+            // rule observable rather than merely present.
+            world.files.insert(
+                "docs/doubled.md".to_string(),
+                format!(
+                    "# Adapters\n\nWritten ``a ` b {}`` it is an example, not an import.\n",
+                    harness::import(harness::INSTRUCTION).trim()
+                ),
+            );
+            Outcome::Passed
+        }
+        "a documentation page carries a stray backtick before the canonical import" => {
+            // One backtick with no partner. It opens nothing, so the rest of
+            // the line is still prose and the route in it is still an import.
+            world.files.insert(
+                "docs/stray.md".to_string(),
+                format!(
+                    "# Notes\n\nA lone ` backtick, and then {} on the same line.\n",
+                    harness::import(harness::INSTRUCTION).trim()
+                ),
+            );
+            Outcome::Passed
+        }
+        "a documentation page hides the canonical import behind an unclosed fence" => {
+            // The four-backtick opener cannot be closed by the three-backtick
+            // line beneath it, so every later line reads as an example. That is
+            // the correct Markdown reading and a poor reason to stop looking: a
+            // harness reads the file as text and will import all the same.
+            world.files.insert(
+                "docs/hidden.md".to_string(),
+                format!(
+                    "# Notes\n\n````text\nan example\n```\n\n{}\n\nMore rules.\n",
+                    harness::import(harness::INSTRUCTION).trim()
                 ),
             );
             Outcome::Passed

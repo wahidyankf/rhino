@@ -248,14 +248,21 @@ fn instructions(contents: &BTreeMap<String, String>, config: &Config, report: &m
         // one, or to route to the canonical body without being the file
         // permitted to.
         //
-        // In Markdown the route only counts as prose. A page that shows the
-        // import inside a fenced example is documenting the adapter rather than
-        // being one, and a validator that could not tell those apart could not
-        // be documented without tripping itself.
-        let imports = if scan::is_markdown(path) {
+        // In Markdown the route only counts where it is prose. A page that
+        // shows the import inside a fenced example or a code span is
+        // documenting the adapter rather than being one, and a validator that
+        // could not tell those apart could not be documented without tripping
+        // itself.
+        //
+        // A document that ends inside a fence gets no such benefit. Its
+        // remainder is an example only by the accident of a missing closer, and
+        // granting the exemption there would make the check evadable by one
+        // stray line.
+        let quoting = scan::is_markdown(path) && !markdown::ends_inside_a_fence(text);
+        let imports = if quoting {
             markdown::prose_lines(text)
                 .iter()
-                .any(|(_, line)| line.contains(&route))
+                .any(|(_, line)| markdown::without_code_spans(line).contains(&route))
         } else {
             text.contains(&route)
         };

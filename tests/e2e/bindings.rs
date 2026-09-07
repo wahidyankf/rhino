@@ -167,6 +167,22 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "A documentation page showing the import in an inline code span is not a source",
+    ),
+    (
+        "harness-parity",
+        "An unclosed fence does not hide a competing instruction source",
+    ),
+    (
+        "harness-parity",
+        "A code span containing a backtick is read to its matching close",
+    ),
+    (
+        "harness-parity",
+        "A stray backtick does not hide a competing instruction source",
+    ),
+    (
+        "harness-parity",
         "A harness instruction overlay is a competing source",
     ),
     (
