@@ -106,7 +106,7 @@ pub fn glob_set(key: &str, patterns: &[String]) -> Result<GlobSet, String> {
 ///
 /// The file's own name is never tested, so a file called `.git` is inspected
 /// while everything inside a directory called `.git` is not.
-fn is_excluded(path: &str, excluded: &[String]) -> bool {
+pub fn is_excluded(path: &str, excluded: &[String]) -> bool {
     let mut segments: Vec<&str> = path.split('/').collect();
     segments.pop();
     segments

@@ -123,6 +123,7 @@ pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
             .inspected(1)
             .finish(),
         "word-budget" => governance::word_budget::validate(tree, &config),
+        "directory-map" => governance::directory_map::validate(tree, &config),
         "internal-link" => markdown::internal_link::validate(tree, &config),
         "mermaid" => markdown::mermaid::validate(tree, &config),
         other => Report::refused(other, format!("`{}` is not ported yet", path.join(" "))),

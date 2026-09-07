@@ -4,4 +4,5 @@
 //! governed file may be, and whether every directory in a mapped tree
 //! documents its own contents.
 
+pub mod directory_map;
 pub mod word_budget;

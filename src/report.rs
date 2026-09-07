@@ -137,6 +137,12 @@ impl Report {
     }
 
     /// Record a path as inspected, which also counts it.
+    /// Count one inspected subject that has no path worth listing.
+    pub fn inspected_one(&mut self) -> &mut Self {
+        self.inspected += 1;
+        self
+    }
+
     pub fn scanned(&mut self, path: impl Into<String>) -> &mut Self {
         self.scanned.push(path.into());
         self.inspected += 1;
