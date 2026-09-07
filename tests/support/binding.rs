@@ -1760,6 +1760,55 @@ Body.
                 format!("`{sized}` is all zeros, which is the no-repository fallback"),
             )
         }
+        "the reported version is the one the product manifest declares" => {
+            // Read out of the manifest text rather than through
+            // `env!("CARGO_PKG_VERSION")`, which inside this crate is the very
+            // constant `version()` prints -- comparing a value to itself proves
+            // that a build is self-consistent and nothing else. The manifest is
+            // where a release is cut from, so it is the independent side.
+            //
+            // Shape is not identity: `v9.9.9` satisfies every spelling rule and
+            // is still the wrong release.
+            let stdout = &world.result().stdout;
+            let Some(reported) = json_string(stdout, "version") else {
+                return Outcome::Failed(format!("stdout carries no `version`\nstdout: {stdout}"));
+            };
+            let expected = format!("v{}", manifest_version());
+            expect(
+                reported == expected,
+                format!("the build reports `{reported}`, and the manifest declares `{expected}`"),
+            )
+        }
+        "stdout is exactly the release identity envelope" => {
+            // Field order and spacing are part of the release contract, not a
+            // formatting detail: the consumer bootstrap compares this string to
+            // an identity it assembles from its lock file. Parsed by hand so
+            // that a reordered key, an added field, or a space after a colon is
+            // a failure rather than a difference no assertion can see.
+            let stdout = world.result().stdout.trim_end_matches('\n').to_string();
+            let opening = "{\"schemaVersion\":1,\"version\":\"";
+            let middle = "\",\"commit\":\"";
+            let closing = "\"}";
+            let Some(rest) = stdout.strip_prefix(opening) else {
+                return Outcome::Failed(format!(
+                    "stdout does not open `{opening}`\nstdout: {stdout}"
+                ));
+            };
+            let Some(rest) = rest.strip_suffix(closing) else {
+                return Outcome::Failed(format!(
+                    "stdout does not close `{closing}`\nstdout: {stdout}"
+                ));
+            };
+            let Some((version, commit)) = rest.split_once(middle) else {
+                return Outcome::Failed(format!(
+                    "stdout does not join with `{middle}`\nstdout: {stdout}"
+                ));
+            };
+            expect(
+                !version.contains('"') && !commit.contains('"'),
+                format!("the envelope carries more than the two fields\nstdout: {stdout}"),
+            )
+        }
         "the reported version is spelled as its release tag" => {
             // The release tag is what a consumer pins and what the lock file
             // holds, so the executable has to report the tag verbatim rather
@@ -1774,6 +1823,10 @@ Body.
                     "`{version}` is not spelled as a tag; a release tag starts with `v`"
                 ));
             };
+            // Three numeric parts and nothing else. A prerelease tag such as
+            // `v0.2.0-rc.1` fails here, deliberately: this project publishes
+            // releases and nothing else, and a predicate widened for a shape
+            // nobody ships would stop catching the shapes that go wrong.
             let parts: Vec<&str> = number.split('.').collect();
             expect(
                 parts.len() == 3
@@ -2261,4 +2314,21 @@ fn digest_of(result: &CommandResult) -> Option<String> {
         .lines()
         .find_map(|line| line.split_once("] digest "))
         .map(|(_, digest)| digest.trim().to_string())
+}
+
+/// The version the product's own manifest declares, read as text.
+///
+/// The same seam `xtask` uses to verify a release artifact, for the same
+/// reason: it is the one statement of the version that does not come from the
+/// binary being asserted about. `[workspace]` ends the product's table, so a
+/// member crate's version can never be picked up instead.
+fn manifest_version() -> String {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let text = std::fs::read_to_string(&manifest)
+        .unwrap_or_else(|error| panic!("{}: {error}", manifest.display()));
+    text.lines()
+        .take_while(|line| !line.starts_with("[workspace]"))
+        .find_map(|line| line.strip_prefix("version = "))
+        .map(|value| value.trim().trim_matches('"').to_string())
+        .expect("the product manifest declares a version")
 }

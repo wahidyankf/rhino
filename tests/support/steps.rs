@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 200] = [
+pub const VOCABULARY: [&str; 202] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -109,6 +109,7 @@ pub const VOCABULARY: [&str; 200] = [
     "stdout does not name the command {string}",
     "stdout escapes the quote, backslash, tab, and control character",
     "stdout is empty",
+    "stdout is exactly the release identity envelope",
     "stdout is one non-empty line",
     "stdout is the version the JSON form reported",
     "stdout lines start with {string}",
@@ -170,6 +171,7 @@ pub const VOCABULARY: [&str; 200] = [
     "the only violation is an invalid map entry from {string} to {string}",
     "the only violation starts with {string}",
     "the reported version is spelled as its release tag",
+    "the reported version is the one the product manifest declares",
     "the repository contains Mermaid sample {string} at {string}",
     "the repository contains a Mermaid class filled {string} with a declared stroke and text color",
     "the repository contains a Mermaid node label of {int} graphemes",
