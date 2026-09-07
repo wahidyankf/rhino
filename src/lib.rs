@@ -9,8 +9,10 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+pub mod markdown;
 pub mod report;
 pub mod runtime;
+pub mod scan;
 
 use config::ConfigError;
 use report::Report;
@@ -61,9 +63,17 @@ where
         .map(|value| value.to_string_lossy().into_owned())
         .collect();
 
-    let tree = runtime::DiskTree::at_current_directory();
-    let outcome = match tree {
-        Ok(tree) => execute(&tree, &arguments),
+    let outcome = match runtime::DiskTree::at_current_directory() {
+        Ok(mut tree) => {
+            // Read the exclusion list before walking anything, so a real
+            // repository's dependency and build directories are never descended
+            // into rather than descended into and then filtered out. A broken
+            // configuration excludes nothing and `execute` reports it.
+            if let Ok(config) = load(&tree) {
+                tree.exclude(&config.scan.exclude_directories);
+            }
+            execute(&tree, &arguments)
+        }
         Err(reason) => Outcome::refused(format!("rhino: {reason}")),
     };
 
@@ -108,12 +118,10 @@ pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
     };
 
     match category {
-        "repo-config" => {
-            let _ = config;
-            Report::new("repo-config", "configuration file")
-                .inspected(1)
-                .finish()
-        }
+        "repo-config" => Report::new("repo-config", "configuration file")
+            .inspected(1)
+            .finish(),
+        "internal-link" => markdown::internal_link::validate(tree, &config),
         other => Report::refused(other, format!("`{}` is not ported yet", path.join(" "))),
     }
 }
