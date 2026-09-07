@@ -36,7 +36,18 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         "governance-directory-map.trees".into(),
         "[{path: rules}]".into(),
     );
-    lines.insert("md-internal-link.exclude-sources".into(), "[]".into());
+    lines.insert(
+        "md-internal-link.exclude-sources".into(),
+        format!(
+            "[{}]",
+            declaration
+                .excluded_sources
+                .iter()
+                .map(|glob| format!("\"{glob}\""))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    );
     lines.insert("md-mermaid.node-label-graphemes".into(), "32".into());
     lines.insert("md-mermaid.edge-label-graphemes".into(), "24".into());
     lines.insert(

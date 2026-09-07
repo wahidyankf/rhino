@@ -38,6 +38,8 @@ pub struct Declaration {
     pub omissions: Vec<String>,
     /// Extra top-level sections, which the contract says are ignored.
     pub extra_sections: Vec<String>,
+    /// Globs a scenario declares as non-sources for internal links.
+    pub excluded_sources: Vec<String>,
     pub empty_roster: bool,
     pub roster: Vec<String>,
     pub canonical_skills_root: Option<String>,

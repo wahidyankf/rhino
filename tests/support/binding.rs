@@ -94,6 +94,40 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .push(matched.string(0).to_string());
             Outcome::Passed
         }
+        "file {string} contains this Markdown:" => {
+            let Some(body) = step.docstring.as_deref() else {
+                return Outcome::Failed(
+                    "the step promised a docstring and carried none".to_string(),
+                );
+            };
+            world
+                .files
+                .insert(matched.string(0).to_string(), materialise(body));
+            Outcome::Passed
+        }
+        "the repository contains:" => {
+            let mut placed = 0usize;
+            for row in rows(step) {
+                let (Some(path), Some(content)) = (row.get("path"), row.get("content")) else {
+                    return Outcome::Failed(
+                        "the table needs a `path` and a `content` column".to_string(),
+                    );
+                };
+                world.files.insert(path.clone(), materialise(content));
+                placed += 1;
+            }
+            expect(
+                placed > 0,
+                "the step promised a table of files and carried none".to_string(),
+            )
+        }
+        "the repository declares the internal-link excluded source {string}" => {
+            world
+                .declaration
+                .excluded_sources
+                .push(matched.string(0).to_string());
+            Outcome::Passed
+        }
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
         {
             world.declaration.present = true;
@@ -111,6 +145,15 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         }
 
         // -- Act ---------------------------------------------------------------
+        "I inspect internal links" => {
+            let arguments =
+                validator_arguments("internal-link").expect("internal-link is a validator");
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
         "I run the {string} validator" => {
             let Some(arguments) = validator_arguments(matched.string(0)) else {
                 return Outcome::Failed(format!(
@@ -160,6 +203,27 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         }
         "stderr names the canon that has nowhere to be reconciled" => {
             names(world.result(), &["skills-root"])
+        }
+        "there are {int} violations" => {
+            let expected = matched.integer(0);
+            let counted = violations(world.result());
+            expect(
+                counted == expected,
+                format!(
+                    "expected {expected} violations, counted {counted}\nstderr: {}",
+                    world.result().stderr
+                ),
+            )
+        }
+        "there are no violations" => {
+            let counted = violations(world.result());
+            expect(
+                counted == 0,
+                format!(
+                    "expected no violations, counted {counted}\nstderr: {}",
+                    world.result().stderr
+                ),
+            )
         }
         "no directories were inspected" => {
             let result = world.result();
@@ -212,4 +276,44 @@ fn names_an_override_key<D: Driver>(world: &World<D>) -> Outcome {
     }
     let borrowed: Vec<&str> = keys.iter().map(String::as_str).collect();
     names(world.result(), &borrowed)
+}
+
+/// A table read as a list of column-keyed rows, so a binding names its columns
+/// rather than indexing them and silently reading the wrong one when a corpus
+/// author reorders a table.
+fn rows(step: &Step) -> Vec<std::collections::BTreeMap<String, String>> {
+    let Some((header, body)) = step.table.split_first() else {
+        return Vec::new();
+    };
+    body.iter()
+        .map(|cells| {
+            header
+                .iter()
+                .cloned()
+                .zip(cells.iter().cloned())
+                .collect::<std::collections::BTreeMap<_, _>>()
+        })
+        .collect()
+}
+
+/// Turn corpus fixture text into the bytes a repository would actually hold.
+///
+/// `{nul}` is written literally in the corpus because a Gherkin file cannot
+/// carry a NUL byte, and a path containing one is exactly what "a malformed
+/// local target" means on every platform RHINO ships to.
+fn materialise(body: &str) -> String {
+    body.replace("{nul}", "\0")
+}
+
+/// How many findings a validator reported.
+///
+/// Counted from the prefixed stderr lines, which is the one place all three
+/// adapters can see: the E2E adapter has only the process contract, so a
+/// violation count that came from anywhere else would not be the same claim.
+fn violations(result: &CommandResult) -> usize {
+    result
+        .stderr
+        .lines()
+        .filter(|line| line.starts_with('['))
+        .count()
 }
