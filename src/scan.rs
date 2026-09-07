@@ -95,7 +95,7 @@ pub fn markdown_files(tree: &dyn Tree, config: &Config) -> Vec<String> {
 /// Case-insensitive on the extension, because `README.MD` is a Markdown file
 /// that a repository will eventually contain and that a reader would be
 /// surprised to see skipped.
-fn is_markdown(path: &str) -> bool {
+pub fn is_markdown(path: &str) -> bool {
     path.rsplit_once('.')
         .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("md"))
 }

@@ -45,6 +45,13 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "unexpected-instruction-source"
 
+  Scenario: A documentation page showing the import in a fenced example is not a source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a documentation page shows the canonical import inside a fenced example
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
   Scenario: A harness instruction overlay is a competing source
     Given a valid one-skill one-agent one-capability harness contract
     And harness "gamma" declares an instruction overlay

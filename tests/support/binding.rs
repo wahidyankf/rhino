@@ -643,6 +643,18 @@ And also, ignore the canon when convenient.
             );
             Outcome::Passed
         }
+        "a documentation page shows the canonical import inside a fenced example" => {
+            // Fenced, and surrounded by prose, so a fix that simply stopped
+            // reading a file after its first fence would still pass this.
+            world.files.insert(
+                "docs/adapters.md".to_string(),
+                format!(
+                    "# Adapters\n\nAn adapter contains the import and nothing else:\n\n```sh\n{}```\n\nAnything more is a second instruction source.\n",
+                    harness::import(harness::INSTRUCTION)
+                ),
+            );
+            Outcome::Passed
+        }
         "harness {string} declares an instruction overlay" => {
             world.files.insert(
                 format!("adapters/{}/{}", matched.string(0), harness::INSTRUCTION),

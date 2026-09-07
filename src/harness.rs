@@ -11,6 +11,7 @@
 //! repository and one that serves four.
 
 use crate::config::{CapabilityFormat, Config, Harness, RequiredMcp};
+use crate::markdown;
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::scan::{self, Scope};
@@ -246,7 +247,19 @@ fn instructions(contents: &BTreeMap<String, String>, config: &Config, report: &m
         // Two ways to be a competing always-on instruction: to be named like
         // one, or to route to the canonical body without being the file
         // permitted to.
-        if prohibited.is_match(path) || text.contains(&route) {
+        //
+        // In Markdown the route only counts as prose. A page that shows the
+        // import inside a fenced example is documenting the adapter rather than
+        // being one, and a validator that could not tell those apart could not
+        // be documented without tripping itself.
+        let imports = if scan::is_markdown(path) {
+            markdown::prose_lines(text)
+                .iter()
+                .any(|(_, line)| line.contains(&route))
+        } else {
+            text.contains(&route)
+        };
+        if prohibited.is_match(path) || imports {
             report.found(Finding::new(
                 "unexpected-instruction-source",
                 path,

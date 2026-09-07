@@ -163,6 +163,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "A documentation page showing the import in a fenced example is not a source",
+    ),
+    (
+        "harness-parity",
         "A harness instruction overlay is a competing source",
     ),
     (
