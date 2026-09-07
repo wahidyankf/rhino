@@ -7,6 +7,7 @@
 //! to the scheduled workflow instead.
 #![forbid(unsafe_code)]
 
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 /// The two modules a unit test may not reach, as one regex.
@@ -42,9 +43,10 @@ fn main() -> ExitCode {
     let result = match task.as_deref() {
         Some("test-quick") => test_quick(),
         Some("self-validate") => self_validate(),
+        Some("dist") => dist(),
         other => {
             eprintln!("unknown task: {other:?}");
-            eprintln!("tasks: test-quick, self-validate");
+            eprintln!("tasks: test-quick, self-validate, dist");
             return ExitCode::from(2);
         }
     };
@@ -132,4 +134,119 @@ fn self_validate() -> Result<(), String> {
         run("cargo", &args)?;
     }
     Ok(())
+}
+
+// -- Release artifacts --------------------------------------------------------
+
+/// Build this platform's release archive into `dist/`.
+///
+/// One platform per invocation, deliberately. The release matrix builds each
+/// archive on a runner of that architecture rather than cross-compiling, so
+/// every published executable has actually started on the operating system it
+/// claims to run on -- the one property a cross-compiled artifact cannot
+/// demonstrate about itself. This task is what each of those runners calls, and
+/// what a maintainer calls locally to get the same archive for the machine in
+/// front of them.
+///
+/// It assembles rather than verifies. `cargo test --package xtask` reads what
+/// this leaves behind, so the checks live outside the thing they check.
+fn dist() -> Result<(), String> {
+    let root = repository_root();
+    let target = host_target()?;
+    let output = root.join("dist");
+
+    run("cargo", &["build", "--release"])?;
+
+    std::fs::create_dir_all(&output).map_err(|error| format!("creating dist: {error}"))?;
+
+    let built = root.join("target/release/rhino");
+    if !built.exists() {
+        return Err(format!("{} was not built", built.display()));
+    }
+
+    // Staged under its plain name as well as archived, so the verification
+    // tests can run the exact bytes that go into the archive rather than a
+    // second build of the same source.
+    let staged = output.join("rhino");
+    std::fs::copy(&built, &staged).map_err(|error| format!("staging the executable: {error}"))?;
+
+    let archive = format!("rhino-{target}.tar.gz");
+    run_in(
+        &output,
+        "tar",
+        &["--create", "--gzip", "--file", &archive, "rhino"],
+    )?;
+
+    write_checksums(&output)?;
+
+    let size = std::fs::metadata(&staged)
+        .map_err(|error| format!("measuring the executable: {error}"))?
+        .len();
+    println!("dist/{archive}");
+    println!("stripped executable: {size} bytes");
+    Ok(())
+}
+
+fn repository_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("the xtask crate sits inside the repository")
+        .to_path_buf()
+}
+
+/// The triple this machine builds for, asked of the compiler rather than
+/// guessed from the operating system: a name that did not come from `rustc` is
+/// a name that can disagree with what was actually produced.
+fn host_target() -> Result<String, String> {
+    let output = Command::new("rustc")
+        .arg("-vV")
+        .output()
+        .map_err(|error| format!("failed to start rustc: {error}"))?;
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find_map(|line| line.strip_prefix("host: "))
+        .map(str::to_string)
+        .ok_or_else(|| "rustc did not report a host triple".to_string())
+}
+
+/// Record a digest for every archive in `dist/`, replacing any earlier file.
+///
+/// Rewritten wholesale rather than appended to, so a second run cannot leave
+/// two lines for one archive and let a reader take the stale one.
+fn write_checksums(output: &Path) -> Result<(), String> {
+    let mut archives: Vec<String> = std::fs::read_dir(output)
+        .map_err(|error| format!("reading dist: {error}"))?
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().to_string())
+        .filter(|name| name.ends_with(".tar.gz"))
+        .collect();
+    archives.sort();
+
+    let mut lines = String::new();
+    for name in archives {
+        let digest = Command::new("shasum")
+            .args(["-a", "256", &name])
+            .current_dir(output)
+            .output()
+            .map_err(|error| format!("failed to hash {name}: {error}"))?;
+        if !digest.status.success() {
+            return Err(format!("hashing {name} failed"));
+        }
+        lines.push_str(&String::from_utf8_lossy(&digest.stdout));
+    }
+    std::fs::write(output.join("checksums.txt"), lines)
+        .map_err(|error| format!("writing checksums: {error}"))
+}
+
+fn run_in(directory: &Path, program: &str, args: &[&str]) -> Result<(), String> {
+    let status = Command::new(program)
+        .args(args)
+        .current_dir(directory)
+        .status()
+        .map_err(|error| format!("failed to start {program}: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{program} {} failed", args.join(" ")))
+    }
 }
