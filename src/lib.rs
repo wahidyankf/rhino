@@ -160,6 +160,14 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
         }
     };
 
+    // Exclusions are applied only now, from the configuration of the repository
+    // that is about to be walked. Reading the list earlier would mean a
+    // `--root` run skipping directories the selected repository never excluded
+    // -- a clean result for a tree that was never fully read, which is the one
+    // failure this tool exists to prevent.
+    let excluded = tree.excluding(&config.scan.exclude_directories);
+    let tree: &dyn Tree = excluded.as_ref();
+
     let scope = scan::Scope {
         files: invocation.files.clone(),
         directory: invocation.directory.clone(),

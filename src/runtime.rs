@@ -49,6 +49,15 @@ pub trait Tree {
         self.files().iter().any(|file| file.starts_with(&prefix))
     }
 
+    /// The same repository with these directory names skipped at any depth.
+    ///
+    /// Applied after the configuration is read, because the list *is*
+    /// configuration -- and applied to the tree that will actually be walked,
+    /// which is the point: a list read from one repository and applied to
+    /// another would skip directories the second never excluded and report it
+    /// clean for a reason it never declared.
+    fn excluding(&self, directories: &[String]) -> Box<dyn Tree>;
+
     /// The same repository seen from `path`, or why it cannot be.
     ///
     /// `--root` is a claim about which repository to inspect, and every
@@ -121,6 +130,12 @@ impl Tree for MemoryTree {
             .filter(|path| !self.links.contains(*path))
             .cloned()
             .collect()
+    }
+
+    fn excluding(&self, _directories: &[String]) -> Box<dyn Tree> {
+        // Nothing to do: the in-memory tree holds only what a scenario put in
+        // it, and `scan` applies the declared exclusions to every walk.
+        Box::new(self.clone())
     }
 
     fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String> {
@@ -256,6 +271,12 @@ impl Tree for DiskTree {
         self.resolve(path).is_some_and(|resolved| resolved.is_dir())
     }
 
+    fn excluding(&self, directories: &[String]) -> Box<dyn Tree> {
+        let mut excluded = self.clone();
+        excluded.exclude(directories);
+        Box::new(excluded)
+    }
+
     fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String> {
         // Resolved against the current root when relative and taken as given
         // when absolute, so `--root` means the same thing to a caller wherever
@@ -265,8 +286,9 @@ impl Tree for DiskTree {
         } else {
             self.root.join(path)
         };
-        let mut rooted = Self::new(candidate)?;
-        rooted.exclude(&self.excluded_directories);
-        Ok(Box::new(rooted))
+        // Deliberately *not* carrying this tree's exclusion list across: the
+        // new root declares its own, and inheriting one would skip directories
+        // the selected repository never excluded.
+        Ok(Box::new(Self::new(candidate)?))
     }
 }

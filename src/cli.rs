@@ -11,6 +11,7 @@
 //! ignored there -- a spelling mistake that silently narrowed nothing would
 //! report a clean repository that was never fully checked.
 
+use crate::scan::STDIN;
 use std::collections::BTreeSet;
 use std::fmt;
 
@@ -192,6 +193,7 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         return Err(Refusal(unrecognized(&segments)));
     };
 
+    let format_given = format.is_some();
     let format = match format.as_deref() {
         None | Some("text") => Format::Text,
         Some("json") => Format::Json,
@@ -228,6 +230,24 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         && let Some(reason) = not_repository_relative(selected)
     {
         return Err(Refusal(format!("`--directory {selected}` {reason}")));
+    }
+    // The same rule for `--file`, and for the same reason. An absolute path
+    // silently reinterpreted as a repository-relative one inspects a file the
+    // caller did not name.
+    for selected in &files {
+        if selected != STDIN
+            && let Some(reason) = not_repository_relative(selected)
+        {
+            return Err(Refusal(format!("`--file {selected}` {reason}")));
+        }
+    }
+    // A contradiction is refused rather than resolved by declaration order,
+    // which would make the same two flags mean different things depending on
+    // how a script happened to assemble them.
+    if json_flag && format_given && format == Format::Text {
+        return Err(Refusal(
+            "`--json` and `--output text` ask for different things".to_string(),
+        ));
     }
 
     Ok(Parsed::Run(Box::new(Invocation {
