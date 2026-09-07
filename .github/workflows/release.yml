@@ -1,0 +1,167 @@
+# A release is what a consumer pins, so this workflow's job is to make the
+# published artifacts checkable rather than merely present.
+#
+# Three properties it holds, none of which a build alone gives you:
+#
+#   1. The tag names a commit on `main`. A release that described a commit
+#      reachable from nowhere would still install and run, and nobody could say
+#      what it contained.
+#   2. Every executable was built by the operating system it claims to run on.
+#      Rust can cross-build, and a cross-built Darwin binary has never started on
+#      Darwin — which is the one thing it needs to demonstrate. Hence a matrix
+#      leg per platform rather than one job with four targets.
+#   3. Nothing is published until the assembled set verifies as a set. The
+#      artifact suite runs twice: once per leg on its own archive, and once more
+#      on all four together, where the four-platform assertion becomes total.
+#
+# `gh release create` fails when the release already exists, so a re-run cannot
+# replace a published tag. That is the immutability rule enforced rather than
+# written down.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Never cancelled. A half-published release is worse than a slow one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The ancestry test needs history; the default shallow fetch has none.
+          fetch-depth: 0
+
+      - name: The tag names a commit on main
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          # Peeled, so an annotated tag is compared by the commit it points at
+          # rather than by the tag object's own hash.
+          tag_commit=$(git rev-parse "$GITHUB_REF_NAME^{}")
+          test "$tag_commit" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$tag_commit" origin/main
+
+      - name: The tag names the version the manifest declares
+        run: |
+          # A prerelease is a prerelease *of* a version, so `v0.1.0-rc.1` is
+          # checked against `0.1.0`. The authoritative comparison is in the
+          # artifact suite, which asks the built executable rather than the
+          # manifest; this one is here only to fail in a minute instead of after
+          # four platform builds.
+          release_core=${GITHUB_REF_NAME%%-*}
+          declared=$(sed -n '/^\[workspace\]/q; s/^version = "\(.*\)"$/\1/p' Cargo.toml)
+          test "$release_core" = "v$declared"
+
+  build:
+    needs: provenance
+    strategy:
+      # Every leg reports. One platform failing should not hide whether the
+      # other three would have built.
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Assemble this platform's archive
+        run: cargo xtask dist
+
+      - name: The archive is named for the platform that built it
+        # `dist` names the archive from `rustc -vV`, so this fails if a runner
+        # is not the architecture the matrix says it is — which is exactly the
+        # mistake a native matrix exists to prevent.
+        run: test -f "dist/rhino-${{ matrix.target }}.tar.gz"
+
+      - name: Verify what was assembled
+        env:
+          RHINO_RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          RHINO_RELEASE_VERSION=${GITHUB_REF_NAME%%-*} cargo test --package xtask
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rhino-${{ matrix.target }}
+          path: dist/rhino-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: rhino-*
+          merge-multiple: true
+
+      - name: Record one digest for every archive
+        # The same writer `dist` uses, rather than a second one spelled in
+        # shell: one digest file produced by one implementation, however many
+        # runners contributed to it.
+        run: cargo xtask checksums
+
+      - name: Unpack the host archive
+        # So the identity and size assertions run the executable out of a
+        # published archive rather than a copy staged beside it. This runner is
+        # `x86_64` Linux, so that is the leg it can execute.
+        run: tar -xzf dist/rhino-x86_64-unknown-linux-gnu.tar.gz -C dist
+
+      - name: Verify the assembled release
+        env:
+          RHINO_RELEASE_COMMIT: ${{ github.sha }}
+          # Here, and only here, a missing platform is a failure rather than a
+          # note. Every leg above is legitimately partial; this job is the one
+          # that would otherwise publish three archives as four.
+          RHINO_RELEASE_MATRIX: complete
+        run: |
+          RHINO_RELEASE_VERSION=${GITHUB_REF_NAME%%-*} cargo test --package xtask
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A tag carrying a suffix is a prerelease of the version before it,
+          # and is marked as one so nobody pins a rehearsal by accident.
+          case "$GITHUB_REF_NAME" in
+            *-*) marking=--prerelease ;;
+            *) marking= ;;
+          esac
+          # Only the archives and the digest file. `dist/` also holds the
+          # executable unpacked above, which is not a release asset.
+          gh release create "$GITHUB_REF_NAME" \
+            dist/rhino-*.tar.gz dist/checksums.txt \
+            --verify-tag \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME" \
+            $marking

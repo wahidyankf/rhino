@@ -5,3 +5,8 @@ edition = "2024"
 publish = false
 
 [dependencies]
+# The digest the release records. Computed in process rather than by shelling
+# out, so the writer does not depend on which of `shasum` and `sha256sum` a
+# runner happens to carry -- and so the verification suite, which does shell
+# out, checks it against an implementation that is not this one.
+sha2 = "0.11"

@@ -7,6 +7,7 @@
 //! to the scheduled workflow instead.
 #![forbid(unsafe_code)]
 
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -44,9 +45,10 @@ fn main() -> ExitCode {
         Some("test-quick") => test_quick(),
         Some("self-validate") => self_validate(),
         Some("dist") => dist(),
+        Some("checksums") => checksums(),
         other => {
             eprintln!("unknown task: {other:?}");
-            eprintln!("tasks: test-quick, self-validate, dist");
+            eprintln!("tasks: test-quick, self-validate, dist, checksums");
             return ExitCode::from(2);
         }
     };
@@ -187,6 +189,23 @@ fn dist() -> Result<(), String> {
     Ok(())
 }
 
+/// Rewrite `dist/checksums.txt` from whatever archives are there now.
+///
+/// `dist` already does this for the one archive it built. The release matrix
+/// assembles the other three from separate runners, so the job that collects
+/// them needs the same writer rather than a second one spelled in shell: one
+/// digest file, written by one implementation, however many legs produced it.
+fn checksums() -> Result<(), String> {
+    let output = repository_root().join("dist");
+    write_checksums(&output)?;
+    print!(
+        "{}",
+        std::fs::read_to_string(output.join("checksums.txt"))
+            .map_err(|error| format!("reading checksums: {error}"))?
+    );
+    Ok(())
+}
+
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -224,15 +243,19 @@ fn write_checksums(output: &Path) -> Result<(), String> {
 
     let mut lines = String::new();
     for name in archives {
-        let digest = Command::new("shasum")
-            .args(["-a", "256", &name])
-            .current_dir(output)
-            .output()
-            .map_err(|error| format!("failed to hash {name}: {error}"))?;
-        if !digest.status.success() {
-            return Err(format!("hashing {name} failed"));
-        }
-        lines.push_str(&String::from_utf8_lossy(&digest.stdout));
+        let bytes = std::fs::read(output.join(&name))
+            .map_err(|error| format!("reading {name}: {error}"))?;
+        let mut digest = Sha256::new();
+        digest.update(&bytes);
+        // Two spaces between digest and name: the format `shasum -c` and
+        // `sha256sum -c` both read, so a consumer verifies with the tool their
+        // platform already has rather than one this release picked for them.
+        let rendered: String = digest
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        lines.push_str(&format!("{rendered}  {name}\n"));
     }
     std::fs::write(output.join("checksums.txt"), lines)
         .map_err(|error| format!("writing checksums: {error}"))

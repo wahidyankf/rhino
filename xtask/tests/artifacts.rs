@@ -77,18 +77,36 @@ fn read_checksums() -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Hash through the platform's own tool, never through `sha2`.
+///
+/// `cargo xtask` writes `checksums.txt` with the `sha2` crate. Verifying it with
+/// the same crate would compare an implementation to itself and pass whatever it
+/// did. Shelling out means the digest a consumer would compute with the tool
+/// already on their machine is the digest this asserts.
+///
+/// `sha256sum` on Linux, `shasum` on macOS; neither platform carries both by
+/// default, so both are tried rather than one being assumed.
 fn sha256(path: &Path) -> String {
-    let output = Command::new("shasum")
-        .args(["-a", "256"])
-        .arg(path)
-        .output()
-        .unwrap_or_else(|error| panic!("failed to hash {}: {error}", path.display()));
-    assert!(output.status.success(), "hashing {} failed", path.display());
-    String::from_utf8_lossy(&output.stdout)
-        .split_whitespace()
-        .next()
-        .expect("shasum prints the digest first")
-        .to_string()
+    let attempts: [(&str, &[&str]); 2] = [("sha256sum", &[]), ("shasum", &["-a", "256"])];
+    for (program, arguments) in attempts {
+        let Ok(output) = Command::new(program).args(arguments).arg(path).output() else {
+            continue;
+        };
+        assert!(
+            output.status.success(),
+            "{program} failed on {}",
+            path.display()
+        );
+        return String::from_utf8_lossy(&output.stdout)
+            .split_whitespace()
+            .next()
+            .expect("the digest is printed first")
+            .to_string();
+    }
+    panic!(
+        "neither sha256sum nor shasum is available to verify {}",
+        path.display()
+    );
 }
 
 fn archive_name(platform: &str) -> String {
@@ -114,12 +132,22 @@ fn every_declared_platform_has_an_archive() {
         // A partial matrix is what a developer machine legitimately produces,
         // and saying so is the point: silence here would read the same as a
         // complete release.
-        eprintln!(
+        //
+        // Not on the job that publishes, though. There a missing leg is the
+        // exact failure this assertion exists for, and a report nobody reads is
+        // how three archives get published as four. `RHINO_RELEASE_MATRIX` is
+        // how that job says which of the two it is.
+        let report = format!(
             "partial matrix: {} of {} platforms assembled ({})",
             present.len(),
             PLATFORMS.len(),
             present.join(", ")
         );
+        assert!(
+            std::env::var("RHINO_RELEASE_MATRIX").as_deref() != Ok("complete"),
+            "{report}"
+        );
+        eprintln!("{report}");
         return;
     }
     assert_eq!(present.len(), PLATFORMS.len());

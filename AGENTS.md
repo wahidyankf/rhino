@@ -38,7 +38,7 @@ RHINO is a generic repository-hygiene validator. It reads a repository's declare
 
 ## Release
 
-- Build release assets only through `cargo xtask dist`. A release describes a commit reachable from the default branch or it does not publish.
+- Build release assets only through `cargo xtask dist`, and record their digests only through `cargo xtask checksums`. A release describes a commit reachable from the default branch or it does not publish.
 - Never replace an existing tag, and never weaken checksum verification. A defect becomes a new patch version and a new pin.
 - Every release publishes an archive per supported platform plus `checksums.txt`, and each executable's embedded identity matches the tag and commit exactly.
 
