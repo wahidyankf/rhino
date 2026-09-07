@@ -183,11 +183,6 @@ impl Report {
         self
     }
 
-    /// The category this report speaks for.
-    pub fn category(&self) -> &'static str {
-        self.category
-    }
-
     /// Render as the caller asked. Exit `0` when clean, `1` when there are
     /// findings, and `2` only for a refusal: a validator that reached the point
     /// of reporting has a readable repository and a readable configuration, so

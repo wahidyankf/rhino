@@ -204,6 +204,8 @@ Feature: Command contract
       | md\|mermaid\|validate\|--file\|/rules/README.md           |
       | unknown\|--help                                           |
       | version\|--json\|--output\|text                           |
+      | governance\|word-budget\|validate\|--root                  |
+      | governance\|word-budget\|validate\|--nope                  |
       | governance\|word-budget\|validate\|--root\|{missing-root} |
 
   Scenario: A governed file above its declared limit returns validation failure
@@ -292,3 +294,15 @@ Feature: Command contract
     When I invoke the CLI with "md|mermaid|validate|--file|-"
     Then the exit code is 1
     And 1 Mermaid diagrams were inspected
+
+  Scenario: Version reports the release identity as text
+    Given a repository declaring every section with nothing to find
+    When I invoke the CLI with "version"
+    Then the exit code is 0
+    And stdout is one non-empty line
+
+  Scenario: An empty command line asks for a command
+    Given a repository declaring every section with nothing to find
+    When I invoke the CLI with no arguments
+    Then the exit code is 2
+    And stderr contains "no command given"

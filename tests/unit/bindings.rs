@@ -421,6 +421,146 @@ pub const BINDINGS: &[Binding] = &[
         "word-budget",
         "Word-budget inspection ignores other validators' concerns",
     ),
+    (
+        "repo-config",
+        "A configuration that declares no schema is refused",
+    ),
+    (
+        "repo-config",
+        "A configuration whose first content is not a comment declares no schema",
+    ),
+    (
+        "repo-config",
+        "A configuration file that cannot be read is refused",
+    ),
+    (
+        "repo-config",
+        "A declared harness roster requires both canonical roots",
+    ),
+    (
+        "cli-contract",
+        "Version reports the release identity as text",
+    ),
+    (
+        "mermaid-cli",
+        "A selected file that cannot be read is refused",
+    ),
+    (
+        "mermaid-cli",
+        "A fenced Mermaid block with no diagram in it is not counted",
+    ),
+    (
+        "mermaid-cli",
+        "A class that sets no color role declares no color",
+    ),
+    (
+        "mermaid-cli",
+        "A class with a stroke and a text color but no fill is still checked",
+    ),
+    (
+        "mermaid-cli",
+        "A color set outside a class declaration is refused whatever its notation",
+    ),
+    (
+        "mermaid-cli",
+        "An unpaired edge-label delimiter ends the edge scan",
+    ),
+    (
+        "mermaid-legibility",
+        "A label is measured as it is seen, not as it is written",
+    ),
+    ("cli-contract", "An empty command line asks for a command"),
+    (
+        "word-budget",
+        "An unusable surface glob is a configuration fault",
+    ),
+    ("word-budget", "Word-count inspection needs a file to count"),
+    (
+        "word-budget",
+        "Word-count inspection refuses a file it cannot read",
+    ),
+    (
+        "internal-link",
+        "A link with an empty target names nothing to resolve",
+    ),
+    ("internal-link", "A source that cannot be read is refused"),
+    (
+        "directory-map",
+        "A selected location that is not a directory is refused",
+    ),
+    (
+        "directory-map",
+        "An excluded directory inside a mapped tree is listed but not inspected",
+    ),
+    ("directory-map", "A map section ends at the next heading"),
+    (
+        "directory-map",
+        "A map entry may not reach past a sibling README",
+    ),
+    (
+        "harness-parity",
+        "A narrowed inspection refuses a harness the repository does not declare",
+    ),
+    (
+        "harness-parity",
+        "An unusable prohibited-source glob stops the instruction check",
+    ),
+    (
+        "harness-parity",
+        "A file directly under the canonical skills root is not a skill",
+    ),
+    (
+        "harness-parity",
+        "Only Markdown files directly under the agents root are agents",
+    ),
+    (
+        "harness-parity",
+        "A canonical agent without a declaration is invalid",
+    ),
+    (
+        "harness-parity",
+        "An agent adapter without a declaration is invalid",
+    ),
+    (
+        "harness-parity",
+        "A skill wrapper without a declaration diverges from the skill",
+    ),
+    (
+        "harness-parity",
+        "Only an adapter-shaped file under a harness agent directory is an adapter",
+    ),
+    (
+        "harness-parity",
+        "A canonical skill whose front matter is never closed is invalid",
+    ),
+    (
+        "harness-parity",
+        "A capability declaration RHINO cannot read is a divergence",
+    ),
+    (
+        "harness-parity",
+        "A capability declaration may nest the required server inside a list",
+    ),
+    (
+        "harness-parity",
+        "An empty harness roster reconciles a canon that is not there",
+    ),
+    (
+        "harness-parity",
+        "A file that vanishes between the walk and the read is not a finding",
+    ),
+    (
+        "internal-link",
+        "An unusable excluded-source glob is a configuration fault",
+    ),
+    (
+        "mermaid-cli",
+        "A fenced block in another language is not a diagram",
+    ),
+    (
+        "directory-map",
+        "A map entry containing JSON metacharacters survives the JSON rendering",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

@@ -88,3 +88,21 @@ Feature: Mermaid legibility inspection
     Given the repository contains Mermaid sample "legibility exclusions" at "guides/diagram.md"
     When I run the "mermaid" validator
     Then the exit code is 0
+
+  Scenario Outline: A label is measured as it is seen, not as it is written
+    Given the repository declares node labels at 8 graphemes and edge labels at 24
+    And the repository contains a Mermaid node label written as "<written>"
+    When I run the "mermaid" validator
+    Then the exit code is <exit>
+
+    Examples:
+      | written                                          | exit |
+      | aaaaaaaa                                         | 0    |
+      | aaaaaaaaa                                        | 1    |
+      | <b>aaaaaaaa</b>                                  | 0    |
+      | &amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;         | 0    |
+      | &#65;&#65;&#65;&#65;&#65;&#65;&#65;&#65;         | 0    |
+      | &#x41;&#x41;&#x41;&#x41;&#x41;&#x41;&#x41;&#x41; | 0    |
+      | &lt;&gt;&quot;&apos;&nbsp;aaa                    | 0    |
+      | &frob;aaa                                        | 1    |
+      | a&b aaaa                                         | 0    |

@@ -228,3 +228,100 @@ Feature: Coding-harness parity
     Then harness-parity outputs are identical
     And harness-parity violations are ordinally sorted
     And the repository is unchanged by the inspection
+
+  Scenario: A narrowed inspection refuses a harness the repository does not declare
+    Given a valid one-skill one-agent one-capability harness contract
+    When I inspect harness parity narrowed to "delta"
+    Then the exit code is 2
+    And stderr contains "is not a harness this repository declares"
+
+  Scenario: A file that vanishes between the walk and the read is not a finding
+    Given a valid one-skill one-agent one-capability harness contract
+    And file "root-instructions.md" vanishes between the walk and the read
+    When I inspect harness parity
+    Then the only violation starts with "root-instructions.md: missing-instruction:"
+
+  Scenario: An unusable prohibited-source glob stops the instruction check
+    Given a valid one-skill one-agent one-capability harness contract
+    And the repository declares an unusable prohibited instruction source
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A file directly under the canonical skills root is not a skill
+    Given a valid one-skill one-agent one-capability harness contract
+    And a loose file sits directly under the canonical skills root
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario Outline: Only Markdown files directly under the agents root are agents
+    Given a valid one-skill one-agent one-capability harness contract
+    And the repository contains:
+      | path       | content     |
+      | <path>     | not an agent |
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+    Examples:
+      | path                        |
+      | canon/agents/nested/deep.md |
+      | canon/agents/notes.txt      |
+
+  Scenario: A canonical agent without a declaration is invalid
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical agent carries no declaration
+    When I inspect harness parity
+    Then the harness-parity violations include "invalid-agent"
+
+  Scenario: An agent adapter without a declaration is invalid
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "alpha" carries no declaration
+    When I inspect harness parity
+    Then the only violation starts with "adapters/alpha/agents/reviewer.md: invalid-agent:"
+
+  Scenario: A skill wrapper without a declaration diverges from the skill
+    Given harness "alpha" declares a command directory
+    And a valid one-skill one-agent one-capability harness contract
+    And the skill wrapper for "alpha" carries no declaration
+    When I inspect harness parity
+    Then the only violation starts with "adapters/alpha/commands/tidy.md: skill-content-divergence:"
+
+  Scenario Outline: Only an adapter-shaped file under a harness agent directory is an adapter
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent directory for "alpha" holds the extra file "<name>"
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+    Examples:
+      | name           |
+      | nested/note.md |
+      | notes.txt      |
+
+  Scenario: A canonical skill whose front matter is never closed is invalid
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical skill front matter is never closed
+    When I inspect harness parity
+    Then the harness-parity violations include "invalid-skill"
+
+  Scenario Outline: A capability declaration RHINO cannot read is a divergence
+    Given a valid one-skill one-agent one-capability harness contract
+    And the capability declaration for harness "alpha" is <shape>
+    When I inspect harness parity
+    Then the harness-parity violation for "adapters/alpha/capabilities.json" is "divergent-capability"
+
+    Examples:
+      | shape                              |
+      | not valid in its declared format   |
+      | missing the required capability    |
+
+  Scenario: A capability declaration may nest the required server inside a list
+    Given a valid one-skill one-agent one-capability harness contract
+    And the capability declaration for harness "alpha" is a list of server groups
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario: An empty harness roster reconciles a canon that is not there
+    Given the repository declares a configuration with an empty harness roster and no canonical skill or agent root
+    And a valid one-skill one-agent one-capability harness contract
+    When I inspect harness parity
+    Then the exit code is 0
+    And 0 harnesses were inspected

@@ -9,6 +9,15 @@
 
 use std::process::{Command, ExitCode};
 
+/// The two modules a unit test may not reach, as one regex.
+///
+/// `src/main.rs` is the process boundary -- arguments, standard input, the
+/// working directory, the two output streams. `src/runtime/disk.rs` is the only
+/// module that talks to `std::fs`. Both are proved by the integration and E2E
+/// adapters running the whole corpus through them, which is a stronger claim
+/// than a line count and the reason neither is in the denominator here.
+const EXCLUDED_FROM_COVERAGE: &str = r"src/(main\.rs|runtime/disk\.rs)";
+
 fn main() -> ExitCode {
     let task = std::env::args().nth(1);
     let result = match task.as_deref() {
@@ -58,7 +67,25 @@ fn test_quick() -> Result<(), String> {
     // tree. It is the only executing adapter in this gate: integration and E2E
     // touch a real filesystem and a spawned process, and the gate contract puts
     // both in the scheduled workflow rather than in a hook.
-    run("cargo", &["test", "--test", "unit"])?;
+    //
+    // Measured in the same execution rather than in a second one, because two
+    // runs can disagree and the number that gates has to be the number the
+    // passing run produced. `main.rs` and the concrete filesystem tree are the
+    // only exclusions; `README.md` says what they are and why a unit test may
+    // not reach them.
+    run(
+        "cargo",
+        &[
+            "llvm-cov",
+            "--test",
+            "unit",
+            "--fail-under-lines",
+            "99",
+            "--ignore-filename-regex",
+            EXCLUDED_FROM_COVERAGE,
+            "--summary-only",
+        ],
+    )?;
     // The static behaviour check executes no scenario: it asserts that every
     // scenario in the corpus is bound at every layer, or validly exempt. It is
     // in the quick gate because an unbound scenario reports nothing, and

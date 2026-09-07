@@ -156,6 +156,9 @@ pub struct World<D> {
     /// failing closed on an unreadable file is behaviour, and behaviour is
     /// never proved only at the boundaries that happen to have a filesystem.
     pub unreadable: BTreeSet<String>,
+    /// Paths the walk lists and the read can no longer find, which is what a
+    /// file removed between the two looks like.
+    pub vanished: BTreeSet<String>,
     /// What a `--file -` selection should read. Held on the world rather than
     /// reached for from the process, so the same sentence means the same thing
     /// at a boundary that has no standard input to reach for.
@@ -178,6 +181,7 @@ impl<D> World<D> {
             declaration: &self.declaration,
             files: &self.files,
             unreadable: &self.unreadable,
+            vanished: &self.vanished,
             links: &self.links,
             stdin: self.stdin.as_deref(),
         }
@@ -207,6 +211,7 @@ pub struct Repository<'a> {
     pub declaration: &'a Declaration,
     pub files: &'a BTreeMap<String, String>,
     pub unreadable: &'a BTreeSet<String>,
+    pub vanished: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
     pub stdin: Option<&'a str>,
 }

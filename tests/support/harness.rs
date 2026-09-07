@@ -267,3 +267,27 @@ pub fn uncounted_file() -> (String, String) {
         "# Scratch\n\nNot part of any contract.\n".to_string(),
     )
 }
+
+/// A canonical skill whose front matter opens and never closes.
+///
+/// Distinct from a file with no declaration at all: this one *looks* declared
+/// until the reader reaches the end of it.
+pub fn skill_without_terminator() -> String {
+    format!("---\nname: {SKILL}\ndescription: {SKILL_DESCRIPTION}\n\nTidy the tree.\n")
+}
+
+/// A document with a body and no declaration in front of it.
+pub fn document_without_declaration() -> String {
+    "Prose, and nothing declaring what this is.\n".to_string()
+}
+
+/// The required capability declared inside a list of server groups rather than
+/// a single map, which is a shape a vendor may legitimately use.
+pub fn capability_inside_a_list() -> String {
+    "{\n  \"servers\": [\n    { \"other\": { \"command\": \"elsewhere\", \"args\": [] } },\n    { \"toolserver\": { \"command\": \"toolrunner\", \"args\": [\"serve\"] } }\n  ]\n}\n".to_string()
+}
+
+/// A syntactically valid declaration that names no required capability.
+pub fn capability_without_the_required_server() -> String {
+    "{\n  \"mcpServers\": {\n    \"elsewhere\": {\n      \"command\": \"other\",\n      \"args\": []\n    }\n  }\n}\n".to_string()
+}

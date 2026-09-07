@@ -27,6 +27,9 @@ impl Driver for UnitDriver {
         for path in repository.unreadable {
             tree.mark_unreadable(path);
         }
+        for path in repository.vanished {
+            tree.mark_vanished(path);
+        }
         for path in repository.links {
             tree.mark_link(path);
         }
@@ -40,7 +43,13 @@ impl Driver for UnitDriver {
         let arguments = world::with_root(arguments, ".", "no-such-directory");
 
         let before = observe(&tree);
-        let outcome = rhino::execute_with(&tree, &arguments, repository.stdin);
+        // `execute` where there is no standard input to supply, because that
+        // is the entry point a consumer calls and a seam nothing exercised
+        // would be a seam nothing keeps working.
+        let outcome = match repository.stdin {
+            None => rhino::execute(&tree, &arguments),
+            Some(_) => rhino::execute_with(&tree, &arguments, repository.stdin),
+        };
         let after = observe(&tree);
 
         Run {

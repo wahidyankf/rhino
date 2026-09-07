@@ -104,3 +104,49 @@ Feature: Directory-map validation
       | rules/nested/README.md | # Nested\n\n## Directory Map\n\n- [Parent](../README.md)         |
     When I inspect directory maps
     Then the only violation is an invalid map entry from "rules/nested/README.md" to "../README.md"
+
+  Scenario: A selected location that is not a directory is refused
+    Given the repository contains:
+      | path            | content                                          |
+      | rules/README.md | # Rules\n\n## Directory Map\n\nNo other entries. |
+    When I run the directory-map validator for "rules/README.md"
+    Then the exit code is 2
+    And stderr contains "is not a directory in this repository"
+
+  Scenario: An excluded directory inside a mapped tree is listed but not inspected
+    Given the repository declares excluded scan directories:
+      * build-output
+    And the repository contains:
+      | path                         | content                                                    |
+      | rules/README.md              | # Rules\n\n## Directory Map\n\n- [Generated](build-output/README.md) |
+      | rules/build-output/README.md | # Generated                                                |
+    When I inspect directory maps
+    Then the exit code is 0
+    And 1 directories were inspected
+
+  Scenario Outline: A map section ends at the next heading
+    Given the repository contains:
+      | path            | content    |
+      | rules/README.md | <readme>   |
+      | rules/policy.md | # Policy   |
+    When I inspect directory maps
+    Then the exit code is 0
+
+    Examples:
+      | readme                                                                                     |
+      | # Rules\n\n## Directory Map\n\n- [Policy](policy.md)\n\n## Notes\n\n- [Ghost](ghost.md)   |
+      | # Rules\n\n## Directory Map\n\n- [Policy](policy.md)\n\n# Appendix\n\n- [Ghost](ghost.md) |
+
+  Scenario: A map entry may not reach past a sibling README
+    Given the repository contains:
+      | path            | content                                                       |
+      | rules/README.md | # Rules\n\n## Directory Map\n\n- [Deep](nested/deep/page.md) |
+    When I inspect directory maps
+    Then the only violation is an invalid map entry from "rules/README.md" to "nested/deep/page.md"
+
+  Scenario: A map entry containing JSON metacharacters survives the JSON rendering
+    Given the repository holds a map entry whose target needs escaping
+    When I invoke the CLI with "governance|directory-map|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "invalid-map-entry"
+    And stdout escapes the quote, backslash, tab, and control character

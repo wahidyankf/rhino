@@ -83,3 +83,44 @@ Feature: Repository configuration contract
     When I run the "directory-map" validator
     Then the exit code is 2
     And no directories were inspected
+
+  Scenario: A configuration that declares no schema is refused
+    Given the configuration file is this text:
+      """
+
+      # written by hand
+      md-mermaid:
+        node-label-graphemes: 32
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr names the missing schema declaration
+
+  Scenario: A configuration whose first content is not a comment declares no schema
+    Given the configuration file is this text:
+      """
+      md-mermaid:
+        node-label-graphemes: 32
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr names the missing schema declaration
+
+  Scenario: A configuration file that cannot be read is refused
+    Given the repository declares a complete configuration
+    And the configuration file cannot be read
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr names the unreadable configuration file
+
+  Scenario Outline: A declared harness roster requires both canonical roots
+    Given the repository declares a complete configuration
+    And the configuration omits "<key>"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr names the missing key
+
+    Examples:
+      | key                                   |
+      | harness-parity.canonical.skills-root  |
+      | harness-parity.canonical.agents-root  |

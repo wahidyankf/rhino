@@ -406,10 +406,16 @@ fn the_quick_gate_and_the_hooks_run_no_slow_adapter() {
     assert!(offenders.is_empty(), "{}", offenders.join("\n"));
     // The positive control: an absence proves nothing unless the same reading
     // can find what is certainly there.
-    for expected in ["\"--test\", \"unit\"", "\"--test\", \"coverage\""] {
+    for expected in [
+        "\"unit\"",
+        "\"coverage\"",
+        "\"--fail-under-lines\"",
+        "\"99\"",
+        "EXCLUDED_FROM_COVERAGE",
+    ] {
         assert!(
             quick_gate.contains(expected),
-            "the quick gate does not run {expected}, so the search above proves nothing"
+            "the quick gate does not name {expected}, so the search above proves nothing"
         );
     }
 }
@@ -499,9 +505,19 @@ fn no_expanded_step_carries_an_unresolved_escape() {
                         scenario.feature, scenario.name, step.text
                     ));
                 }
-                if step.text.contains('<') && step.text.contains('>') && scenario.is_outline {
+                // Only this outline's own column names count. Angle brackets
+                // are ordinary text in Markdown and in a Mermaid label, and a
+                // check that flagged every `<...>` would forbid a scenario
+                // from stating what markup looks like.
+                let unsubstituted: Vec<&String> = scenario
+                    .examples
+                    .iter()
+                    .flat_map(BTreeMap::keys)
+                    .filter(|column| step.text.contains(&format!("<{column}>")))
+                    .collect();
+                if !unsubstituted.is_empty() {
                     offenders.push(format!(
-                        "{}: {}: unsubstituted placeholder in {}",
+                        "{}: {}: unsubstituted {unsubstituted:?} in {}",
                         scenario.feature, scenario.name, step.text
                     ));
                 }

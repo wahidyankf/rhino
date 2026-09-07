@@ -20,7 +20,6 @@ pub mod scan;
 use config::ConfigError;
 use report::Report;
 use runtime::{Tree, TreeError};
-use std::ffi::OsString;
 
 /// Everything an invocation produces, and all the process contract exposes.
 ///
@@ -35,7 +34,7 @@ pub struct Outcome {
 }
 
 impl Outcome {
-    fn clean(stdout: impl Into<String>) -> Self {
+    pub fn clean(stdout: impl Into<String>) -> Self {
         Self {
             exit_code: 0,
             stdout: stdout.into(),
@@ -46,65 +45,13 @@ impl Outcome {
     /// A fault in the invocation or the configuration. Never `1`: exit `1` has
     /// to mean "the repository violates its declared policy" whichever command
     /// produced it, so nothing else may borrow it.
-    fn refused(stderr: impl Into<String>) -> Self {
+    pub fn refused(stderr: impl Into<String>) -> Self {
         Self {
             exit_code: 2,
             stdout: String::new(),
             stderr: stderr.into(),
         }
     }
-}
-
-/// Runs RHINO against a real repository and returns the process exit code.
-pub fn run<I>(args: I) -> u8
-where
-    I: IntoIterator<Item = OsString>,
-{
-    let mut args = args.into_iter();
-    let _program = args.next();
-    let arguments: Vec<String> = args
-        .map(|value| value.to_string_lossy().into_owned())
-        .collect();
-
-    let outcome = match runtime::DiskTree::at_current_directory() {
-        Ok(mut tree) => {
-            // Read the exclusion list before walking anything, so a real
-            // repository's dependency and build directories are never descended
-            // into rather than descended into and then filtered out. A broken
-            // configuration excludes nothing and `execute` reports it.
-            if let Ok(config) = load(&tree) {
-                tree.exclude(&config.scan.exclude_directories);
-            }
-            // Standard input is read only when a leaf was asked for it, so an
-            // ordinary run never blocks on a terminal.
-            let stdin = wants_stdin(&arguments).then(read_stdin);
-            execute_with(&tree, &arguments, stdin.as_deref())
-        }
-        Err(reason) => Outcome::refused(format!("rhino: {reason}\n")),
-    };
-
-    if !outcome.stdout.is_empty() {
-        print!("{}", outcome.stdout);
-    }
-    if !outcome.stderr.is_empty() {
-        eprint!("{}", outcome.stderr);
-    }
-    outcome.exit_code
-}
-
-fn wants_stdin(arguments: &[String]) -> bool {
-    arguments
-        .windows(2)
-        .any(|pair| pair[0] == "--file" && pair[1] == "-")
-}
-
-fn read_stdin() -> String {
-    use std::io::Read;
-    let mut text = String::new();
-    // A failed read leaves the string empty, which the leaf then reports as an
-    // empty document rather than as a crash.
-    let _ = std::io::stdin().read_to_string(&mut text);
-    text
 }
 
 /// Runs one invocation against a tree.

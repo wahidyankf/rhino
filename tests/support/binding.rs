@@ -204,6 +204,160 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the configuration file is this text:" => {
+            // Written verbatim rather than rendered, because what these
+            // scenarios are about is the shape of the file's first lines --
+            // which is precisely what the renderer would normalise away.
+            let Some(text) = step.docstring.clone() else {
+                return Outcome::Failed("the sentence promised a document".to_string());
+            };
+            world.declaration.absent = true;
+            world
+                .files
+                .insert(fixtures::CONFIG_PATH.to_string(), format!("{text}\n"));
+            Outcome::Passed
+        }
+        "the configuration file cannot be read" => {
+            world.unreadable.insert(fixtures::CONFIG_PATH.to_string());
+            Outcome::Passed
+        }
+        "stderr names the missing schema declaration" => names(
+            world.result(),
+            &[fixtures::CONFIG_PATH, "declares no schema"],
+        ),
+        "stderr names the unreadable configuration file" => {
+            names(world.result(), &[fixtures::CONFIG_PATH, "cannot be read"])
+        }
+        "stdout is one non-empty line" => {
+            let stdout = &world.result().stdout;
+            let lines: Vec<&str> = stdout.lines().collect();
+            expect(
+                lines.len() == 1 && !lines[0].trim().is_empty(),
+                format!("expected exactly one non-empty line, got {lines:?}"),
+            )
+        }
+        "the repository contains a Mermaid node label written as {string}" => {
+            // The label as an author *types* it, so the scenario can state the
+            // difference between what is written and what is read.
+            world.files.insert(
+                "guides/diagram.md".to_string(),
+                mermaid::document(
+                    &format!("flowchart LR\n    Alpha[{}]", matched.string(0)),
+                    mermaid::Fence::Backtick,
+                ),
+            );
+            Outcome::Passed
+        }
+        "I invoke the CLI with no arguments" => {
+            let result = world.driver.invoke(&world.repository(), &[]);
+            world.record(result);
+            Outcome::Passed
+        }
+        "stderr contains {string}" => {
+            // A plain fragment check. `names` additionally requires a line
+            // number, which is right for a configuration diagnostic and wrong
+            // for everything else that has no position to report.
+            let needle = matched.string(0);
+            let stderr = &world.result().stderr;
+            expect(
+                stderr.contains(needle),
+                format!("stderr does not contain `{needle}`\nstderr: {stderr}"),
+            )
+        }
+        "file {string} vanishes between the walk and the read" => {
+            world.vanished.insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "a loose file sits directly under the canonical skills root" => {
+            world.files.insert(
+                format!("{}/README.md", harness::SKILLS_ROOT),
+                "# Skills\n".to_string(),
+            );
+            Outcome::Passed
+        }
+        "the canonical agent carries no declaration" => {
+            world.files.insert(
+                harness::canonical_agent(),
+                harness::document_without_declaration(),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} carries no declaration" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::document_without_declaration(),
+            );
+            Outcome::Passed
+        }
+        "the skill wrapper for {string} carries no declaration" => {
+            world.files.insert(
+                harness::skill_wrapper(matched.string(0)),
+                harness::document_without_declaration(),
+            );
+            Outcome::Passed
+        }
+        "the agent directory for {string} holds the extra file {string}" => {
+            world.files.insert(
+                format!(
+                    "{}/{}",
+                    harness::agent_dir(matched.string(0)),
+                    matched.string(1)
+                ),
+                "# Note\n".to_string(),
+            );
+            Outcome::Passed
+        }
+        "the repository holds a map entry whose target needs escaping" => {
+            // Every character `quote` has an escape for that a single line can
+            // carry. A message rendered as JSON has to survive its own content.
+            world.files.insert(
+                "rules/README.md".to_string(),
+                "# Rules\n\n## Directory Map\n\n- [Odd](a\"b\\c\td\u{1}e)\n".to_string(),
+            );
+            Outcome::Passed
+        }
+        "stdout escapes the quote, backslash, tab, and control character" => {
+            let stdout = &world.result().stdout;
+            let missing: Vec<&str> = [r#"\""#, r"\\", r"\t", r"\u0001"]
+                .into_iter()
+                .filter(|escape| !stdout.contains(escape))
+                .collect();
+            expect(
+                missing.is_empty(),
+                format!("stdout carries no {missing:?}\nstdout: {stdout}"),
+            )
+        }
+        "the canonical skill front matter is never closed" => {
+            world.files.insert(
+                harness::canonical_skill(),
+                harness::skill_without_terminator(),
+            );
+            Outcome::Passed
+        }
+        "the capability declaration for harness {string} is not valid in its declared format" => {
+            capability_of(world, matched.string(0), "{ not json".to_string())
+        }
+        "the capability declaration for harness {string} is missing the required capability" => {
+            capability_of(
+                world,
+                matched.string(0),
+                harness::capability_without_the_required_server(),
+            )
+        }
+        "the capability declaration for harness {string} is a list of server groups" => {
+            capability_of(
+                world,
+                matched.string(0),
+                harness::capability_inside_a_list(),
+            )
+        }
+        "the repository declares an unusable prohibited instruction source" => {
+            world.declaration.overrides.insert(
+                "harness-parity.prohibited-instruction-sources".to_string(),
+                "[\"rules/[\"]".to_string(),
+            );
+            Outcome::Passed
+        }
         "the repository declares the accessible palette" => {
             // The fixture's declared palette is the accessible one. Saying so
             // is what makes the diagram scenarios readable without repeating
@@ -1638,6 +1792,15 @@ fn reseed_contract<D: Driver>(world: &mut World<D>) {
     for (path, body) in contract {
         world.files.insert(path, body);
     }
+}
+
+/// Replace one harness's capability declaration, in the format it declares.
+fn capability_of<D: Driver>(world: &mut World<D>, harness_name: &str, body: String) -> Outcome {
+    let format = harness::format_for(&world.declaration, harness_name);
+    world
+        .files
+        .insert(harness::capability_file(harness_name, &format), body);
+    Outcome::Passed
 }
 
 /// Every non-empty line of a stream begins with `prefix`.

@@ -153,3 +153,103 @@ Feature: Mermaid accessibility command behaviour
       | sample                         |
       | text-only class                |
       | inaccessible stroke-only class |
+
+  Scenario: A selected file that cannot be read is refused
+    Given the repository contains Mermaid sample "accessible colored class" at "guides/diagram.md"
+    And the governed files are exclusively locked
+    When I invoke the CLI with "md|mermaid|validate|--file|guides/diagram.md"
+    Then the exit code is 2
+    And stderr names a file it could not read
+
+  Scenario: A fenced Mermaid block with no diagram in it is not counted
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Notes
+
+      ```mermaid
+      ```
+      """
+    When I run the "mermaid" validator
+    Then the exit code is 0
+    And 0 Mermaid diagrams were inspected
+
+  Scenario: A class that sets no color role declares no color
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Diagram
+
+      ```mermaid
+      flowchart LR
+          Alpha[Alpha]
+          classDef thick stroke-width:2px
+          class Alpha thick
+      ```
+      """
+    When I run the "mermaid" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A class with a stroke and a text color but no fill is still checked
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Diagram
+
+      ```mermaid
+      flowchart LR
+          Alpha[Alpha]
+          classDef edged stroke:#DE8F05,color:#FFFFFF
+          class Alpha edged
+      ```
+      """
+    When I run the "mermaid" validator
+    Then the exit code is 1
+    And the only violation starts with "guides/diagram.md:6: stroke `#DE8F05` is not a declared edge color"
+
+  Scenario Outline: A color set outside a class declaration is refused whatever its notation
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Diagram
+
+      ```mermaid
+      flowchart LR
+          Alpha[Alpha]
+          style Alpha <declaration>
+      ```
+      """
+    When I run the "mermaid" validator
+    Then the exit code is 1
+
+    Examples:
+      | declaration          |
+      | fill:#0173B2         |
+      | fill:rgb(1, 115, 178) |
+      | fill:rgba(1, 115, 178, 1) |
+      | fill:hsl(202, 99%, 35%) |
+      | fill:blue            |
+
+  Scenario: An unpaired edge-label delimiter ends the edge scan
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Diagram
+
+      ```mermaid
+      flowchart LR
+          Alpha -->|only Alpha
+      ```
+      """
+    When I run the "mermaid" validator
+    Then the exit code is 0
+
+  Scenario: A fenced block in another language is not a diagram
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Notes
+
+      ```text
+      flowchart LR
+          Alpha[Alpha]
+      ```
+      """
+    When I run the "mermaid" validator
+    Then the exit code is 0
+    And 0 Mermaid diagrams were inspected

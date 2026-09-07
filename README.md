@@ -54,8 +54,27 @@ loopback policy is stricter than the layer rule it sits under, which permits an
 integration test to own a loopback socket; that permission is about test
 plumbing, and this is a claim about the product.
 
-Only `--test unit` and `--test coverage` run in the quick gate and the push
+Only the unit adapter and the static check run in the quick gate and the push
 hook. Integration and E2E never do.
+
+### Coverage
+
+`cargo xtask test-quick` measures unit line coverage in the same execution that
+runs the unit adapter, and fails below **99%**. Measured once rather than twice,
+because two runs can disagree and the number that gates has to be the number the
+passing run produced.
+
+Two modules are excluded from the denominator, and they are the only two:
+
+| Excluded              | Why a unit test may not reach it                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/main.rs`         | the process boundary — arguments, standard input, the working directory, stdout, stderr, the exit code |
+| `src/runtime/disk.rs` | the only module that talks to `std::fs`                                                                |
+
+Neither is untested. Both are proved by the integration and E2E adapters running
+the whole corpus through them, plus the boundary policies — which is a stronger
+claim than a line count, and the reason a number that included them would say
+less rather than more.
 
 ## License
 

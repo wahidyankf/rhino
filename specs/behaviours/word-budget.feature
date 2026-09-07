@@ -69,3 +69,22 @@ Feature: Word-budget validation
       * root-instructions.md
       * rules/README.md
     And the only violation is a 41-word limit for "root-instructions.md"
+
+  Scenario: An unusable surface glob is a configuration fault
+    Given the repository declares a word-budget surface "rules/[" failing above 40
+    When I inspect the word budget
+    Then the exit code is 2
+    And stderr contains "governance-word-budget.surfaces"
+
+  Scenario: Word-count inspection needs a file to count
+    Given a repository declaring every section with nothing to find
+    When I invoke the CLI with "md|word-count|inspect"
+    Then the exit code is 2
+    And stderr contains "names what to count"
+
+  Scenario: Word-count inspection refuses a file it cannot read
+    Given a repository declaring every section with nothing to find
+    And the governed files are exclusively locked
+    When I invoke the CLI with "md|word-count|inspect|--file|rules/README.md"
+    Then the exit code is 2
+    And stderr names a file it could not read

@@ -106,3 +106,29 @@ Feature: Markdown internal-link validation
       """
     When I run the "internal-link" validator
     Then the exit code is 0
+
+  Scenario: A link with an empty target names nothing to resolve
+    Given file "rules/README.md" contains this Markdown:
+      """
+      # Rules
+
+      An [empty]() target names nothing.
+      """
+    When I inspect internal links
+    Then the exit code is 0
+
+  Scenario: A source that cannot be read is refused
+    Given file "rules/README.md" contains this Markdown:
+      """
+      # Rules
+      """
+    And the governed files are exclusively locked
+    When I inspect internal links
+    Then the exit code is 2
+    And stderr names a file it could not read
+
+  Scenario: An unusable excluded-source glob is a configuration fault
+    Given the repository declares the internal-link excluded source "rules/["
+    When I inspect internal links
+    Then the exit code is 2
+    And stderr contains "md-internal-link.exclude-sources"
