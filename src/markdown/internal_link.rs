@@ -14,10 +14,14 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 /// `[text](destination)`, with an optional title the destination stops before.
-/// Also matches an image, deliberately: a broken image path is a broken local
-/// target for the same reason and by the same rule.
+///
+/// The opening bracket is part of the match so that the character before it can
+/// be inspected: `![alt](src)` is an image, and an image is not a document link.
+/// Rust's `regex` refuses lookbehind by design -- deliberately, since backtracking
+/// is what makes a pattern hang on content the tool does not author -- so the
+/// exclusion is a one-character check at the match site instead.
 static INLINE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"\]\(\s*<?([^)<>\s]*)>?(?:\s+"[^"]*")?\s*\)"#)
+    Regex::new(r#"\[[^\]]*\]\(\s*<?([^)<>\s]*)>?(?:\s+"[^"]*")?\s*\)"#)
         .expect("the inline-link pattern compiles")
 });
 
@@ -96,6 +100,10 @@ fn destinations(text: &str) -> Vec<(usize, String)> {
     let mut found = Vec::new();
     for (line, content) in markdown::prose_lines(text) {
         for capture in INLINE.captures_iter(content) {
+            let whole = capture.get(0).expect("a match has a zero group");
+            if content[..whole.start()].ends_with('!') {
+                continue;
+            }
             found.push((line, capture[1].to_string()));
         }
         if let Some(capture) = DEFINITION.captures(content) {
