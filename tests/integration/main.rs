@@ -18,6 +18,9 @@ mod fixtures;
 #[path = "../support/gherkin.rs"]
 mod gherkin;
 #[allow(dead_code)]
+#[path = "../support/mermaid.rs"]
+mod mermaid;
+#[allow(dead_code)]
 #[path = "../support/registry.rs"]
 mod registry;
 #[allow(dead_code)]

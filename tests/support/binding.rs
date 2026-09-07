@@ -6,6 +6,7 @@
 //! list is the remaining work and shrinks by construction.
 
 use crate::gherkin::Step;
+use crate::mermaid;
 use crate::steps::{self, Match};
 use crate::world::{CommandResult, Driver, World};
 
@@ -128,6 +129,123 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .push(matched.string(0).to_string());
             Outcome::Passed
         }
+        "the repository declares the accessible palette" => {
+            // The fixture's declared palette is the accessible one. Saying so
+            // is what makes the diagram scenarios readable without repeating
+            // six colours in every Background.
+            world.declaration.complete = true;
+            world.declaration.present = true;
+            Outcome::Passed
+        }
+        "an empty repository" => {
+            // About the tree, not the configuration: a repository with a
+            // complete policy and nothing to apply it to.
+            world.declaration.complete = true;
+            world.declaration.present = true;
+            world.files.clear();
+            Outcome::Passed
+        }
+        "the repository declares node labels at {int} graphemes and edge labels at {int}" => {
+            world.declaration.overrides.insert(
+                "md-mermaid.node-label-graphemes".to_string(),
+                matched.integer(0).to_string(),
+            );
+            world.declaration.overrides.insert(
+                "md-mermaid.edge-label-graphemes".to_string(),
+                matched.integer(1).to_string(),
+            );
+            Outcome::Passed
+        }
+        "the repository declares a palette whose only fill color is {string}" => {
+            world.declaration.overrides.insert(
+                "md-mermaid.fill-colors".to_string(),
+                format!("[\"{}\"]", matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the repository declares excluded scan directories:" => {
+            if step.bullets.is_empty() {
+                return Outcome::Failed(
+                    "the step promised a list of directories and carried none".to_string(),
+                );
+            }
+            world.declaration.excluded_directories = step.bullets.clone();
+            Outcome::Passed
+        }
+        "each declared excluded directory contains an unsafe Mermaid diagram" => {
+            if world.declaration.excluded_directories.is_empty() {
+                return Outcome::Failed(
+                    "no excluded directories were declared for this assertion".to_string(),
+                );
+            }
+            for directory in world.declaration.excluded_directories.clone() {
+                world.files.insert(
+                    format!("{directory}/diagram.md"),
+                    mermaid::unsafe_diagram("flowchart LR", mermaid::Fence::Backtick),
+                );
+            }
+            Outcome::Passed
+        }
+        "the repository contains Mermaid sample {string} at {string}" => {
+            let Some(text) = mermaid::sample(matched.string(0)) else {
+                return Outcome::Failed(format!(
+                    "no Mermaid sample is catalogued under `{}`",
+                    matched.string(0)
+                ));
+            };
+            world.files.insert(matched.string(1).to_string(), text);
+            Outcome::Passed
+        }
+        "an unsafe {string} Mermaid diagram exists at {string} using backtick fences" => {
+            world.files.insert(
+                matched.string(1).to_string(),
+                mermaid::unsafe_diagram(matched.string(0), mermaid::Fence::Backtick),
+            );
+            Outcome::Passed
+        }
+        "an unsafe {string} Mermaid diagram exists at {string} using tilde fences" => {
+            world.files.insert(
+                matched.string(1).to_string(),
+                mermaid::unsafe_diagram(matched.string(0), mermaid::Fence::Tilde),
+            );
+            Outcome::Passed
+        }
+        "the repository contains a Mermaid class filled {string} with a declared stroke and text color" =>
+        {
+            world.files.insert(
+                "guides/diagram.md".to_string(),
+                mermaid::class_filled(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the repository contains a Mermaid node label of {int} graphemes" => {
+            world.files.insert(
+                "guides/diagram.md".to_string(),
+                mermaid::node_label_of(matched.integer(0)),
+            );
+            Outcome::Passed
+        }
+        "the repository declares a word-budget surface {string} failing above {int}" => {
+            world.declaration.overrides.insert(
+                "governance-word-budget.surfaces".to_string(),
+                format!(
+                    "[{{glob: \"{}\", fail: {}}}]",
+                    matched.string(0),
+                    matched.integer(0)
+                ),
+            );
+            Outcome::Passed
+        }
+        "file {string} contains {int} words" => {
+            let words: Vec<String> = (0..matched.integer(0))
+                .map(|index| format!("word{index}"))
+                .collect();
+            world.files.insert(
+                matched.string(0).to_string(),
+                format!("{}\n", words.join(" ")),
+            );
+            Outcome::Passed
+        }
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
         {
             world.declaration.present = true;
@@ -148,6 +266,26 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         "I inspect internal links" => {
             let arguments =
                 validator_arguments("internal-link").expect("internal-link is a validator");
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I inspect Mermaid accessibility" => {
+            let arguments = validator_arguments("mermaid").expect("mermaid is a validator");
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I invoke the CLI with {string}" => {
+            let arguments: Vec<String> = matched
+                .string(0)
+                .split('|')
+                .map(|argument| argument.to_string())
+                .collect();
             let result = world
                 .driver
                 .invoke(&world.declaration, &world.files, &arguments);
@@ -222,6 +360,69 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 format!(
                     "expected no violations, counted {counted}\nstderr: {}",
                     world.result().stderr
+                ),
+            )
+        }
+        "{int} Mermaid diagrams were inspected" => {
+            let expected = matched.integer(0);
+            match inspected_count(world.result()) {
+                Some(counted) => expect(
+                    counted == expected,
+                    format!(
+                        "expected {expected} diagrams inspected, the summary says {counted}\nstdout: {}",
+                        world.result().stdout
+                    ),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no inspection summary\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "stdout reports that zero diagrams were checked" => {
+            let stdout = world.result().stdout.clone();
+            expect(
+                stdout.contains("checked 0 diagram"),
+                format!("expected an explicit zero in the summary\nstdout: {stdout}"),
+            )
+        }
+        "the only violation is a Mermaid accessibility issue at {string}" => {
+            let result = world.result();
+            let lines: Vec<&str> = result
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with('['))
+                .collect();
+            if lines.len() != 1 {
+                return Outcome::Failed(format!(
+                    "expected exactly one violation, got {}\nstderr: {}",
+                    lines.len(),
+                    result.stderr
+                ));
+            }
+            expect(
+                lines[0].starts_with("[mermaid] ") && lines[0].contains(matched.string(0)),
+                format!(
+                    "expected a mermaid violation at `{}`, got `{}`",
+                    matched.string(0),
+                    lines[0]
+                ),
+            )
+        }
+        "the formatted violation starts with {string}" => {
+            let result = world.result();
+            let Some(line) = result.stderr.lines().find(|line| line.starts_with('[')) else {
+                return Outcome::Failed(format!(
+                    "no violation was reported\nstderr: {}",
+                    result.stderr
+                ));
+            };
+            let body = line.split_once("] ").map_or(line, |(_, rest)| rest);
+            expect(
+                body.starts_with(matched.string(0)),
+                format!(
+                    "expected a violation starting `{}`, got `{body}`",
+                    matched.string(0)
                 ),
             )
         }
@@ -316,4 +517,18 @@ fn violations(result: &CommandResult) -> usize {
         .lines()
         .filter(|line| line.starts_with('['))
         .count()
+}
+
+/// The number a report's summary line says was inspected.
+///
+/// Read back out of stdout rather than out of the world, because that summary
+/// is the only place all three adapters can see it -- and because an explicit
+/// zero that is not printed is not an explicit zero.
+fn inspected_count(result: &CommandResult) -> Option<usize> {
+    let line = result
+        .stdout
+        .lines()
+        .find(|line| line.contains("checked "))?;
+    let after = line.split("checked ").nth(1)?;
+    after.split_whitespace().next()?.parse().ok()
 }

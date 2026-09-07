@@ -135,9 +135,18 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         "harness-parity.required-mcp.args".into(),
         "[\"serve\"]".into(),
     );
+    let excluded = if declaration.excluded_directories.is_empty() {
+        vec![
+            ".git".to_string(),
+            "build-output".to_string(),
+            "dependencies".to_string(),
+        ]
+    } else {
+        declaration.excluded_directories.clone()
+    };
     lines.insert(
         "scan.exclude-directories".into(),
-        "[.git, build-output, dependencies]".into(),
+        format!("[{}]", excluded.join(", ")),
     );
 
     lines

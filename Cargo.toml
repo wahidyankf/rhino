@@ -28,6 +28,7 @@ serde = { version = "1", features = ["derive"] }
 yaml_serde = "0.10"
 
 [dev-dependencies]
+unicode-segmentation = "1"
 
 [[test]]
 name = "unit"
