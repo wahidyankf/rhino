@@ -99,6 +99,11 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
 fn destinations(text: &str) -> Vec<(usize, String)> {
     let mut found = Vec::new();
     for (line, content) in markdown::prose_lines(text) {
+        // Link syntax inside backticks is a quotation of a link, the way a
+        // fenced block is: documentation explaining a convention writes
+        // `[name](name)` and means the characters, not the destination.
+        // Reporting one accuses a document of a broken link it never made.
+        let content = &markdown::without_code_spans(content);
         for capture in INLINE.captures_iter(content) {
             let whole = capture.get(0).expect("a match has a zero group");
             if content[..whole.start()].ends_with('!') {

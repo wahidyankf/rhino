@@ -8,6 +8,14 @@ use crate::registry::{Binding, Exemption};
 
 pub const BINDINGS: &[Binding] = &[
     (
+        "internal-link",
+        "A link quoted inside a code span is prose about a link",
+    ),
+    (
+        "internal-link",
+        "A real link on the same line as a quoted one is still checked",
+    ),
+    (
         "harness-parity",
         "A route template written with uneven spacing is the same route",
     ),

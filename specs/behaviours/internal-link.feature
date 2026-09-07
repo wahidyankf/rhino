@@ -65,6 +65,23 @@ Feature: Markdown internal-link validation
     When I run the "internal-link" validator
     Then the exit code is 0
 
+  Scenario: A link quoted inside a code span is prose about a link
+    Given file "guides/source.md" contains this Markdown:
+      """
+      Write the entry as a `[name](name)` link, not as bare text.
+      """
+    When I run the "internal-link" validator
+    Then the exit code is 0
+
+  Scenario: A real link on the same line as a quoted one is still checked
+    Given file "guides/source.md" contains this Markdown:
+      """
+      Write it as a `[name](name)` link — see [the guide](missing.md).
+      """
+    When I run the "internal-link" validator
+    Then the exit code is 1
+    And the only violation starts with "guides/source.md:1: `missing.md` does not exist"
+
   Scenario: A malformed local target fails without stopping inspection
     Given file "guides/a-malformed.md" contains this Markdown:
       """

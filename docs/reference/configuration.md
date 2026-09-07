@@ -119,6 +119,11 @@ Each tree takes a `path`. Every directory at or under it must carry a
 | ----------------- | -------- | --------------------------------- |
 | `exclude-sources` | no       | Globs excluded as link _sources_. |
 
+Link syntax inside a fenced block or an inline code span is not a link. A
+document explaining a convention writes `` `[name](name)` `` and means the
+characters; reporting it would accuse the document of a broken link it never
+made.
+
 Files under an excluded glob are not read for links. They remain valid link
 _targets_ — excluding a source says "do not check the links in this file", not
 "this file does not exist".
