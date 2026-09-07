@@ -9,9 +9,9 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.1.0] — 2026-09-08
 
-The first release. Nothing is published yet, so everything below is new.
+The first release, so everything below is new.
 
 ### Added
 
@@ -106,4 +106,4 @@ The first release. Nothing is published yet, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
-[Unreleased]: https://github.com/wahidyankf/rhino/commits/main
+[v0.1.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.0

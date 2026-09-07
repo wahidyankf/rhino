@@ -8,8 +8,8 @@ about the policy it wrote down.
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)](#-install)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
-RHINO is a standalone Rust CLI that checks the things a repository's
-documentation has to get right — word budgets on governed instructions,
+RHINO is a Rust CLI that checks what a repository's documentation must get
+right — word budgets on governed instructions,
 directory maps that match the tree, internal Markdown links that resolve,
 Mermaid diagrams that stay legible, and one canonical instruction body kept in
 parity across every coding harness the repository declares.
@@ -43,9 +43,9 @@ directory map that lost a file, a link that lost its target, or an agent prompt
 that drifted from its canonical body all keep rendering perfectly. Nothing
 announces them. They are found by a reader who trusted them.
 
-The usual fix is a repository-specific script — a few hundred lines of glob and
-regex that encode one repository's conventions and cannot be lent to another.
-The next repository writes its own, and the two disagree quietly.
+The usual fix is a repository-specific script — glob and regex encoding one
+repository's conventions, lendable to no other. The next repository writes its
+own, and the two disagree quietly.
 
 RHINO separates the checking from the policy. The checks live in one binary; the
 values live in each repository's `repo-config.yml`. Four repositories with four
@@ -55,18 +55,20 @@ Longer version: [Why RHINO exists](./docs/explanation/why-rhino-exists.md).
 
 ## 📦 Install
 
-**No release is published yet.** Until `v0.1.0` is tagged, build from a checkout:
+Archives for macOS and Linux on `amd64` and `arm64`:
 
 ```sh
-git clone https://github.com/wahidyankf/rhino.git
-cd rhino
-cargo install --path .
+BASE=https://github.com/wahidyankf/rhino/releases/download/v0.1.0
+curl -fsSLO "$BASE/rhino-aarch64-apple-darwin.tar.gz"
+curl -fsSLO "$BASE/checksums.txt"
+shasum -a 256 --ignore-missing -c checksums.txt
+tar -xzf rhino-aarch64-apple-darwin.tar.gz
 ```
 
-Once tags exist, download the archive for your platform and verify it against
-the published checksum — pin both the tag and the expected SHA-256, and never
-follow `main` at runtime. See [how to install a pinned
-release](./docs/how-to/install-a-pinned-release.md).
+Verify before extracting. Pin the tag and its SHA-256; never follow `main` at
+runtime. See [how to install a pinned
+release](./docs/how-to/install-a-pinned-release.md), or build from a checkout
+with `cargo install --path .`.
 
 ## 🚀 Quick start
 
