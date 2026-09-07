@@ -116,6 +116,7 @@ Feature: Markdown internal-link validation
       """
     When I inspect internal links
     Then the exit code is 0
+    And 0 links were inspected
 
   Scenario: A source that cannot be read is refused
     Given file "rules/README.md" contains this Markdown:

@@ -88,3 +88,4 @@ Feature: Word-budget validation
     When I invoke the CLI with "md|word-count|inspect|--file|rules/README.md"
     Then the exit code is 2
     And stderr names a file it could not read
+    And stderr contains "rules/README.md"

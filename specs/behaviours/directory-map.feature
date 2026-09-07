@@ -131,6 +131,7 @@ Feature: Directory-map validation
       | rules/policy.md | # Policy   |
     When I inspect directory maps
     Then the exit code is 0
+    And 1 directories were inspected
 
     Examples:
       | readme                                                                                     |
@@ -139,10 +140,12 @@ Feature: Directory-map validation
 
   Scenario: A map entry may not reach past a sibling README
     Given the repository contains:
-      | path            | content                                                       |
-      | rules/README.md | # Rules\n\n## Directory Map\n\n- [Deep](nested/deep/page.md) |
+      | path                   | content                                                                                |
+      | rules/README.md        | # Rules\n\n## Directory Map\n\n- [Nested](nested/README.md)\n- [Deep](nested/policy.md) |
+      | rules/nested/README.md | # Nested\n\n## Directory Map\n\n- [Policy](policy.md)                                  |
+      | rules/nested/policy.md | # Policy                                                                               |
     When I inspect directory maps
-    Then the only violation is an invalid map entry from "rules/README.md" to "nested/deep/page.md"
+    Then the only violation is an invalid map entry from "rules/README.md" to "nested/policy.md"
 
   Scenario: A map entry containing JSON metacharacters survives the JSON rendering
     Given the repository holds a map entry whose target needs escaping

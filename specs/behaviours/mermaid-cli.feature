@@ -188,6 +188,7 @@ Feature: Mermaid accessibility command behaviour
     When I run the "mermaid" validator
     Then the exit code is 0
     And there are no violations
+    And 1 Mermaid diagrams were inspected
 
   Scenario: A class with a stroke and a text color but no fill is still checked
     Given file "guides/diagram.md" contains this Markdown:
@@ -218,14 +219,15 @@ Feature: Mermaid accessibility command behaviour
       """
     When I run the "mermaid" validator
     Then the exit code is 1
+    And the only violation starts with "guides/diagram.md:6: color is declared outside a classDef"
 
     Examples:
-      | declaration          |
-      | fill:#0173B2         |
-      | fill:rgb(1, 115, 178) |
-      | fill:rgba(1, 115, 178, 1) |
-      | fill:hsl(202, 99%, 35%) |
-      | fill:blue            |
+      | declaration                        |
+      | fill:#0173B2                       |
+      | fill:blue                          |
+      | fill-opacity:rgb(1, 115, 178)      |
+      | fill-opacity:rgba(1, 115, 178, 1)  |
+      | fill-opacity:hsl(202, 99%, 35%)    |
 
   Scenario: An unpaired edge-label delimiter ends the edge scan
     Given file "guides/diagram.md" contains this Markdown:
@@ -234,11 +236,12 @@ Feature: Mermaid accessibility command behaviour
 
       ```mermaid
       flowchart LR
-          Alpha -->|only Alpha
+          Alpha -->|aaaaaaaaaaaaaaaaaaaaaaaaa
       ```
       """
     When I run the "mermaid" validator
     Then the exit code is 0
+    And 1 Mermaid diagrams were inspected
 
   Scenario: A fenced block in another language is not a diagram
     Given file "guides/diagram.md" contains this Markdown:

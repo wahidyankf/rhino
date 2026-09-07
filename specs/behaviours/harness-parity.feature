@@ -17,7 +17,8 @@ Feature: Coding-harness parity
     Given a valid one-skill one-agent one-capability harness contract
     And the canonical instruction body is absent
     When I inspect harness parity
-    Then the only violation starts with "root-instructions.md: missing-instruction:"
+    Then the exit code is 1
+    And the only violation starts with "root-instructions.md: missing-instruction:"
 
   Scenario: A declared instruction adapter must exist
     Given a valid one-skill one-agent one-capability harness contract
@@ -243,6 +244,7 @@ Feature: Coding-harness parity
 
   Scenario: An unusable prohibited-source glob stops the instruction check
     Given a valid one-skill one-agent one-capability harness contract
+    And a file imports the canonical instruction body
     And the repository declares an unusable prohibited instruction source
     When I inspect harness parity
     Then there are no violations
@@ -270,7 +272,7 @@ Feature: Coding-harness parity
     Given a valid one-skill one-agent one-capability harness contract
     And the canonical agent carries no declaration
     When I inspect harness parity
-    Then the harness-parity violations include "invalid-agent"
+    Then the harness-parity violation for "canon/agents/reviewer.md" is "invalid-agent"
 
   Scenario: An agent adapter without a declaration is invalid
     Given a valid one-skill one-agent one-capability harness contract
@@ -300,7 +302,7 @@ Feature: Coding-harness parity
     Given a valid one-skill one-agent one-capability harness contract
     And the canonical skill front matter is never closed
     When I inspect harness parity
-    Then the harness-parity violations include "invalid-skill"
+    Then the only violation starts with "canon/skills/tidy/SKILL.md: invalid-skill:"
 
   Scenario Outline: A capability declaration RHINO cannot read is a divergence
     Given a valid one-skill one-agent one-capability harness contract
@@ -325,3 +327,4 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the exit code is 0
     And 0 harnesses were inspected
+    And harness-parity validation succeeds with 0 harnesses, 0 skill, 0 agent, and 0 reconciled capability declarations

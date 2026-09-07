@@ -15,6 +15,18 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr names the missing configuration file
 
+  Scenario: A blank line does not end the search for the schema comment
+    Given the configuration file is this text:
+      """
+
+      # schema: rhino/repo-config/v1
+      md-mermaid:
+        node-label-graphemes: 32
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "missing field `edge-label-graphemes`"
+
   Scenario: An unrecognized schema identifier is refused
     Given the repository declares the schema "rhino/repo-config/v99"
     When I run the "repo-config" validator
@@ -101,6 +113,7 @@ Feature: Repository configuration contract
       """
       md-mermaid:
         node-label-graphemes: 32
+      # schema: rhino/repo-config/v1
       """
     When I run the "repo-config" validator
     Then the exit code is 2

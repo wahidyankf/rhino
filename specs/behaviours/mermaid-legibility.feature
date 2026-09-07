@@ -105,4 +105,4 @@ Feature: Mermaid legibility inspection
       | &#x41;&#x41;&#x41;&#x41;&#x41;&#x41;&#x41;&#x41; | 0    |
       | &lt;&gt;&quot;&apos;&nbsp;aaa                    | 0    |
       | &frob;aaa                                        | 1    |
-      | a&b aaaa                                         | 0    |
+      | a&b aaaaa                                        | 1    |

@@ -84,7 +84,11 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "cli-contract",
-        "Global presentation flags are accepted by every leaf",
+        "Global presentation flags are accepted by every reporting leaf",
+    ),
+    (
+        "cli-contract",
+        "Help is scoped to the command path that asked for it",
     ),
     (
         "cli-contract",
@@ -419,6 +423,10 @@ pub const BINDINGS: &[Binding] = &[
     (
         "word-budget",
         "Word-budget inspection ignores other validators' concerns",
+    ),
+    (
+        "repo-config",
+        "A blank line does not end the search for the schema comment",
     ),
     (
         "repo-config",

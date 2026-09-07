@@ -97,8 +97,15 @@ fn capability_declaration(format: &str) -> String {
 }
 
 /// The roster a declaration currently names.
+///
+/// The single answer to "which harnesses does this repository declare?".
+/// `fixtures::render` writes it into `repo-config.yml` and this module builds
+/// adapters for it, so a scenario cannot end up with a config that names one
+/// roster and a tree that holds another.
 pub fn roster(declaration: &Declaration) -> Vec<String> {
-    if declaration.roster.is_empty() {
+    if declaration.empty_roster {
+        Vec::new()
+    } else if declaration.roster.is_empty() {
         vec!["alpha".to_string(), "beta".to_string(), "gamma".to_string()]
     } else {
         declaration.roster.clone()

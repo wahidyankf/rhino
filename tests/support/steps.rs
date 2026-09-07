@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 159] = [
+pub const VOCABULARY: [&str; 161] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -81,9 +81,11 @@ pub const VOCABULARY: [&str; 159] = [
     "stderr names the unrecognized schema",
     "stdout JSON has a {string} and a {int}-character hexadecimal {string}",
     "stdout JSON property {string} is {int}",
+    "stdout does not name the command {string}",
     "stdout escapes the quote, backslash, tab, and control character",
     "stdout is empty",
     "stdout is one non-empty line",
+    "stdout is the version the JSON form reported",
     "stdout lines start with {string}",
     "stdout names every exit code",
     "stdout names the command {string}",

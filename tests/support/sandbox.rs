@@ -22,6 +22,17 @@ impl Sandbox {
     /// id and a counter rather than a clock, so two adapters running at once
     /// cannot land in the same directory and no test depends on wall time.
     pub fn build(repository: &Repository<'_>) -> Self {
+        // A disk sandbox cannot make a file disappear between the walk and the
+        // read without a second thread racing the run under inspection. Refuse
+        // the precondition rather than build a repository that quietly does not
+        // hold it: a fixture that cannot express a Given must fail loudly, or a
+        // scenario moved here later would report proof it never had.
+        assert!(
+            repository.vanished.is_empty(),
+            "a disk sandbox cannot express a file vanishing mid-run: {:?}\n\
+             this scenario belongs at the unit boundary, with an Exemption here",
+            repository.vanished
+        );
         let ordinal = NEXT.fetch_add(1, Ordering::Relaxed);
         let root =
             std::env::temp_dir().join(format!("rhino-spec-{}-{ordinal}", std::process::id()));

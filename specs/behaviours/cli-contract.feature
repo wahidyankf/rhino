@@ -52,15 +52,17 @@ Feature: Command contract
       | guides/nested/README.md | # Nested\n\n## Directory Map\n\nNo other entries.            |
     When I run the directory-map validator for "guides"
     Then the exit code is 0
+    And 2 directories were inspected
 
   Scenario: A selected directory without a README fails
     Given the repository declares the mapped trees "rules" and "guides"
     And the repository contains:
-      | path                  | content                                                      |
-      | guides/README.md      | # Guides\n\n## Directory Map\n\n- [Nested](nested/README.md) |
-      | guides/nested/page.md | # Page                                                       |
+      | path                  | content                                        |
+      | guides/README.md      | # Guides\n\n## Directory Map\n\n- [Nested](nested) |
+      | guides/nested/page.md | # Page                                         |
     When I run the directory-map validator for "guides"
     Then the exit code is 1
+    And the only violation is a missing README at "guides/nested"
 
   Scenario: An omitted selected sibling fails
     Given the repository declares the mapped trees "rules" and "guides"
@@ -96,13 +98,16 @@ Feature: Command contract
     Given a repository declaring every section with nothing to find
     When I invoke the CLI from the repository directory with "governance|word-budget|validate"
     Then the exit code is 0
+    And the scanned Markdown paths are:
+      * rules/README.md
+      * rules/diagram.md
 
   Scenario: Root is accepted before and after nested commands
     Given a repository declaring every section with nothing to find
-    When I invoke the CLI with "--root|{root}|governance|word-budget|validate"
-    Then the exit code is 0
-    When I invoke the CLI with "governance|word-budget|validate|--root|{root}"
-    Then the exit code is 0
+    When I invoke the CLI with "--root|rules|governance|word-budget|validate"
+    Then the exit code is 2
+    When I invoke the CLI with "governance|word-budget|validate|--root|rules"
+    Then the exit code is 2
 
   Scenario: A selected root is the repository that gets inspected
     Given a repository declaring every section with nothing to find
@@ -176,6 +181,17 @@ Feature: Command contract
       | repo-config\|validate\|--help               | rhino repo-config validate              |
       | version\|--help                             | rhino version                           |
 
+  Scenario: Help is scoped to the command path that asked for it
+    Given a repository declaring every section with nothing to find
+    When I invoke the CLI with "md|--help"
+    Then the exit code is 0
+    And stdout names the command "rhino md mermaid validate"
+    And stdout does not name the command "rhino harness parity validate"
+    When I invoke the CLI with "--help"
+    Then the exit code is 0
+    And stdout names the command "rhino md mermaid validate"
+    And stdout names the command "rhino harness parity validate"
+
   Scenario: Version reports the embedded release identity
     Given a repository declaring every section with nothing to find
     When I invoke the CLI with "version|--json"
@@ -213,6 +229,7 @@ Feature: Command contract
     And file "root-instructions.md" exceeds its declared word budget
     When I run the "word-budget" validator
     Then the exit code is 1
+    And the only violation is a 6-word limit for "root-instructions.md"
 
   Scenario: An incomplete directory map returns validation failure
     Given a repository declaring every section with nothing to find
@@ -221,6 +238,7 @@ Feature: Command contract
       | rules/README.md | # Rules |
     When I run the "directory-map" validator
     Then the exit code is 1
+    And the only violation is a missing directory map at "rules/README.md"
 
   Scenario Outline: Output format is recursive for every validator
     Given a repository declaring every section with nothing to find
@@ -266,19 +284,22 @@ Feature: Command contract
       | governance\|word-budget\|validate           |
       | governance\|directory-map\|validate         |
       | md\|internal-link\|validate                 |
-      | md\|word-count\|inspect\|--file\|missing.md |
+      | md\|word-count\|inspect\|--file\|rules/README.md |
 
-  Scenario Outline: Global presentation flags are accepted by every leaf
+  Scenario Outline: Global presentation flags are accepted by every reporting leaf
     Given a repository declaring every section with nothing to find
     When I invoke the CLI with "<command>|<flag>"
     Then the exit code is 0
     And stdout lines start with "[<category>] "
 
     Examples:
-      | command                           | flag       | category       |
-      | governance\|word-budget\|validate | --quiet    | word-budget    |
-      | md\|mermaid\|validate             | --verbose  | mermaid        |
-      | harness\|parity\|validate         | --no-color | harness-parity |
+      | command                             | flag       | category       |
+      | governance\|word-budget\|validate   | --quiet    | word-budget    |
+      | governance\|directory-map\|validate | --verbose  | directory-map  |
+      | harness\|parity\|validate           | --no-color | harness-parity |
+      | md\|internal-link\|validate         | --quiet    | internal-link  |
+      | md\|mermaid\|validate               | --verbose  | mermaid        |
+      | repo-config\|validate               | --no-color | repo-config    |
 
   Scenario: Repeated file selection is accepted by the Mermaid leaf
     Given the repository declares the accessible palette
@@ -297,9 +318,12 @@ Feature: Command contract
 
   Scenario: Version reports the release identity as text
     Given a repository declaring every section with nothing to find
+    When I invoke the CLI with "version|--json"
+    Then the exit code is 0
     When I invoke the CLI with "version"
     Then the exit code is 0
     And stdout is one non-empty line
+    And stdout is the version the JSON form reported
 
   Scenario: An empty command line asks for a command
     Given a repository declaring every section with nothing to find

@@ -53,6 +53,9 @@ pub fn run_step<D: Driver>(world: &mut World<D>, step: &Step) -> Outcome {
 fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Outcome {
     match matched.pattern {
         // -- Arrange: the configuration ---------------------------------------
+        // The base fixture *is* the complete configuration, so this step has
+        // nothing to add. It stays in the vocabulary because a scenario that
+        // breaks one key has to be able to say what it started from.
         "the repository declares a complete configuration" => Outcome::Passed,
         "the repository has no configuration file" => {
             world.declaration.absent = true;
@@ -228,6 +231,29 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         "stderr names the unreadable configuration file" => {
             names(world.result(), &[fixtures::CONFIG_PATH, "cannot be read"])
         }
+        "stdout is the version the JSON form reported" => {
+            // The two spellings of `version` have to name one build. Comparing
+            // them against each other rather than against a literal keeps the
+            // check true across releases while still refusing a text form that
+            // has drifted into reporting something else entirely.
+            let Some(previous) = world.previous_command_result.clone() else {
+                return Outcome::Failed("only one invocation was run".to_string());
+            };
+            let Some(reported) = json_string(&previous.stdout, "version") else {
+                return Outcome::Failed(format!(
+                    "the JSON form reported no version\nstdout: {}",
+                    previous.stdout
+                ));
+            };
+            let stdout = world.result().stdout.clone();
+            expect(
+                stdout.trim() == reported,
+                format!(
+                    "the text form says `{}`, the JSON form says `{reported}`",
+                    stdout.trim()
+                ),
+            )
+        }
         "stdout is one non-empty line" => {
             let stdout = &world.result().stdout;
             let lines: Vec<&str> = stdout.lines().collect();
@@ -359,9 +385,23 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             Outcome::Passed
         }
         "the repository declares the accessible palette" => {
-            // The fixture's declared palette is the accessible one. Saying so
-            // is what makes the diagram scenarios readable without repeating
-            // six colours in every Background.
+            // Written by the step rather than inherited from the base fixture.
+            // A scenario that names the palette it declares has to keep saying
+            // so if the base one is ever changed underneath it -- otherwise the
+            // step means whatever `fixtures.rs` happens to say this week.
+            for (key, value) in [
+                (
+                    "md-mermaid.fill-colors",
+                    "[\"#0173B2\", \"#DE8F05\", \"#029E73\"]",
+                ),
+                ("md-mermaid.edge-colors", "[\"#0173B2\", \"#000000\"]"),
+                ("md-mermaid.text-colors", "[\"#000000\", \"#FFFFFF\"]"),
+            ] {
+                world
+                    .declaration
+                    .overrides
+                    .insert(key.to_string(), value.to_string());
+            }
             Outcome::Passed
         }
         "an empty repository" => {
@@ -1066,22 +1106,7 @@ Body.
                 ),
             )
         }
-        "{int} Mermaid diagrams were inspected" => {
-            let expected = matched.integer(0);
-            match inspected_count(world.result()) {
-                Some(counted) => expect(
-                    counted == expected,
-                    format!(
-                        "expected {expected} diagrams inspected, the summary says {counted}\nstdout: {}",
-                        world.result().stdout
-                    ),
-                ),
-                None => Outcome::Failed(format!(
-                    "stdout carries no inspection summary\nstdout: {}",
-                    world.result().stdout
-                )),
-            }
-        }
+        "{int} Mermaid diagrams were inspected" => inspected(world, matched.integer(0), "diagram"),
         "stdout reports that zero diagrams were checked" => {
             let stdout = world.result().stdout.clone();
             expect(
@@ -1344,6 +1369,18 @@ Body.
                 format!("help does not list `{needle}`\nstdout: {stdout}"),
             )
         }
+        "stdout does not name the command {string}" => {
+            // Help that lists every leaf whatever was asked for is not scoped
+            // help, and no positive assertion can tell the two apart.
+            let needle = matched.string(0);
+            let stdout = &world.result().stdout;
+            expect(
+                !stdout.contains(needle),
+                format!(
+                    "help lists `{needle}`, which is outside the path that asked for it\nstdout: {stdout}"
+                ),
+            )
+        }
         "stdout names every exit code" => {
             // Help that lists commands but not what their codes mean is help a
             // script author still has to read the source for.
@@ -1373,9 +1410,9 @@ Body.
                 ),
             )
         }
-        "{int} links were inspected" => inspected(world, matched.integer(0), "links"),
-        "{int} files were inspected" => inspected(world, matched.integer(0), "files"),
-        "{int} directories were inspected" => inspected(world, matched.integer(0), "directories"),
+        "{int} links were inspected" => inspected(world, matched.integer(0), "link"),
+        "{int} files were inspected" => inspected(world, matched.integer(0), "file"),
+        "{int} directories were inspected" => inspected(world, matched.integer(0), "director"),
         "stdout is empty" => {
             let result = world.result();
             expect(
@@ -1499,22 +1536,7 @@ Body.
                 format!("stderr does not name `{path}`\nstderr: {}", result.stderr),
             )
         }
-        "{int} harnesses were inspected" => {
-            let expected = matched.integer(0);
-            match inspected_count(world.result()) {
-                Some(counted) => expect(
-                    counted == expected,
-                    format!(
-                        "expected {expected} harnesses inspected, the summary says {counted}\nstdout: {}",
-                        world.result().stdout
-                    ),
-                ),
-                None => Outcome::Failed(format!(
-                    "stdout carries no inspection summary\nstdout: {}",
-                    world.result().stdout
-                )),
-            }
-        }
+        "{int} harnesses were inspected" => inspected(world, matched.integer(0), "harness"),
         "harness-parity outputs are identical" => {
             let Some(previous) = world.previous_command_result.clone() else {
                 return Outcome::Failed("only one inspection was run".to_string());
@@ -1895,20 +1917,31 @@ fn first_violation(text: &str) -> Option<String> {
 }
 
 /// The summary line's inspected count, named as the scenario named it.
-fn inspected<D: Driver>(world: &World<D>, expected: usize, subject: &str) -> Outcome {
-    match inspected_count(world.result()) {
-        Some(counted) => expect(
-            counted == expected,
-            format!(
-                "expected {expected} {subject} inspected, the summary says {counted}\nstdout: {}",
-                world.result().stdout
-            ),
-        ),
-        None => Outcome::Failed(format!(
-            "stdout carries no summary\nstdout: {}",
-            world.result().stdout
-        )),
+///
+/// The noun is checked as well as the number. A leaf reports what it looked at
+/// -- `checked 2 files`, `checked 1 directory` -- and a scenario that says
+/// "2 files were inspected" is making a claim about both halves. Asserting only
+/// the number lets a leaf report the wrong subject entirely and stay green.
+///
+/// `stem` is the shared prefix of the singular and the plural, because the
+/// renderer picks between them by count: `directory`/`directories` share
+/// `director`, and pinning either spelling alone would break at the other count.
+fn inspected<D: Driver>(world: &World<D>, expected: usize, stem: &str) -> Outcome {
+    let stdout = world.result().stdout.clone();
+    let Some(counted) = inspected_count(world.result()) else {
+        return Outcome::Failed(format!("stdout carries no summary\nstdout: {stdout}"));
+    };
+    if counted != expected {
+        return Outcome::Failed(format!(
+            "expected {expected} {stem}(s) inspected, the summary says {counted}\nstdout: {stdout}"
+        ));
     }
+    expect(
+        stdout
+            .lines()
+            .any(|line| line.contains(&format!("checked {expected} {stem}"))),
+        format!("the summary does not call what it checked `{stem}`\nstdout: {stdout}"),
+    )
 }
 
 /// The digest a harness-parity run reports.

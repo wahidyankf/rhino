@@ -74,13 +74,7 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         );
     }
 
-    let roster = if declaration.empty_roster {
-        Vec::new()
-    } else if declaration.roster.is_empty() {
-        vec!["alpha".to_string(), "beta".to_string(), "gamma".to_string()]
-    } else {
-        declaration.roster.clone()
-    };
+    let roster = harness::roster(declaration);
 
     if !roster.is_empty() || declaration.canonical_skills_root.is_some() {
         lines.insert(
