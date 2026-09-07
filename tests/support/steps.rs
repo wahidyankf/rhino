@@ -194,6 +194,15 @@ impl Match {
 /// match is structural rather than a substring test: a sentence that differs
 /// outside its placeholders does not match, which is what makes `Undefined`
 /// meaningful.
+/// Whether one pattern matches a sentence, without capturing.
+///
+/// Exposed so the static coverage check can ask how *many* entries match a
+/// sentence: `lookup` answers with the first, which is the right answer for a
+/// running adapter and the wrong one for a check about ambiguity.
+pub fn matches(pattern: &str, sentence: &str) -> bool {
+    capture(pattern, sentence).is_some()
+}
+
 pub fn lookup(sentence: &str) -> Option<Match> {
     VOCABULARY.iter().copied().find_map(|pattern| {
         capture(pattern, sentence).map(|(strings, integers)| Match {

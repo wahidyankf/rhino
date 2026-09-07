@@ -19,6 +19,9 @@ mod gherkin;
 #[allow(dead_code)]
 #[path = "../support/registry.rs"]
 mod registry;
+#[allow(dead_code)]
+#[path = "../support/steps.rs"]
+mod steps;
 
 #[path = "../e2e/bindings.rs"]
 mod e2e_bindings;
@@ -28,7 +31,8 @@ mod integration_bindings;
 mod unit_bindings;
 
 use gherkin::Corpus;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 fn declared() -> BTreeSet<(String, String)> {
     Corpus::canonical().keys().into_iter().collect()
@@ -163,6 +167,201 @@ fn every_exemption_names_a_boundary_and_alternative_proof() {
             }
         }
     }
+}
+
+#[test]
+fn every_canonical_feature_resolves_to_scenarios() {
+    // A feature file the reader never opens contributes nothing, and a feature
+    // name in the corpus with no file behind it means the reader invented one.
+    // Both present as a coverage check that is quietly narrower than the corpus.
+    let corpus = Corpus::canonical();
+    let read: BTreeSet<String> = corpus
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.feature.clone())
+        .collect();
+
+    let directory = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/specs/behaviours"));
+    let committed: BTreeSet<String> = std::fs::read_dir(directory)
+        .expect("the corpus directory is readable")
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|kind| kind == "feature"))
+        .filter_map(|path| {
+            path.file_stem()
+                .and_then(|stem| stem.to_str())
+                .map(str::to_string)
+        })
+        .collect();
+
+    assert!(
+        !committed.is_empty(),
+        "no feature files were found; every check below would pass vacuously"
+    );
+    assert_eq!(
+        committed, read,
+        "committed feature files and the features the reader resolved do not match"
+    );
+}
+
+#[test]
+fn every_step_resolves_to_exactly_one_vocabulary_entry() {
+    // Zero is a scenario written in a sentence no adapter knows, which would
+    // otherwise pass by never being run. Two is worse: which of them answers
+    // the sentence depends on their order in the array, so the scenario means
+    // something different after an unrelated edit.
+    let corpus = Corpus::canonical();
+    let mut offenders: Vec<String> = Vec::new();
+
+    for scenario in &corpus.scenarios {
+        for expansion in scenario.expansions() {
+            for step in expansion {
+                let matching: Vec<&str> = steps::VOCABULARY
+                    .iter()
+                    .copied()
+                    .filter(|pattern| steps::matches(pattern, &step.text))
+                    .collect();
+                if matching.len() != 1 {
+                    offenders.push(format!(
+                        "{}: {}: {} {} -- {} entries match {matching:?}",
+                        scenario.feature,
+                        scenario.name,
+                        step.keyword,
+                        step.text,
+                        matching.len()
+                    ));
+                }
+            }
+        }
+    }
+
+    offenders.sort();
+    offenders.dedup();
+    assert!(
+        offenders.is_empty(),
+        "{} steps do not resolve to exactly one vocabulary entry:\n{}",
+        offenders.len(),
+        offenders.join("\n")
+    );
+}
+
+#[test]
+fn every_vocabulary_entry_is_used_by_the_corpus() {
+    // A binding nothing says is a sentence nobody can be held to. It also
+    // rots: it keeps compiling against a world that has moved on, and the day
+    // someone writes the sentence it silently does the wrong thing.
+    let corpus = Corpus::canonical();
+    let mut used: BTreeMap<&str, usize> = steps::VOCABULARY
+        .iter()
+        .copied()
+        .map(|pattern| (pattern, 0))
+        .collect();
+
+    for scenario in &corpus.scenarios {
+        for expansion in scenario.expansions() {
+            for step in expansion {
+                if let Some(matched) = steps::lookup(&step.text) {
+                    *used.entry(matched.pattern).or_default() += 1;
+                }
+            }
+        }
+    }
+
+    let unused: Vec<&str> = used
+        .iter()
+        .filter(|(_, count)| **count == 0)
+        .map(|(pattern, _)| *pattern)
+        .collect();
+    assert!(
+        unused.is_empty(),
+        "{} vocabulary entries no scenario uses:\n{}",
+        unused.len(),
+        unused.join("\n")
+    );
+}
+
+#[test]
+fn every_vocabulary_entry_has_exactly_one_dispatch_arm() {
+    // Read from the source rather than by running anything, because an entry
+    // with no arm falls through to the catch-all and reports `Unimplemented`
+    // -- which is the correct answer during a port and the wrong one after it.
+    let source = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/binding.rs"
+    ))
+    .expect("the shared bindings are readable");
+
+    let mut missing: Vec<&str> = Vec::new();
+    let mut duplicated: Vec<&str> = Vec::new();
+    for pattern in steps::VOCABULARY {
+        // The source escapes an apostrophe inside a string literal. An arm may
+        // also be one of several alternatives sharing a body, and rustfmt puts
+        // each on its own line -- so what identifies an arm is the literal
+        // followed by `=>` or `|`, whatever whitespace lies between.
+        let literal = format!("\"{}\"", pattern.replace('\'', "\\'"));
+        let mut arms = 0usize;
+        let mut rest = source.as_str();
+        while let Some(at) = rest.find(&literal) {
+            let after = rest[at + literal.len()..].trim_start();
+            if after.starts_with("=>") || after.starts_with('|') {
+                arms += 1;
+            }
+            rest = &rest[at + literal.len()..];
+        }
+        match arms {
+            0 => missing.push(pattern),
+            1 => {}
+            _ => duplicated.push(pattern),
+        }
+    }
+
+    assert!(
+        missing.is_empty(),
+        "{} vocabulary entries have no dispatch arm:\n{}",
+        missing.len(),
+        missing.join("\n")
+    );
+    assert!(
+        duplicated.is_empty(),
+        "{} vocabulary entries have more than one dispatch arm:\n{}",
+        duplicated.len(),
+        duplicated.join("\n")
+    );
+}
+
+#[test]
+fn no_scenario_or_binding_is_a_placeholder() {
+    // A placeholder name passes every structural check above while promising
+    // work that was never done, which is the one failure a static gate can
+    // catch and a running one cannot.
+    const PLACEHOLDER: [&str; 6] = ["todo", "tbd", "fixme", "xxx", "placeholder", "wip"];
+    let corpus = Corpus::canonical();
+
+    let mut named: Vec<String> = corpus
+        .scenarios
+        .iter()
+        .map(|scenario| format!("{}: {}", scenario.feature, scenario.name))
+        .collect();
+    for (layer, bindings) in [
+        ("unit", unit_bindings::BINDINGS),
+        ("integration", integration_bindings::BINDINGS),
+        ("e2e", e2e_bindings::BINDINGS),
+    ] {
+        named.extend(
+            bindings
+                .iter()
+                .map(|(feature, name)| format!("{layer}: {feature}: {name}")),
+        );
+    }
+
+    let offenders: Vec<&String> = named
+        .iter()
+        .filter(|entry| {
+            let lowered = entry.to_lowercase();
+            PLACEHOLDER.iter().any(|word| lowered.contains(word))
+        })
+        .collect();
+    assert!(offenders.is_empty(), "placeholder names: {offenders:?}");
 }
 
 // -- Parser regressions -------------------------------------------------------

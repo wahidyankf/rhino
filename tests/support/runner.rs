@@ -7,7 +7,6 @@
 use crate::binding::{self, Outcome};
 use crate::gherkin::{Corpus, Scenario, Step};
 use crate::registry::Binding;
-use crate::steps;
 use crate::world::{Driver, World};
 
 /// Run one expansion of one scenario in a world of its own.
@@ -64,34 +63,5 @@ pub fn run_bound_scenarios<D: Driver + Default>(layer: &str, bindings: &[Binding
         passed + failures.len(),
         failures.len(),
         failures.join("\n")
-    );
-}
-
-/// Every sentence the corpus uses must be one an adapter could dispatch. A
-/// sentence no entry matches is a scenario that would otherwise never run.
-pub fn assert_every_step_is_in_the_vocabulary() {
-    let corpus = Corpus::canonical();
-    let mut undefined: Vec<String> = Vec::new();
-
-    for scenario in &corpus.scenarios {
-        for expansion in scenario.expansions() {
-            for step in expansion {
-                if steps::lookup(&step.text).is_none() {
-                    undefined.push(format!(
-                        "{}: {}: {} {}",
-                        scenario.feature, scenario.name, step.keyword, step.text
-                    ));
-                }
-            }
-        }
-    }
-
-    undefined.sort();
-    undefined.dedup();
-    assert!(
-        undefined.is_empty(),
-        "{} step sentences are outside the vocabulary:\n{}",
-        undefined.len(),
-        undefined.join("\n")
     );
 }

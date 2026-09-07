@@ -41,11 +41,6 @@ mod bindings;
 mod driver;
 
 #[test]
-fn every_corpus_step_is_in_the_vocabulary() {
-    runner::assert_every_step_is_in_the_vocabulary();
-}
-
-#[test]
 fn the_corpus_passes_at_the_unit_boundary() {
     runner::run_bound_scenarios::<driver::UnitDriver>("unit", bindings::BINDINGS);
 }
