@@ -33,18 +33,27 @@ One corpus, three executing boundaries, and one static check over the mapping
 between them. Each test is classified by the strongest real boundary its setup,
 subject, or assertions touch — not by the resources it is permitted to use.
 
-| Target                   | Boundary    | What it touches                                                         |
-| ------------------------ | ----------- | ----------------------------------------------------------------------- |
-| `cargo test --test unit` | unit        | the corpus against an in-memory tree, entirely in process               |
-| `--test integration`     | integration | the corpus and six boundary policies against a real temporary directory |
-| `--test e2e`             | E2E         | the corpus and one boundary policy against the spawned executable       |
-| `--test coverage`        | static      | executes no scenario; reads the corpus and each adapter's registry      |
+| Target                   | Boundary    | What it touches                                                           |
+| ------------------------ | ----------- | ------------------------------------------------------------------------- |
+| `cargo test --test unit` | unit        | the corpus against an in-memory tree, entirely in process                 |
+| `--test integration`     | integration | the corpus and seven boundary policies against a real temporary directory |
+| `--test e2e`             | E2E         | the corpus and one boundary policy against the spawned executable         |
+| `--test coverage`        | static      | executes no scenario; reads the corpus and each adapter's registry        |
 
-Every scenario is bound at all three executing boundaries, and **no layer
-declares an exemption**. That is a property of this corpus rather than a
-default: a sentence here is a claim about behaviour that holds whether the tree
-is a map, a directory, or a process's working directory, so a boundary that
-could not run one would be a boundary at which the claim is untested.
+Every scenario is bound at all three executing boundaries, with **one declared
+exemption**. That is close to a property of this corpus rather than a default: a
+sentence here is a claim about behaviour that holds whether the tree is a map, a
+directory, or a process's working directory, so a boundary that could not run
+one is a boundary at which the claim is untested, and has to say so.
+
+The exemption is `harness-parity :: A file that vanishes between the walk and
+the read is not a finding`, at integration and E2E. A real directory cannot be
+made to drop a file between the walk and the read without a second thread racing
+the run under inspection, which would put the outcome in the scheduler's hands
+rather than the validator's. The unit adapter drives the same
+`TreeError::NotFound` through the same port and is not exempt, so the behaviour
+is proved. `Sandbox::build` refuses the precondition outright, so the exemption
+cannot quietly decay into a step that passes by doing nothing.
 
 Two tests are deliberately split across boundaries. `no_leaf_writes_to_the_repository_it_inspects`
 appears at integration _and_ E2E: integration proves nothing was written through
