@@ -5,11 +5,12 @@
 //! reason. Arms arrive as the validators behind them are ported, so the red
 //! list is the remaining work and shrinks by construction.
 
+use crate::fixtures;
 use crate::gherkin::Step;
 use crate::harness;
 use crate::mermaid;
 use crate::steps::{self, Match};
-use crate::world::{CommandResult, Driver, World};
+use crate::world::{CommandResult, Declaration, Driver, World};
 
 pub enum Outcome {
     Passed,
@@ -133,9 +134,19 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             // the same exit code, and only the second can tell a validator that
             // stopped reading from one that found nothing wrong.
             reseed_contract(world);
+            // One accessible diagram and one resolvable link, for the same
+            // reason as the mapped tree: a walk of nothing and a clean walk of
+            // something produce the same exit code, and only the second can
+            // tell a validator that looked from one that did not.
             world.files.insert(
                 "rules/README.md".to_string(),
-                "# Rules\n\n## Directory Map\n\nNo other entries.\n".to_string(),
+                "# Rules\n\n## Directory Map\n\n- [Diagram](diagram.md)\n\nSee [the diagram](diagram.md).\n"
+                    .to_string(),
+            );
+            world.files.insert(
+                "rules/diagram.md".to_string(),
+                mermaid::sample("accessible colored class")
+                    .expect("the accessible sample is part of the fixture set"),
             );
             Outcome::Passed
         }
@@ -170,6 +181,27 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 matched.string(0),
                 mermaid::Fence::Backtick,
             ));
+            Outcome::Passed
+        }
+        "a nested repository under {string} scans a directory the outer repository excludes" => {
+            // A complete second repository inside the first. The outer one
+            // excludes `guides`; the nested one does not, and the finding is in
+            // `guides`. Only a run that read the *nested* configuration can see
+            // it, so a run that inherited the outer exclusions reports a clean
+            // walk of nothing.
+            let root = matched.string(0).to_string();
+            world
+                .declaration
+                .excluded_directories
+                .extend([root.clone(), "guides".to_string()]);
+            let nested = fixtures::render(&Declaration::default());
+            world
+                .files
+                .insert(format!("{root}/{}", fixtures::CONFIG_PATH), nested);
+            world.files.insert(
+                format!("{root}/guides/diagram.md"),
+                mermaid::unsafe_diagram("flowchart LR", mermaid::Fence::Backtick),
+            );
             Outcome::Passed
         }
         "the repository declares the accessible palette" => {
@@ -836,7 +868,7 @@ Body.
             )
         }
         "stderr names the missing configuration file" => {
-            names(world.result(), &[crate::fixtures::CONFIG_PATH])
+            names(world.result(), &[fixtures::CONFIG_PATH])
         }
         "stderr names the unrecognized schema" => {
             let schema = world
@@ -1031,22 +1063,6 @@ Body.
                 )),
             }
         }
-        "{int} directories were inspected" => {
-            let expected = matched.integer(0);
-            match inspected_count(world.result()) {
-                Some(counted) => expect(
-                    counted == expected,
-                    format!(
-                        "expected {expected} directories inspected, the summary says {counted}\nstdout: {}",
-                        world.result().stdout
-                    ),
-                ),
-                None => Outcome::Failed(format!(
-                    "stdout carries no inspection summary\nstdout: {}",
-                    world.result().stdout
-                )),
-            }
-        }
         "an argument error is raised" => {
             let result = world.result();
             expect(
@@ -1166,6 +1182,46 @@ Body.
                 ),
             )
         }
+        "stdout names the command {string}" => {
+            let needle = matched.string(0);
+            let stdout = &world.result().stdout;
+            expect(
+                stdout.contains(needle),
+                format!("help does not list `{needle}`\nstdout: {stdout}"),
+            )
+        }
+        "stdout names every exit code" => {
+            // Help that lists commands but not what their codes mean is help a
+            // script author still has to read the source for.
+            let stdout = &world.result().stdout;
+            let missing: Vec<&str> = ["0  ", "1  ", "2  "]
+                .into_iter()
+                .filter(|code| !stdout.contains(code))
+                .collect();
+            expect(
+                missing.is_empty(),
+                format!("help explains no exit code {missing:?}\nstdout: {stdout}"),
+            )
+        }
+        "stderr names a file it could not read" => {
+            let result = world.result();
+            let named: Vec<&String> = world
+                .unreadable
+                .iter()
+                .filter(|path| result.stderr.contains(path.as_str()))
+                .collect();
+            expect(
+                !named.is_empty(),
+                format!(
+                    "stderr names none of the {} sealed files\nstderr: {}",
+                    world.unreadable.len(),
+                    result.stderr
+                ),
+            )
+        }
+        "{int} links were inspected" => inspected(world, matched.integer(0), "links"),
+        "{int} files were inspected" => inspected(world, matched.integer(0), "files"),
+        "{int} directories were inspected" => inspected(world, matched.integer(0), "directories"),
         "stdout is empty" => {
             let result = world.result();
             expect(
@@ -1195,7 +1251,7 @@ Body.
                 )),
             }
         }
-        "stdout JSON has a {string} and a {int}-character {string}" => {
+        "stdout JSON has a {string} and a {int}-character hexadecimal {string}" => {
             let present = matched.string(0);
             let sized = matched.string(1);
             let width = matched.integer(0);
@@ -1206,16 +1262,25 @@ Body.
             if value.is_empty() {
                 return Outcome::Failed(format!("`{present}` is empty"));
             }
-            match json_string(stdout, sized) {
-                Some(found) => expect(
-                    found.chars().count() == width,
-                    format!(
-                        "`{sized}` is {} characters, not {width}",
-                        found.chars().count()
-                    ),
-                ),
-                None => Outcome::Failed(format!("stdout carries no `{sized}`\nstdout: {stdout}")),
+            let Some(found) = json_string(stdout, sized) else {
+                return Outcome::Failed(format!("stdout carries no `{sized}`\nstdout: {stdout}"));
+            };
+            // Not merely the right length: forty zeros is what a build made
+            // outside a repository reports, and a scenario that accepted it
+            // could not tell an embedded revision from a missing one.
+            if found.chars().count() != width {
+                return Outcome::Failed(format!(
+                    "`{sized}` is {} characters, not {width}",
+                    found.chars().count()
+                ));
             }
+            if !found.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Outcome::Failed(format!("`{sized}` is not hexadecimal: {found}"));
+            }
+            expect(
+                found.chars().any(|c| c != '0'),
+                format!("`{sized}` is all zeros, which is the no-repository fallback"),
+            )
         }
         "the first stdout JSON violation kind is {string}" => {
             let expected = matched.string(0);
@@ -1597,7 +1662,13 @@ fn prefixed(stream: &str, prefix: &str, name: &str) -> Outcome {
 /// same bug in the reader.
 fn json_number(text: &str, key: &str) -> Option<usize> {
     let needle = format!("\"{key}\":");
-    let after = text.split(&needle).nth(1)?;
+    // Scoped to the outer object, so a member of the same name inside a
+    // violation cannot answer a question asked about the run.
+    let outer = text.split("\"violations\":[").next().unwrap_or(text);
+    let after = outer
+        .split(&needle)
+        .nth(1)
+        .or_else(|| text.rsplit(']').next()?.split(&needle).nth(1))?;
     after
         .chars()
         .take_while(char::is_ascii_digit)
@@ -1609,14 +1680,72 @@ fn json_number(text: &str, key: &str) -> Option<usize> {
 fn json_string(text: &str, key: &str) -> Option<String> {
     let needle = format!("\"{key}\":\"");
     let after = text.split(&needle).nth(1)?;
-    Some(after.split('"').next()?.to_string())
+    // Terminated on the first *unescaped* quote. The writer escapes quotes
+    // inside a value, and a reader that stopped at the first `"` would silently
+    // truncate every message that contains one.
+    let mut value = String::new();
+    let mut characters = after.chars();
+    while let Some(character) = characters.next() {
+        match character {
+            '"' => return Some(value),
+            '\\' => match characters.next() {
+                Some('n') => value.push('\n'),
+                Some(escaped) => value.push(escaped),
+                None => return None,
+            },
+            other => value.push(other),
+        }
+    }
+    None
 }
 
 /// The first object inside the `violations` array, as text.
 fn first_violation(text: &str) -> Option<String> {
     let after = text.split("\"violations\":[").nth(1)?;
-    let body = after.strip_prefix('{')?;
-    Some(body.split('}').next()?.to_string())
+    // Braces are balanced rather than split on, and a brace inside a string
+    // value does not count -- otherwise a message containing `}` would end the
+    // record early and the fields after it would read as absent.
+    let mut depth = 0usize;
+    let mut inside_string = false;
+    let mut escaped = false;
+    let mut record = String::new();
+    for character in after.chars() {
+        if depth > 0 {
+            record.push(character);
+        }
+        match character {
+            _ if escaped => escaped = false,
+            '\\' if inside_string => escaped = true,
+            '"' => inside_string = !inside_string,
+            '{' if !inside_string => depth += 1,
+            '}' if !inside_string => {
+                depth -= 1;
+                if depth == 0 {
+                    record.pop();
+                    return Some(record);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The summary line's inspected count, named as the scenario named it.
+fn inspected<D: Driver>(world: &World<D>, expected: usize, subject: &str) -> Outcome {
+    match inspected_count(world.result()) {
+        Some(counted) => expect(
+            counted == expected,
+            format!(
+                "expected {expected} {subject} inspected, the summary says {counted}\nstdout: {}",
+                world.result().stdout
+            ),
+        ),
+        None => Outcome::Failed(format!(
+            "stdout carries no summary\nstdout: {}",
+            world.result().stdout
+        )),
+    }
 }
 
 /// The digest a harness-parity run reports.

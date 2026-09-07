@@ -38,6 +38,14 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "cli-contract",
+        "A selected root is the repository that gets inspected",
+    ),
+    (
+        "cli-contract",
+        "A selected root brings its own scan exclusions",
+    ),
+    (
+        "cli-contract",
         "Leaf output has an atomic command-category prefix",
     ),
     (

@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 132] = [
+pub const VOCABULARY: [&str; 138] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -36,6 +36,7 @@ pub const VOCABULARY: [&str; 132] = [
     "a canonical skill declares a name that is not its directory",
     "a file imports the canonical instruction body",
     "a nested repository instruction file exists",
+    "a nested repository under {string} scans a directory the outer repository excludes",
     "a repository declaring every section with nothing to find",
     "a valid one-skill one-agent one-capability harness contract",
     "all violations are {string}",
@@ -64,6 +65,7 @@ pub const VOCABULARY: [&str; 132] = [
     "no Markdown files are scanned",
     "no directories were inspected",
     "stderr lines start with {string}",
+    "stderr names a file it could not read",
     "stderr names the canon that has nowhere to be reconciled",
     "stderr names the missing configuration file",
     "stderr names the missing key",
@@ -71,10 +73,12 @@ pub const VOCABULARY: [&str; 132] = [
     "stderr names the unknown key and its position",
     "stderr names the unreadable capability file",
     "stderr names the unrecognized schema",
-    "stdout JSON has a {string} and a {int}-character {string}",
+    "stdout JSON has a {string} and a {int}-character hexadecimal {string}",
     "stdout JSON property {string} is {int}",
     "stdout is empty",
     "stdout lines start with {string}",
+    "stdout names every exit code",
+    "stdout names the command {string}",
     "stdout reports that zero diagrams were checked",
     "the agent adapter for {string} contains extra prompt instructions",
     "the agent adapter for {string} drops a declared constraint",
@@ -142,9 +146,11 @@ pub const VOCABULARY: [&str; 132] = [
     "there are no violations",
     "there are {int} violations",
     "{int} Mermaid diagrams were inspected",
-    "{int} directories were inspected",
     "{int} capability declarations were reconciled",
+    "{int} directories were inspected",
+    "{int} files were inspected",
     "{int} harnesses were inspected",
+    "{int} links were inspected",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
