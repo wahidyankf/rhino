@@ -35,7 +35,7 @@ impl Sandbox {
         for (path, content) in files {
             sandbox.write(path, content);
         }
-        if declaration.present {
+        if !declaration.absent {
             sandbox.write(fixtures::CONFIG_PATH, &fixtures::render(declaration));
         }
         sandbox

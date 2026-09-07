@@ -51,16 +51,12 @@ pub fn run_step<D: Driver>(world: &mut World<D>, step: &Step) -> Outcome {
 fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Outcome {
     match matched.pattern {
         // -- Arrange: the configuration ---------------------------------------
-        "the repository declares a complete configuration" => {
-            world.declaration.present = true;
-            Outcome::Passed
-        }
+        "the repository declares a complete configuration" => Outcome::Passed,
         "the repository has no configuration file" => {
-            world.declaration.present = false;
+            world.declaration.absent = true;
             Outcome::Passed
         }
         "the repository declares the schema {string}" => {
-            world.declaration.present = true;
             world.declaration.schema = Some(matched.string(0).to_string());
             Outcome::Passed
         }
@@ -131,13 +127,11 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             // The fixture's declared palette is the accessible one. Saying so
             // is what makes the diagram scenarios readable without repeating
             // six colours in every Background.
-            world.declaration.present = true;
             Outcome::Passed
         }
         "an empty repository" => {
             // About the tree, not the configuration: a repository with a
             // complete policy and nothing to apply it to.
-            world.declaration.present = true;
             world.files.clear();
             Outcome::Passed
         }
@@ -242,15 +236,49 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "Markdown text containing a heading marker, Hello, can\'t-stop, naïve, and {int}" => {
+            // One line holding exactly the four things a reader would count as
+            // words, behind a heading marker that is punctuation rather than a
+            // fifth.
+            world.files.insert(
+                "subject.md".to_string(),
+                format!("# Hello can\'t-stop naïve {}\n", matched.integer(0)),
+            );
+            Outcome::Passed
+        }
+        "the repository declares word-budget surfaces:" => {
+            let declared = rows(step);
+            if declared.is_empty() {
+                return Outcome::Failed(
+                    "the step promised a table of surfaces and carried none".to_string(),
+                );
+            }
+            let entries: Vec<String> = declared
+                .iter()
+                .filter_map(|row| {
+                    let glob = row.get("glob")?;
+                    let fail = row.get("fail")?;
+                    Some(format!("{{glob: \"{glob}\", fail: {fail}}}"))
+                })
+                .collect();
+            if entries.len() != declared.len() {
+                return Outcome::Failed("the table needs a `glob` and a `fail` column".to_string());
+            }
+            // Order is the declaration: the last matching surface wins, so a
+            // set here would lose the very thing the scenario asserts.
+            world.declaration.overrides.insert(
+                "governance-word-budget.surfaces".to_string(),
+                format!("[{}]", entries.join(", ")),
+            );
+            Outcome::Passed
+        }
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
         {
-            world.declaration.present = true;
             world.declaration.empty_roster = true;
             Outcome::Passed
         }
         "the repository declares a configuration with an empty harness roster and a canonical skills root" =>
         {
-            world.declaration.present = true;
             world.declaration.empty_roster = true;
             world.declaration.canonical_skills_root = Some("canon/skills".to_string());
             Outcome::Passed
@@ -279,6 +307,28 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .string(0)
                 .split('|')
                 .map(|argument| argument.to_string())
+                .collect();
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I scan the declared surfaces"
+        | "I find word-limit violations"
+        | "I inspect the word budget" => {
+            let arguments = validator_arguments("word-budget").expect("word-budget is a validator");
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I count the words in {string}" => {
+            let arguments: Vec<String> = ["md", "word-count", "inspect", "--file"]
+                .iter()
+                .map(|part| (*part).to_string())
+                .chain(std::iter::once(matched.string(0).to_string()))
                 .collect();
             let result = world
                 .driver
@@ -447,6 +497,67 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 ),
             )
         }
+        "the scanned Markdown paths are:" => {
+            if step.bullets.is_empty() {
+                return Outcome::Failed(
+                    "the step promised a list of paths and carried none".to_string(),
+                );
+            }
+            let scanned = scanned_paths(world.result());
+            let mut expected = step.bullets.clone();
+            expected.sort();
+            expect(
+                scanned == expected,
+                format!("expected {expected:?} scanned, got {scanned:?}"),
+            )
+        }
+        "no Markdown files are scanned" => {
+            let scanned = scanned_paths(world.result());
+            expect(
+                scanned.is_empty(),
+                format!("expected nothing scanned, got {scanned:?}"),
+            )
+        }
+        "the only violation is a {int}-word limit for {string}" => {
+            let result = world.result();
+            let lines: Vec<&str> = result
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with('['))
+                .collect();
+            if lines.len() != 1 {
+                return Outcome::Failed(format!(
+                    "expected exactly one violation, got {}\nstderr: {}",
+                    lines.len(),
+                    result.stderr
+                ));
+            }
+            let path = matched.string(0);
+            let words = matched.integer(0);
+            expect(
+                lines[0].contains(path) && lines[0].contains(&format!("words={words}")),
+                format!(
+                    "expected a {words}-word violation for `{path}`, got `{}`",
+                    lines[0]
+                ),
+            )
+        }
+        "the word count is {int}" => {
+            let expected = matched.integer(0);
+            match counted_words(world.result()) {
+                Some(counted) => expect(
+                    counted == expected,
+                    format!(
+                        "expected a count of {expected}, got {counted}\nstdout: {}",
+                        world.result().stdout
+                    ),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no word count\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
         "no directories were inspected" => {
             let result = world.result();
             expect(
@@ -552,4 +663,30 @@ fn inspected_count(result: &CommandResult) -> Option<usize> {
         .find(|line| line.contains("checked "))?;
     let after = line.split("checked ").nth(1)?;
     after.split_whitespace().next()?.parse().ok()
+}
+
+/// Every path a validator says it scanned, sorted.
+///
+/// Read back out of stdout because that is the only place all three adapters
+/// can see it: a scan nobody can observe is a scan nobody can check.
+fn scanned_paths(result: &CommandResult) -> Vec<String> {
+    let mut paths: Vec<String> = result
+        .stdout
+        .lines()
+        .filter_map(|line| line.split_once("] scanned "))
+        .map(|(_, path)| path.trim().to_string())
+        .collect();
+    paths.sort();
+    paths
+}
+
+/// The number a word-count inspection reports.
+fn counted_words(result: &CommandResult) -> Option<usize> {
+    let line = result.stdout.lines().find(|line| line.contains(" words"))?;
+    line.rsplit_once(": ")?
+        .1
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()
 }

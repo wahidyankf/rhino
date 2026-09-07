@@ -26,10 +26,15 @@ pub struct CommandResult {
 /// it.
 #[derive(Debug, Clone, Default)]
 pub struct Declaration {
-    /// Whether a configuration file exists at all. What it contains is always
-    /// the complete, legal base plus whatever the scenario declared on top:
-    /// `specs/behaviours/README.md` states why a declaring `Given` is additive.
-    pub present: bool,
+    /// Whether the repository has *no* configuration file.
+    ///
+    /// Stated as the absence rather than the presence so the default is a
+    /// complete, legal configuration. `specs/behaviours/README.md` says a
+    /// declaring `Given` is additive over that base, and a field that had to be
+    /// set by every declaring arm would eventually be forgotten by one -- which
+    /// presents as the validator refusing for a reason the scenario never
+    /// mentioned.
+    pub absent: bool,
     pub schema: Option<String>,
     /// Dotted key to replacement scalar, applied after the base is built.
     pub overrides: BTreeMap<String, String>,

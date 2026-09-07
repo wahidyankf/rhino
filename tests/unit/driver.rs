@@ -24,7 +24,7 @@ impl Driver for UnitDriver {
         for (path, content) in files {
             tree.write(path, content);
         }
-        if declaration.present {
+        if !declaration.absent {
             tree.write(fixtures::CONFIG_PATH, &fixtures::render(declaration));
         }
 
