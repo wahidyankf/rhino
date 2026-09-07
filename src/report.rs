@@ -117,6 +117,7 @@ pub struct Report {
     /// validator: a surface that silently matched nothing and a surface that
     /// matched everything both produce a clean run.
     scanned: Vec<String>,
+    notes: Vec<String>,
     findings: Vec<Finding>,
 }
 
@@ -127,6 +128,7 @@ impl Report {
             subject,
             inspected: 0,
             scanned: Vec::new(),
+            notes: Vec::new(),
             findings: Vec::new(),
         }
     }
@@ -146,6 +148,16 @@ impl Report {
     pub fn scanned(&mut self, path: impl Into<String>) -> &mut Self {
         self.scanned.push(path.into());
         self.inspected += 1;
+        self
+    }
+
+    /// An extra line of stdout, under the same category prefix.
+    ///
+    /// For facts a run establishes that are not findings -- a digest, a count
+    /// of what the canon holds -- and that a caller has to be able to read
+    /// without parsing the validator's internals.
+    pub fn note(&mut self, text: impl AsRef<str>) -> &mut Self {
+        self.notes.push(text.as_ref().to_string());
         self
     }
 
@@ -172,17 +184,25 @@ impl Report {
         );
 
         let mut summary = summary;
+        for note in &self.notes {
+            summary.push_str(&format!("[{}] {note}\n", self.category));
+        }
         let mut scanned = self.scanned.clone();
         scanned.sort();
         for path in scanned {
             summary.push_str(&format!("[{}] scanned {path}\n", self.category));
         }
 
-        let stderr: String = self
+        // Sorted, so two runs over one repository produce byte-identical
+        // output and a diff between two repositories is a diff about the
+        // repositories.
+        let mut rendered: Vec<String> = self
             .findings
             .iter()
             .map(|finding| finding.render(self.category))
             .collect();
+        rendered.sort();
+        let stderr: String = rendered.concat();
 
         Outcome {
             exit_code: u8::from(!self.findings.is_empty()),

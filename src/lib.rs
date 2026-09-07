@@ -10,6 +10,7 @@
 
 pub mod config;
 pub mod governance;
+pub mod harness;
 pub mod markdown;
 pub mod report;
 pub mod runtime;
@@ -124,6 +125,7 @@ pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
             .finish(),
         "word-budget" => governance::word_budget::validate(tree, &config),
         "directory-map" => governance::directory_map::validate(tree, &config),
+        "harness-parity" => harness::validate(tree, &config),
         "internal-link" => markdown::internal_link::validate(tree, &config),
         "mermaid" => markdown::mermaid::validate(tree, &config),
         other => Report::refused(other, format!("`{}` is not ported yet", path.join(" "))),

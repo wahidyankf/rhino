@@ -64,6 +64,17 @@ impl Corpus {
     }
 }
 
+/// Every path a validator may look at.
+///
+/// Filesystem links are already absent: the port never reports one, because
+/// following one can leave the repository.
+pub fn files(tree: &dyn Tree, config: &Config) -> Vec<String> {
+    tree.files()
+        .into_iter()
+        .filter(|path| !is_excluded(path, &config.scan.exclude_directories))
+        .collect()
+}
+
 /// Every Markdown path a validator may look at.
 pub fn markdown_files(tree: &dyn Tree, config: &Config) -> Vec<String> {
     tree.files()
