@@ -43,6 +43,7 @@ mod world;
 #[allow(dead_code)]
 mod bindings;
 mod driver;
+mod policy;
 
 #[test]
 fn the_corpus_passes_at_the_process_boundary() {
