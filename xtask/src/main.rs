@@ -53,5 +53,10 @@ fn test_quick() -> Result<(), String> {
             "-D",
             "warnings",
         ],
-    )
+    )?;
+    // The static behaviour check executes no scenario: it asserts that every
+    // scenario in the corpus is bound at every layer, or validly exempt. It is
+    // in the quick gate because an unbound scenario reports nothing, and
+    // reporting nothing looks exactly like passing.
+    run("cargo", &["test", "--test", "coverage"])
 }

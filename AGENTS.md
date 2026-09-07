@@ -24,7 +24,7 @@ RHINO is a generic repository-hygiene validator. It reads a repository's declare
 
 ## Testing
 
-- `cargo xtask test-quick` runs the unit adapter and the static behaviour check. Integration and E2E adapters run on a schedule, never in a Git hook and never in the quick gate.
+- `cargo xtask test-quick` is what the pre-push hook runs, so it holds only checks fast enough to run on every push: formatting, lints, the static behaviour check, and the unit adapter once it is green. Integration and E2E adapters run on a schedule, never in a Git hook and never in the quick gate.
 - Keep line coverage over the validator modules at or above 99%. `src/main.rs` and the concrete filesystem adapter are the only declared exclusions, and `README.md` says why.
 - The product is read-only, network-free, and process-free: it opens no socket including loopback, spawns no child process, writes nothing into the tree it inspects, and follows no path outside the declared root. These are enforced by tests, not by documentation. The no-loopback rule is stricter than the integration layer's own boundary, which permits an owned socket — that is deliberate.
 

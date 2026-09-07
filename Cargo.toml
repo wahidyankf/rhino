@@ -25,6 +25,22 @@ path = "src/lib.rs"
 
 [dev-dependencies]
 
+[[test]]
+name = "unit"
+path = "tests/unit/main.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[[test]]
+name = "e2e"
+path = "tests/e2e/main.rs"
+
+[[test]]
+name = "coverage"
+path = "tests/coverage/main.rs"
+
 # Size-optimized release profile. Every choice here is measured in Phase 6 of
 # the extraction plan and recorded against a budget; none is applied on faith.
 [profile.release]
