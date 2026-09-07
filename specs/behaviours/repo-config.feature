@@ -117,6 +117,60 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr contains "no required server names anything to find in it"
 
+  Scenario: A repository whose harnesses express no canonical agents is legal
+    Given the repository declares a complete configuration
+    And no canonical agents are declared and no harness expresses them
+    When I run the "repo-config" validator
+    Then the exit code is 0
+
+  Scenario: A canonical agents root no harness expresses is refused
+    Given the repository declares a complete configuration
+    And no harness declares an agent adapter
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "declares no agent adapter"
+
+  Scenario: An agent adapter with no canonical agents root is refused
+    Given the repository declares a complete configuration
+    And no canonical agents are declared
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "no `agents-root` names what it would express"
+
+  Scenario: A skill adapter with no canonical skills root is refused
+    Given the repository declares a complete configuration
+    And harness "beta" declares a command directory
+    And no canonical skills are declared
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "no `skills-root` names what it would express"
+
+  Scenario Outline: A canonical root and the route its adapters carry are one declaration
+    Given the repository declares a complete configuration
+    And the configuration omits "<key>"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "<reason>"
+
+    Examples:
+      | key                                  | reason                            |
+      | harness-parity.canonical.agent-route | required alongside `agents-root`  |
+      | harness-parity.canonical.skill-route | required alongside `skills-root`  |
+
+  Scenario: A translation naming no capability is refused
+    Given the repository declares a complete configuration
+    And a harness translates a capability it does not name
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "conditional translation naming no capability"
+
+  Scenario: A translation naming an undeclared capability is refused
+    Given the repository declares a complete configuration
+    And a harness translates a capability the repository never declared
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "nothing would ever trigger this translation"
+
   Scenario: A validator refuses to run against a configuration it cannot read
     Given the repository declares a complete configuration
     And the configuration adds the unknown key "trees-list" to "governance-directory-map"

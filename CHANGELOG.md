@@ -38,10 +38,23 @@ The first release. Nothing is published yet, so everything below is new.
   repository never approved.
 - **Harness parity.** One canonical instruction body, one canonical skill bundle
   per skill, one canonical agent prompt per agent, reconciled against a declared
-  roster of harnesses. Semantic drift — an adapter that grants, denies, or
-  constrains differently from the canon — is reported apart from prose drift,
-  because they are different problems. A digest over the canonical files is
-  reported on every run.
+  roster of harnesses. A digest over the canonical files is reported on every
+  run.
+- **Adapters route and translate; they never copy.** Each harness declares where
+  its adapters live (as a `{name}` pattern, so a file per document and a
+  directory per document are both expressible), what document format they use,
+  where the route sentence lives, which fields must match the canon, which are
+  fixed, which are forbidden, and how each canonical capability becomes a
+  permission in that harness's own vocabulary. The check is non-weakening rather
+  than equality: an adapter may grant more than the canon requires, never less,
+  and never what the canon denies. Semantic drift is reported apart from a
+  wrong route, because they are different problems.
+- **Only pairs are required.** A repository with harnesses may have no canonical
+  skills, no canonical agents, and no capability server. What it may not do is
+  declare half of anything: a root without its route, an adapter contract
+  without a root, or a capability server without the per-harness declarations
+  that satisfy it. All three are still refused alongside an *empty* roster,
+  where they would reconcile nothing.
 - **No harness is named in the binary.** The roster is configuration; a further
   harness is one more entry rather than a new release.
 - **A three-value exit contract.** `0` clean, `1` the repository violates its
@@ -58,6 +71,11 @@ The first release. Nothing is published yet, so everything below is new.
   document per run, carrying the same exit code as the human report. `--json` is
   a shorthand on `version` alone; every other command refuses it rather than
   accept two spellings of the same thing.
+- **Some things are deliberately not findings.** A file that vanished mid-run, a
+  file that holds no text rather than text RHINO dislikes, a non-Markdown file
+  containing the canonical import, a fenced example quoting it, and a `README.md`
+  index in an adapter directory are all left alone. Each was a false positive a
+  real repository produced.
 - **Read-only by construction.** The product writes nothing to the repository it
   inspects, starts no subprocess, and opens no network connection — including
   loopback. Each of those is held by a boundary-policy test rather than by

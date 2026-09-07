@@ -129,8 +129,10 @@ reader sees separately.
 | -------------------------------- | ----------------------- | ----------------------------------------------------------- |
 | `canonical.instruction`          | yes                     | The one always-on instruction body.                         |
 | `canonical.instruction-adapter`  | no                      | A file that may contain only the import of the instruction. |
-| `canonical.skills-root`          | with a non-empty roster | Where canonical skills live.                                |
-| `canonical.agents-root`          | with a non-empty roster | Where canonical agents live.                                |
+| `canonical.skills-root`          | no                      | Where canonical skills live.                                |
+| `canonical.skill-route`          | with `skills-root`      | What a wrapper carries in place of the skill.               |
+| `canonical.agents-root`          | no                      | Where canonical agents live.                                |
+| `canonical.agent-route`          | with `agents-root`      | What an adapter carries in place of the prompt.             |
 | `harnesses`                      | yes, and may be empty   | The coding harnesses to reconcile.                          |
 | `prohibited-instruction-sources` | yes                     | Globs that may not be always-on instruction sources.        |
 | `capabilities`                   | yes, and may be empty   | The vocabulary an agent may draw capabilities from.         |
@@ -141,28 +143,77 @@ reader sees separately.
 declaration. The difference between "this repository has no coding harnesses"
 and "I forgot to configure harnesses" has to stay visible.
 
-**Two keys follow the roster.** `skills-root` and `agents-root` exist to be
-reconciled against a harness. They are required whenever the roster is
-non-empty and **refused** alongside an empty one — a canon with nowhere to be
-reconciled is a reconciliation that was silently skipped, not a clean pass.
+**Nothing is required by the roster; everything is required by its pair.** A
+repository with harnesses may have no canonical skills, no canonical agents, and
+no capability server — each is a thing a repository may genuinely not have, and
+insisting on any of them would be asserting one repository's arrangement as
+everyone's. `skills-root`, `agents-root`, and `required-mcp` are still
+**refused** alongside an _empty_ roster: a canon with nowhere to be reconciled
+is a reconciliation that was silently skipped, not a clean pass.
 
-**`required-mcp` and `capability` follow each other.** A repository with
-harnesses may require its harnesses to reach a capability server, or may
-require nothing of the sort. What it may not do is declare one half: a server
-no harness is checked against enforces nothing, and a capability file no rule
-reads is a path that goes stale unnoticed. Declare `required-mcp` and every
-harness needs a `capability`; declare neither and no harness may carry one.
-`required-mcp` is still refused alongside an empty roster.
+What each does require is the rest of its own declaration:
+
+| Declare this   | And you must also declare                              |
+| -------------- | ------------------------------------------------------ |
+| `agents-root`  | `agent-route`, and an `agent-adapter` on every harness |
+| `skills-root`  | `skill-route`                                          |
+| `required-mcp` | a `capability` on every harness                        |
+
+Each half alone is a rule nothing enforces: a root with no route leaves every
+adapter's body unchecked, an adapter contract with no root behind it reconciles
+nothing, and a server no harness is checked against enforces nothing.
 
 Each harness takes:
 
-| Key               | Required            | Meaning                                             |
-| ----------------- | ------------------- | --------------------------------------------------- |
-| `name`            | yes                 | How the harness is named in output and `--harness`. |
-| `agent-dir`       | yes                 | Where this harness keeps its agent adapters.        |
-| `agent-extension` | yes                 | The extension those adapters use.                   |
-| `command-dir`     | no                  | Where this harness keeps skill wrappers.            |
-| `capability`      | with `required-mcp` | `file` and `format` (`toml` or `json`).             |
+| Key             | Required            | Meaning                                             |
+| --------------- | ------------------- | --------------------------------------------------- |
+| `name`          | yes                 | How the harness is named in output and `--harness`. |
+| `agent-adapter` | with `agents-root`  | How this harness expresses the canonical agents.    |
+| `skill-adapter` | no                  | How it expresses the canonical skills.              |
+| `capability`    | with `required-mcp` | `file` and `format` (`toml` or `json`).             |
+
+## Adapter contracts
+
+An adapter is a **route**, not a copy. It points at the canonical document and
+translates the canon's capabilities into the permission vocabulary its own
+harness understands — which is what every coding harness actually does, and why
+a schema that made adapters repeat the canonical prompt could describe none of
+them.
+
+| Key            | Required | Meaning                                                           |
+| -------------- | -------- | ----------------------------------------------------------------- |
+| `path`         | yes      | Where the adapter lives, with `{name}` standing for the document. |
+| `format`       | yes      | `front-matter` or `toml`.                                         |
+| `route-field`  | yes      | `body`, or the name of a field holding the route.                 |
+| `identity`     | no       | Adapter field to the canonical property it must equal.            |
+| `fixed`        | no       | Fields that must hold exactly this value.                         |
+| `absent`       | no       | Fields that may not appear at all.                                |
+| `closed`       | no       | The declaration may carry nothing beyond the rules above.         |
+| `translations` | no       | How a canonical capability becomes this harness's own permission. |
+
+`path` is a pattern rather than a directory and an extension because both
+shapes are real: a file per document (`.claude/agents/{name}.md`) and a
+directory per document (`.claude/skills/{name}/SKILL.md`).
+
+Each translation says **when** it applies and **what** it then obliges:
+
+| Key                            | Meaning                                                     |
+| ------------------------------ | ----------------------------------------------------------- |
+| `when`                         | `always`, `requires`, `denies`, or `constrains`.            |
+| `capability`                   | The canonical name that triggers it. Omitted for `always`.  |
+| `field`                        | The adapter field the obligation is about.                  |
+| `members` / `absent-members`   | Members the field must, or must not, contain.               |
+| `member-prefix`                | At least one member beginning with this.                    |
+| `entries`                      | Keys the field must map to exactly these values.            |
+| `entry-prefix` / `entry-value` | At least one key beginning with this, mapped to that value. |
+
+A field read for members takes a sequence as its items and a scalar as its
+comma-separated parts, so a harness writing `tools: Read, Grep` and one writing
+a list are read the same way.
+
+The check is **non-weakening, not equality**. An adapter may grant more than the
+canon requires; it may not grant less, and it may not grant what the canon
+denies. A capability the canon never asked for triggers nothing at all.
 
 ## `scan`
 
@@ -182,8 +233,10 @@ with a harness, and leave the canonical roots out:
 ```yaml
 harnesses:
   - name: claude
-    agent-dir: .claude/agents
-    agent-extension: ".md"
+    agent-adapter:
+      path: ".claude/agents/{name}.md"
+      format: front-matter
+      route-field: body
     capability:
       file: .mcp.json
       format: json
@@ -191,15 +244,15 @@ harnesses:
 
 ```console
 $ rhino repo-config validate
-[repo-config] repo-config.yml: line 31: skills-root: required whenever the harness roster is non-empty
+[repo-config] repo-config.yml: line 31: agent-adapter: `claude` declares an agent adapter, but no `agents-root` names what it would express
 ```
 
 Line 31 is the `harnesses:` line. A key that is absent has no line of its own,
-so the fault is reported against the roster that made it required — which is the
-line you would have to look at to decide whether to add the key or empty the
-roster. `agents-root` is missing for the same reason; validation stops at the first
-semantic fault, so fix this one and run it again. The `capability` block above
-would then be refused in its turn, because nothing declares `required-mcp`.
+so the fault is reported against the roster that holds the half that is
+present — which is the line you would have to look at to decide whether to add
+the root or drop the contract. Validation stops at the first semantic fault, so
+fix this one and run it again: the `capability` block above will then be refused
+in its turn, because nothing declares `required-mcp`.
 
 None of them degrade to a partial run. A validator that skipped a tree because
 its configuration was malformed would report a clean repository that was never

@@ -222,7 +222,11 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "A skill wrapper must declare the skill it routes to",
+        "A skill wrapper may declare nothing beyond its route",
+    ),
+    (
+        "harness-parity",
+        "A wrapper no canonical skill asked for is reported",
     ),
     (
         "harness-parity",
@@ -258,7 +262,43 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "An adapter may not stop denying what the canon denies",
+        "An adapter must grant what the canon requires",
+    ),
+    (
+        "harness-parity",
+        "An adapter may grant more than the canon requires",
+    ),
+    (
+        "harness-parity",
+        "A capability the canon never took on obliges an adapter nothing",
+    ),
+    (
+        "harness-parity",
+        "A repository with harnesses and no canonical agents reconciles none",
+    ),
+    (
+        "harness-parity",
+        "A harness may write its grants as a list or as one line",
+    ),
+    (
+        "harness-parity",
+        "An adapter must name the agent it stands for",
+    ),
+    (
+        "harness-parity",
+        "An adapter must answer a capability in its own vocabulary",
+    ),
+    (
+        "harness-parity",
+        "An adapter must grant every member a capability translates to",
+    ),
+    (
+        "harness-parity",
+        "An adapter may not declare a field its harness forbids",
+    ),
+    (
+        "harness-parity",
+        "An adapter may not change a field its harness fixes",
     ),
     (
         "harness-parity",
@@ -270,7 +310,7 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "An adapter may not drop a declared constraint",
+        "An adapter may not ignore a declared constraint",
     ),
     (
         "harness-parity",
@@ -448,6 +488,34 @@ pub const BINDINGS: &[Binding] = &[
     (
         "repo-config",
         "A repository whose harnesses reach no capability server is legal",
+    ),
+    (
+        "repo-config",
+        "A repository whose harnesses express no canonical agents is legal",
+    ),
+    (
+        "repo-config",
+        "A canonical agents root no harness expresses is refused",
+    ),
+    (
+        "repo-config",
+        "An agent adapter with no canonical agents root is refused",
+    ),
+    (
+        "repo-config",
+        "A skill adapter with no canonical skills root is refused",
+    ),
+    (
+        "repo-config",
+        "A canonical root and the route its adapters carry are one declaration",
+    ),
+    (
+        "repo-config",
+        "A translation naming no capability is refused",
+    ),
+    (
+        "repo-config",
+        "A translation naming an undeclared capability is refused",
     ),
     (
         "repo-config",

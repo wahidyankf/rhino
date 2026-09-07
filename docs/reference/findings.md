@@ -85,16 +85,22 @@ Reconciling the canon against a declared harness.
 | `invalid-agent`                 | A canonical agent has no usable declaration.                                                     |
 | `unknown-capability`            | An agent names a capability or constraint outside the declared vocabulary.                       |
 | `missing-skill-adapter`         | A harness has no wrapper for a canonical skill.                                                  |
-| `skill-content-divergence`      | A wrapper's name, description, or body has drifted from the skill.                               |
+| `skill-content-divergence`      | A wrapper's description, route, or declaration has drifted from the skill.                       |
+| `unexpected-skill-adapter`      | A harness holds a wrapper no canonical skill asked for.                                          |
 | `missing-agent-adapter`         | A harness has no adapter for a canonical agent.                                                  |
 | `unexpected-agent-adapter`      | A harness carries an adapter for an agent the canon does not hold.                               |
-| `agent-semantic-divergence`     | An adapter's declared capabilities or constraints differ from the agent's.                       |
-| `agent-prompt-divergence`       | An adapter's prompt body differs from the agent's.                                               |
+| `agent-semantic-divergence`     | An adapter's identity, fixed fields, or permissions do not answer the canon.                     |
+| `agent-prompt-divergence`       | An adapter does not carry the canonical route.                                                   |
 | `divergent-capability`          | A harness's capability declaration is absent, unreadable, or does not match the required server. |
 
 An adapter exists to route to the canon and to do nothing else. That is why
 `invalid-instruction-adapter` is not configurable: anything beyond the import is
 a second instruction source wearing the adapter's name.
+
+The same holds one level down. An agent adapter carries the declared route and
+its own harness's permissions — never a copy of the canonical prompt — so
+rewriting the canon is not drift and produces no finding at all. Only the
+digest moves.
 
 ## Not findings
 
@@ -115,6 +121,9 @@ parity validate` meets one, because it is the only walk that reads every file
   prohibited by _name_ are still reported whatever their kind.
 - **A `README.md` in a canonical root or a harness's adapter directory.** It is
   an index of what lives there, not a declaration of anything.
+- **An adapter granting more than the canon requires.** The contract is
+  non-weakening, not equality. A harness's own defaults are not the canon's
+  business; granting _less_, or granting what the canon denies, is.
 - **A fenced example or code span quoting the import.** A page documenting the
   adapter is not one. A document that ends inside an unclosed fence gets no
   such benefit.

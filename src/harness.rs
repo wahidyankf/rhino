@@ -10,7 +10,10 @@
 //! change -- which is the difference between a validator that serves one
 //! repository and one that serves four.
 
-use crate::config::{Capability, CapabilityFormat, Config, Harness, RequiredMcp};
+use crate::config::{
+    Adapter, Capability, CapabilityFormat, Config, DocumentFormat, Harness, Identity, RequiredMcp,
+    Translation, When,
+};
 use crate::markdown;
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
@@ -74,35 +77,22 @@ impl Declaration {
 /// fifth check can join without another argument.
 struct Canon<'a> {
     skills_root: Option<&'a str>,
+    agents_root: Option<&'a str>,
+    skill_route: Option<&'a str>,
+    agent_route: Option<&'a str>,
     skills: BTreeMap<String, Declaration>,
-    agents: BTreeMap<String, Document>,
+    agents: BTreeMap<String, Declaration>,
     required: Option<&'a RequiredMcp>,
 }
 
-/// A file split into its declaration and the prompt beneath it.
-struct Document {
-    declaration: Declaration,
-    body: String,
-}
-
-fn read_document(text: &str) -> Option<Document> {
-    let mut lines = text.lines();
-    if lines.next()?.trim() != "---" {
-        return None;
-    }
-    let mut front = String::new();
-    for line in lines.by_ref() {
-        if line.trim() == "---" {
-            let declaration: Declaration = yaml_serde::from_str(&front).ok()?;
-            return Some(Document {
-                declaration,
-                body: lines.collect::<Vec<_>>().join("\n").trim().to_string(),
-            });
-        }
-        front.push_str(line);
-        front.push('\n');
-    }
-    None
+/// The declaration a canonical document carries, if it carries one.
+///
+/// Read through the same parser an adapter is read through, because a canonical
+/// document and the adapters routing to it are the same kind of file and a
+/// second reader would eventually disagree with the first.
+fn read_declaration(text: &str) -> Option<Declaration> {
+    let read = Read::parse(text, DocumentFormat::FrontMatter)?;
+    serde_json::from_value(Value::Object(read.fields.into_iter().collect())).ok()
 }
 
 pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
@@ -140,6 +130,9 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     instructions(&contents, config, &mut report);
     let canon = Canon {
         skills_root: parity.canonical.skills_root.as_deref(),
+        agents_root: parity.canonical.agents_root.as_deref(),
+        skill_route: parity.canonical.skill_route.as_deref(),
+        agent_route: parity.canonical.agent_route.as_deref(),
         skills: skills(
             &contents,
             parity.canonical.skills_root.as_deref(),
@@ -328,7 +321,7 @@ fn skills(
             continue;
         }
 
-        let Some(document) = read_document(text) else {
+        let Some(declaration) = read_declaration(text) else {
             report.found(Finding::new(
                 "invalid-skill",
                 path,
@@ -336,10 +329,8 @@ fn skills(
             ));
             continue;
         };
-        let (Some(name), Some(_)) = (
-            document.declaration.name.clone(),
-            document.declaration.description.clone(),
-        ) else {
+        let (Some(name), Some(_)) = (declaration.name.clone(), declaration.description.clone())
+        else {
             report.found(Finding::new(
                 "invalid-skill",
                 path,
@@ -359,7 +350,7 @@ fn skills(
         // directory component of a unique path, so requiring the two to match
         // is what makes two skills sharing a name unrepresentable rather than
         // merely detectable.
-        found.insert(name, document.declaration);
+        found.insert(name, declaration);
     }
 
     found
@@ -372,8 +363,8 @@ fn agents(
     root: Option<&str>,
     config: &Config,
     report: &mut Report,
-) -> BTreeMap<String, Document> {
-    let mut found: BTreeMap<String, Document> = BTreeMap::new();
+) -> BTreeMap<String, Declaration> {
+    let mut found: BTreeMap<String, Declaration> = BTreeMap::new();
     let Some(root) = root else {
         return found;
     };
@@ -404,7 +395,7 @@ fn agents(
         let Some(name) = rest.strip_suffix(".md") else {
             continue;
         };
-        let Some(document) = read_document(text) else {
+        let Some(declaration) = read_declaration(text) else {
             report.found(Finding::new(
                 "invalid-agent",
                 path,
@@ -415,12 +406,7 @@ fn agents(
 
         // A name outside the declared vocabulary grants or denies nothing, so a
         // typo would silently weaken an agent rather than fail.
-        for capability in document
-            .declaration
-            .capabilities
-            .iter()
-            .chain(&document.declaration.denied)
-        {
+        for capability in declaration.capabilities.iter().chain(&declaration.denied) {
             if !vocabulary.contains(capability.as_str()) {
                 report.found(Finding::new(
                     "unknown-capability",
@@ -431,7 +417,7 @@ fn agents(
                 ));
             }
         }
-        for constraint in &document.declaration.constraints {
+        for constraint in &declaration.constraints {
             if !constraints.contains(constraint.as_str()) {
                 report.found(Finding::new(
                     "unknown-capability",
@@ -441,7 +427,7 @@ fn agents(
             }
         }
 
-        found.insert(name.to_string(), document);
+        found.insert(name.to_string(), declaration);
     }
 
     found
@@ -453,11 +439,18 @@ fn agent_adapters(
     canon: &Canon<'_>,
     report: &mut Report,
 ) {
-    let canonical = &canon.agents;
-    let prefix = format!("{}/", harness.agent_dir.trim_end_matches('/'));
+    // All three are `Some` together or none is: the schema pairs the root with
+    // its route and with every harness's contract for expressing it.
+    let (Some(adapter), Some(root), Some(template)) = (
+        harness.agent_adapter.as_ref(),
+        canon.agents_root,
+        canon.agent_route,
+    ) else {
+        return;
+    };
 
-    for (name, expected) in canonical {
-        let path = format!("{prefix}{name}{}", harness.agent_extension);
+    for (name, expected) in &canon.agents {
+        let path = adapter_path(adapter, name);
         let Some(text) = contents.get(&path) else {
             report.found(Finding::new(
                 "missing-agent-adapter",
@@ -469,52 +462,55 @@ fn agent_adapters(
             ));
             continue;
         };
-        let Some(actual) = read_document(text) else {
+        let Some(read) = Read::parse(text, adapter.format) else {
             report.found(Finding::new(
                 "invalid-agent",
                 &path,
-                "invalid-agent: an adapter needs the same declaration the canon carries",
+                "invalid-agent: an adapter needs a declaration this harness's format can read",
             ));
             continue;
         };
 
-        // Semantics first. An adapter that permits something the canon refused
-        // is a different agent, not a differently worded one, and reporting it
-        // as prose drift would understate it.
-        if actual.declaration.semantics() != expected.declaration.semantics() {
+        let route = route_for(
+            template,
+            &format!("{}/{name}.md", root.trim_end_matches('/')),
+        );
+        let found = shortfalls(
+            &read,
+            adapter,
+            name,
+            expected.description.as_deref(),
+            &route,
+            &Permits::of(expected),
+        );
+
+        // Semantics first, and the route only when the semantics agree. An
+        // adapter that permits something the canon refused is a different
+        // agent, not one that quoted the route wrongly, and reporting the
+        // smaller fault first would understate it.
+        if let Some(fault) = found.semantic.first() {
             report.found(Finding::new(
                 "agent-semantic-divergence",
                 &path,
-                "agent-semantic-divergence: the adapter grants, denies, or constrains differently from the canon",
+                format!("agent-semantic-divergence: {fault}"),
             ));
-        } else if actual.body != expected.body {
+        } else if let Some(fault) = found.route {
             report.found(Finding::new(
                 "agent-prompt-divergence",
                 &path,
-                "agent-prompt-divergence: the adapter's prompt is not the canonical one",
+                format!("agent-prompt-divergence: {fault}"),
             ));
         }
     }
 
-    for path in contents.keys() {
-        let Some(rest) = path.strip_prefix(&prefix) else {
-            continue;
-        };
-        if rest == INDEX_FILE {
-            continue;
-        }
-        let Some(name) = rest.strip_suffix(&harness.agent_extension) else {
-            continue;
-        };
-        if rest.contains('/') || canonical.contains_key(name) {
-            continue;
-        }
-        report.found(Finding::new(
-            "unexpected-agent-adapter",
-            path,
-            format!("unexpected-agent-adapter: `{name}` has no canonical agent behind it"),
-        ));
-    }
+    unexpected(
+        contents,
+        &adapter.path,
+        &canon.agents,
+        "unexpected-agent-adapter",
+        "has no canonical agent behind it",
+        report,
+    );
 }
 
 fn skill_wrappers(
@@ -523,63 +519,97 @@ fn skill_wrappers(
     canon: &Canon<'_>,
     report: &mut Report,
 ) {
-    // Only a harness that declares a command directory has wrappers to get
-    // wrong. One that declares none is complete without them.
-    let (Some(directory), Some(root)) = (harness.command_dir.as_deref(), canon.skills_root) else {
+    // Only a harness that declares wrappers has wrappers to get wrong. One
+    // that declares none is complete without them.
+    let Some(adapter) = harness.skill_adapter.as_ref() else {
         return;
     };
-    let skills = &canon.skills;
-    let prefix = format!("{}/", directory.trim_end_matches('/'));
+    let (Some(root), Some(template)) = (canon.skills_root, canon.skill_route) else {
+        return;
+    };
 
-    for (name, canonical) in skills {
-        let path = format!("{prefix}{name}.md");
-        let route = format!("@{}/{name}/{SKILL_FILE}", root.trim_end_matches('/'));
-
+    for (name, canonical) in &canon.skills {
+        let path = adapter_path(adapter, name);
         let Some(text) = contents.get(&path) else {
             report.found(Finding::new(
                 "missing-skill-adapter",
                 &path,
                 format!(
-                    "missing-skill-adapter: `{}` declares a command directory but has no wrapper for `{name}`",
+                    "missing-skill-adapter: `{}` declares skill wrappers but has none for `{name}`",
                     harness.name
                 ),
             ));
             continue;
         };
-        let Some(wrapper) = read_document(text) else {
+        let Some(read) = Read::parse(text, adapter.format) else {
             report.found(Finding::new(
                 "skill-content-divergence",
                 &path,
-                "skill-content-divergence: a wrapper needs the same declaration the canonical skill carries",
+                "skill-content-divergence: a wrapper needs a declaration this harness's format can read",
             ));
             continue;
         };
 
-        // A wrapper is a route, not a second copy of the skill. It mirrors the
-        // description a reader chooses by and contains the route and nothing
-        // else -- anything more is a place for the two to drift apart.
-        //
-        // Three separate messages for three separate faults, because a reader
-        // who is told only that a wrapper diverged still has to open both files
-        // to find out how.
-        let fault = if wrapper.declaration.name.as_deref() != Some(name.as_str()) {
-            Some(format!(
-                "the wrapper declares a name that is not the skill `{name}` it routes to"
-            ))
-        } else if wrapper.declaration.description != canonical.description {
-            Some("the wrapper's description is not the canonical skill's".to_string())
-        } else if wrapper.body.trim() != route {
-            Some(format!("a wrapper may contain `{route}` and nothing else"))
-        } else {
-            None
-        };
-        if let Some(fault) = fault {
+        let route = route_for(
+            template,
+            &format!("{}/{name}/{SKILL_FILE}", root.trim_end_matches('/')),
+        );
+        // A wrapper routes to a skill and takes on nothing of its own, so
+        // every way it can fall short is the same fault: it stopped being a
+        // route. One message all the same, because a reader told only that a
+        // wrapper diverged still has to open both files to find out how.
+        let found = shortfalls(
+            &read,
+            adapter,
+            name,
+            canonical.description.as_deref(),
+            &route,
+            &Permits::of(canonical),
+        );
+        if let Some(fault) = found.semantic.first().cloned().or(found.route) {
             report.found(Finding::new(
                 "skill-content-divergence",
                 &path,
                 format!("skill-content-divergence: {fault}"),
             ));
         }
+    }
+
+    unexpected(
+        contents,
+        &adapter.path,
+        &canon.skills,
+        "unexpected-skill-adapter",
+        "has no canonical skill behind it",
+        report,
+    );
+}
+
+/// Adapters this harness holds that no canonical document asked for.
+///
+/// The same question for skills and for agents, asked once: a directory of
+/// adapters is only as trustworthy as its emptiest corner, and one nobody
+/// declared is a prompt that runs without ever being reconciled.
+fn unexpected<T>(
+    contents: &BTreeMap<String, String>,
+    pattern: &str,
+    canonical: &BTreeMap<String, T>,
+    kind: &'static str,
+    complaint: &str,
+    report: &mut Report,
+) {
+    for path in contents.keys() {
+        let Some(name) = name_in(pattern, path) else {
+            continue;
+        };
+        if canonical.contains_key(&name) {
+            continue;
+        }
+        report.found(Finding::new(
+            kind,
+            path,
+            format!("{kind}: `{name}` {complaint}"),
+        ));
     }
 }
 
@@ -672,6 +702,302 @@ fn find_named<'a>(value: &'a Value, name: &str) -> Option<&'a Value> {
         Value::Array(items) => items.iter().find_map(|item| find_named(item, name)),
         _ => None,
     }
+}
+
+// -- Adapters -----------------------------------------------------------------
+
+/// One adapter, read into the shape every rule below asks questions of.
+///
+/// Two document formats reach the same structure, so a rule is written once and
+/// a harness is never penalised for the syntax its own vendor chose.
+struct Read {
+    fields: BTreeMap<String, Value>,
+    body: String,
+}
+
+impl Read {
+    fn parse(text: &str, format: DocumentFormat) -> Option<Self> {
+        match format {
+            DocumentFormat::Toml => {
+                let table = toml::from_str::<Value>(text).ok()?;
+                Some(Self {
+                    fields: table.as_object()?.clone().into_iter().collect(),
+                    // A TOML adapter has no prose beneath a declaration, so its
+                    // route lives in a named field and `body` is never asked
+                    // for. Empty here rather than absent, because the question
+                    // "does the body match?" still has to have an answer.
+                    body: String::new(),
+                })
+            }
+            DocumentFormat::FrontMatter => {
+                let mut lines = text.lines();
+                if lines.next()?.trim() != "---" {
+                    return None;
+                }
+                let mut front = String::new();
+                for line in lines.by_ref() {
+                    if line.trim() == "---" {
+                        let parsed: Value = yaml_serde::from_str(&front).ok()?;
+                        return Some(Self {
+                            fields: parsed.as_object()?.clone().into_iter().collect(),
+                            body: lines.collect::<Vec<_>>().join("\n").trim().to_string(),
+                        });
+                    }
+                    front.push_str(line);
+                    front.push('\n');
+                }
+                None
+            }
+        }
+    }
+
+    /// A field read as a scalar, whatever scalar type it was written as.
+    fn scalar(&self, field: &str) -> Option<String> {
+        match self.fields.get(field)? {
+            Value::String(value) => Some(value.clone()),
+            // A field the rules read as a scalar and a repository wrote as a
+            // list or a map is not a scalar with a different value; it is not
+            // one at all, and reports as the mismatch it is.
+            _ => None,
+        }
+    }
+
+    /// A field read as a set of members.
+    ///
+    /// A sequence contributes its items and a scalar contributes its
+    /// comma-separated parts, which is the whole of the difference between a
+    /// harness that writes `tools: Read, Grep` and one that writes a list.
+    fn members(&self, field: &str) -> BTreeSet<String> {
+        match self.fields.get(field) {
+            Some(Value::Array(items)) => items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect(),
+            Some(Value::String(value)) => value
+                .split(',')
+                .map(str::trim)
+                .filter(|part| !part.is_empty())
+                .map(str::to_string)
+                .collect(),
+            _ => BTreeSet::new(),
+        }
+    }
+
+    /// A field read as a mapping of key to scalar value.
+    fn entries(&self, field: &str) -> BTreeMap<String, String> {
+        match self.fields.get(field) {
+            Some(Value::Object(map)) => map
+                .iter()
+                .filter_map(|(key, value)| {
+                    value.as_str().map(|value| (key.clone(), value.to_string()))
+                })
+                .collect(),
+            _ => BTreeMap::new(),
+        }
+    }
+
+    /// The route this adapter carries, wherever its harness keeps it.
+    fn route(&self, adapter: &Adapter) -> String {
+        if adapter.route_field == BODY {
+            self.body.trim().to_string()
+        } else {
+            self.scalar(&adapter.route_field)
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        }
+    }
+}
+
+/// Where the route lives when it is prose rather than a field.
+const BODY: &str = "body";
+
+/// The path this harness keeps its adapter for `name` at.
+fn adapter_path(adapter: &Adapter, name: &str) -> String {
+    adapter.path.replace("{name}", name)
+}
+
+/// The canonical document a path is an adapter for, if it is one.
+///
+/// The inverse of `adapter_path`, and the reason a pattern beats a directory
+/// and an extension: a file per document and a directory per document are both
+/// read by the same two halves.
+fn name_in(pattern: &str, path: &str) -> Option<String> {
+    let (prefix, suffix) = pattern.split_once("{name}")?;
+    let rest = path.strip_prefix(prefix)?.strip_suffix(suffix)?;
+    // A name is one path component. Anything deeper is a supporting file
+    // inside an adapter, not a second adapter, and an index is neither.
+    if rest.is_empty() || rest.contains('/') || format!("{rest}{suffix}") == INDEX_FILE {
+        return None;
+    }
+    Some(rest.to_string())
+}
+
+/// The route sentence a canonical document at `path` obliges.
+fn route_for(template: &str, path: &str) -> String {
+    template.replace("{path}", path)
+}
+
+/// Every way one adapter can fall short of the canon behind it.
+///
+/// Returned rather than reported so the caller decides which finding kind the
+/// shortfall is -- the same shortfall is a different fault for a skill wrapper
+/// than for an agent adapter, and the rules that find it are the same.
+struct Shortfall {
+    /// Every way the adapter permits or declares something other than the
+    /// canon does, in the order the rules are written.
+    semantic: Vec<String>,
+    /// The one way it can carry the wrong route.
+    route: Option<String>,
+}
+
+fn shortfalls(
+    read: &Read,
+    adapter: &Adapter,
+    name: &str,
+    description: Option<&str>,
+    route: &str,
+    permits: &Permits<'_>,
+) -> Shortfall {
+    let mut faults = Vec::new();
+
+    for (field, property) in &adapter.identity {
+        let expected = match property {
+            Identity::Name => Some(name.to_string()),
+            Identity::Description => description.map(str::to_string),
+        };
+        if read.scalar(field) != expected {
+            let property = match property {
+                Identity::Name => "name",
+                Identity::Description => "description",
+            };
+            faults.push(format!("`{field}` is not the canonical {property}"));
+        }
+    }
+
+    for (field, value) in &adapter.fixed {
+        if read.scalar(field).as_deref() != Some(value.as_str()) {
+            faults.push(format!("`{field}` is not `{value}`"));
+        }
+    }
+
+    for field in &adapter.absent {
+        if read.fields.contains_key(field) {
+            faults.push(format!("`{field}` may not be declared here"));
+        }
+    }
+
+    if adapter.closed {
+        let permitted: BTreeSet<&str> = adapter
+            .identity
+            .keys()
+            .chain(adapter.fixed.keys())
+            .map(String::as_str)
+            .chain((adapter.route_field != BODY).then_some(adapter.route_field.as_str()))
+            .collect();
+        for field in read.fields.keys() {
+            if !permitted.contains(field.as_str()) {
+                faults.push(format!("`{field}` is beyond what a wrapper may declare"));
+            }
+        }
+    }
+
+    for translation in &adapter.translations {
+        if !permits.triggers(translation) {
+            continue;
+        }
+        if let Some(fault) = unmet(read, translation) {
+            faults.push(fault);
+        }
+    }
+
+    Shortfall {
+        semantic: faults,
+        route: (read.route(adapter) != route).then(|| {
+            format!(
+                "`{}` is not the canonical route to `{name}`",
+                adapter.route_field
+            )
+        }),
+    }
+}
+
+/// What the canonical document permits, as the translations ask about it.
+struct Permits<'a> {
+    capabilities: BTreeSet<&'a str>,
+    denied: BTreeSet<&'a str>,
+    constraints: BTreeSet<&'a str>,
+}
+
+impl<'a> Permits<'a> {
+    /// What this canonical declaration permits, as the translations ask.
+    fn of(declaration: &'a Declaration) -> Self {
+        let (capabilities, denied, constraints) = declaration.semantics();
+        Self {
+            capabilities,
+            denied,
+            constraints,
+        }
+    }
+
+    fn triggers(&self, translation: &Translation) -> bool {
+        // `always` ignores the capability, which is why the schema lets it be
+        // omitted there and refuses to let it be omitted anywhere else.
+        let named = || translation.capability.as_deref().unwrap_or_default();
+        match translation.when {
+            When::Always => true,
+            When::Requires => self.capabilities.contains(named()),
+            When::Denies => self.denied.contains(named()),
+            When::Constrains => self.constraints.contains(named()),
+        }
+    }
+}
+
+/// How this adapter fails one translation it triggered, if it does.
+fn unmet(read: &Read, translation: &Translation) -> Option<String> {
+    let field = &translation.field;
+    let members = read.members(field);
+
+    for wanted in &translation.members {
+        if !members.contains(wanted) {
+            return Some(format!("`{field}` does not grant `{wanted}`"));
+        }
+    }
+    for refused in &translation.absent_members {
+        if members.contains(refused) {
+            return Some(format!(
+                "`{field}` grants `{refused}`, which the canon denies"
+            ));
+        }
+    }
+    if let Some(prefix) = &translation.member_prefix
+        && !members.iter().any(|member| member.starts_with(prefix))
+    {
+        return Some(format!(
+            "`{field}` grants nothing beginning with `{prefix}`"
+        ));
+    }
+
+    let entries = read.entries(field);
+    for (key, value) in &translation.entries {
+        if entries.get(key).map(String::as_str) != Some(value.as_str()) {
+            return Some(format!("`{field}.{key}` is not `{value}`"));
+        }
+    }
+    if let Some(prefix) = &translation.entry_prefix {
+        let wanted = translation.entry_value.as_deref().unwrap_or_default();
+        if !entries
+            .iter()
+            .any(|(key, value)| key.starts_with(prefix) && value == wanted)
+        {
+            return Some(format!(
+                "`{field}` sets nothing beginning with `{prefix}` to `{wanted}`"
+            ));
+        }
+    }
+
+    None
 }
 
 // -- Digest -------------------------------------------------------------------

@@ -308,7 +308,11 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         "an index README sits in every harness agent directory" => {
             for name in harness::roster(&world.declaration) {
                 world.files.insert(
-                    format!("{}/README.md", harness::agent_dir(&name)),
+                    // An index is always `README.md`, whatever extension the
+                    // harness's adapters use. For a harness whose adapters are
+                    // not Markdown it does not even match the pattern, which is
+                    // the answer too.
+                    harness::agent_adapter_directory(&name) + "/README.md",
                     "# Adapters\n\nWhat lives here.\n".to_string(),
                 );
             }
@@ -339,6 +343,31 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 "nested/always.instructions".to_string(),
                 "always read this first\n".to_string(),
             );
+            Outcome::Passed
+        }
+        "no canonical agents are declared and no harness expresses them" => {
+            world.declaration.omit_agents_root = true;
+            world.declaration.omit_agent_adapters = true;
+            Outcome::Passed
+        }
+        "no canonical agents are declared" => {
+            world.declaration.omit_agents_root = true;
+            Outcome::Passed
+        }
+        "no harness declares an agent adapter" => {
+            world.declaration.omit_agent_adapters = true;
+            Outcome::Passed
+        }
+        "no canonical skills are declared" => {
+            world.declaration.omit_skills_root = true;
+            Outcome::Passed
+        }
+        "a harness translates a capability it does not name" => {
+            world.declaration.unnamed_translation = true;
+            Outcome::Passed
+        }
+        "a harness translates a capability the repository never declared" => {
+            world.declaration.undeclared_translation = true;
             Outcome::Passed
         }
         "no capability server is required and no harness declares a capability file" => {
@@ -398,11 +427,9 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         }
         "the agent directory for {string} holds the extra file {string}" => {
             world.files.insert(
-                format!(
-                    "{}/{}",
-                    harness::agent_dir(matched.string(0)),
-                    matched.string(1)
-                ),
+                harness::agent_adapter_pattern(matched.string(0))
+                    .replace("{name}.md", matched.string(1))
+                    .replace("{name}.toml", matched.string(1)),
                 "# Note\n".to_string(),
             );
             Outcome::Passed
@@ -829,10 +856,17 @@ A competing body.
             );
             Outcome::Passed
         }
-        "the skill wrapper for {string} declares another name" => {
+        "the skill wrapper for {string} declares more than its route" => {
             world.files.insert(
                 harness::skill_wrapper(matched.string(0)),
-                harness::wrapper_with_wrong_name(),
+                harness::wrapper_with_extra_declaration(),
+            );
+            Outcome::Passed
+        }
+        "an unexpected skill wrapper exists for {string}" => {
+            world.files.insert(
+                harness::unexpected_skill_wrapper(matched.string(0)),
+                harness::undeclared_wrapper(),
             );
             Outcome::Passed
         }
@@ -885,64 +919,116 @@ A competing body.
             };
             world.files.insert(
                 harness::unexpected_agent_adapter(&first),
-                harness::undeclared_agent(),
+                harness::undeclared_agent(&first),
             );
             Outcome::Passed
         }
         "the agent adapter for {string} contains extra prompt instructions" => {
             world.files.insert(
                 harness::agent_adapter(matched.string(0)),
-                harness::agent_with_extra_prompt(),
+                harness::agent_with_extra_prompt(matched.string(0)),
             );
             Outcome::Passed
         }
         "the agent adapter for {string} weakens a denied capability" => {
             world.files.insert(
                 harness::agent_adapter(matched.string(0)),
-                harness::agent_weakening_denial(),
+                harness::agent_weakening_denial(matched.string(0)),
             );
             Outcome::Passed
         }
-        "the agent adapter for {string} stops denying a capability" => {
+        "the canonical agent requires less and no adapter answers for it" => {
+            // Both halves together, which is what makes this the case the
+            // trigger has to get right: the obligation is gone from the canon
+            // and unmet in every adapter, so a run that applied it anyway
+            // would hold three harnesses to a rule nobody wrote.
+            world
+                .files
+                .insert(harness::canonical_agent(), harness::agent_requiring_less());
+            for name in harness::roster(&world.declaration) {
+                world.files.insert(
+                    harness::agent_adapter(&name),
+                    harness::agent_without_a_matching_grant(&name),
+                );
+            }
+            Outcome::Passed
+        }
+        "the canonical agent requires less than its adapters grant" => {
+            world
+                .files
+                .insert(harness::canonical_agent(), harness::agent_requiring_less());
+            Outcome::Passed
+        }
+        "the agent adapter for {string} lists its grants" => {
             world.files.insert(
                 harness::agent_adapter(matched.string(0)),
-                harness::agent_dropping_denial(),
+                harness::agent_adapter_listing_its_grants(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} names another agent" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_with_a_wrong_name(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} grants nothing answering a capability" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_without_a_matching_grant(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} withholds a required capability" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_withholding_capability(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} declares a field its harness forbids" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_declaring_a_forbidden_field(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} changes a field its harness fixes" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_with_a_changed_fixed_field(matched.string(0)),
             );
             Outcome::Passed
         }
         "the canonical agent declares a constraint outside the declared vocabulary" => {
             // Canon and every adapter alike, so the only thing wrong with the
             // repository is the constraint's absence from the vocabulary.
-            let constrained = harness::agent_constrained_by("no-network");
-            world
-                .files
-                .insert(harness::canonical_agent(), constrained.clone());
-            for name in harness::roster(&world.declaration) {
-                world
-                    .files
-                    .insert(harness::agent_adapter(&name), constrained.clone());
-            }
+            // Written to the canon alone: an adapter translates the canon
+            // into its own vocabulary and never repeats it, so a constraint
+            // nothing translates leaves every adapter untouched.
+            world.files.insert(
+                harness::canonical_agent(),
+                harness::agent_constrained_by("no-network"),
+            );
             Outcome::Passed
         }
-        "the agent adapter for {string} drops a declared constraint" => {
+        "the agent adapter for {string} ignores a declared constraint" => {
             world.files.insert(
                 harness::agent_adapter(matched.string(0)),
-                harness::agent_dropping_constraint(),
+                harness::agent_ignoring_constraint(matched.string(0)),
             );
             Outcome::Passed
         }
         "the canonical agent requires a capability outside the declared vocabulary" => {
-            // The adapters gain it too, so the only thing wrong with the
-            // repository is the capability's absence from the vocabulary.
-            let requiring = harness::agent_requiring("network-write");
-            world
-                .files
-                .insert(harness::canonical_agent(), requiring.clone());
-            for name in harness::roster(&world.declaration) {
-                world
-                    .files
-                    .insert(harness::agent_adapter(&name), requiring.clone());
-            }
+            // Written to the canon alone, on the same reasoning as the
+            // constraint above: no translation names it, so no adapter has
+            // anything to say about it and the only fault left is the
+            // vocabulary's.
+            world.files.insert(
+                harness::canonical_agent(),
+                harness::agent_requiring("network-write"),
+            );
             Outcome::Passed
         }
         "each harness declares the required capability in its own capability format" => {
@@ -1038,7 +1124,7 @@ Body.
             world.files.remove(&harness::agent_adapter(&first));
             world.files.insert(
                 harness::unexpected_agent_adapter(&first),
-                harness::undeclared_agent(),
+                harness::undeclared_agent(&first),
             );
             Outcome::Passed
         }

@@ -119,6 +119,17 @@ pub struct Declaration {
     pub omit_required_server: bool,
     /// Whether the configuration omits every harness's capability declaration.
     pub omit_capability_files: bool,
+    /// Whether the configuration omits the canonical agents root, and whether
+    /// it omits every harness's contract for expressing it. Separate flags for
+    /// the same reason as the pair above: the rule is that they travel
+    /// together, and a scenario has to be able to part them to say so.
+    pub omit_agents_root: bool,
+    pub omit_agent_adapters: bool,
+    pub omit_skills_root: bool,
+    /// A translation naming nothing, or naming something the vocabulary never
+    /// declared -- a permission rule that could never fire.
+    pub unnamed_translation: bool,
+    pub undeclared_translation: bool,
     pub roster: Vec<String>,
     /// Whether the configuration declares a file permitted to import the
     /// canonical instruction. Absent is legal, so the flag is a tri-state only
@@ -147,6 +158,11 @@ impl Default for Declaration {
             declares_required_mcp: false,
             omit_required_server: false,
             omit_capability_files: false,
+            omit_agents_root: false,
+            omit_agent_adapters: false,
+            omit_skills_root: false,
+            unnamed_translation: false,
+            undeclared_translation: false,
             roster: Vec::new(),
             // A declared adapter is the ordinary case; the scenario that has
             // none says so.

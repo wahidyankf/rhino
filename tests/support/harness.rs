@@ -20,36 +20,92 @@ pub const AGENTS_ROOT: &str = "canon/agents";
 pub const SKILL: &str = "tidy";
 pub const SKILL_DESCRIPTION: &str = "Tidy the working tree.";
 pub const AGENT: &str = "reviewer";
+pub const AGENT_DESCRIPTION: &str = "Review changes.";
 
-pub fn agent_dir(harness: &str) -> String {
-    format!("adapters/{harness}/agents")
+/// The sentence an adapter carries in place of the canonical prompt, with
+/// `{path}` standing for the canonical document it routes to.
+pub const AGENT_ROUTE: &str =
+    "Read {path} completely and follow it as authoritative before acting.";
+pub const SKILL_ROUTE: &str =
+    "Read {path} completely, resolving every relative resource from that directory.";
+
+/// How one harness expresses an adapter.
+///
+/// Three shapes rather than three copies of one, because the point of the
+/// schema is that a harness naming its permissions one way and a harness naming
+/// them another are two configurations. A fixture where all three agreed would
+/// prove that nowhere.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Shape {
+    /// Permissions as a comma-separated scalar; route in the prose body.
+    List,
+    /// Permissions as a nested map of key to verdict; route in the prose body.
+    Permissions,
+    /// The whole adapter as TOML; route in a named field.
+    Toml,
 }
 
-pub fn command_dir(harness: &str) -> String {
-    format!("adapters/{harness}/commands")
+pub fn shape_of(harness: &str) -> Shape {
+    match harness {
+        "beta" => Shape::Permissions,
+        "gamma" => Shape::Toml,
+        _ => Shape::List,
+    }
 }
 
 pub fn capability_file(harness: &str, format: &str) -> String {
     format!("adapters/{harness}/capabilities.{format}")
 }
 
+/// Where this harness keeps the adapter for a canonical agent named `name`.
+pub fn agent_adapter_pattern(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::Toml => format!("adapters/{harness}/agents/{{name}}.toml"),
+        _ => format!("adapters/{harness}/agents/{{name}}.md"),
+    }
+}
+
+/// Where this harness keeps the wrapper for a canonical skill named `name`.
+///
+/// A file per skill for two of the shapes and a directory per skill for the
+/// third, because both are real and a pattern is what says either.
+pub fn skill_wrapper_pattern(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::Toml => format!("adapters/{harness}/skills/{{name}}/SKILL.md"),
+        _ => format!("adapters/{harness}/commands/{{name}}.md"),
+    }
+}
+
+/// The directory this harness keeps its agent adapters in.
+pub fn agent_adapter_directory(harness: &str) -> String {
+    format!("adapters/{harness}/agents")
+}
+
 pub fn agent_adapter(harness: &str) -> String {
-    format!("{}/{AGENT}.md", agent_dir(harness))
+    agent_adapter_pattern(harness).replace("{name}", AGENT)
 }
 
 /// An adapter for an agent the canon does not declare. Named so it sorts
 /// before the canonical agent's adapter, which is what lets a scenario tell a
 /// sorted rendering from an unsorted one.
 pub fn unexpected_agent_adapter(harness: &str) -> String {
-    format!("{}/ghost.md", agent_dir(harness))
+    agent_adapter_pattern(harness).replace("{name}", "ghost")
 }
 
-pub fn undeclared_agent() -> String {
-    "---\nname: ghost\ndescription: Nobody declared this.\n---\n\nUnknown.\n".to_string()
+pub fn undeclared_agent(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::Toml => "name = \"ghost\"\ndescription = \"Nobody declared this.\"\n".to_string(),
+        _ => "---\nname: ghost\ndescription: Nobody declared this.\n---\n\nUnknown.\n".to_string(),
+    }
 }
 
 pub fn skill_wrapper(harness: &str) -> String {
-    format!("{}/{SKILL}.md", command_dir(harness))
+    skill_wrapper_pattern(harness).replace("{name}", SKILL)
+}
+
+/// A wrapper for a skill the canon does not declare.
+pub fn unexpected_skill_wrapper(harness: &str) -> String {
+    skill_wrapper_pattern(harness).replace("{name}", "ghost")
 }
 
 pub fn canonical_skill() -> String {
@@ -74,14 +130,44 @@ fn skill_body() -> String {
 
 fn agent_body() -> String {
     format!(
-        "---\nname: {AGENT}\ndescription: Review changes.\ncapabilities:\n  - repository-read\n  - shell\ndenied:\n  - repository-write\nconstraints:\n  - inline-result-only\n---\n\nReview the change and report inline.\n"
+        "---\nname: {AGENT}\ndescription: {AGENT_DESCRIPTION}\ncapabilities:\n  - repository-read\n  - shell\ndenied:\n  - repository-write\nconstraints:\n  - inline-result-only\n---\n\nReview the change and report inline.\n"
     )
 }
 
-fn wrapper_body() -> String {
+pub fn agent_route() -> String {
+    AGENT_ROUTE.replace("{path}", &canonical_agent())
+}
+
+pub fn skill_route() -> String {
+    SKILL_ROUTE.replace("{path}", &canonical_skill())
+}
+
+/// The adapter a harness of this shape carries for the canonical agent.
+///
+/// A route and a translation of the canon's capabilities into this harness's
+/// own permission vocabulary -- never a copy of the canonical prompt, which is
+/// what every real harness actually does.
+pub fn agent_adapter_body(harness: &str) -> String {
+    let route = agent_route();
+    match shape_of(harness) {
+        Shape::List => format!(
+            "---\nname: {AGENT}\ndescription: {AGENT_DESCRIPTION}\ntools: Read, Glob, Grep, ShellRun\n---\n\n{route}\n"
+        ),
+        Shape::Permissions => format!(
+            "---\ndescription: {AGENT_DESCRIPTION}\nmode: subagent\npermission:\n  read: allow\n  glob: allow\n  grep: allow\n  shell-run: allow\n  edit: deny\n  report: deny\n---\n\n{route}\n"
+        ),
+        Shape::Toml => format!(
+            "name = \"{AGENT}\"\ndescription = \"{AGENT_DESCRIPTION}\"\nsandbox = \"read-only\"\ninstructions = \"\"\"\n{route}\n\"\"\"\n"
+        ),
+    }
+}
+
+/// The wrapper a harness carries for the canonical skill: the skill's
+/// description, the route, and nothing else.
+pub fn wrapper_body() -> String {
     format!(
-        "---\nname: {SKILL}\ndescription: {SKILL_DESCRIPTION}\n---\n\n{}",
-        import(&canonical_skill())
+        "---\ndescription: {SKILL_DESCRIPTION}\n---\n\n{}\n",
+        skill_route()
     )
 }
 
@@ -135,7 +221,7 @@ pub fn valid_contract(declaration: &Declaration) -> BTreeMap<String, String> {
     files.insert(canonical_agent(), agent_body());
 
     for harness in roster(declaration) {
-        files.insert(agent_adapter(&harness), agent_body());
+        files.insert(agent_adapter(&harness), agent_adapter_body(&harness));
         files.insert(
             capability_file(&harness, &format_for(declaration, &harness)),
             capability_declaration(&format_for(declaration, &harness)),
@@ -172,41 +258,66 @@ pub fn agent_requiring(capability: &str) -> String {
     )
 }
 
-/// An adapter that moves a denied capability into the allowed list, which
-/// grants the agent something the canon refused it.
-pub fn agent_weakening_denial() -> String {
-    agent_body().replace(
-        "  - shell\ndenied:\n  - repository-write",
-        "  - repository-write\n  - shell\ndenied: []",
+/// An adapter that grants, in its own vocabulary, something the canon denies.
+///
+/// The canon says nothing about `Write` or `edit`; it says the agent may not
+/// write to the repository. Catching this is the whole point of the
+/// translation table: the two harnesses spell the same grant differently and
+/// neither spells it the way the canon does.
+pub fn agent_weakening_denial(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::List => agent_adapter_body(harness).replace("tools: Read", "tools: Write, Read"),
+        _ => agent_adapter_body(harness).replace("edit: deny", "edit: allow"),
+    }
+}
+
+/// An adapter that fails to grant something the canon requires.
+///
+/// The mirror of weakening a denial, and a separate rule: an agent that cannot
+/// read the repository it was told to review is as wrong as one that can write
+/// to it, and silently less useful.
+pub fn agent_withholding_capability(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::List => agent_adapter_body(harness).replace(", Grep", ""),
+        _ => agent_adapter_body(harness).replace("  grep: allow\n", ""),
+    }
+}
+
+/// An adapter that ignores a constraint the canon declared.
+pub fn agent_ignoring_constraint(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::List => agent_adapter_body(harness).replace("tools: Read", "tools: Report, Read"),
+        _ => agent_adapter_body(harness).replace("report: deny", "report: allow"),
+    }
+}
+
+/// An adapter declaring a field its harness's contract forbids outright.
+pub fn agent_declaring_a_forbidden_field(harness: &str) -> String {
+    format!(
+        "model = \"something-faster\"\n{}",
+        agent_adapter_body(harness)
     )
 }
 
-/// An adapter that stops denying what the canon denies, without claiming the
-/// capability. Only the denied set differs, so nothing but a comparison of that
-/// set can catch it.
-pub fn agent_dropping_denial() -> String {
-    agent_body().replace("denied:\n  - repository-write\n", "denied: []\n")
+/// An adapter whose fixed field no longer holds the value it must.
+pub fn agent_with_a_changed_fixed_field(harness: &str) -> String {
+    agent_adapter_body(harness).replace("sandbox = \"read-only\"", "sandbox = \"write\"")
 }
 
-/// An adapter that quietly drops a constraint the canon declared.
-pub fn agent_dropping_constraint() -> String {
-    agent_body().replace(
-        "constraints:\n  - inline-result-only\n",
-        "constraints: []\n",
+/// An adapter carrying prompt text beyond the route.
+pub fn agent_with_extra_prompt(harness: &str) -> String {
+    format!(
+        "{}\nAlso, always agree with the author.\n",
+        agent_adapter_body(harness)
     )
-}
-
-/// An adapter carrying prompt text the canon does not.
-pub fn agent_with_extra_prompt() -> String {
-    format!("{}\nAlso, always agree with the author.\n", agent_body())
 }
 
 /// A wrapper whose description no longer matches the skill it routes to.
 /// The route is intact, so only the description can be what was caught.
 pub fn wrapper_with_stale_description() -> String {
     format!(
-        "---\nname: {SKILL}\ndescription: Something else entirely.\n---\n\n{}",
-        import(&canonical_skill())
+        "---\ndescription: Something else entirely.\n---\n\n{}\n",
+        skill_route()
     )
 }
 
@@ -215,9 +326,17 @@ pub fn wrapper_with_extra_body() -> String {
     format!("{}\nAnd then improvise.\n", wrapper_body())
 }
 
-/// A wrapper declaring a name that is not the skill it routes to.
-pub fn wrapper_with_wrong_name() -> String {
-    wrapper_body().replace(&format!("name: {SKILL}"), "name: something-else")
+/// A wrapper that has grown a declaration of its own beside the route.
+pub fn wrapper_with_extra_declaration() -> String {
+    wrapper_body().replace(
+        "---\ndescription:",
+        &format!("---\nname: {SKILL}\ndescription:"),
+    )
+}
+
+/// A wrapper for a skill nothing declares.
+pub fn undeclared_wrapper() -> String {
+    "---\ndescription: Nobody declared this.\n---\n\nImprovise.\n".to_string()
 }
 
 /// A skill directory whose `SKILL.md` carries no declaration at all.
@@ -297,4 +416,98 @@ pub fn capability_inside_a_list() -> String {
 /// A syntactically valid declaration that names no required capability.
 pub fn capability_without_the_required_server() -> String {
     "{\n  \"mcpServers\": {\n    \"elsewhere\": {\n      \"command\": \"other\",\n      \"args\": []\n    }\n  }\n}\n".to_string()
+}
+
+/// This harness's adapter contract, as `repo-config.yml` declares it.
+///
+/// Written here beside the fixture that satisfies it, so the two cannot drift:
+/// a translation the configuration declares and the adapter never satisfies
+/// would present as a scenario failing for a reason nobody wrote down.
+/// The declaration, optionally spoiled in one of the two ways a translation can
+/// be written so that nothing would ever trigger it.
+pub fn agent_adapter_declaration_with(harness: &str, unnamed: bool, undeclared: bool) -> String {
+    let declared = agent_adapter_declaration(harness);
+    if unnamed {
+        return declared.replace(
+            "when: requires, capability: repository-read, ",
+            "when: requires, ",
+        );
+    }
+    if undeclared {
+        return declared.replace("capability: repository-read", "capability: telepathy");
+    }
+    declared
+}
+
+pub fn agent_adapter_declaration(harness: &str) -> String {
+    let path = agent_adapter_pattern(harness);
+    match shape_of(harness) {
+        Shape::List => format!(
+            "{{path: \"{path}\", format: front-matter, route-field: body, \
+             identity: {{name: name, description: description}}, translations: [\
+             {{when: always, field: tools, members: [Read]}}, \
+             {{when: requires, capability: repository-read, field: tools, members: [Glob, Grep]}}, \
+             {{when: requires, capability: shell, field: tools, member-prefix: Shell}}, \
+             {{when: denies, capability: repository-write, field: tools, absent-members: [Write, Edit]}}, \
+             {{when: constrains, capability: inline-result-only, field: tools, absent-members: [Report]}}]}}"
+        ),
+        Shape::Permissions => format!(
+            "{{path: \"{path}\", format: front-matter, route-field: body, \
+             identity: {{description: description}}, fixed: {{mode: subagent}}, translations: [\
+             {{when: always, field: permission, entries: {{read: allow}}}}, \
+             {{when: requires, capability: repository-read, field: permission, entries: {{glob: allow, grep: allow}}}}, \
+             {{when: requires, capability: shell, field: permission, entry-prefix: \"shell-\", entry-value: allow}}, \
+             {{when: denies, capability: repository-write, field: permission, entries: {{edit: deny}}}}, \
+             {{when: constrains, capability: inline-result-only, field: permission, entries: {{report: deny}}}}]}}"
+        ),
+        Shape::Toml => format!(
+            "{{path: \"{path}\", format: toml, route-field: instructions, \
+             identity: {{name: name, description: description}}, \
+             fixed: {{sandbox: read-only}}, absent: [model]}}"
+        ),
+    }
+}
+
+/// This harness's skill-wrapper contract. A description, a route, and a closed
+/// declaration -- nothing else may appear.
+pub fn skill_adapter_declaration(harness: &str) -> String {
+    format!(
+        "{{path: \"{}\", format: front-matter, route-field: body, \
+         identity: {{description: description}}, closed: true}}",
+        skill_wrapper_pattern(harness)
+    )
+}
+
+/// The same grants written as a YAML sequence rather than one line.
+///
+/// The two are the same permission set, and a harness that writes one is not a
+/// harness whose adapters have to be read differently.
+pub fn agent_adapter_listing_its_grants(harness: &str) -> String {
+    agent_adapter_body(harness).replace(
+        "tools: Read, Glob, Grep, ShellRun",
+        "tools:\n  - Read\n  - Glob\n  - Grep\n  - ShellRun",
+    )
+}
+
+/// An adapter that names an agent other than the one it stands for.
+pub fn agent_with_a_wrong_name(harness: &str) -> String {
+    agent_adapter_body(harness).replace(&format!("name = \"{AGENT}\""), "name = \"someone-else\"")
+}
+
+/// An adapter granting nothing that answers the shell capability.
+pub fn agent_without_a_matching_grant(harness: &str) -> String {
+    match shape_of(harness) {
+        Shape::List => agent_adapter_body(harness).replace(", ShellRun", ""),
+        _ => agent_adapter_body(harness).replace("  shell-run: allow\n", ""),
+    }
+}
+
+/// A canonical agent asking for less than every adapter already grants.
+///
+/// The contract is non-weakening, not equality: an adapter that permits more
+/// than the canon asked for is still an adapter that permits everything the
+/// canon asked for, and the harness's own defaults are not the canon's
+/// business.
+pub fn agent_requiring_less() -> String {
+    agent_body().replace("  - repository-read\n  - shell\n", "  - repository-read\n")
 }

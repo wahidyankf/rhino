@@ -76,7 +76,13 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
 
     let roster = harness::roster(declaration);
 
-    if !roster.is_empty() || declaration.canonical_skills_root.is_some() {
+    if !declaration.omit_skills_root
+        && (!roster.is_empty() || declaration.canonical_skills_root.is_some())
+    {
+        lines.insert(
+            "harness-parity.canonical.skill-route".into(),
+            format!("\"{}\"", harness::SKILL_ROUTE),
+        );
         lines.insert(
             "harness-parity.canonical.skills-root".into(),
             declaration
@@ -85,7 +91,13 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
                 .unwrap_or_else(|| harness::SKILLS_ROOT.into()),
         );
     }
-    if !roster.is_empty() || declaration.canonical_agents_root.is_some() {
+    if !declaration.omit_agents_root
+        && (!roster.is_empty() || declaration.canonical_agents_root.is_some())
+    {
+        lines.insert(
+            "harness-parity.canonical.agent-route".into(),
+            format!("\"{}\"", harness::AGENT_ROUTE),
+        );
         lines.insert(
             "harness-parity.canonical.agents-root".into(),
             declaration
@@ -104,14 +116,24 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         .iter()
         .map(|name| {
             let format = harness::format_for(declaration, name);
-            let mut entry = format!(
-                "{{name: {name}, agent-dir: {}, agent-extension: \".md\"",
-                harness::agent_dir(name)
-            );
+            let mut entry = format!("{{name: {name}");
+            if !declaration.omit_agent_adapters {
+                entry.push_str(&format!(
+                    ", agent-adapter: {}",
+                    harness::agent_adapter_declaration_with(
+                        name,
+                        declaration.unnamed_translation,
+                        declaration.undeclared_translation,
+                    )
+                ));
+            }
             // Per-harness, because that is how the schema states it: a second
             // harness gaining skill wrappers is one line of configuration.
             if declaration.command_directories.contains(name) {
-                entry.push_str(&format!(", command-dir: {}", harness::command_dir(name)));
+                entry.push_str(&format!(
+                    ", skill-adapter: {}",
+                    harness::skill_adapter_declaration(name)
+                ));
             }
             // Present exactly when a required server is, which is what the
             // schema pairs: a declaration nothing reads and a rule nothing

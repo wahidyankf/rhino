@@ -137,21 +137,28 @@ Feature: Coding-harness parity
     And harness "beta" declares a command directory
     And the skill wrapper for "beta" has a stale description
     When I inspect harness parity
-    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: the wrapper's description"
+    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: `description` is not the canonical description"
 
   Scenario: A skill wrapper may not grow a body of its own
     Given a valid one-skill one-agent one-capability harness contract
     And harness "beta" declares a command directory
     And the skill wrapper for "beta" has an extra body
     When I inspect harness parity
-    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: a wrapper may contain"
+    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: `body` is not the canonical route"
 
-  Scenario: A skill wrapper must declare the skill it routes to
+  Scenario: A skill wrapper may declare nothing beyond its route
     Given a valid one-skill one-agent one-capability harness contract
     And harness "beta" declares a command directory
-    And the skill wrapper for "beta" declares another name
+    And the skill wrapper for "beta" declares more than its route
     When I inspect harness parity
-    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: the wrapper declares a name"
+    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: `name` is beyond"
+
+  Scenario: A wrapper no canonical skill asked for is reported
+    Given a valid one-skill one-agent one-capability harness contract
+    And harness "beta" declares a command directory
+    And an unexpected skill wrapper exists for "beta"
+    When I inspect harness parity
+    Then the harness-parity violation for "adapters/beta/commands/ghost.md" is "unexpected-skill-adapter"
 
   Scenario: Skill bodies and supporting resources affect the contract digest
     Given a valid one-skill one-agent one-capability harness contract
@@ -206,16 +213,75 @@ Feature: Coding-harness parity
   Scenario: Extra prompt content and semantic drift are reported apart
     Given a valid one-skill one-agent one-capability harness contract
     And the agent adapter for "alpha" contains extra prompt instructions
-    And the agent adapter for "gamma" weakens a denied capability
+    And the agent adapter for "beta" weakens a denied capability
     When I inspect harness parity
     Then the harness-parity violation for "adapters/alpha/agents/reviewer.md" is "agent-prompt-divergence"
-    And the harness-parity violation for "adapters/gamma/agents/reviewer.md" is "agent-semantic-divergence"
+    And the harness-parity violation for "adapters/beta/agents/reviewer.md" is "agent-semantic-divergence"
 
-  Scenario: An adapter may not stop denying what the canon denies
+  Scenario: An adapter must grant what the canon requires
     Given a valid one-skill one-agent one-capability harness contract
-    And the agent adapter for "beta" stops denying a capability
+    And the agent adapter for "beta" withholds a required capability
     When I inspect harness parity
     Then the harness-parity violation for "adapters/beta/agents/reviewer.md" is "agent-semantic-divergence"
+
+  Scenario: An adapter may grant more than the canon requires
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical agent requires less than its adapters grant
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario: A capability the canon never took on obliges an adapter nothing
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical agent requires less and no adapter answers for it
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario: A repository with harnesses and no canonical agents reconciles none
+    Given a valid one-skill one-agent one-capability harness contract
+    And no canonical agents are declared and no harness expresses them
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 0 agent, and 3 reconciled capability declarations
+
+  Scenario: A harness may write its grants as a list or as one line
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "alpha" lists its grants
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario: An adapter must name the agent it stands for
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "gamma" names another agent
+    When I inspect harness parity
+    Then the only violation starts with "adapters/gamma/agents/reviewer.toml: agent-semantic-divergence: `name` is not the canonical name"
+
+  Scenario Outline: An adapter must answer a capability in its own vocabulary
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "<harness>" grants nothing answering a capability
+    When I inspect harness parity
+    Then the harness-parity violation for "<path>" is "agent-semantic-divergence"
+
+    Examples:
+      | harness | path                              |
+      | alpha   | adapters/alpha/agents/reviewer.md |
+      | beta    | adapters/beta/agents/reviewer.md  |
+
+  Scenario: An adapter must grant every member a capability translates to
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "alpha" withholds a required capability
+    When I inspect harness parity
+    Then the only violation starts with "adapters/alpha/agents/reviewer.md: agent-semantic-divergence: `tools` does not grant `Grep`"
+
+  Scenario: An adapter may not declare a field its harness forbids
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "gamma" declares a field its harness forbids
+    When I inspect harness parity
+    Then the harness-parity violation for "adapters/gamma/agents/reviewer.toml" is "agent-semantic-divergence"
+
+  Scenario: An adapter may not change a field its harness fixes
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "gamma" changes a field its harness fixes
+    When I inspect harness parity
+    Then the harness-parity violation for "adapters/gamma/agents/reviewer.toml" is "agent-semantic-divergence"
 
   Scenario: An agent may declare only vocabulary the repository declared
     Given a valid one-skill one-agent one-capability harness contract
@@ -229,9 +295,9 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "unknown-capability"
 
-  Scenario: An adapter may not drop a declared constraint
+  Scenario: An adapter may not ignore a declared constraint
     Given a valid one-skill one-agent one-capability harness contract
-    And the agent adapter for "beta" drops a declared constraint
+    And the agent adapter for "alpha" ignores a declared constraint
     When I inspect harness parity
     Then the harness-parity violations include "agent-semantic-divergence"
 

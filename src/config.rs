@@ -14,6 +14,7 @@
 //! nothing.
 
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::fmt;
 
 /// The schema this build understands, and the predecessor spelling it accepts.
@@ -182,20 +183,37 @@ pub struct Canonical {
     pub skills_root: Option<String>,
     #[serde(rename = "agents-root", default)]
     pub agents_root: Option<String>,
+    /// The sentence an adapter carries in place of the canonical prompt.
+    ///
+    /// An adapter is a route, not a copy. Every harness a repository declares
+    /// points at the same canonical file, so the sentence is written once here
+    /// with `{path}` standing for the canonical document's repository-relative
+    /// path. The wording is the repository's -- RHINO ships none -- and it is
+    /// required alongside the root whose adapters use it, because a root with
+    /// no route would leave every adapter's body unchecked.
+    #[serde(rename = "agent-route", default)]
+    pub agent_route: Option<String>,
+    #[serde(rename = "skill-route", default)]
+    pub skill_route: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Harness {
     pub name: String,
-    #[serde(rename = "agent-dir")]
-    pub agent_dir: String,
-    #[serde(rename = "agent-extension")]
-    pub agent_extension: String,
+    /// How this harness expresses the canon: where its adapters live, what
+    /// document format they use, and how the canonical capability vocabulary
+    /// translates into the permissions this harness actually understands.
+    ///
+    /// All of it is data. A harness that names its tools one way and a harness
+    /// that names them another are two configurations, not two code paths, and
+    /// a fourth harness is one more entry here.
+    #[serde(rename = "agent-adapter", default)]
+    pub agent_adapter: Option<Adapter>,
     /// Per-harness rather than global, so a second harness gaining skill
     /// wrappers is one line of configuration instead of a code change.
-    #[serde(rename = "command-dir", default)]
-    pub command_dir: Option<String>,
+    #[serde(rename = "skill-adapter", default)]
+    pub skill_adapter: Option<Adapter>,
     /// Where this harness declares what it may reach, and in which format.
     ///
     /// The two travel together because neither means anything alone: a path
@@ -204,6 +222,106 @@ pub struct Harness {
     /// than merely detectable.
     #[serde(default)]
     pub capability: Option<Capability>,
+}
+
+/// One harness's expression of one kind of canonical document.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Adapter {
+    /// Where the adapter for a canonical document named `n` lives, with
+    /// `{name}` standing for `n`.
+    ///
+    /// A pattern rather than a directory and an extension, because the two
+    /// real shapes are a file per document and a directory per document, and
+    /// only a pattern can say both.
+    pub path: String,
+    pub format: DocumentFormat,
+    /// Where the route sentence lives: `body` for the prose beneath a
+    /// declaration, or the name of a field holding it.
+    #[serde(rename = "route-field")]
+    pub route_field: String,
+    /// Adapter field to the canonical property it must equal, either `name` or
+    /// `description`. A harness that carries neither declares an empty map.
+    #[serde(default)]
+    pub identity: BTreeMap<String, Identity>,
+    /// Fields that must be present and hold exactly this scalar.
+    #[serde(default)]
+    pub fixed: BTreeMap<String, String>,
+    /// Fields that must not appear at all.
+    #[serde(default)]
+    pub absent: Vec<String>,
+    /// Front matter that may declare nothing beyond what the rules above name.
+    ///
+    /// A wrapper exists to route. One that also carries a model, a tool list,
+    /// or a second description is a place for the canon and the harness to
+    /// drift apart, so a repository can say the declaration is closed.
+    #[serde(default)]
+    pub closed: bool,
+    /// How the canonical capability vocabulary reaches this harness's own
+    /// permission vocabulary.
+    #[serde(default)]
+    pub translations: Vec<Translation>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Identity {
+    Name,
+    Description,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DocumentFormat {
+    /// YAML front matter between `---` fences, with prose beneath.
+    FrontMatter,
+    Toml,
+}
+
+/// One obligation an adapter takes on, and when it takes it on.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Translation {
+    pub when: When,
+    /// The canonical capability or constraint that triggers this obligation.
+    /// Absent only for `always`.
+    #[serde(default)]
+    pub capability: Option<String>,
+    /// The adapter field the obligation is about.
+    pub field: String,
+    /// Members the field must contain. A sequence contributes its items; a
+    /// scalar contributes its comma-separated parts, which is how a harness
+    /// that writes one string and a harness that writes a list are read the
+    /// same way.
+    #[serde(default)]
+    pub members: Vec<String>,
+    /// Members the field must not contain.
+    #[serde(rename = "absent-members", default)]
+    pub absent_members: Vec<String>,
+    /// At least one member beginning with this.
+    #[serde(rename = "member-prefix", default)]
+    pub member_prefix: Option<String>,
+    /// Keys the field must map to exactly these values.
+    #[serde(default)]
+    pub entries: BTreeMap<String, String>,
+    /// At least one key beginning with this, mapped to `entry-value`.
+    #[serde(rename = "entry-prefix", default)]
+    pub entry_prefix: Option<String>,
+    #[serde(rename = "entry-value", default)]
+    pub entry_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum When {
+    /// Whatever the canonical document says.
+    Always,
+    /// Only when the canonical document requires the named capability.
+    Requires,
+    /// Only when it denies the named capability.
+    Denies,
+    /// Only when it carries the named constraint.
+    Constrains,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -303,14 +421,14 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
         ("required-mcp", config.harness_parity.required_mcp.is_some()),
     ];
 
-    // The two canonical roots are required alongside a roster; the required
-    // server is not. Splitting the lists is the whole of the difference: a
-    // repository always has instructions to reconcile, and does not always
-    // have a capability server to reach.
-    let required_alongside_a_roster = &reconciled_against[..2];
-
     // Canon with nowhere to reconcile it is a configuration error rather than a
     // clean pass: it means the reconciliation was silently skipped.
+    //
+    // The converse does not hold. A repository may declare harnesses and no
+    // canonical skills, no canonical agents, or no capability server -- each is
+    // a thing a repository may not have, and requiring any of them alongside a
+    // roster would be asserting one repository's arrangement as everyone's.
+    // What each *does* require is the rest of its own pair, below.
     if config.harness_parity.harnesses.is_empty() {
         for (key, declared) in reconciled_against {
             if declared {
@@ -321,15 +439,42 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
                 });
             }
         }
-    } else {
-        for &(key, declared) in required_alongside_a_roster {
-            if !declared {
-                return Err(ConfigError::Semantic {
-                    key: key.to_string(),
-                    line: line_of(text, "harnesses"),
-                    reason: "required whenever the harness roster is non-empty".to_string(),
-                });
-            }
+    }
+
+    // An adapter contract and the canon it expresses stand or fall together,
+    // on the same rule as the server below: a contract with no canon behind it
+    // reconciles nothing, and a canon no harness expresses is a canon nothing
+    // reaches.
+    let agents = canonical.agents_root.is_some();
+    let skills = canonical.skills_root.is_some();
+    for harness in &config.harness_parity.harnesses {
+        if harness.agent_adapter.is_some() != agents {
+            let reason = if agents {
+                format!(
+                    "`{}` declares no agent adapter, so the canonical agents reach it nowhere",
+                    harness.name
+                )
+            } else {
+                format!(
+                    "`{}` declares an agent adapter, but no `agents-root` names what it would express",
+                    harness.name
+                )
+            };
+            return Err(ConfigError::Semantic {
+                key: "agent-adapter".to_string(),
+                line: line_of(text, "harnesses"),
+                reason,
+            });
+        }
+        if harness.skill_adapter.is_some() && !skills {
+            return Err(ConfigError::Semantic {
+                key: "skill-adapter".to_string(),
+                line: line_of(text, "harnesses"),
+                reason: format!(
+                    "`{}` declares a skill adapter, but no `skills-root` names what it would express",
+                    harness.name
+                ),
+            });
         }
     }
 
@@ -358,6 +503,85 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
             line: line_of(text, "harnesses"),
             reason,
         });
+    }
+
+    // A root says where the canon is; a route says what an adapter must carry
+    // in its place. Neither means anything without the other, so each root
+    // brings its route and a route with no root has nothing to substitute for.
+    for (root, route, root_key, route_key) in [
+        (
+            canonical.agents_root.is_some(),
+            canonical.agent_route.is_some(),
+            "agents-root",
+            "agent-route",
+        ),
+        (
+            canonical.skills_root.is_some(),
+            canonical.skill_route.is_some(),
+            "skills-root",
+            "skill-route",
+        ),
+    ] {
+        if root == route {
+            continue;
+        }
+        let (key, reason) = if root {
+            (
+                route_key,
+                format!("required alongside `{root_key}`, or every adapter's body goes unchecked"),
+            )
+        } else {
+            (
+                route_key,
+                format!("declared without `{root_key}`, so there is nothing for it to route to"),
+            )
+        };
+        return Err(ConfigError::Semantic {
+            key: key.to_string(),
+            line: line_of(text, key),
+            reason,
+        });
+    }
+
+    // A translation fires on a canonical name. One that names something outside
+    // the declared vocabulary can never fire, which makes it a permission rule
+    // that silently grants everything.
+    let vocabulary: Vec<&str> = config
+        .harness_parity
+        .capabilities
+        .iter()
+        .chain(&config.harness_parity.constraints)
+        .map(String::as_str)
+        .collect();
+    for harness in &config.harness_parity.harnesses {
+        let adapters = harness.agent_adapter.iter().chain(&harness.skill_adapter);
+        for adapter in adapters {
+            for translation in &adapter.translations {
+                let named = match (translation.when, &translation.capability) {
+                    (When::Always, _) => continue,
+                    (_, Some(name)) => name.as_str(),
+                    (_, None) => {
+                        return Err(ConfigError::Semantic {
+                            key: "translations".to_string(),
+                            line: line_of(text, "translations"),
+                            reason: format!(
+                                "`{}` declares a conditional translation naming no capability",
+                                harness.name
+                            ),
+                        });
+                    }
+                };
+                if !vocabulary.contains(&named) {
+                    return Err(ConfigError::Semantic {
+                        key: "translations".to_string(),
+                        line: line_of(text, "translations"),
+                        reason: format!(
+                            "`{named}` is outside the declared vocabulary, so nothing would ever trigger this translation"
+                        ),
+                    });
+                }
+            }
+        }
     }
 
     for (key, value) in declared_paths(config) {
@@ -392,12 +616,14 @@ fn declared_paths(config: &Config) -> Vec<(&'static str, String)> {
         paths.push(("path", tree.path.clone()));
     }
     for harness in &config.harness_parity.harnesses {
-        paths.push(("agent-dir", harness.agent_dir.clone()));
+        if let Some(adapter) = &harness.agent_adapter {
+            paths.push(("agent-adapter", adapter.path.clone()));
+        }
         if let Some(capability) = &harness.capability {
             paths.push(("capability-file", capability.file.clone()));
         }
-        if let Some(directory) = &harness.command_dir {
-            paths.push(("command-dir", directory.clone()));
+        if let Some(adapter) = &harness.skill_adapter {
+            paths.push(("skill-adapter", adapter.path.clone()));
         }
     }
     paths
