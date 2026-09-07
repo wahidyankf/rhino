@@ -10,6 +10,12 @@
 // coverage check. This one uses part of each; the unused remainder belongs to
 // another adapter rather than to nobody.
 #[allow(dead_code)]
+#[path = "../support/binding.rs"]
+mod binding;
+#[allow(dead_code)]
+#[path = "../support/fixtures.rs"]
+mod fixtures;
+#[allow(dead_code)]
 #[path = "../support/gherkin.rs"]
 mod gherkin;
 #[allow(dead_code)]
@@ -18,13 +24,21 @@ mod registry;
 #[allow(dead_code)]
 #[path = "../support/runner.rs"]
 mod runner;
+#[allow(dead_code)]
+#[path = "../support/sandbox.rs"]
+mod sandbox;
+#[allow(dead_code)]
 #[path = "../support/steps.rs"]
 mod steps;
+#[allow(dead_code)]
+#[path = "../support/world.rs"]
+mod world;
 
 #[allow(dead_code)]
 mod bindings;
+mod driver;
 
 #[test]
 fn the_corpus_passes_at_the_process_boundary() {
-    runner::run_bound_scenarios("e2e", bindings::BINDINGS);
+    runner::run_bound_scenarios::<driver::E2eDriver>("e2e", bindings::BINDINGS);
 }

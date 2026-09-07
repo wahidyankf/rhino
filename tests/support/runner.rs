@@ -4,43 +4,42 @@
 //! does not produce a result, so a failure names the sentence that stopped it
 //! rather than the scenario as a whole.
 
-use crate::gherkin::{Corpus, Scenario};
+use crate::binding::{self, Outcome};
+use crate::gherkin::{Corpus, Scenario, Step};
 use crate::registry::Binding;
-use crate::steps::{self, StepOutcome};
+use crate::steps;
+use crate::world::{Driver, World};
 
-/// Run one expansion of one scenario.
-fn run_expansion(scenario: &Scenario, steps_of: &[crate::gherkin::Step]) -> Result<(), String> {
-    // Every arm below is a failure today, because no step has an implementation
-    // yet -- which is what makes this lint fire. The moment a step passes, the
-    // closure starts returning `None` and the expectation stops being met,
-    // which is the signal to delete this attribute rather than keep it.
-    #[expect(
-        clippy::unnecessary_find_map,
-        reason = "temporary: every step fails until its validator is ported"
-    )]
-    let first_failure = steps_of
-        .iter()
-        .find_map(|step| match steps::dispatch(&step.text) {
-            StepOutcome::Unimplemented(pattern) => Some(format!(
-                "{}: {}: {} {} -- vocabulary entry `{}` has no implementation yet",
-                scenario.feature, scenario.name, step.keyword, step.text, pattern
-            )),
-            StepOutcome::Undefined => Some(format!(
-                "{}: {}: {} {} -- no vocabulary entry matches this sentence",
-                scenario.feature, scenario.name, step.keyword, step.text
-            )),
-        });
+/// Run one expansion of one scenario in a world of its own.
+fn run_expansion<D: Driver + Default>(
+    scenario: &Scenario,
+    steps_of: &[Step],
+) -> Result<(), String> {
+    let mut world: World<D> = World::default();
 
-    match first_failure {
-        Some(reason) => Err(reason),
-        None => Ok(()),
+    for step in steps_of {
+        let outcome = binding::run_step(&mut world, step);
+        let reason = match outcome {
+            Outcome::Passed => continue,
+            Outcome::Failed(reason) => reason,
+            Outcome::Unimplemented(pattern) => {
+                format!("vocabulary entry `{pattern}` has no implementation yet")
+            }
+            Outcome::Undefined => "no vocabulary entry matches this sentence".to_string(),
+        };
+        return Err(format!(
+            "{}: {}: {} {} -- {reason}",
+            scenario.feature, scenario.name, step.keyword, step.text
+        ));
     }
+
+    Ok(())
 }
 
 /// Run every bound scenario and fail with the complete list of what did not
 /// pass. Reporting all of them at once is deliberate: during a port the useful
 /// question is how much is left, not which single scenario stopped first.
-pub fn run_bound_scenarios(layer: &str, bindings: &[Binding]) {
+pub fn run_bound_scenarios<D: Driver + Default>(layer: &str, bindings: &[Binding]) {
     let corpus = Corpus::canonical();
     let mut failures: Vec<String> = Vec::new();
     let mut passed = 0usize;
@@ -51,7 +50,7 @@ pub fn run_bound_scenarios(layer: &str, bindings: &[Binding]) {
         });
 
         for expansion in scenario.expansions() {
-            match run_expansion(scenario, &expansion) {
+            match run_expansion::<D>(scenario, &expansion) {
                 Ok(()) => passed += 1,
                 Err(reason) => failures.push(reason),
             }

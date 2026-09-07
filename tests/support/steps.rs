@@ -140,67 +140,93 @@ pub enum StepOutcome {
     Unimplemented(&'static str),
 }
 
-/// Match a step sentence against the vocabulary, returning the entry it matched.
+/// A matched sentence, with the values its placeholders captured in order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Match {
+    pub pattern: &'static str,
+    pub strings: Vec<String>,
+    pub integers: Vec<usize>,
+}
+
+impl Match {
+    /// The nth quoted value, or a clear failure naming which one was missing.
+    pub fn string(&self, index: usize) -> &str {
+        self.strings.get(index).unwrap_or_else(|| {
+            panic!(
+                "step `{}` has no quoted value at position {index}",
+                self.pattern
+            )
+        })
+    }
+
+    pub fn integer(&self, index: usize) -> usize {
+        *self
+            .integers
+            .get(index)
+            .unwrap_or_else(|| panic!("step `{}` has no integer at position {index}", self.pattern))
+    }
+}
+
+/// Match a step sentence against the vocabulary, capturing its placeholders.
 ///
 /// `{string}` matches a double-quoted run and `{int}` a bare integer, so the
 /// match is structural rather than a substring test: a sentence that differs
 /// outside its placeholders does not match, which is what makes `Undefined`
 /// meaningful.
-pub fn lookup(sentence: &str) -> Option<&'static str> {
-    VOCABULARY
-        .iter()
-        .copied()
-        .find(|pattern| matches(pattern, sentence))
+pub fn lookup(sentence: &str) -> Option<Match> {
+    VOCABULARY.iter().copied().find_map(|pattern| {
+        capture(pattern, sentence).map(|(strings, integers)| Match {
+            pattern,
+            strings,
+            integers,
+        })
+    })
 }
 
 pub fn dispatch(sentence: &str) -> StepOutcome {
     match lookup(sentence) {
-        Some(pattern) => StepOutcome::Unimplemented(pattern),
+        Some(matched) => StepOutcome::Unimplemented(matched.pattern),
         None => StepOutcome::Undefined,
     }
 }
 
-fn matches(pattern: &str, sentence: &str) -> bool {
+type Captures = (Vec<String>, Vec<usize>);
+
+fn capture(pattern: &str, sentence: &str) -> Option<Captures> {
     // Walk the pattern literal-by-literal, consuming a placeholder's value from
     // the sentence whenever the pattern reaches one.
     let mut rest = sentence;
     let mut pattern_rest = pattern;
+    let mut strings: Vec<String> = Vec::new();
+    let mut integers: Vec<usize> = Vec::new();
+
     loop {
         let Some(open) = pattern_rest.find('{') else {
-            return rest == pattern_rest;
+            return (rest == pattern_rest).then_some((strings, integers));
         };
         let literal = &pattern_rest[..open];
-        let Some(after_literal) = rest.strip_prefix(literal) else {
-            return false;
-        };
-        rest = after_literal;
+        rest = rest.strip_prefix(literal)?;
 
-        let Some(close) = pattern_rest[open..].find('}') else {
-            return false;
-        };
+        let close = pattern_rest[open..].find('}')?;
         let placeholder = &pattern_rest[open + 1..open + close];
         pattern_rest = &pattern_rest[open + close + 1..];
 
-        let consumed = match placeholder {
-            "string" => consume_quoted(rest),
-            "int" => consume_int(rest),
-            _ => None,
-        };
-        let Some(width) = consumed else {
-            return false;
-        };
-        rest = &rest[width..];
+        match placeholder {
+            "string" => {
+                let body = rest.strip_prefix('"')?;
+                let end = body.find('"')?;
+                strings.push(body[..end].to_string());
+                rest = &body[end + 1..];
+            }
+            "int" => {
+                let width = rest.chars().take_while(char::is_ascii_digit).count();
+                if width == 0 {
+                    return None;
+                }
+                integers.push(rest[..width].parse().ok()?);
+                rest = &rest[width..];
+            }
+            _ => return None,
+        }
     }
-}
-
-/// A quoted run, including both quotes. Quotes do not nest in the corpus.
-fn consume_quoted(rest: &str) -> Option<usize> {
-    let body = rest.strip_prefix('"')?;
-    let end = body.find('"')?;
-    Some(end + 2)
-}
-
-fn consume_int(rest: &str) -> Option<usize> {
-    let width = rest.chars().take_while(char::is_ascii_digit).count();
-    (width > 0).then_some(width)
 }
