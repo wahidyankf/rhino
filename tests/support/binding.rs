@@ -272,6 +272,42 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the repository declares the mapped tree {string}" => {
+            world.declaration.overrides.insert(
+                "governance-directory-map.trees".to_string(),
+                format!("[{{path: {}}}]", matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the repository declares the mapped trees {string} and {string}" => {
+            world.declaration.overrides.insert(
+                "governance-directory-map.trees".to_string(),
+                format!(
+                    "[{{path: {}}}, {{path: {}}}]",
+                    matched.string(0),
+                    matched.string(1)
+                ),
+            );
+            Outcome::Passed
+        }
+        "file {string} has title {string} and an empty directory map" => {
+            world.files.insert(
+                matched.string(0).to_string(),
+                directory_map(matched.string(1), 0),
+            );
+            Outcome::Passed
+        }
+        "file {string} has an empty {string} directory map followed by {int} words" => {
+            // The number is the file's word count, which is what a budget
+            // measures and what the Then asserts. The title and the section
+            // heading are words in the file, so the filler is what is left of
+            // the total after them.
+            world.files.insert(
+                matched.string(0).to_string(),
+                directory_map(matched.string(1), matched.integer(0)),
+            );
+            Outcome::Passed
+        }
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
         {
             world.declaration.empty_roster = true;
@@ -330,6 +366,43 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .map(|part| (*part).to_string())
                 .chain(std::iter::once(matched.string(0).to_string()))
                 .collect();
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I inspect directory maps" => {
+            let arguments =
+                validator_arguments("directory-map").expect("directory-map is a validator");
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I inspect directory maps under the invalid {string} location" => {
+            let Some(location) = invalid_location(matched.string(0)) else {
+                return Outcome::Failed(format!(
+                    "no location is defined for `{}`",
+                    matched.string(0)
+                ));
+            };
+            let mut arguments =
+                validator_arguments("directory-map").expect("directory-map is a validator");
+            arguments.push("--directory".to_string());
+            arguments.push(location.to_string());
+            let result = world
+                .driver
+                .invoke(&world.declaration, &world.files, &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I run the directory-map validator for {string}" => {
+            let mut arguments =
+                validator_arguments("directory-map").expect("directory-map is a validator");
+            arguments.push("--directory".to_string());
+            arguments.push(matched.string(0).to_string());
             let result = world
                 .driver
                 .invoke(&world.declaration, &world.files, &arguments);
@@ -558,6 +631,62 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 )),
             }
         }
+        "{int} directories were inspected" => {
+            let expected = matched.integer(0);
+            match inspected_count(world.result()) {
+                Some(counted) => expect(
+                    counted == expected,
+                    format!(
+                        "expected {expected} directories inspected, the summary says {counted}\nstdout: {}",
+                        world.result().stdout
+                    ),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no inspection summary\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "an argument error is raised" => {
+            let result = world.result();
+            expect(
+                result.exit_code == 2,
+                format!(
+                    "expected an argument error, got exit {}\nstderr: {}",
+                    result.exit_code, result.stderr
+                ),
+            )
+        }
+        "the only violation is a missing README at {string}" => {
+            only_violation(world, &[matched.string(0), "missing README"])
+        }
+        "the only violation is a missing directory map at {string}" => {
+            only_violation(world, &[matched.string(0), "missing directory map"])
+        }
+        "the only violation is a missing map entry from {string} to {string}" => only_violation(
+            world,
+            &[matched.string(0), matched.string(1), "missing map entry"],
+        ),
+        "the only violation is an invalid map entry from {string} to {string}" => only_violation(
+            world,
+            &[matched.string(0), matched.string(1), "invalid map entry"],
+        ),
+        "all violations are {string}" => {
+            let result = world.result();
+            let lines: Vec<&str> = result
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with('['))
+                .collect();
+            if lines.is_empty() {
+                return Outcome::Failed("no violations were reported".to_string());
+            }
+            let phrase = matched.string(0);
+            expect(
+                lines.iter().all(|line| line.contains(phrase)),
+                format!("expected every violation to be `{phrase}`, got {lines:?}"),
+            )
+        }
         "no directories were inspected" => {
             let result = world.result();
             expect(
@@ -689,4 +818,73 @@ fn counted_words(result: &CommandResult) -> Option<usize> {
         .next()?
         .parse()
         .ok()
+}
+
+/// Exactly one violation, naming every fragment the sentence promised.
+///
+/// Count and identity in one assertion: a count cannot tell a correct run from
+/// one that reported the wrong thing, and an identity cannot tell it from one
+/// that reported the right thing plus something else.
+fn only_violation<D: Driver>(world: &World<D>, fragments: &[&str]) -> Outcome {
+    let result = world.result();
+    let lines: Vec<&str> = result
+        .stderr
+        .lines()
+        .filter(|line| line.starts_with('['))
+        .collect();
+    if lines.len() != 1 {
+        return Outcome::Failed(format!(
+            "expected exactly one violation, got {}\nstderr: {}",
+            lines.len(),
+            result.stderr
+        ));
+    }
+    for fragment in fragments {
+        if !lines[0].contains(fragment) {
+            return Outcome::Failed(format!(
+                "the violation does not name `{fragment}`\nstderr: {}",
+                lines[0]
+            ));
+        }
+    }
+    Outcome::Passed
+}
+
+/// A README with a Directory Map section holding no entries, whose whole file
+/// counts `words` words when `words` is non-zero.
+fn directory_map(title: &str, words: usize) -> String {
+    let mut text = format!("# {title}\n\n## Directory Map\n");
+    // "Directory Map" is two words and the title is one; the filler makes up
+    // the rest of the requested total.
+    let already = crate::binding::word_estimate(title) + 2;
+    if words > already {
+        let filler: Vec<String> = (0..words - already)
+            .map(|index| format!("word{index}"))
+            .collect();
+        text.push('\n');
+        text.push_str(&filler.join(" "));
+        text.push('\n');
+    }
+    text
+}
+
+/// How many words a fixture fragment contributes, counted the same way the
+/// validator counts: runs of letters, marks, and digits.
+pub fn word_estimate(text: &str) -> usize {
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .count()
+}
+
+/// The argument a named invalid location stands for.
+///
+/// Named in the corpus rather than written out, because "outside repository" is
+/// the property under test and `../outside` is only one spelling of it.
+fn invalid_location(name: &str) -> Option<&'static str> {
+    match name {
+        "empty path" => Some(""),
+        "absolute repository root" => Some("/"),
+        "outside repository" => Some("../outside"),
+        _ => None,
+    }
 }
