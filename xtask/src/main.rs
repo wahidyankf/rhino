@@ -54,6 +54,11 @@ fn test_quick() -> Result<(), String> {
             "warnings",
         ],
     )?;
+    // The unit adapter runs the whole corpus in process against an in-memory
+    // tree. It is the only executing adapter in this gate: integration and E2E
+    // touch a real filesystem and a spawned process, and the gate contract puts
+    // both in the scheduled workflow rather than in a hook.
+    run("cargo", &["test", "--test", "unit"])?;
     // The static behaviour check executes no scenario: it asserts that every
     // scenario in the corpus is bound at every layer, or validly exempt. It is
     // in the quick gate because an unbound scenario reports nothing, and

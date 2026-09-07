@@ -364,6 +364,90 @@ fn no_scenario_or_binding_is_a_placeholder() {
     assert!(offenders.is_empty(), "placeholder names: {offenders:?}");
 }
 
+#[test]
+fn the_quick_gate_and_the_hooks_run_no_slow_adapter() {
+    // The gate contract puts integration and E2E in the scheduled workflow and
+    // nowhere else. Checked here rather than left to review because the failure
+    // is silent in the wrong direction: a hook that got slower is a hook a
+    // maintainer starts passing `--no-verify` to, and by then the gate is
+    // decorative.
+    const GATES: [(&str, &str); 5] = [
+        ("xtask/src/main.rs", "//"),
+        (".husky/pre-push", "#"),
+        (".husky/pre-commit", "#"),
+        (".husky/commit-msg", "#"),
+        (".github/workflows/ci.yml", "#"),
+    ];
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut offenders: Vec<String> = Vec::new();
+    let mut quick_gate = String::new();
+
+    for (relative, comment) in GATES {
+        let text = std::fs::read_to_string(root.join(relative))
+            .unwrap_or_else(|error| panic!("{relative} is readable: {error}"));
+        // Comments here are prose *about* the policy -- this file is full of
+        // it -- so only what the shell or the compiler would act on counts.
+        let code: String = text
+            .lines()
+            .filter(|line| !line.trim_start().starts_with(comment))
+            .collect::<Vec<_>>()
+            .join("\n");
+        for slow in ["integration", "e2e"] {
+            if code.contains(slow) {
+                offenders.push(format!("{relative} invokes the {slow} adapter"));
+            }
+        }
+        if relative == "xtask/src/main.rs" {
+            quick_gate = code;
+        }
+    }
+
+    assert!(offenders.is_empty(), "{}", offenders.join("\n"));
+    // The positive control: an absence proves nothing unless the same reading
+    // can find what is certainly there.
+    for expected in ["\"--test\", \"unit\"", "\"--test\", \"coverage\""] {
+        assert!(
+            quick_gate.contains(expected),
+            "the quick gate does not run {expected}, so the search above proves nothing"
+        );
+    }
+}
+
+#[test]
+fn the_scheduled_workflow_runs_both_slow_adapters_unfiltered() {
+    let text = std::fs::read_to_string(Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/.github/workflows/scheduled.yml"
+    )))
+    .expect("the scheduled workflow is committed");
+    let code: String = text
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let integration = code
+        .find("cargo test --test integration")
+        .expect("the scheduled workflow runs the integration adapter");
+    let e2e = code
+        .find("cargo test --test e2e")
+        .expect("the scheduled workflow runs the E2E adapter");
+    assert!(
+        integration < e2e,
+        "integration must run before E2E: the boundary that can explain a \
+         defect should be the one that reports it first"
+    );
+    // Unfiltered. A scheduled run that quietly narrowed itself would report a
+    // green suite for a subset nobody chose.
+    for narrowing in ["--skip", "--exact", "--test-threads"] {
+        assert!(
+            !code.contains(narrowing),
+            "the scheduled run narrows itself with `{narrowing}`"
+        );
+    }
+}
+
 // -- Parser regressions -------------------------------------------------------
 //
 // The Gherkin reader is the harness's own production code, and it shipped with

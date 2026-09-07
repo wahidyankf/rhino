@@ -1,0 +1,37 @@
+# The slow half of the suite, kept out of the quick gate and out of every Git
+# hook on purpose: an adapter that touches a real filesystem or spawns a process
+# is slow enough to train a maintainer into bypassing the hook that runs it.
+#
+# Integration runs first and E2E second, and E2E runs unfiltered. The order is
+# the point: a defect that exists on disk is cheaper to read at the integration
+# boundary than through a process's exit code, so the boundary that can explain
+# it should be the one that reports first.
+name: Scheduled
+
+on:
+  schedule:
+    # Daily, well outside the working day in the maintainer's timezone.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: scheduled-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  slow-adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Integration
+        run: cargo test --test integration
+      - name: End-to-end
+        # Unfiltered: no name filter, no `--skip`, nothing selected by hand.
+        # A scheduled run that quietly narrowed itself would report a green
+        # suite for a subset nobody chose.
+        run: cargo test --test e2e
