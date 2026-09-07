@@ -18,13 +18,33 @@ use std::process::{Command, ExitCode};
 /// than a line count and the reason neither is in the denominator here.
 const EXCLUDED_FROM_COVERAGE: &str = r"src/(main\.rs|runtime/disk\.rs)";
 
+/// RHINO's own repository, checked by the binary this repository builds.
+///
+/// A second corpus that no one wrote: the tree changes constantly, nobody
+/// curates it as test data, and every page in it is something a maintainer
+/// actually wanted to say. That is the property the executable corpus cannot
+/// have, and the reason this runs on every push rather than once.
+///
+/// `repo-config validate` goes first. If the configuration is unusable every
+/// other command exits 2 for the same reason, and one clear message beats five
+/// copies of it.
+const SELF_VALIDATION: [&[&str]; 6] = [
+    &["repo-config", "validate"],
+    &["governance", "word-budget", "validate"],
+    &["governance", "directory-map", "validate"],
+    &["md", "internal-link", "validate"],
+    &["md", "mermaid", "validate"],
+    &["harness", "parity", "validate"],
+];
+
 fn main() -> ExitCode {
     let task = std::env::args().nth(1);
     let result = match task.as_deref() {
         Some("test-quick") => test_quick(),
+        Some("self-validate") => self_validate(),
         other => {
             eprintln!("unknown task: {other:?}");
-            eprintln!("tasks: test-quick");
+            eprintln!("tasks: test-quick, self-validate");
             return ExitCode::from(2);
         }
     };
@@ -90,5 +110,26 @@ fn test_quick() -> Result<(), String> {
     // scenario in the corpus is bound at every layer, or validly exempt. It is
     // in the quick gate because an unbound scenario reports nothing, and
     // reporting nothing looks exactly like passing.
-    run("cargo", &["test", "--test", "coverage"])
+    run("cargo", &["test", "--test", "coverage"])?;
+    // Last, so a repository that is out of date cannot mask a product that is
+    // broken. The corpus proves the tool behaves as specified; this proves the
+    // repository still matches the policy it declared.
+    self_validate()
+}
+
+/// Run every validator against this repository, with the binary it builds.
+///
+/// A finding here fails the gate exactly as a failing test does: exit 1 means
+/// RHINO's own tree violates RHINO's own `repo-config.yml`, and exit 2 means the
+/// configuration or the invocation is unusable. Neither is a warning.
+fn self_validate() -> Result<(), String> {
+    // Built once up front so a compile error is reported as a compile error
+    // rather than as the first validator failing to start.
+    run("cargo", &["build", "--quiet"])?;
+    for command in SELF_VALIDATION {
+        let mut args = vec!["run", "--quiet", "--bin", "rhino", "--"];
+        args.extend_from_slice(command);
+        run("cargo", &args)?;
+    }
+    Ok(())
 }

@@ -33,3 +33,8 @@ jobs:
           cargo deny check
       - name: Quick gate
         run: cargo xtask test-quick
+      - name: Self-validation
+        # Also the last step of the quick gate above, and named again here so a
+        # failing repository is legible in the job list without opening a log.
+        # Cheap to repeat: six read-only walks over an already-built binary.
+        run: cargo xtask self-validate
