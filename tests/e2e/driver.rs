@@ -6,21 +6,15 @@
 //! would be an integration test wearing an end-to-end label.
 
 use crate::sandbox::Sandbox;
-use crate::world::{CommandResult, Declaration, Driver};
-use std::collections::BTreeMap;
+use crate::world::{CommandResult, Driver, Repository};
 use std::process::Command;
 
 #[derive(Default)]
 pub struct E2eDriver;
 
 impl Driver for E2eDriver {
-    fn invoke(
-        &self,
-        declaration: &Declaration,
-        files: &BTreeMap<String, String>,
-        arguments: &[String],
-    ) -> CommandResult {
-        let sandbox = Sandbox::build(declaration, files);
+    fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> CommandResult {
+        let sandbox = Sandbox::build(repository);
 
         let output = Command::new(env!("CARGO_BIN_EXE_rhino"))
             .args(arguments)

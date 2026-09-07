@@ -70,6 +70,8 @@ fn normalise_directory(path: &str) -> String {
 #[derive(Debug, Default, Clone)]
 pub struct MemoryTree {
     files: BTreeMap<String, String>,
+    unreadable: BTreeSet<String>,
+    links: BTreeSet<String>,
 }
 
 impl MemoryTree {
@@ -79,18 +81,38 @@ impl MemoryTree {
             content.to_string(),
         );
     }
+
+    /// A file the repository holds but that cannot be opened.
+    ///
+    /// It stays in the tree on purpose: a validator has to see it and fail
+    /// closed, not miss it and report the repository clean.
+    pub fn mark_unreadable(&mut self, path: &str) {
+        self.unreadable
+            .insert(path.trim_start_matches('/').to_string());
+    }
+
+    /// A filesystem link. Never reported, because following one can leave the
+    /// repository entirely.
+    pub fn mark_link(&mut self, path: &str) {
+        self.links.insert(path.trim_start_matches('/').to_string());
+    }
 }
 
 impl Tree for MemoryTree {
     fn read(&self, path: &str) -> Result<String, TreeError> {
-        self.files
-            .get(path.trim_start_matches('/'))
-            .cloned()
-            .ok_or(TreeError::NotFound)
+        let path = path.trim_start_matches('/');
+        if self.unreadable.contains(path) {
+            return Err(TreeError::Unreadable("permission denied".to_string()));
+        }
+        self.files.get(path).cloned().ok_or(TreeError::NotFound)
     }
 
     fn files(&self) -> Vec<String> {
-        self.files.keys().cloned().collect()
+        self.files
+            .keys()
+            .filter(|path| !self.links.contains(*path))
+            .cloned()
+            .collect()
     }
 }
 

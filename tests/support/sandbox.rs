@@ -7,8 +7,7 @@
 //! when a leaked directory would otherwise accumulate fastest.
 
 use crate::fixtures;
-use crate::world::Declaration;
-use std::collections::BTreeMap;
+use crate::world::Repository;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -22,7 +21,7 @@ impl Sandbox {
     /// Materialise the declared repository. Uniqueness comes from the process
     /// id and a counter rather than a clock, so two adapters running at once
     /// cannot land in the same directory and no test depends on wall time.
-    pub fn build(declaration: &Declaration, files: &BTreeMap<String, String>) -> Self {
+    pub fn build(repository: &Repository<'_>) -> Self {
         let ordinal = NEXT.fetch_add(1, Ordering::Relaxed);
         let root =
             std::env::temp_dir().join(format!("rhino-spec-{}-{ordinal}", std::process::id()));
@@ -32,13 +31,43 @@ impl Sandbox {
         std::fs::create_dir(&root).expect("the sandbox root is new and creatable");
 
         let sandbox = Self { root };
-        for (path, content) in files {
+        for (path, content) in repository.files {
             sandbox.write(path, content);
         }
-        if !declaration.absent {
-            sandbox.write(fixtures::CONFIG_PATH, &fixtures::render(declaration));
+        if !repository.declaration.absent {
+            sandbox.write(
+                fixtures::CONFIG_PATH,
+                &fixtures::render(repository.declaration),
+            );
+        }
+        for path in repository.links {
+            sandbox.link(path);
+        }
+        // Permissions last: a file has to be written before it can be closed.
+        for path in repository.unreadable {
+            sandbox.seal(path);
         }
         sandbox
+    }
+
+    /// Replace a written file with a symbolic link pointing outside the
+    /// repository, which is the case the walk has to refuse to follow.
+    fn link(&self, path: &str) {
+        let target = self.root.join(path);
+        let _ = std::fs::remove_file(&target);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).expect("the link's parent directory is creatable");
+        }
+        std::os::unix::fs::symlink("/dev/null", &target).expect("the link is creatable");
+    }
+
+    /// Make a written file unreadable, so opening it fails the way a
+    /// permission-denied file fails in a real repository.
+    fn seal(&self, path: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        let target = self.root.join(path);
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o000))
+            .expect("the fixture's permissions are settable");
     }
 
     pub fn root(&self) -> &Path {
@@ -56,9 +85,34 @@ impl Sandbox {
 
 impl Drop for Sandbox {
     fn drop(&mut self) {
+        // Restore readability first: a sealed file cannot be removed from a
+        // directory the test no longer has permission to traverse.
+        restore(&self.root);
         // Best effort: a failure to remove a temporary directory must not turn
         // a passing scenario into a failing one, or mask why a failing one
         // failed.
         let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+/// Give every file back its ordinary permissions so the tree can be removed.
+fn restore(root: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if metadata.is_symlink() {
+            continue;
+        }
+        if metadata.is_dir() {
+            restore(&path);
+        } else {
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644));
+        }
     }
 }

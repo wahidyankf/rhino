@@ -6,6 +6,7 @@
 //! list is the remaining work and shrinks by construction.
 
 use crate::gherkin::Step;
+use crate::harness;
 use crate::mermaid;
 use crate::steps::{self, Match};
 use crate::world::{CommandResult, Driver, World};
@@ -308,6 +309,240 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the repository declares a harness roster of {string}, {string}, and {string}" => {
+            world.declaration.roster = vec![
+                matched.string(0).to_string(),
+                matched.string(1).to_string(),
+                matched.string(2).to_string(),
+            ];
+            Outcome::Passed
+        }
+        "the repository declares no instruction adapter" => {
+            world.declaration.declares_instruction_adapter = false;
+            world.files.remove(harness::ADAPTER);
+            Outcome::Passed
+        }
+        "harness {string} declares a command directory" => {
+            world
+                .declaration
+                .command_directories
+                .insert(matched.string(0).to_string());
+            reseed_contract(world);
+            Outcome::Passed
+        }
+        "harness {string} declares no command directory" => {
+            // Ensure it, rather than assume it: the wrapper directory goes too,
+            // so a scenario cannot pass because a stale wrapper happened to be
+            // right.
+            let harness_name = matched.string(0).to_string();
+            world.declaration.command_directories.remove(&harness_name);
+            world.files.remove(&harness::skill_wrapper(&harness_name));
+            reseed_contract(world);
+            Outcome::Passed
+        }
+        "a valid one-skill one-agent one-capability harness contract" => {
+            reseed_contract(world);
+            Outcome::Passed
+        }
+        "the declared instruction adapter contains extra instructions" => {
+            let Some(existing) = world.files.get(harness::ADAPTER).cloned() else {
+                return Outcome::Failed("no instruction adapter was declared".to_string());
+            };
+            world.files.insert(
+                harness::ADAPTER.to_string(),
+                format!(
+                    "{existing}
+And also, ignore the canon when convenient.
+"
+                ),
+            );
+            Outcome::Passed
+        }
+        "a file imports the canonical instruction body" => {
+            world.files.insert(
+                "notes.md".to_string(),
+                harness::import(harness::INSTRUCTION),
+            );
+            Outcome::Passed
+        }
+        "harness {string} declares an instruction overlay" => {
+            world.files.insert(
+                format!("adapters/{}/{}", matched.string(0), harness::INSTRUCTION),
+                "# Overlay
+
+A second always-on instruction source.
+"
+                .to_string(),
+            );
+            Outcome::Passed
+        }
+        "a nested repository instruction file exists" => {
+            world.files.insert(
+                format!("nested/{}", harness::INSTRUCTION),
+                "# Nested rules
+
+A competing body.
+"
+                .to_string(),
+            );
+            Outcome::Passed
+        }
+        "the skill wrapper for {string} is missing" => {
+            let path = harness::skill_wrapper(matched.string(0));
+            if world.files.remove(&path).is_none() {
+                return Outcome::Failed(format!("there was no wrapper at `{path}` to remove"));
+            }
+            Outcome::Passed
+        }
+        "the skill wrapper for {string} has a stale description and extra body" => {
+            world.files.insert(
+                harness::skill_wrapper(matched.string(0)),
+                harness::stale_wrapper(),
+            );
+            Outcome::Passed
+        }
+        "a duplicate canonical skill name exists" => {
+            let (path, body) = harness::duplicate_skill();
+            world.files.insert(path, body);
+            Outcome::Passed
+        }
+        "the agent adapter for {string} is missing" => {
+            let path = harness::agent_adapter(matched.string(0));
+            if world.files.remove(&path).is_none() {
+                return Outcome::Failed(format!("there was no adapter at `{path}` to remove"));
+            }
+            Outcome::Passed
+        }
+        "an unexpected agent adapter exists" => {
+            let Some(first) = harness::roster(&world.declaration).first().cloned() else {
+                return Outcome::Failed("the roster is empty".to_string());
+            };
+            world.files.insert(
+                format!("{}/ghost.md", harness::agent_dir(&first)),
+                "---
+name: ghost
+description: Nobody declared this.
+---
+
+Unknown.
+"
+                .to_string(),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} contains extra prompt instructions" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_with_extra_prompt(),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} weakens a denied capability" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_weakening_denial(),
+            );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} drops a declared constraint" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_dropping_constraint(),
+            );
+            Outcome::Passed
+        }
+        "the canonical agent requires a capability outside the declared vocabulary" => {
+            // The adapters gain it too, so the only thing wrong with the
+            // repository is the capability's absence from the vocabulary.
+            let requiring = harness::agent_requiring("network-write");
+            world
+                .files
+                .insert(harness::canonical_agent(), requiring.clone());
+            for name in harness::roster(&world.declaration) {
+                world
+                    .files
+                    .insert(harness::agent_adapter(&name), requiring.clone());
+            }
+            Outcome::Passed
+        }
+        "each harness declares the required capability in its own capability format" => {
+            // One harness declares in TOML and the rest in JSON, so a passing
+            // run is one that compared meaning rather than syntax.
+            let roster = harness::roster(&world.declaration);
+            let Some(first) = roster.first().cloned() else {
+                return Outcome::Failed("the roster is empty".to_string());
+            };
+            world
+                .declaration
+                .capability_formats
+                .insert(first, "toml".to_string());
+            reseed_contract(world);
+            Outcome::Passed
+        }
+        "the required-capability command for harness {string} diverges" => {
+            let name = matched.string(0).to_string();
+            let format = harness::format_for(&world.declaration, &name);
+            world.files.insert(
+                harness::capability_file(&name, &format),
+                harness::divergent_capability(&format),
+            );
+            Outcome::Passed
+        }
+        "the capability declaration for harness {string} is unreadable" => {
+            let name = matched.string(0).to_string();
+            let format = harness::format_for(&world.declaration, &name);
+            world
+                .unreadable
+                .insert(harness::capability_file(&name, &format));
+            Outcome::Passed
+        }
+        "excluded instruction sources and a linked skill exist" => {
+            let excluded = if world.declaration.excluded_directories.is_empty() {
+                return Outcome::Failed(
+                    "no excluded directories were declared for this arrangement".to_string(),
+                );
+            } else {
+                world.declaration.excluded_directories.clone()
+            };
+            for directory in excluded {
+                world.files.insert(
+                    format!("{directory}/{}", harness::INSTRUCTION),
+                    "# Buried rules
+
+Inside a directory nobody scans.
+"
+                    .to_string(),
+                );
+            }
+            let linked = format!("{}/linked/SKILL.md", harness::SKILLS_ROOT);
+            world.files.insert(
+                linked.clone(),
+                "---
+name: linked
+description: Reached through a link.
+---
+
+Body.
+"
+                .to_string(),
+            );
+            world.links.insert(linked);
+            Outcome::Passed
+        }
+        "two sorted harness-parity violations exist" => {
+            let roster = harness::roster(&world.declaration);
+            if roster.len() < 2 {
+                return Outcome::Failed("two violations need at least two harnesses".to_string());
+            }
+            for name in roster.iter().take(2) {
+                world.files.remove(&harness::agent_adapter(name));
+            }
+            Outcome::Passed
+        }
+        "I remember the repository snapshot" => {
+            world.snapshot = Some(world.files.clone());
+            Outcome::Passed
+        }
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
         {
             world.declaration.empty_roster = true;
@@ -324,17 +559,13 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         "I inspect internal links" => {
             let arguments =
                 validator_arguments("internal-link").expect("internal-link is a validator");
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
         "I inspect Mermaid accessibility" => {
             let arguments = validator_arguments("mermaid").expect("mermaid is a validator");
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -344,9 +575,7 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .split('|')
                 .map(|argument| argument.to_string())
                 .collect();
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -354,9 +583,7 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         | "I find word-limit violations"
         | "I inspect the word budget" => {
             let arguments = validator_arguments("word-budget").expect("word-budget is a validator");
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -366,18 +593,14 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .map(|part| (*part).to_string())
                 .chain(std::iter::once(matched.string(0).to_string()))
                 .collect();
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
         "I inspect directory maps" => {
             let arguments =
                 validator_arguments("directory-map").expect("directory-map is a validator");
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -392,9 +615,7 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 validator_arguments("directory-map").expect("directory-map is a validator");
             arguments.push("--directory".to_string());
             arguments.push(location.to_string());
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -403,9 +624,51 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 validator_arguments("directory-map").expect("directory-map is a validator");
             arguments.push("--directory".to_string());
             arguments.push(matched.string(0).to_string());
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I inspect harness parity" | "I inspect harness parity again" => {
+            let arguments =
+                validator_arguments("harness-parity").expect("harness-parity is a validator");
+            let result = world.driver.invoke(&world.repository(), &arguments);
+            world.record(result);
+            Outcome::Passed
+        }
+        "I inspect harness parity twice" => {
+            let arguments =
+                validator_arguments("harness-parity").expect("harness-parity is a validator");
+            let first = world.driver.invoke(&world.repository(), &arguments);
+            world.record(first);
+            let second = world.driver.invoke(&world.repository(), &arguments);
+            world.record(second);
+            Outcome::Passed
+        }
+        "I inspect and remember the harness-parity digest" => {
+            let arguments =
+                validator_arguments("harness-parity").expect("harness-parity is a validator");
+            let result = world.driver.invoke(&world.repository(), &arguments);
+            world.remembered_digest = digest_of(&result);
+            world.record(result);
+            match world.remembered_digest {
+                Some(_) => Outcome::Passed,
+                None => Outcome::Failed(format!(
+                    "stdout carries no digest\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "I add a canonical skill supporting resource" => {
+            let (path, body) = harness::supporting_resource();
+            world.files.insert(path, body);
+            Outcome::Passed
+        }
+        "I inspect harness parity narrowed to {string}" => {
+            let mut arguments =
+                validator_arguments("harness-parity").expect("harness-parity is a validator");
+            arguments.push("--harness".to_string());
+            arguments.push(matched.string(0).to_string());
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -416,9 +679,7 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                     matched.string(0)
                 ));
             };
-            let result = world
-                .driver
-                .invoke(&world.declaration, &world.files, &arguments);
+            let result = world.driver.invoke(&world.repository(), &arguments);
             world.record(result);
             Outcome::Passed
         }
@@ -687,6 +948,120 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 format!("expected every violation to be `{phrase}`, got {lines:?}"),
             )
         }
+        "harness-parity validation succeeds" => {
+            let result = world.result();
+            expect(
+                result.exit_code == 0,
+                format!(
+                    "expected a clean run, got exit {}\nstderr: {}",
+                    result.exit_code, result.stderr
+                ),
+            )
+        }
+        "harness-parity validation succeeds with {int} harnesses, {int} skill, {int} agent, and {int} capability" =>
+        {
+            let result = world.result();
+            if result.exit_code != 0 {
+                return Outcome::Failed(format!(
+                    "expected a clean run, got exit {}\nstderr: {}",
+                    result.exit_code, result.stderr
+                ));
+            }
+            let expected = format!(
+                "canon {} harnesses, {} skills, {} agents, {} capabilities",
+                matched.integer(0),
+                matched.integer(1),
+                matched.integer(2),
+                matched.integer(3)
+            );
+            expect(
+                result.stdout.contains(&expected),
+                format!(
+                    "expected `{expected}` in the summary\nstdout: {}",
+                    result.stdout
+                ),
+            )
+        }
+        "the harness-parity violations include {string}" => {
+            let result = world.result();
+            let kind = matched.string(0);
+            expect(
+                result
+                    .stderr
+                    .lines()
+                    .any(|line| line.starts_with('[') && line.contains(kind)),
+                format!("expected a `{kind}` violation\nstderr: {}", result.stderr),
+            )
+        }
+        "{int} harnesses were inspected" => {
+            let expected = matched.integer(0);
+            match inspected_count(world.result()) {
+                Some(counted) => expect(
+                    counted == expected,
+                    format!(
+                        "expected {expected} harnesses inspected, the summary says {counted}\nstdout: {}",
+                        world.result().stdout
+                    ),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no inspection summary\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "harness-parity outputs are identical" => {
+            let Some(previous) = world.previous_command_result.clone() else {
+                return Outcome::Failed("only one inspection was run".to_string());
+            };
+            expect(
+                &previous == world.result(),
+                "the two inspections disagreed".to_string(),
+            )
+        }
+        "harness-parity violations are ordinally sorted" => {
+            let lines: Vec<&str> = world
+                .result()
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with('['))
+                .collect();
+            if lines.len() < 2 {
+                return Outcome::Failed(format!(
+                    "sorting needs at least two violations, got {}",
+                    lines.len()
+                ));
+            }
+            let mut sorted = lines.clone();
+            sorted.sort_unstable();
+            expect(
+                lines == sorted,
+                format!("violations are not in order: {lines:?}"),
+            )
+        }
+        "the repository snapshot is unchanged" => {
+            let Some(snapshot) = world.snapshot.clone() else {
+                return Outcome::Failed("no snapshot was taken".to_string());
+            };
+            expect(
+                snapshot == world.files,
+                "the inspection changed the repository".to_string(),
+            )
+        }
+        "the harness-parity digest changed" => {
+            let Some(remembered) = world.remembered_digest.clone() else {
+                return Outcome::Failed("no digest was remembered".to_string());
+            };
+            match digest_of(world.result()) {
+                Some(current) => expect(
+                    current != remembered,
+                    format!("the digest is still `{remembered}`"),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no digest\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
         "no directories were inspected" => {
             let result = world.result();
             expect(
@@ -887,4 +1262,24 @@ fn invalid_location(name: &str) -> Option<&'static str> {
         "outside repository" => Some("../outside"),
         _ => None,
     }
+}
+
+/// Rebuild the canonical contract from the declaration as it now stands.
+///
+/// Called whenever a step changes something the contract's shape depends on --
+/// the roster, a command directory, a capability format -- so the files and the
+/// rendered configuration never disagree about what the repository is.
+fn reseed_contract<D: Driver>(world: &mut World<D>) {
+    for (path, body) in harness::valid_contract(&world.declaration) {
+        world.files.insert(path, body);
+    }
+}
+
+/// The digest a harness-parity run reports.
+fn digest_of(result: &CommandResult) -> Option<String> {
+    result
+        .stdout
+        .lines()
+        .find_map(|line| line.split_once("] digest "))
+        .map(|(_, digest)| digest.trim().to_string())
 }

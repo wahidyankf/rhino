@@ -9,6 +9,7 @@
 //! value in it -- that is the whole point of the extraction -- so it lives here,
 //! where a reader can see every value a scenario silently relies on.
 
+use crate::harness;
 use crate::world::Declaration;
 use std::collections::BTreeMap;
 
@@ -64,12 +65,14 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
     );
     lines.insert(
         "harness-parity.canonical.instruction".into(),
-        "root-instructions.md".into(),
+        harness::INSTRUCTION.into(),
     );
-    lines.insert(
-        "harness-parity.canonical.instruction-adapter".into(),
-        "adapter-instructions.md".into(),
-    );
+    if declaration.declares_instruction_adapter {
+        lines.insert(
+            "harness-parity.canonical.instruction-adapter".into(),
+            harness::ADAPTER.into(),
+        );
+    }
 
     let roster = if declaration.empty_roster {
         Vec::new()
@@ -85,7 +88,7 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
             declaration
                 .canonical_skills_root
                 .clone()
-                .unwrap_or_else(|| "canon/skills".into()),
+                .unwrap_or_else(|| harness::SKILLS_ROOT.into()),
         );
     }
     if !roster.is_empty() || declaration.canonical_agents_root.is_some() {
@@ -94,17 +97,28 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
             declaration
                 .canonical_agents_root
                 .clone()
-                .unwrap_or_else(|| "canon/agents".into()),
+                .unwrap_or_else(|| harness::AGENTS_ROOT.into()),
         );
     }
 
     let entries: Vec<String> = roster
         .iter()
         .map(|name| {
-            format!(
-                "{{name: {name}, agent-dir: adapters/{name}/agents, agent-extension: \".md\", \
-                 capability-file: adapters/{name}/capabilities.json, capability-format: json}}"
-            )
+            let format = harness::format_for(declaration, name);
+            let mut entry = format!(
+                "{{name: {name}, agent-dir: {}, agent-extension: \".md\"",
+                harness::agent_dir(name)
+            );
+            // Per-harness, because that is how the schema states it: a second
+            // harness gaining skill wrappers is one line of configuration.
+            if declaration.command_directories.contains(name) {
+                entry.push_str(&format!(", command-dir: {}", harness::command_dir(name)));
+            }
+            entry.push_str(&format!(
+                ", capability-file: {}, capability-format: {format}}}",
+                harness::capability_file(name, &format)
+            ));
+            entry
         })
         .collect();
     lines.insert(
@@ -113,7 +127,11 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
     );
     lines.insert(
         "harness-parity.prohibited-instruction-sources".into(),
-        "[\"**/root-instructions.md\", \"**/adapter-instructions.md\"]".into(),
+        format!(
+            "[\"**/{}\", \"**/{}\"]",
+            harness::INSTRUCTION,
+            harness::ADAPTER
+        ),
     );
     lines.insert(
         "harness-parity.capabilities".into(),

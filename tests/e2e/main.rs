@@ -19,6 +19,9 @@ mod fixtures;
 #[path = "../support/gherkin.rs"]
 mod gherkin;
 #[allow(dead_code)]
+#[path = "../support/harness.rs"]
+mod harness;
+#[allow(dead_code)]
 #[path = "../support/mermaid.rs"]
 mod mermaid;
 #[allow(dead_code)]
