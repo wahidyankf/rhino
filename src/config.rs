@@ -101,7 +101,8 @@ pub struct WordBudget {
 #[serde(deny_unknown_fields)]
 pub struct Surface {
     pub glob: String,
-    /// Strictly greater than this is a finding, so `750` passes at 750 words.
+    /// Strictly greater than this is a finding: a file exactly at the
+    /// declared count passes. RHINO holds no number of its own.
     pub fail: usize,
     #[serde(default)]
     pub warn: Option<usize>,

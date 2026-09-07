@@ -9,9 +9,11 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+pub mod report;
 pub mod runtime;
 
 use config::ConfigError;
+use report::Report;
 use runtime::{Tree, TreeError};
 use std::ffi::OsString;
 
@@ -82,28 +84,55 @@ where
 pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
     let path: Vec<&str> = arguments.iter().map(String::as_str).collect();
 
-    match path.as_slice() {
-        ["version"] => Outcome::clean(format!("{}\n", env!("CARGO_PKG_VERSION"))),
-        ["repo-config", "validate"] => match load(tree) {
-            Ok(_) => Outcome::clean(String::new()),
-            Err(error) => Outcome::refused(format!("{error}\n")),
-        },
-        // Every remaining command still reads the configuration before doing
-        // anything, so an unreadable one is refused rather than half-run.
-        ["governance", "word-budget", "validate"]
-        | ["governance", "directory-map", "validate"]
-        | ["harness", "parity", "validate"]
-        | ["md", "internal-link", "validate"]
-        | ["md", "mermaid", "validate"]
-        | ["md", "word-count", "inspect"] => match load(tree) {
-            Ok(_) => Outcome::refused(format!("rhino: `{}` is not ported yet\n", path.join(" "))),
-            Err(error) => Outcome::refused(format!("{error}\n")),
-        },
-        [] => Outcome::refused("rhino: no command given\n".to_string()),
-        other => Outcome::refused(format!(
-            "rhino: unrecognized command `{}`\n",
-            other.join(" ")
-        )),
+    if path.as_slice() == ["version"] {
+        return Outcome::clean(format!("{}\n", env!("CARGO_PKG_VERSION")));
+    }
+
+    let Some(category) = category_of(&path) else {
+        return match path.as_slice() {
+            [] => Outcome::refused("rhino: no command given\n".to_string()),
+            other => Outcome::refused(format!(
+                "rhino: unrecognized command `{}`\n",
+                other.join(" ")
+            )),
+        };
+    };
+
+    // Every command reads the configuration before doing anything else, so a
+    // configuration it cannot use is refused rather than half-run. A validator
+    // that skipped a tree because its configuration was malformed would report
+    // a clean repository that was never checked.
+    let config = match load(tree) {
+        Ok(config) => config,
+        Err(error) => return Report::refused(category, error.to_string()),
+    };
+
+    match category {
+        "repo-config" => {
+            let _ = config;
+            Report::new("repo-config", "configuration file")
+                .inspected(1)
+                .finish()
+        }
+        other => Report::refused(other, format!("`{}` is not ported yet", path.join(" "))),
+    }
+}
+
+/// The atomic output prefix each command path reports under.
+///
+/// The mapping lives here rather than being assembled from the path, so the
+/// prefix a consumer greps for cannot change because a command was renamed or
+/// nested differently.
+fn category_of(path: &[&str]) -> Option<&'static str> {
+    match path {
+        ["repo-config", "validate"] => Some("repo-config"),
+        ["governance", "word-budget", "validate"] => Some("word-budget"),
+        ["governance", "directory-map", "validate"] => Some("directory-map"),
+        ["harness", "parity", "validate"] => Some("harness-parity"),
+        ["md", "internal-link", "validate"] => Some("internal-link"),
+        ["md", "mermaid", "validate"] => Some("mermaid"),
+        ["md", "word-count", "inspect"] => Some("word-count"),
+        _ => None,
     }
 }
 
