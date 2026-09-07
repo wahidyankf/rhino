@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 172] = [
+pub const VOCABULARY: [&str; 174] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -41,11 +41,13 @@ pub const VOCABULARY: [&str; 172] = [
     "a documentation page shows the canonical import in an inline code span",
     "a documentation page shows the canonical import inside a fenced example",
     "a file imports the canonical instruction body",
+    "a file with a prohibited name is not Markdown",
     "a loose file sits directly under the canonical skills root",
     "a nested repository instruction file exists",
     "a nested repository under {string} scans a directory the outer repository excludes",
     "a repository declaring every section with nothing to find",
     "a required MCP server is declared",
+    "a source file contains the canonical import",
     "a valid one-skill one-agent one-capability harness contract",
     "all violations are {string}",
     "an argument error is raised",

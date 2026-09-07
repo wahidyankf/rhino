@@ -254,9 +254,17 @@ fn instructions(contents: &BTreeMap<String, String>, config: &Config, report: &m
         }
         // Two ways to be a competing always-on instruction: to be named like
         // one, or to route to the canonical body without being the file
-        // permitted to.
+        // permitted to. The first is the repository's declared globs and
+        // applies to every file whatever its kind; the second is a question
+        // only Markdown can answer.
         //
-        // In Markdown the route only counts where it is prose. A page that
+        // Nothing else a repository holds is an always-on instruction to any
+        // harness. Source, fixtures, and data may all contain the route -- the
+        // code implementing this very check has to -- and a scan that read
+        // them could not be implemented without accusing its own
+        // implementation.
+        //
+        // Within Markdown the route only counts where it is prose. A page that
         // shows the import inside a fenced example or a code span is
         // documenting the adapter rather than being one, and a validator that
         // could not tell those apart could not be documented without tripping
@@ -266,14 +274,14 @@ fn instructions(contents: &BTreeMap<String, String>, config: &Config, report: &m
         // remainder is an example only by the accident of a missing closer, and
         // granting the exemption there would make the check evadable by one
         // stray line.
-        let quoting = scan::is_markdown(path) && !markdown::ends_inside_a_fence(text);
-        let imports = if quoting {
-            markdown::prose_lines(text)
-                .iter()
-                .any(|(_, line)| markdown::without_code_spans(line).contains(&route))
-        } else {
-            text.contains(&route)
-        };
+        let imports = scan::is_markdown(path)
+            && if markdown::ends_inside_a_fence(text) {
+                text.contains(&route)
+            } else {
+                markdown::prose_lines(text)
+                    .iter()
+                    .any(|(_, line)| markdown::without_code_spans(line).contains(&route))
+            };
         if prohibited.is_match(path) || imports {
             report.found(Finding::new(
                 "unexpected-instruction-source",

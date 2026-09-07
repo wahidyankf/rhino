@@ -45,6 +45,20 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "unexpected-instruction-source"
 
+  Scenario: A source file containing the import is not an instruction source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a source file contains the canonical import
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A prohibited name competes with the canon whatever the file kind
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a file with a prohibited name is not Markdown
+    When I inspect harness parity
+    Then the harness-parity violations include "unexpected-instruction-source"
+
   Scenario: A documentation page showing the import in a fenced example is not a source
     Given the repository declares no instruction adapter
     And a valid one-skill one-agent one-capability harness contract

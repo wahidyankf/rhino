@@ -162,6 +162,14 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "A source file containing the import is not an instruction source",
+    ),
+    (
+        "harness-parity",
+        "A prohibited name competes with the canon whatever the file kind",
+    ),
+    (
+        "harness-parity",
         "A documentation page showing the import in a fenced example is not a source",
     ),
     (

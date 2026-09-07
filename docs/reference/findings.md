@@ -105,6 +105,17 @@ Some situations look like findings and are not.
 - **A file that exists and cannot be opened.** That is exit `2`, not a finding.
   Reporting it as missing would tell a maintainer to write a file that is
   already there.
+- **A file that opens and holds no text.** An image or an archive is not an
+  instruction, a skill, an agent, or a capability declaration. Only `harness
+parity validate` meets one, because it is the only walk that reads every file
+  rather than every file of a declared kind.
+- **A non-Markdown file containing the canonical import.** Source, fixtures,
+  and data are not always-on instructions to any harness — the code that
+  implements this check has to contain the route to look for it. Files
+  prohibited by _name_ are still reported whatever their kind.
+- **A fenced example or code span quoting the import.** A page documenting the
+  adapter is not one. A document that ends inside an unclosed fence gets no
+  such benefit.
 - **A fenced block whose diagram declaration RHINO cannot parse.** Reporting on
   syntax the tool does not understand would be reporting on its own ignorance.
 - **A surface, tree, or roster that matched nothing.** Zero is a real answer.

@@ -298,6 +298,33 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             world.vanished.insert(matched.string(0).to_string());
             Outcome::Passed
         }
+        "a source file contains the canonical import" => {
+            // The route appears because this file *implements* the check that
+            // looks for it -- which is the shape the false positive took in a
+            // real repository, and the reason the scan is a Markdown question.
+            world.files.insert(
+                "src/parity.rs".to_string(),
+                format!(
+                    "const ROUTE: &str = \"{}\";\n",
+                    harness::import(harness::INSTRUCTION).trim()
+                ),
+            );
+            Outcome::Passed
+        }
+        "a file with a prohibited name is not Markdown" => {
+            // Prohibited by name and unreadable as Markdown, so only the glob
+            // can catch it -- which is the half of the rule that has to stay
+            // an every-file question.
+            world.declaration.overrides.insert(
+                "harness-parity.prohibited-instruction-sources".to_string(),
+                "[\"**/*.instructions\"]".to_string(),
+            );
+            world.files.insert(
+                "nested/always.instructions".to_string(),
+                "always read this first\n".to_string(),
+            );
+            Outcome::Passed
+        }
         "no capability server is required and no harness declares a capability file" => {
             world.declaration.omit_required_server = true;
             world.declaration.omit_capability_files = true;
