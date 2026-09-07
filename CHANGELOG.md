@@ -53,6 +53,9 @@ The first release. Nothing is published yet, so everything below is new.
   takes a `count` of `letters-and-digits` or `whitespace-separated`. The two
   repositories being reconciled here already disagree, by 156 words on the same
   file, so either choice made silently would enforce a budget nobody set.
+- **A capability's executable vector is read in every spelling.** The whole
+  command line is what two harnesses agree on; whether it is split across
+  `command` and `args` or written as one array is that vendor's syntax.
 - **Quoted link syntax is not a link.** Inside a fenced block or an inline code
   span, `[name](name)` is characters a document is talking about rather than a
   destination it points at.

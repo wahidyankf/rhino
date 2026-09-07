@@ -216,6 +216,20 @@ fn capability_declaration(format: &str) -> String {
     }
 }
 
+/// The same server, written as one command vector rather than a command and
+/// its arguments -- which is how one real harness spells it.
+pub fn capability_as_one_vector(format: &str) -> String {
+    capability_declaration(format)
+        .replace(
+            "\"command\": \"toolrunner\",\n      \"args\": [\"serve\"]",
+            "\"command\": [\"toolrunner\", \"serve\"]",
+        )
+        .replace(
+            "command = \"toolrunner\"\nargs = [\"serve\"]",
+            "command = [\"toolrunner\", \"serve\"]",
+        )
+}
+
 /// The roster a declaration currently names.
 ///
 /// The single answer to "which harnesses does this repository declare?".

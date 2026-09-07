@@ -413,6 +413,17 @@ Feature: Coding-harness parity
       | canon/agents/nested/deep.md |
       | canon/agents/notes.txt      |
 
+  Scenario Outline: A capability may be written as one command vector
+    Given a valid one-skill one-agent one-capability harness contract
+    And harness "<harness>" writes its capability as one command vector
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+    Examples:
+      | harness |
+      | alpha   |
+      | gamma   |
+
   Scenario: A closed adapter still declares the fields its translations name
     Given every harness closes its agent adapter declaration
     And a valid one-skill one-agent one-capability harness contract

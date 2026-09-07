@@ -702,14 +702,11 @@ fn capability(
         return false;
     };
 
-    let command = entry.get("command").and_then(Value::as_str);
-    let arguments: Option<Vec<&str>> = entry
-        .get("args")
-        .and_then(Value::as_array)
-        .map(|values| values.iter().filter_map(Value::as_str).collect());
-
-    let expected: Vec<&str> = required.args.iter().map(String::as_str).collect();
-    if command != Some(required.command.as_str()) || arguments.as_deref() != Some(&expected) {
+    let declared_vector = executable_vector(entry);
+    let expected: Vec<&str> = std::iter::once(required.command.as_str())
+        .chain(required.args.iter().map(String::as_str))
+        .collect();
+    if declared_vector.as_deref() != Some(expected.as_slice()) {
         report.found(Finding::new(
             "divergent-capability",
             &declared.file,
@@ -850,6 +847,27 @@ impl Read {
         };
         raw.split_whitespace().collect::<Vec<_>>().join(" ")
     }
+}
+
+/// The whole command line a capability declaration names, flattened.
+///
+/// One harness writes the executable and its arguments as a scalar `command`
+/// beside an `args` array; another writes the entire vector as `command`. What
+/// the two agree on is the sequence of words that gets run, so that is what is
+/// compared -- pinning either split would describe one vendor's syntax the way
+/// pinning the key path would, and reject a server that is in fact identical.
+fn executable_vector(entry: &Value) -> Option<Vec<&str>> {
+    let mut vector = match entry.get("command")? {
+        Value::String(command) => vec![command.as_str()],
+        Value::Array(words) => words.iter().map(Value::as_str).collect::<Option<_>>()?,
+        _ => return None,
+    };
+    if let Some(Value::Array(arguments)) = entry.get("args") {
+        for argument in arguments {
+            vector.push(argument.as_str()?);
+        }
+    }
+    Some(vector)
 }
 
 /// Where the route lives when it is prose rather than a field.

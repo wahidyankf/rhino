@@ -608,6 +608,14 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "harness {string} writes its capability as one command vector" => {
+            let format = harness::format_for(&world.declaration, matched.string(0));
+            world.files.insert(
+                harness::capability_file(matched.string(0), &format),
+                harness::capability_as_one_vector(&format),
+            );
+            Outcome::Passed
+        }
         "the repository writes its route template with uneven spacing" => {
             world.declaration.padded_route_template = true;
             Outcome::Passed

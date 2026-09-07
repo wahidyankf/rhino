@@ -8,6 +8,10 @@ use crate::registry::{Binding, Exemption};
 
 pub const BINDINGS: &[Binding] = &[
     (
+        "harness-parity",
+        "A capability may be written as one command vector",
+    ),
+    (
         "internal-link",
         "A link quoted inside a code span is prose about a link",
     ),

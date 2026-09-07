@@ -158,6 +158,13 @@ reader sees separately.
 | `constraints`                    | yes, and may be empty   | The vocabulary an agent may draw constraints from.          |
 | `required-mcp`                   | with every `capability` | The server every harness must declare identically.          |
 
+`required-mcp` takes `name`, `command`, and `args`. RHINO looks for the server
+by **name**, wherever the vendor nests it, and compares the whole executable
+vector — `command` followed by `args` — however that vendor splits it. One
+harness writes a scalar `command` beside an `args` array; another writes the
+entire vector as `command`. Both name the same command line, and pinning either
+split would put a vendor's syntax back in the binary.
+
 `harnesses` is required even when empty, and empty is a legal, explicit
 declaration. The difference between "this repository has no coding harnesses"
 and "I forgot to configure harnesses" has to stay visible.
