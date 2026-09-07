@@ -8,6 +8,26 @@ use crate::registry::{Binding, Exemption};
 
 pub const BINDINGS: &[Binding] = &[
     (
+        "harness-parity",
+        "The canon declares its permissions under names the repository chose",
+    ),
+    (
+        "harness-parity",
+        "Drift is still caught when the canon renames its permission fields",
+    ),
+    (
+        "harness-parity",
+        "A canonical agent must carry the field its declaration fixes",
+    ),
+    (
+        "repo-config",
+        "Canonical agents whose permission fields are unnamed are refused",
+    ),
+    (
+        "repo-config",
+        "A declaration shape with no canonical agents to describe is refused",
+    ),
+    (
         "cli-contract",
         "Every canonical nested command path succeeds",
     ),

@@ -345,6 +345,23 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the canonical agents are gone and only their declaration shape remains" => {
+            world.declaration.omit_agents_root = true;
+            world.declaration.omit_agent_adapters = true;
+            world.declaration.keep_declaration_shape = true;
+            Outcome::Passed
+        }
+        "the canonical agents declare their permissions under {string} names" => {
+            world.declaration.renamed_declaration = matched.string(0) == "alternate";
+            Outcome::Passed
+        }
+        "the canonical agent omits the field every declaration must carry" => {
+            world.files.insert(
+                harness::canonical_agent(),
+                harness::agent_without_its_fixed_field(),
+            );
+            Outcome::Passed
+        }
         "no canonical agents are declared and no harness expresses them" => {
             world.declaration.omit_agents_root = true;
             world.declaration.omit_agent_adapters = true;

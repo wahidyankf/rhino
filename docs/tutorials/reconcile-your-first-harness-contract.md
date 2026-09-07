@@ -133,6 +133,10 @@ Those three lists are not free text. Every name in them has to appear in the
 vocabulary your configuration declares, so that a typo fails instead of quietly
 granting an agent nothing.
 
+The three _field_ names are yours as well — `capabilities` and `denied` here,
+`requires` and `denies` in some other repository — and step 3 is where you tell
+RHINO which is which.
+
 ## Step 3 — declare a harness
 
 Replace the `harness-parity` section with this. Each canonical root arrives with
@@ -148,6 +152,10 @@ harness-parity:
     skill-route: "Read {path} completely, then follow it."
     agents-root: agents
     agent-route: "Read {path} completely and follow it as authoritative."
+    declaration:
+      grants: capabilities
+      denials: denied
+      limits: constraints
   harnesses:
     - name: claude
       agent-adapter:
@@ -190,6 +198,11 @@ harness-parity:
   constraints:
     - inline-result-only
 ```
+
+The `declaration` block names the three fields your canonical agents wrote
+their permissions under. RHINO will not guess them: a list read under a name
+nobody wrote comes back empty rather than missing, so a guess that missed would
+compare nothing and report the repository clean.
 
 The `translations` block is where the canon meets this harness's own vocabulary.
 The canon says `repository-read`; this harness spells that `Glob` and `Grep` in
@@ -318,13 +331,14 @@ Put the `denied:` block back before continuing.
 
 ## Step 7 — edit the canon and watch the digest move
 
-Change the canonical prompt in `agents/reviewer.md`, leaving the adapter alone:
+Change the canonical prompt in `agents/reviewer.md`, leaving the adapter alone.
+Replace its last sentence with `Report only what the diff shows.`:
 
 ```console
 $ rhino harness parity validate
 [harness-parity] checked 1 harness, no findings
 [harness-parity] canon 1 harnesses, 1 skills, 1 agents, 1 reconciled capability declarations
-[harness-parity] digest f02c8fff513b040b71984741c0c12d57ae130856eacfaf6f06421f61591b7520
+[harness-parity] digest 681aedff477f9efc2a153068252dd8dc810e7144c9aa97fff0618bd46254377b
 ```
 
 **No finding, and a different digest.** That is the route model working as
@@ -355,10 +369,10 @@ A name you never declared is a broken invocation rather than an empty result:
 
 ```console
 $ rhino harness parity validate --harness codex
-rhino: `codex` is not a harness this repository declares
+[harness-parity] `codex` is not a harness this repository declares
 ```
 
-Exit `2`, and stdout is empty. Nothing was checked, so there is nothing to
+Exit `2`, and that line is on stderr — stdout is empty. Nothing was checked, so there is nothing to
 report — which is exactly what a gate needs to tell apart from a clean run.
 
 ## Step 9 — take the same answer as JSON

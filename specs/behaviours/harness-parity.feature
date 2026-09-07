@@ -413,6 +413,35 @@ Feature: Coding-harness parity
       | canon/agents/nested/deep.md |
       | canon/agents/notes.txt      |
 
+  Scenario Outline: The canon declares its permissions under names the repository chose
+    Given the canonical agents declare their permissions under "<spelling>" names
+    And a valid one-skill one-agent one-capability harness contract
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+    Examples:
+      | spelling  |
+      | ordinary  |
+      | alternate |
+
+  Scenario Outline: Drift is still caught when the canon renames its permission fields
+    Given the canonical agents declare their permissions under "alternate" names
+    And a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "<harness>" weakens a denied capability
+    When I inspect harness parity
+    Then the harness-parity violation for "<path>" is "agent-semantic-divergence"
+
+    Examples:
+      | harness | path                              |
+      | alpha   | adapters/alpha/agents/reviewer.md |
+      | beta    | adapters/beta/agents/reviewer.md  |
+
+  Scenario: A canonical agent must carry the field its declaration fixes
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical agent omits the field every declaration must carry
+    When I inspect harness parity
+    Then the harness-parity violations include "invalid-agent: `mode` must be declared as `subagent`"
+
   Scenario: A canonical agent without a declaration is invalid
     Given a valid one-skill one-agent one-capability harness contract
     And the canonical agent carries no declaration

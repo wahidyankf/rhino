@@ -130,6 +130,18 @@ pub struct Declaration {
     /// declared -- a permission rule that could never fire.
     pub unnamed_translation: bool,
     pub undeclared_translation: bool,
+    /// Whether the canonical agents write their three permission lists under a
+    /// second repository's names, with the configuration renamed to match.
+    /// Both spellings must reconcile, which is the claim that the names are the
+    /// repository's rather than the validator's.
+    pub renamed_declaration: bool,
+    /// Whether the configuration omits the shape that says which field holds
+    /// which permission.
+    pub omit_declaration_shape: bool,
+    /// Whether the shape stays behind when the canonical agents it describes
+    /// are gone -- the half of the pairing a scenario cannot state any other
+    /// way, since the shape is otherwise written alongside the root.
+    pub keep_declaration_shape: bool,
     pub roster: Vec<String>,
     /// Whether the configuration declares a file permitted to import the
     /// canonical instruction. Absent is legal, so the flag is a tri-state only
@@ -163,6 +175,9 @@ impl Default for Declaration {
             omit_skills_root: false,
             unnamed_translation: false,
             undeclared_translation: false,
+            renamed_declaration: false,
+            omit_declaration_shape: false,
+            keep_declaration_shape: false,
             roster: Vec::new(),
             // A declared adapter is the ordinary case; the scenario that has
             // none says so.

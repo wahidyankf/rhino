@@ -145,6 +145,20 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr contains "no `skills-root` names what it would express"
 
+  Scenario: Canonical agents whose permission fields are unnamed are refused
+    Given the repository declares a complete configuration
+    And the configuration omits "harness-parity.canonical.declaration"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "granting and denying nothing"
+
+  Scenario: A declaration shape with no canonical agents to describe is refused
+    Given the repository declares a complete configuration
+    And the canonical agents are gone and only their declaration shape remains
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "no canonical agent to read"
+
   Scenario Outline: A canonical root and the route its adapters carry are one declaration
     Given the repository declares a complete configuration
     And the configuration omits "<key>"

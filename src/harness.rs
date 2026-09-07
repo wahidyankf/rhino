@@ -11,8 +11,8 @@
 //! repository and one that serves four.
 
 use crate::config::{
-    Adapter, Capability, CapabilityFormat, Config, DocumentFormat, Harness, Identity, RequiredMcp,
-    Translation, When,
+    Adapter, Capability, CapabilityFormat, Config, DeclarationShape, DocumentFormat, Harness,
+    Identity, RequiredMcp, Translation, When,
 };
 use crate::markdown;
 use crate::report::{Finding, Report};
@@ -85,14 +85,44 @@ struct Canon<'a> {
     required: Option<&'a RequiredMcp>,
 }
 
-/// The declaration a canonical document carries, if it carries one.
+/// What a canonical document says about itself, for documents that only name
+/// and describe themselves.
 ///
 /// Read through the same parser an adapter is read through, because a canonical
 /// document and the adapters routing to it are the same kind of file and a
 /// second reader would eventually disagree with the first.
-fn read_declaration(text: &str) -> Option<Declaration> {
+fn read_identity(text: &str) -> Option<Declaration> {
     let read = Read::parse(text, DocumentFormat::FrontMatter)?;
-    serde_json::from_value(Value::Object(read.fields.into_iter().collect())).ok()
+    Some(Declaration {
+        name: read.scalar("name"),
+        description: read.scalar("description"),
+        ..Declaration::default()
+    })
+}
+
+/// A canonical agent's declaration, or why the file is not one.
+///
+/// The three permission lists are found by the names the repository declared
+/// rather than by names chosen here. That is not a convenience: a list read
+/// under a name nobody wrote comes back empty rather than missing, so a
+/// hard-coded name would leave every translation with nothing to fire on and
+/// report the comparison clean without having made it.
+fn read_declaration(text: &str, shape: &DeclarationShape) -> Result<Declaration, String> {
+    let Some(read) = Read::parse(text, DocumentFormat::FrontMatter) else {
+        return Err("an agent needs a declaration naming and describing it".to_string());
+    };
+    for (field, value) in &shape.fixed {
+        if read.scalar(field).as_deref() != Some(value.as_str()) {
+            return Err(format!("`{field}` must be declared as `{value}`"));
+        }
+    }
+    Ok(Declaration {
+        name: read.scalar("name"),
+        description: read.scalar("description"),
+        capabilities: read.members(&shape.grants).into_iter().collect(),
+        denied: read.members(&shape.denials).into_iter().collect(),
+        constraints: read.members(&shape.limits).into_iter().collect(),
+    })
 }
 
 pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
@@ -321,7 +351,7 @@ fn skills(
             continue;
         }
 
-        let Some(declaration) = read_declaration(text) else {
+        let Some(declaration) = read_identity(text) else {
             report.found(Finding::new(
                 "invalid-skill",
                 path,
@@ -365,7 +395,10 @@ fn agents(
     report: &mut Report,
 ) -> BTreeMap<String, Declaration> {
     let mut found: BTreeMap<String, Declaration> = BTreeMap::new();
-    let Some(root) = root else {
+    // Paired by `repo-config validate`, so one missing means the other is too:
+    // a repository with no canonical agents, which has none of these to read.
+    let (Some(root), Some(shape)) = (root, config.harness_parity.canonical.declaration.as_ref())
+    else {
         return found;
     };
     let prefix = format!("{}/", root.trim_end_matches('/'));
@@ -395,13 +428,16 @@ fn agents(
         let Some(name) = rest.strip_suffix(".md") else {
             continue;
         };
-        let Some(declaration) = read_declaration(text) else {
-            report.found(Finding::new(
-                "invalid-agent",
-                path,
-                "invalid-agent: an agent needs a declaration naming and describing it",
-            ));
-            continue;
+        let declaration = match read_declaration(text, shape) {
+            Ok(declaration) => declaration,
+            Err(complaint) => {
+                report.found(Finding::new(
+                    "invalid-agent",
+                    path,
+                    format!("invalid-agent: {complaint}"),
+                ));
+                continue;
+            }
         };
 
         // A name outside the declared vocabulary grants or denies nothing, so a

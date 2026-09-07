@@ -128,10 +128,44 @@ fn skill_body() -> String {
     )
 }
 
-fn agent_body() -> String {
+/// The names this repository writes an agent's three permission lists under,
+/// and the field every canonical agent must carry outright.
+///
+/// Deliberately *not* the words RHINO once hard-coded. Every scenario that
+/// reconciles an adapter now depends on the configuration having been read for
+/// these names, so a validator that went back to choosing them itself would
+/// find three empty lists and report the whole corpus clean.
+pub const GRANTS: &str = "requires";
+pub const DENIALS: &str = "denies";
+pub const LIMITS: &str = "constraints";
+pub const FIXED_FIELD: &str = "mode";
+pub const FIXED_VALUE: &str = "subagent";
+
+/// A second repository's spelling of the same three lists.
+pub const ALTERNATE: [&str; 3] = ["may", "may-not", "always"];
+
+/// The three names in force for this scenario.
+pub fn declaration_names(declaration: &Declaration) -> [&str; 3] {
+    match declaration.renamed_declaration {
+        true => ALTERNATE,
+        false => [GRANTS, DENIALS, LIMITS],
+    }
+}
+
+fn agent_body_named(names: [&str; 3]) -> String {
+    let [grants, denials, limits] = names;
     format!(
-        "---\nname: {AGENT}\ndescription: {AGENT_DESCRIPTION}\ncapabilities:\n  - repository-read\n  - shell\ndenied:\n  - repository-write\nconstraints:\n  - inline-result-only\n---\n\nReview the change and report inline.\n"
+        "---\nname: {AGENT}\ndescription: {AGENT_DESCRIPTION}\n{FIXED_FIELD}: {FIXED_VALUE}\n{grants}:\n  - repository-read\n  - shell\n{denials}:\n  - repository-write\n{limits}:\n  - inline-result-only\n---\n\nReview the change and report inline.\n"
     )
+}
+
+fn agent_body() -> String {
+    agent_body_named([GRANTS, DENIALS, LIMITS])
+}
+
+/// A canonical agent that omits the field its declaration shape fixes.
+pub fn agent_without_its_fixed_field() -> String {
+    agent_body().replace(&format!("{FIXED_FIELD}: {FIXED_VALUE}\n"), "")
 }
 
 pub fn agent_route() -> String {
@@ -218,7 +252,10 @@ pub fn valid_contract(declaration: &Declaration) -> BTreeMap<String, String> {
         files.insert(ADAPTER.to_string(), import(INSTRUCTION));
     }
     files.insert(canonical_skill(), skill_body());
-    files.insert(canonical_agent(), agent_body());
+    files.insert(
+        canonical_agent(),
+        agent_body_named(declaration_names(declaration)),
+    );
 
     for harness in roster(declaration) {
         files.insert(agent_adapter(&harness), agent_adapter_body(&harness));
@@ -253,8 +290,8 @@ pub fn contract_paths() -> impl Fn(&String) -> bool {
 /// The canonical agent prompt with `capability` added to what it requires.
 pub fn agent_requiring(capability: &str) -> String {
     agent_body().replace(
-        "capabilities:\n  - repository-read",
-        &format!("capabilities:\n  - {capability}\n  - repository-read"),
+        &format!("{GRANTS}:\n  - repository-read"),
+        &format!("{GRANTS}:\n  - {capability}\n  - repository-read"),
     )
 }
 
@@ -380,8 +417,8 @@ pub fn divergent_capability_arguments(format: &str) -> String {
 /// An agent declaring a constraint the repository never put in its vocabulary.
 pub fn agent_constrained_by(constraint: &str) -> String {
     agent_body().replace(
-        "constraints:\n  - inline-result-only",
-        &format!("constraints:\n  - {constraint}\n  - inline-result-only"),
+        &format!("{LIMITS}:\n  - inline-result-only"),
+        &format!("{LIMITS}:\n  - {constraint}\n  - inline-result-only"),
     )
 }
 

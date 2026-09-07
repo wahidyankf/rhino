@@ -49,10 +49,17 @@ The first release. Nothing is published yet, so everything below is new.
   than equality: an adapter may grant more than the canon requires, never less,
   and never what the canon denies. Semantic drift is reported apart from a
   wrong route, because they are different problems.
+- **The canon's own field names are configuration too.** A repository says
+  which field of a canonical agent holds what it may do, what it may not, and
+  how it must behave, and which fields every such agent must carry outright.
+  RHINO ships no name for any of them, because a list read under a name nobody
+  wrote comes back empty rather than missing: a guess that missed would fire no
+  translation, compare nothing, and report the repository clean.
 - **Only pairs are required.** A repository with harnesses may have no canonical
   skills, no canonical agents, and no capability server. What it may not do is
-  declare half of anything: a root without its route, an adapter contract
-  without a root, or a capability server without the per-harness declarations
+  declare half of anything: a root without its route or its declaration shape, an
+  adapter contract without a root, or a capability server without the
+  per-harness declarations
   that satisfy it. All three are still refused alongside an *empty* roster,
   where they would reconcile nothing.
 - **No harness is named in the binary.** The roster is configuration; a further

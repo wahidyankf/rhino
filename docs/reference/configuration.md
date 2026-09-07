@@ -133,6 +133,7 @@ reader sees separately.
 | `canonical.skill-route`          | with `skills-root`      | What a wrapper carries in place of the skill.               |
 | `canonical.agents-root`          | no                      | Where canonical agents live.                                |
 | `canonical.agent-route`          | with `agents-root`      | What an adapter carries in place of the prompt.             |
+| `canonical.declaration`          | with `agents-root`      | Which field of a canonical agent holds which permission.    |
 | `harnesses`                      | yes, and may be empty   | The coding harnesses to reconcile.                          |
 | `prohibited-instruction-sources` | yes                     | Globs that may not be always-on instruction sources.        |
 | `capabilities`                   | yes, and may be empty   | The vocabulary an agent may draw capabilities from.         |
@@ -162,6 +163,34 @@ What each does require is the rest of its own declaration:
 Each half alone is a rule nothing enforces: a root with no route leaves every
 adapter's body unchecked, an adapter contract with no root behind it reconciles
 nothing, and a server no harness is checked against enforces nothing.
+
+## The canonical declaration
+
+A canonical agent writes down what it may do, what it may not, and how it must
+behave. The three lists have names, and **the names are yours** — one repository
+writes `requires:` where another writes `capabilities:`.
+
+| Key       | Required | Meaning                                                    |
+| --------- | -------- | ---------------------------------------------------------- |
+| `grants`  | yes      | The field naming what the agent may do.                    |
+| `denials` | yes      | The field naming what it may not.                          |
+| `limits`  | yes      | The field naming how it must behave.                       |
+| `fixed`   | no       | Fields every canonical agent must carry, and their values. |
+
+```yaml
+declaration:
+  grants: requires
+  denials: denies
+  limits: constraints
+  fixed: { mode: subagent }
+```
+
+This is required alongside `agents-root` rather than defaulted, and the reason
+is worth stating plainly: **a list read under a name nobody wrote comes back
+empty, not missing**. A validator that chose these names itself would find no
+capabilities on any agent, fire no translation, compare nothing, and report the
+repository clean — a false pass rather than a false finding, and the only kind
+of defect a gate cannot survive.
 
 Each harness takes:
 

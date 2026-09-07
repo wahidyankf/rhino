@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 190] = [
+pub const VOCABULARY: [&str; 193] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -65,11 +65,11 @@ pub const VOCABULARY: [&str; 190] = [
     "each declared excluded directory contains an unsafe Mermaid diagram",
     "each harness declares the required capability in its own capability format",
     "excluded instruction sources and a linked skill exist",
+    "file {string} cannot be opened",
     "file {string} contains this Markdown:",
     "file {string} contains {int} words",
     "file {string} exceeds its declared word budget",
     "file {string} has an empty {string} directory map followed by {int} words",
-    "file {string} cannot be opened",
     "file {string} has title {string} and an empty directory map",
     "file {string} holds bytes that are not text",
     "file {string} vanishes between the walk and the read",
@@ -86,8 +86,8 @@ pub const VOCABULARY: [&str; 190] = [
     "no canonical skills are declared",
     "no capability server is required",
     "no capability server is required and no harness declares a capability file",
-    "no harness declares a capability file",
     "no directories were inspected",
+    "no harness declares a capability file",
     "no harness declares an agent adapter",
     "stderr contains {string}",
     "stderr lines start with {string}",
@@ -126,9 +126,12 @@ pub const VOCABULARY: [&str; 190] = [
     "the agent directory for {string} holds the extra file {string}",
     "the canonical agent carries no declaration",
     "the canonical agent declares a constraint outside the declared vocabulary",
+    "the canonical agent omits the field every declaration must carry",
     "the canonical agent requires a capability outside the declared vocabulary",
     "the canonical agent requires less and no adapter answers for it",
     "the canonical agent requires less than its adapters grant",
+    "the canonical agents are gone and only their declaration shape remains",
+    "the canonical agents declare their permissions under {string} names",
     "the canonical instruction body is absent",
     "the canonical skill carries no declaration",
     "the canonical skill declares no description",

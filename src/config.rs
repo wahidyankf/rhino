@@ -195,6 +195,33 @@ pub struct Canonical {
     pub agent_route: Option<String>,
     #[serde(rename = "skill-route", default)]
     pub skill_route: Option<String>,
+    /// How this repository writes a canonical agent's permissions.
+    ///
+    /// The three lists have names, and the names are the repository's own --
+    /// one writes `requires:` where another writes `capabilities:`. Reading
+    /// them by a name RHINO chose would not merely miss a field: an unnamed
+    /// list is an empty one, so every translation would find nothing to fire on
+    /// and the run would report clean without having compared anything.
+    /// Required alongside `agents-root`, because only agents carry
+    /// permissions.
+    #[serde(default)]
+    pub declaration: Option<DeclarationShape>,
+}
+
+/// Which field of a canonical agent carries which half of its permissions, and
+/// what every such declaration must say outright.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DeclarationShape {
+    /// The field naming what the agent may do.
+    pub grants: String,
+    /// The field naming what it may not.
+    pub denials: String,
+    /// The field naming how it must behave while doing it.
+    pub limits: String,
+    /// Fields every canonical agent must carry with exactly this value.
+    #[serde(default)]
+    pub fixed: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -534,6 +561,31 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
             (
                 route_key,
                 format!("declared without `{root_key}`, so there is nothing for it to route to"),
+            )
+        };
+        return Err(ConfigError::Semantic {
+            key: key.to_string(),
+            line: line_of(text, key),
+            reason,
+        });
+    }
+
+    // The shape says which field holds which permission. Without it the lists
+    // would be read by a name RHINO chose, and a name nobody wrote reads as an
+    // empty list rather than as an error -- so the pairing is what keeps a
+    // silently unchecked canon from passing as a clean one.
+    if canonical.agents_root.is_some() != canonical.declaration.is_some() {
+        let (key, reason) = if canonical.agents_root.is_some() {
+            (
+                "declaration",
+                "required alongside `agents-root`, or every canonical agent reads as granting and denying nothing"
+                    .to_string(),
+            )
+        } else {
+            (
+                "declaration",
+                "declared without `agents-root`, so there is no canonical agent to read"
+                    .to_string(),
             )
         };
         return Err(ConfigError::Semantic {

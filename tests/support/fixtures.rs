@@ -107,6 +107,23 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         );
     }
 
+    if !declaration.omit_declaration_shape
+        && (declaration.keep_declaration_shape
+            || (!declaration.omit_agents_root
+                && (!roster.is_empty() || declaration.canonical_agents_root.is_some())))
+    {
+        let [grants, denials, limits] = harness::declaration_names(declaration);
+        lines.insert(
+            "harness-parity.canonical.declaration".into(),
+            format!(
+                "{{grants: {grants}, denials: {denials}, limits: {limits}, \
+                 fixed: {{{}: {}}}}}",
+                harness::FIXED_FIELD,
+                harness::FIXED_VALUE
+            ),
+        );
+    }
+
     let declares_a_server = !declaration.omit_required_server
         && (!roster.is_empty() || declaration.declares_required_mcp);
     let declares_capability_files = !declaration.omit_capability_files
