@@ -1,0 +1,5 @@
+# The quick gate is real compute, so it runs under the pinned HIPPO guard the
+# same way every other heavy task in this maintainer's repositories does.
+# HIPPO cannot guard HIPPO; RHINO has no such constraint, so it does not exempt
+# itself. Exit 75 means the host was busy: retry, never bypass.
+./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick

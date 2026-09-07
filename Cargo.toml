@@ -1,0 +1,35 @@
+[package]
+name = "rhino"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Repository Hygiene & INtegration Orchestrator — a configuration-driven repository-hygiene validator"
+license = "MIT"
+repository = "https://github.com/wahidyankf/rhino"
+readme = "README.md"
+keywords = ["governance", "linter", "markdown", "documentation", "repository"]
+categories = ["command-line-utilities", "development-tools"]
+
+[workspace]
+members = ["xtask"]
+
+[[bin]]
+name = "rhino"
+path = "src/main.rs"
+
+[lib]
+name = "rhino"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+
+# Size-optimized release profile. Every choice here is measured in Phase 6 of
+# the extraction plan and recorded against a budget; none is applied on faith.
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

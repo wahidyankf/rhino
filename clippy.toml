@@ -1,0 +1,4 @@
+# Panicking paths are reviewed rather than banned outright; the boundary tests
+# hold the invariants that matter. Keep the cognitive-complexity ceiling low
+# enough that a validator stays readable next to the scenario it implements.
+cognitive-complexity-threshold = 20

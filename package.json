@@ -1,0 +1,16 @@
+{
+  "name": "rhino-contributor-tooling",
+  "private": true,
+  "description": "Contributor tooling only. The shipped artifact is the Rust binary; nothing here is published.",
+  "scripts": {
+    "prepare": "husky",
+    "test:quick": "cargo xtask test-quick"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0"
+  }
+}
