@@ -11,7 +11,7 @@
 //! repository and one that serves four.
 
 use crate::Outcome;
-use crate::config::{CapabilityFormat, Config, Harness};
+use crate::config::{CapabilityFormat, Config, Harness, RequiredMcp};
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::scan;
@@ -54,6 +54,20 @@ impl Declaration {
             self.constraints.iter().map(String::as_str).collect(),
         )
     }
+}
+
+/// Everything the repository declares once, gathered before any harness is
+/// looked at.
+///
+/// Read once and borrowed by each reconciliation rather than threaded through
+/// as four parameters: the canon is a property of the repository, not of the
+/// harness being checked against it, and a signature that says so is one a
+/// fifth check can join without another argument.
+struct Canon<'a> {
+    skills_root: Option<&'a str>,
+    skills: BTreeMap<String, Declaration>,
+    agents: BTreeMap<String, Document>,
+    required: &'a RequiredMcp,
 }
 
 /// A file split into its declaration and the prompt beneath it.
@@ -108,30 +122,32 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
     }
 
     instructions(&contents, config, &mut report);
-    let skills = skills(
-        &contents,
-        parity.canonical.skills_root.as_deref(),
-        &mut report,
-    );
-    let agents = agents(
-        &contents,
-        parity.canonical.agents_root.as_deref(),
-        config,
-        &mut report,
-    );
+    let canon = Canon {
+        skills_root: parity.canonical.skills_root.as_deref(),
+        skills: skills(
+            &contents,
+            parity.canonical.skills_root.as_deref(),
+            &mut report,
+        ),
+        agents: agents(
+            &contents,
+            parity.canonical.agents_root.as_deref(),
+            config,
+            &mut report,
+        ),
+        required: &parity.required_mcp,
+    };
 
+    // The whole of RHINO's harness knowledge: iterate the declared roster and
+    // reconcile each entry against the canon. A fourth harness is one more
+    // entry in `repo-config.yml` and no line here, which is what makes this a
+    // tool four repositories can share rather than one repository's script.
     let mut reconciled = 0usize;
     for harness in &parity.harnesses {
         report.inspected_one();
-        agent_adapters(&contents, harness, &agents, &mut report);
-        skill_wrappers(
-            &contents,
-            harness,
-            &skills,
-            parity.canonical.skills_root.as_deref(),
-            &mut report,
-        );
-        if capability(&contents, harness, config, &mut report) {
+        agent_adapters(&contents, harness, &canon, &mut report);
+        skill_wrappers(&contents, harness, &canon, &mut report);
+        if capability(&contents, harness, &canon, &mut report) {
             reconciled += 1;
         }
     }
@@ -141,8 +157,8 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
     report.note(format!(
         "canon {} harnesses, {} skills, {} agents, {reconciled} reconciled capability declarations",
         parity.harnesses.len(),
-        skills.len(),
-        agents.len(),
+        canon.skills.len(),
+        canon.agents.len(),
     ));
     report.note(format!("digest {}", digest(&contents, config)));
 
@@ -361,9 +377,10 @@ fn agents(
 fn agent_adapters(
     contents: &BTreeMap<String, String>,
     harness: &Harness,
-    canonical: &BTreeMap<String, Document>,
+    canon: &Canon<'_>,
     report: &mut Report,
 ) {
+    let canonical = &canon.agents;
     let prefix = format!("{}/", harness.agent_dir.trim_end_matches('/'));
 
     for (name, expected) in canonical {
@@ -427,15 +444,15 @@ fn agent_adapters(
 fn skill_wrappers(
     contents: &BTreeMap<String, String>,
     harness: &Harness,
-    skills: &BTreeMap<String, Declaration>,
-    skills_root: Option<&str>,
+    canon: &Canon<'_>,
     report: &mut Report,
 ) {
     // Only a harness that declares a command directory has wrappers to get
     // wrong. One that declares none is complete without them.
-    let (Some(directory), Some(root)) = (harness.command_dir.as_deref(), skills_root) else {
+    let (Some(directory), Some(root)) = (harness.command_dir.as_deref(), canon.skills_root) else {
         return;
     };
+    let skills = &canon.skills;
     let prefix = format!("{}/", directory.trim_end_matches('/'));
 
     for (name, canonical) in skills {
@@ -496,10 +513,10 @@ fn skill_wrappers(
 fn capability(
     contents: &BTreeMap<String, String>,
     harness: &Harness,
-    config: &Config,
+    canon: &Canon<'_>,
     report: &mut Report,
 ) -> bool {
-    let required = &config.harness_parity.required_mcp;
+    let required = canon.required;
     let Some(text) = contents.get(&harness.capability_file) else {
         report.found(Finding::new(
             "divergent-capability",

@@ -225,6 +225,10 @@ impl Report {
 fn plural(subject: &str, count: usize) -> String {
     if count == 1 {
         subject.to_string()
+    } else if subject.ends_with('s') {
+        // `harness` is one of the subjects, and "4 harnesss" reads as a defect
+        // in the tool rather than as a count of four.
+        format!("{subject}es")
     } else {
         format!("{subject}s")
     }
