@@ -6,14 +6,14 @@
 //! in-memory tree is the port's other implementation, not a mock of it.
 
 use crate::fixtures;
-use crate::world::{CommandResult, Driver, Repository};
-use rhino::runtime::MemoryTree;
+use crate::world::{self, CommandResult, Driver, Observation, Repository, Run, differences};
+use rhino::runtime::{MemoryTree, Tree};
 
 #[derive(Default)]
 pub struct UnitDriver;
 
 impl Driver for UnitDriver {
-    fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> CommandResult {
+    fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> Run {
         let mut tree = MemoryTree::default();
         for (path, content) in repository.files {
             tree.write(path, content);
@@ -31,11 +31,33 @@ impl Driver for UnitDriver {
             tree.mark_link(path);
         }
 
+        // Read back through the port on both sides rather than cloning the map
+        // the fixture built: what the subject can see is the only thing it
+        // could have changed, and it is what the assertion has to be about.
+        let before = observe(&tree);
         let outcome = rhino::execute(&tree, arguments);
-        CommandResult {
-            exit_code: outcome.exit_code,
-            stdout: outcome.stdout,
-            stderr: outcome.stderr,
+        let after = observe(&tree);
+
+        Run {
+            result: CommandResult {
+                exit_code: outcome.exit_code,
+                stdout: outcome.stdout,
+                stderr: outcome.stderr,
+            },
+            mutations: differences(&before, &after),
         }
     }
+}
+
+/// The tree as the port exposes it. An unreadable file is present with no
+/// content, which is exactly what a validator sees.
+fn observe(tree: &dyn Tree) -> Observation {
+    tree.files()
+        .into_iter()
+        .map(|path| {
+            let content = tree.read(&path).ok();
+            (path, content)
+        })
+        .chain(world::working_directory())
+        .collect()
 }

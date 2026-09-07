@@ -12,8 +12,9 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 118] = [
+pub const VOCABULARY: [&str; 132] = [
     "I add a canonical skill supporting resource",
+    "I add a file outside the canon",
     "I count the words in {string}",
     "I find word-limit violations",
     "I inspect Mermaid accessibility",
@@ -28,12 +29,11 @@ pub const VOCABULARY: [&str; 118] = [
     "I inspect the word budget",
     "I invoke the CLI from the repository directory with {string}",
     "I invoke the CLI with {string}",
-    "I remember the repository snapshot",
     "I run the directory-map validator for {string}",
     "I run the {string} validator",
     "I scan the declared surfaces",
     "Markdown text containing a heading marker, Hello, can't-stop, naïve, and {int}",
-    "a duplicate canonical skill name exists",
+    "a canonical skill declares a name that is not its directory",
     "a file imports the canonical instruction body",
     "a nested repository instruction file exists",
     "a repository declaring every section with nothing to find",
@@ -41,6 +41,7 @@ pub const VOCABULARY: [&str; 118] = [
     "all violations are {string}",
     "an argument error is raised",
     "an empty repository",
+    "an out-of-order pair of harness-parity violations exists",
     "an unexpected agent adapter exists",
     "an unsafe {string} Mermaid diagram exists at {string} using backtick fences",
     "an unsafe {string} Mermaid diagram exists at {string} using tilde fences",
@@ -58,7 +59,7 @@ pub const VOCABULARY: [&str; 118] = [
     "harness {string} declares no command directory",
     "harness-parity outputs are identical",
     "harness-parity validation succeeds",
-    "harness-parity validation succeeds with {int} harnesses, {int} skill, {int} agent, and {int} capability",
+    "harness-parity validation succeeds with {int} harnesses, {int} skill, {int} agent, and {int} reconciled capability declarations",
     "harness-parity violations are ordinally sorted",
     "no Markdown files are scanned",
     "no directories were inspected",
@@ -68,6 +69,7 @@ pub const VOCABULARY: [&str; 118] = [
     "stderr names the missing key",
     "stderr names the offending key and its position",
     "stderr names the unknown key and its position",
+    "stderr names the unreadable capability file",
     "stderr names the unrecognized schema",
     "stdout JSON has a {string} and a {int}-character {string}",
     "stdout JSON property {string} is {int}",
@@ -77,28 +79,37 @@ pub const VOCABULARY: [&str; 118] = [
     "the agent adapter for {string} contains extra prompt instructions",
     "the agent adapter for {string} drops a declared constraint",
     "the agent adapter for {string} is missing",
+    "the agent adapter for {string} stops denying a capability",
     "the agent adapter for {string} weakens a denied capability",
+    "the canonical agent declares a constraint outside the declared vocabulary",
     "the canonical agent requires a capability outside the declared vocabulary",
+    "the canonical instruction body is absent",
+    "the canonical skill carries no declaration",
+    "the canonical skill declares no description",
+    "the capability declaration for harness {string} is absent",
     "the capability declaration for harness {string} is unreadable",
     "the configuration adds the top-level section {string}",
     "the configuration adds the unknown key {string} to {string}",
     "the configuration omits {string}",
     "the configuration sets {string} to {string}",
     "the declared instruction adapter contains extra instructions",
+    "the declared instruction adapter is absent",
     "the exit code is {int}",
     "the first stdout JSON legibility fields are {string}, {int}, and {int}",
     "the first stdout JSON violation kind is {string}",
     "the formatted violation starts with {string}",
     "the governed files are exclusively locked",
     "the harness-parity digest changed",
+    "the harness-parity digest is unchanged",
+    "the harness-parity violation for {string} is {string}",
     "the harness-parity violations include {string}",
     "the only violation is a Mermaid accessibility issue at {string}",
-    "the only violation starts with {string}",
     "the only violation is a missing README at {string}",
     "the only violation is a missing directory map at {string}",
     "the only violation is a missing map entry from {string} to {string}",
     "the only violation is a {int}-word limit for {string}",
     "the only violation is an invalid map entry from {string} to {string}",
+    "the only violation starts with {string}",
     "the repository contains Mermaid sample {string} at {string}",
     "the repository contains a Mermaid class filled {string} with a declared stroke and text color",
     "the repository contains a Mermaid node label of {int} graphemes",
@@ -119,17 +130,20 @@ pub const VOCABULARY: [&str; 118] = [
     "the repository declares the schema {string}",
     "the repository declares word-budget surfaces:",
     "the repository has no configuration file",
-    "the repository snapshot is unchanged",
+    "the repository is unchanged by the inspection",
+    "the required-capability arguments for harness {string} diverge",
     "the required-capability command for harness {string} diverges",
     "the scanned Markdown paths are:",
-    "the skill wrapper for {string} has a stale description and extra body",
+    "the skill wrapper for {string} declares another name",
+    "the skill wrapper for {string} has a stale description",
+    "the skill wrapper for {string} has an extra body",
     "the skill wrapper for {string} is missing",
     "the word count is {int}",
     "there are no violations",
     "there are {int} violations",
-    "two sorted harness-parity violations exist",
     "{int} Mermaid diagrams were inspected",
     "{int} directories were inspected",
+    "{int} capability declarations were reconciled",
     "{int} harnesses were inspected",
 ];
 
@@ -182,13 +196,6 @@ pub fn lookup(sentence: &str) -> Option<Match> {
             integers,
         })
     })
-}
-
-pub fn dispatch(sentence: &str) -> StepOutcome {
-    match lookup(sentence) {
-        Some(matched) => StepOutcome::Unimplemented(matched.pattern),
-        None => StepOutcome::Undefined,
-    }
 }
 
 type Captures = (Vec<String>, Vec<usize>);

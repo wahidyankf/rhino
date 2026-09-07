@@ -138,7 +138,6 @@ impl Report {
         self
     }
 
-    /// Record a path as inspected, which also counts it.
     /// Count one inspected subject that has no path worth listing.
     pub fn inspected_one(&mut self) -> &mut Self {
         self.inspected += 1;

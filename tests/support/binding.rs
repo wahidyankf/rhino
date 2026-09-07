@@ -394,15 +394,60 @@ A competing body.
             }
             Outcome::Passed
         }
-        "the skill wrapper for {string} has a stale description and extra body" => {
+        "the skill wrapper for {string} has a stale description" => {
             world.files.insert(
                 harness::skill_wrapper(matched.string(0)),
-                harness::stale_wrapper(),
+                harness::wrapper_with_stale_description(),
             );
             Outcome::Passed
         }
-        "a duplicate canonical skill name exists" => {
-            let (path, body) = harness::duplicate_skill();
+        "the skill wrapper for {string} has an extra body" => {
+            world.files.insert(
+                harness::skill_wrapper(matched.string(0)),
+                harness::wrapper_with_extra_body(),
+            );
+            Outcome::Passed
+        }
+        "the skill wrapper for {string} declares another name" => {
+            world.files.insert(
+                harness::skill_wrapper(matched.string(0)),
+                harness::wrapper_with_wrong_name(),
+            );
+            Outcome::Passed
+        }
+        "the canonical skill carries no declaration" => {
+            world.files.insert(
+                harness::canonical_skill(),
+                harness::skill_without_declaration(),
+            );
+            Outcome::Passed
+        }
+        "the canonical skill declares no description" => {
+            world.files.insert(
+                harness::canonical_skill(),
+                harness::skill_without_description(),
+            );
+            Outcome::Passed
+        }
+        "a canonical skill declares a name that is not its directory" => {
+            let (path, body) = harness::misnamed_skill();
+            world.files.insert(path, body);
+            Outcome::Passed
+        }
+        "the canonical instruction body is absent" => {
+            if world.files.remove(harness::INSTRUCTION).is_none() {
+                return Outcome::Failed("there was no instruction body to remove".to_string());
+            }
+            Outcome::Passed
+        }
+        "the declared instruction adapter is absent" => {
+            if world.files.remove(harness::ADAPTER).is_none() {
+                return Outcome::Failed("there was no instruction adapter to remove".to_string());
+            }
+            Outcome::Passed
+        }
+        "I add a file outside the canon" => {
+            let (path, body) = harness::uncounted_file();
             world.files.insert(path, body);
             Outcome::Passed
         }
@@ -418,15 +463,8 @@ A competing body.
                 return Outcome::Failed("the roster is empty".to_string());
             };
             world.files.insert(
-                format!("{}/ghost.md", harness::agent_dir(&first)),
-                "---
-name: ghost
-description: Nobody declared this.
----
-
-Unknown.
-"
-                .to_string(),
+                harness::unexpected_agent_adapter(&first),
+                harness::undeclared_agent(),
             );
             Outcome::Passed
         }
@@ -442,6 +480,27 @@ Unknown.
                 harness::agent_adapter(matched.string(0)),
                 harness::agent_weakening_denial(),
             );
+            Outcome::Passed
+        }
+        "the agent adapter for {string} stops denying a capability" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_dropping_denial(),
+            );
+            Outcome::Passed
+        }
+        "the canonical agent declares a constraint outside the declared vocabulary" => {
+            // Canon and every adapter alike, so the only thing wrong with the
+            // repository is the constraint's absence from the vocabulary.
+            let constrained = harness::agent_constrained_by("no-network");
+            world
+                .files
+                .insert(harness::canonical_agent(), constrained.clone());
+            for name in harness::roster(&world.declaration) {
+                world
+                    .files
+                    .insert(harness::agent_adapter(&name), constrained.clone());
+            }
             Outcome::Passed
         }
         "the agent adapter for {string} drops a declared constraint" => {
@@ -488,6 +547,24 @@ Unknown.
             );
             Outcome::Passed
         }
+        "the required-capability arguments for harness {string} diverge" => {
+            let name = matched.string(0).to_string();
+            let format = harness::format_for(&world.declaration, &name);
+            world.files.insert(
+                harness::capability_file(&name, &format),
+                harness::divergent_capability_arguments(&format),
+            );
+            Outcome::Passed
+        }
+        "the capability declaration for harness {string} is absent" => {
+            let name = matched.string(0).to_string();
+            let format = harness::format_for(&world.declaration, &name);
+            let path = harness::capability_file(&name, &format);
+            if world.files.remove(&path).is_none() {
+                return Outcome::Failed(format!("there was no declaration at `{path}` to remove"));
+            }
+            Outcome::Passed
+        }
         "the capability declaration for harness {string} is unreadable" => {
             let name = matched.string(0).to_string();
             let format = harness::format_for(&world.declaration, &name);
@@ -529,18 +606,19 @@ Body.
             world.links.insert(linked);
             Outcome::Passed
         }
-        "two sorted harness-parity violations exist" => {
-            let roster = harness::roster(&world.declaration);
-            if roster.len() < 2 {
-                return Outcome::Failed("two violations need at least two harnesses".to_string());
-            }
-            for name in roster.iter().take(2) {
-                world.files.remove(&harness::agent_adapter(name));
-            }
-            Outcome::Passed
-        }
-        "I remember the repository snapshot" => {
-            world.snapshot = Some(world.files.clone());
+        "an out-of-order pair of harness-parity violations exists" => {
+            let Some(first) = harness::roster(&world.declaration).first().cloned() else {
+                return Outcome::Failed("the roster names no harness".to_string());
+            };
+            // Deliberately one harness rather than two. Production emits the
+            // missing adapter before the unexpected one, while sorted order is
+            // the reverse -- so a run that does not sort produces a visibly
+            // different order, which is the only arrangement that can fail.
+            world.files.remove(&harness::agent_adapter(&first));
+            world.files.insert(
+                harness::unexpected_agent_adapter(&first),
+                harness::undeclared_agent(),
+            );
             Outcome::Passed
         }
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
@@ -647,9 +725,9 @@ Body.
         "I inspect and remember the harness-parity digest" => {
             let arguments =
                 validator_arguments("harness-parity").expect("harness-parity is a validator");
-            let result = world.driver.invoke(&world.repository(), &arguments);
-            world.remembered_digest = digest_of(&result);
-            world.record(result);
+            let run = world.driver.invoke(&world.repository(), &arguments);
+            world.remembered_digest = digest_of(&run.result);
+            world.record(run);
             match world.remembered_digest {
                 Some(_) => Outcome::Passed,
                 None => Outcome::Failed(format!(
@@ -958,7 +1036,7 @@ Body.
                 ),
             )
         }
-        "harness-parity validation succeeds with {int} harnesses, {int} skill, {int} agent, and {int} capability" =>
+        "harness-parity validation succeeds with {int} harnesses, {int} skill, {int} agent, and {int} reconciled capability declarations" =>
         {
             let result = world.result();
             if result.exit_code != 0 {
@@ -968,7 +1046,7 @@ Body.
                 ));
             }
             let expected = format!(
-                "canon {} harnesses, {} skills, {} agents, {} capabilities",
+                "canon {} harnesses, {} skills, {} agents, {} reconciled capability declarations",
                 matched.integer(0),
                 matched.integer(1),
                 matched.integer(2),
@@ -991,6 +1069,65 @@ Body.
                     .lines()
                     .any(|line| line.starts_with('[') && line.contains(kind)),
                 format!("expected a `{kind}` violation\nstderr: {}", result.stderr),
+            )
+        }
+        "the harness-parity violation for {string} is {string}" => {
+            // Kind and path together. A kind asserted on its own passes for a
+            // repository where the two labels were exchanged, which mislabels
+            // every finding a consumer filters on.
+            let prefix = format!("[harness-parity] {}: ", matched.string(0));
+            let kind = matched.string(1);
+            let result = world.result();
+            match result.stderr.lines().find(|line| line.starts_with(&prefix)) {
+                Some(line) => expect(
+                    line[prefix.len()..].starts_with(&format!("{kind}: ")),
+                    format!("the violation is not a `{kind}`: {line}"),
+                ),
+                None => Outcome::Failed(format!(
+                    "no violation names `{}`\nstderr: {}",
+                    matched.string(0),
+                    result.stderr
+                )),
+            }
+        }
+        "{int} capability declarations were reconciled" => {
+            // Asserted on a run that has a finding, which is the only kind of
+            // run where a counter that always increments differs from one that
+            // counts what actually reconciled.
+            let expected = matched.integer(0);
+            let result = world.result();
+            let needle = format!("{expected} reconciled capability declarations");
+            expect(
+                result.stdout.contains(&needle),
+                format!(
+                    "expected `{needle}` in the summary\nstdout: {}",
+                    result.stdout
+                ),
+            )
+        }
+        "the harness-parity digest is unchanged" => {
+            let Some(remembered) = world.remembered_digest.clone() else {
+                return Outcome::Failed("no digest was remembered".to_string());
+            };
+            match digest_of(world.result()) {
+                Some(current) => expect(
+                    current == remembered,
+                    format!("the digest changed from `{remembered}` to `{current}`"),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no digest\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "stderr names the unreadable capability file" => {
+            let Some(path) = world.unreadable.iter().next().cloned() else {
+                return Outcome::Failed("the scenario sealed no file".to_string());
+            };
+            let result = world.result();
+            expect(
+                result.stderr.contains(&path),
+                format!("stderr does not name `{path}`\nstderr: {}", result.stderr),
             )
         }
         "{int} harnesses were inspected" => {
@@ -1038,13 +1175,16 @@ Body.
                 format!("violations are not in order: {lines:?}"),
             )
         }
-        "the repository snapshot is unchanged" => {
-            let Some(snapshot) = world.snapshot.clone() else {
-                return Outcome::Failed("no snapshot was taken".to_string());
-            };
+        "the repository is unchanged by the inspection" => {
+            // The adapter observed the repository on both sides of every
+            // invocation this scenario made. Anything listed here is a path the
+            // command created, removed, or rewrote.
             expect(
-                snapshot == world.files,
-                "the inspection changed the repository".to_string(),
+                world.mutations.is_empty(),
+                format!(
+                    "the inspection changed the repository: {:?}",
+                    world.mutations
+                ),
             )
         }
         "the harness-parity digest changed" => {
@@ -1270,7 +1410,17 @@ fn invalid_location(name: &str) -> Option<&'static str> {
 /// the roster, a command directory, a capability format -- so the files and the
 /// rendered configuration never disagree about what the repository is.
 fn reseed_contract<D: Driver>(world: &mut World<D>) {
-    for (path, body) in harness::valid_contract(&world.declaration) {
+    let contract = harness::valid_contract(&world.declaration);
+    // Prune first. A declaration that moves a harness from one capability
+    // format to another, or takes its command directory away, leaves the file
+    // the previous shape owned behind; a repository holding both is not the one
+    // the scenario declared, and the day an unexpected-file rule exists it
+    // would fail for a reason nobody wrote.
+    let owned = harness::contract_paths();
+    world
+        .files
+        .retain(|path, _| !owned(path) || contract.contains_key(path));
+    for (path, body) in contract {
         world.files.insert(path, body);
     }
 }

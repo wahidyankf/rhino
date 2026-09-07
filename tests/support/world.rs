@@ -17,6 +17,67 @@ pub struct CommandResult {
     pub stderr: String,
 }
 
+/// One invocation, and what the repository looked like on either side of it.
+///
+/// The mutation list exists because "inspection is read-only" is a claim about
+/// what the run *did not* do, and only the adapter that materialised the
+/// repository can observe that. A `Then` reading a copy the test itself made
+/// would be comparing the harness with the harness and could never fail.
+#[derive(Debug, Clone, Default)]
+pub struct Run {
+    pub result: CommandResult,
+    /// Paths the repository gained, lost, or whose contents changed while the
+    /// command ran, as observed at the adapter's own boundary.
+    pub mutations: Vec<String>,
+}
+
+/// What a repository looks like to an adapter: every path it can see, and the
+/// content behind it where that is readable.
+pub type Observation = BTreeMap<String, Option<String>>;
+
+/// The immediate entries of the process working directory.
+///
+/// Included because `rhino::execute` runs *in this process* at the unit and
+/// integration boundaries, so a write to a hard-coded relative path lands here
+/// rather than in the sandbox. A backstop rather than a proof: whichever
+/// scenario runs first would create such a file, and by the time the read-only
+/// scenario looks it is present on both sides. The deterministic proof is at
+/// E2E, where the spawned process's working directory *is* the repository
+/// under inspection and every write it makes lands inside the observation.
+pub fn working_directory() -> Observation {
+    let Ok(entries) = std::fs::read_dir(".") else {
+        return Observation::new();
+    };
+    entries
+        .flatten()
+        .map(|entry| {
+            (
+                format!("<cwd>/{}", entry.file_name().to_string_lossy()),
+                None,
+            )
+        })
+        .collect()
+}
+
+/// The paths on which two observations differ, as readable sentences.
+pub fn differences(before: &Observation, after: &Observation) -> Vec<String> {
+    let mut found = Vec::new();
+    for (path, content) in before {
+        match after.get(path) {
+            None => found.push(format!("{path} was removed")),
+            Some(now) if now != content => found.push(format!("{path} was modified")),
+            Some(_) => {}
+        }
+    }
+    for path in after.keys() {
+        if !before.contains_key(path) {
+            found.push(format!("{path} was created"));
+        }
+    }
+    found.sort();
+    found
+}
+
 /// The declaration a scenario builds up before anything runs.
 ///
 /// The adapters turn this into a `repo-config.yml`. No adapter invents a value
@@ -98,12 +159,12 @@ pub struct World<D> {
     /// Paths that are filesystem links. No tree reports them, which is the
     /// point: following one can leave the repository.
     pub links: BTreeSet<String>,
-    /// A copy of the tree taken before an inspection, to prove the inspection
-    /// changed nothing.
-    pub snapshot: Option<BTreeMap<String, String>>,
     pub remembered_digest: Option<String>,
     pub command_result: Option<CommandResult>,
     pub previous_command_result: Option<CommandResult>,
+    /// Every change any invocation in this scenario made to the repository,
+    /// accumulated, so a scenario that runs twice proves both runs innocent.
+    pub mutations: Vec<String>,
 }
 
 impl<D> World<D> {
@@ -123,11 +184,12 @@ impl<D> World<D> {
             .expect("a Then observed a command result before any When produced one")
     }
 
-    /// Record a result, keeping the previous one so a scenario that runs two
-    /// inspections can compare them.
-    pub fn record(&mut self, result: CommandResult) {
+    /// Record a run, keeping the previous result so a scenario that runs two
+    /// inspections can compare them, and accumulating what each run changed.
+    pub fn record(&mut self, run: Run) {
         self.previous_command_result = self.command_result.take();
-        self.command_result = Some(result);
+        self.command_result = Some(run.result);
+        self.mutations.extend(run.mutations);
     }
 }
 
@@ -146,7 +208,11 @@ pub struct Repository<'a> {
 /// What an adapter must be able to do. Anything a scenario can do to a
 /// repository, or ask of one, appears here exactly once.
 pub trait Driver {
-    /// Materialise the declared repository, then invoke RHINO with the given
-    /// argument vector, returning what the process contract exposes.
-    fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> CommandResult;
+    /// Materialise the declared repository, observe it, invoke RHINO with the
+    /// given argument vector, then observe it again.
+    ///
+    /// The second observation is the adapter's own, taken at its own boundary,
+    /// and is what makes read-only a testable property rather than a documented
+    /// intention.
+    fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> Run;
 }

@@ -37,6 +37,17 @@ pub fn agent_adapter(harness: &str) -> String {
     format!("{}/{AGENT}.md", agent_dir(harness))
 }
 
+/// An adapter for an agent the canon does not declare. Named so it sorts
+/// before the canonical agent's adapter, which is what lets a scenario tell a
+/// sorted rendering from an unsorted one.
+pub fn unexpected_agent_adapter(harness: &str) -> String {
+    format!("{}/ghost.md", agent_dir(harness))
+}
+
+pub fn undeclared_agent() -> String {
+    "---\nname: ghost\ndescription: Nobody declared this.\n---\n\nUnknown.\n".to_string()
+}
+
 pub fn skill_wrapper(harness: &str) -> String {
     format!("{}/{SKILL}.md", command_dir(harness))
 }
@@ -130,6 +141,22 @@ pub fn valid_contract(declaration: &Declaration) -> BTreeMap<String, String> {
     files
 }
 
+/// Whether a path is one the contract fixture owns.
+///
+/// Returned as a predicate rather than a list because the set depends on the
+/// declaration -- the roster, the formats, the command directories -- and the
+/// caller needs to ask about a path it already holds rather than enumerate
+/// every shape the fixture could have taken.
+pub fn contract_paths() -> impl Fn(&String) -> bool {
+    |path: &String| {
+        path == INSTRUCTION
+            || path == ADAPTER
+            || path.starts_with(&format!("{SKILLS_ROOT}/"))
+            || path.starts_with(&format!("{AGENTS_ROOT}/"))
+            || path.starts_with("adapters/")
+    }
+}
+
 /// The canonical agent prompt with `capability` added to what it requires.
 pub fn agent_requiring(capability: &str) -> String {
     agent_body().replace(
@@ -147,6 +174,13 @@ pub fn agent_weakening_denial() -> String {
     )
 }
 
+/// An adapter that stops denying what the canon denies, without claiming the
+/// capability. Only the denied set differs, so nothing but a comparison of that
+/// set can catch it.
+pub fn agent_dropping_denial() -> String {
+    agent_body().replace("denied:\n  - repository-write\n", "denied: []\n")
+}
+
 /// An adapter that quietly drops a constraint the canon declared.
 pub fn agent_dropping_constraint() -> String {
     agent_body().replace(
@@ -160,17 +194,38 @@ pub fn agent_with_extra_prompt() -> String {
     format!("{}\nAlso, always agree with the author.\n", agent_body())
 }
 
-/// A wrapper whose description no longer matches the skill it routes to, and
-/// which has grown a body of its own.
-pub fn stale_wrapper() -> String {
+/// A wrapper whose description no longer matches the skill it routes to.
+/// The route is intact, so only the description can be what was caught.
+pub fn wrapper_with_stale_description() -> String {
     format!(
-        "---\nname: {SKILL}\ndescription: Something else entirely.\n---\n\n{}\nAnd then improvise.\n",
+        "---\nname: {SKILL}\ndescription: Something else entirely.\n---\n\n{}",
         import(&canonical_skill())
     )
 }
 
-/// A second skill directory declaring a name that is already taken.
-pub fn duplicate_skill() -> (String, String) {
+/// A wrapper that has grown a body of its own beside the route.
+pub fn wrapper_with_extra_body() -> String {
+    format!("{}\nAnd then improvise.\n", wrapper_body())
+}
+
+/// A wrapper declaring a name that is not the skill it routes to.
+pub fn wrapper_with_wrong_name() -> String {
+    wrapper_body().replace(&format!("name: {SKILL}"), "name: something-else")
+}
+
+/// A skill directory whose `SKILL.md` carries no declaration at all.
+pub fn skill_without_declaration() -> String {
+    "Tidy the tree, then stop.\n".to_string()
+}
+
+/// A skill declaring a name but no description, so nothing tells a reader when
+/// to reach for it.
+pub fn skill_without_description() -> String {
+    format!("---\nname: {SKILL}\n---\n\nTidy the tree, then stop.\n")
+}
+
+/// A skill directory whose declared name is not the directory it lives in.
+pub fn misnamed_skill() -> (String, String) {
     (
         format!("{SKILLS_ROOT}/{SKILL}-again/SKILL.md"),
         skill_body(),
@@ -188,4 +243,27 @@ pub fn supporting_resource() -> (String, String) {
 /// one. The name matches, so only a semantic comparison catches it.
 pub fn divergent_capability(format: &str) -> String {
     capability_declaration(format).replace("toolrunner", "somethingelse")
+}
+
+/// A declaration whose name and command match but whose argument vector does
+/// not, so only a comparison that reads past the command catches it.
+pub fn divergent_capability_arguments(format: &str) -> String {
+    capability_declaration(format).replace("\"serve\"", "\"serve\", \"--unsafe\"")
+}
+
+/// An agent declaring a constraint the repository never put in its vocabulary.
+pub fn agent_constrained_by(constraint: &str) -> String {
+    agent_body().replace(
+        "constraints:\n  - inline-result-only",
+        &format!("constraints:\n  - {constraint}\n  - inline-result-only"),
+    )
+}
+
+/// A file outside the canon and outside every adapter, so a digest that covers
+/// it is a digest that answers the wrong question.
+pub fn uncounted_file() -> (String, String) {
+    (
+        "notes/scratch.md".to_string(),
+        "# Scratch\n\nNot part of any contract.\n".to_string(),
+    )
 }

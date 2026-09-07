@@ -120,6 +120,7 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
         &mut report,
     );
 
+    let mut reconciled = 0usize;
     for harness in &parity.harnesses {
         report.inspected_one();
         agent_adapters(&contents, harness, &agents, &mut report);
@@ -130,15 +131,18 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
             parity.canonical.skills_root.as_deref(),
             &mut report,
         );
-        capability(&contents, harness, config, &mut report);
+        if capability(&contents, harness, config, &mut report) {
+            reconciled += 1;
+        }
     }
 
+    // Every number here is counted from what was actually read. A constant in
+    // this line would report a capability declaration the run never compared.
     report.note(format!(
-        "canon {} harnesses, {} skills, {} agents, {} capabilities",
+        "canon {} harnesses, {} skills, {} agents, {reconciled} reconciled capability declarations",
         parity.harnesses.len(),
         skills.len(),
         agents.len(),
-        1
     ));
     report.note(format!("digest {}", digest(&contents, config)));
 
@@ -265,13 +269,11 @@ fn skills(
             ));
             continue;
         }
-        if found.insert(name.clone(), document.declaration).is_some() {
-            report.found(Finding::new(
-                "invalid-skill",
-                path,
-                format!("invalid-skill: `{name}` is declared by more than one canonical skill"),
-            ));
-        }
+        // Insertion cannot collide: the name is required to equal the unique
+        // directory component of a unique path, so requiring the two to match
+        // is what makes two skills sharing a name unrepresentable rather than
+        // merely detectable.
+        found.insert(name, document.declaration);
     }
 
     found
@@ -463,14 +465,26 @@ fn skill_wrappers(
         // A wrapper is a route, not a second copy of the skill. It mirrors the
         // description a reader chooses by and contains the route and nothing
         // else -- anything more is a place for the two to drift apart.
-        if wrapper.declaration.name.as_deref() != Some(name.as_str())
-            || wrapper.declaration.description != canonical.description
-            || wrapper.body.trim() != route
-        {
+        //
+        // Three separate messages for three separate faults, because a reader
+        // who is told only that a wrapper diverged still has to open both files
+        // to find out how.
+        let fault = if wrapper.declaration.name.as_deref() != Some(name.as_str()) {
+            Some(format!(
+                "the wrapper declares a name that is not the skill `{name}` it routes to"
+            ))
+        } else if wrapper.declaration.description != canonical.description {
+            Some("the wrapper's description is not the canonical skill's".to_string())
+        } else if wrapper.body.trim() != route {
+            Some(format!("a wrapper may contain `{route}` and nothing else"))
+        } else {
+            None
+        };
+        if let Some(fault) = fault {
             report.found(Finding::new(
                 "skill-content-divergence",
                 &path,
-                format!("skill-content-divergence: a wrapper mirrors the canonical description and contains `{route}` and nothing else"),
+                format!("skill-content-divergence: {fault}"),
             ));
         }
     }
@@ -478,12 +492,13 @@ fn skill_wrappers(
 
 // -- Capabilities -------------------------------------------------------------
 
+/// Whether this harness's declaration was found, parsed, and matched.
 fn capability(
     contents: &BTreeMap<String, String>,
     harness: &Harness,
     config: &Config,
     report: &mut Report,
-) {
+) -> bool {
     let required = &config.harness_parity.required_mcp;
     let Some(text) = contents.get(&harness.capability_file) else {
         report.found(Finding::new(
@@ -494,7 +509,7 @@ fn capability(
                 harness.name
             ),
         ));
-        return;
+        return false;
     };
 
     // Both formats are read into one shape, so the comparison below is about
@@ -510,7 +525,7 @@ fn capability(
             &harness.capability_file,
             "divergent-capability: the capability declaration is not readable in its declared format",
         ));
-        return;
+        return false;
     };
 
     // Searched for by name rather than by key path, because the key a vendor
@@ -525,7 +540,7 @@ fn capability(
                 harness.name, required.name
             ),
         ));
-        return;
+        return false;
     };
 
     let command = declared.get("command").and_then(Value::as_str);
@@ -544,7 +559,9 @@ fn capability(
                 harness.name, required.name
             ),
         ));
+        return false;
     }
+    true
 }
 
 /// The first object in a document declared under `name` that looks like an

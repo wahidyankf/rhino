@@ -147,7 +147,13 @@ fn every_exemption_names_a_boundary_and_alternative_proof() {
                 "{layer}: {} names no alternative proof",
                 exemption.scenario
             );
-            let reason = exemption.boundary.to_lowercase();
+            // Both fields, because "too slow to run in CI" is the same
+            // forbidden reason whichever of the two it is written in.
+            let reason = format!(
+                "{} {}",
+                exemption.boundary.to_lowercase(),
+                exemption.alternative_proof.to_lowercase()
+            );
             for word in FORBIDDEN {
                 assert!(
                     !reason.contains(word),

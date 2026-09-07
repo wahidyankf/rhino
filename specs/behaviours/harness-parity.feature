@@ -11,7 +11,19 @@ Feature: Coding-harness parity
   Scenario: Canonical instructions, skills, agents, and capability declarations pass
     Given a valid one-skill one-agent one-capability harness contract
     When I inspect harness parity
-    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 1 capability
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario: The canonical instruction body must exist
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical instruction body is absent
+    When I inspect harness parity
+    Then the only violation starts with "root-instructions.md: missing-instruction:"
+
+  Scenario: A declared instruction adapter must exist
+    Given a valid one-skill one-agent one-capability harness contract
+    And the declared instruction adapter is absent
+    When I inspect harness parity
+    Then the only violation starts with "adapter-instructions.md: missing-instruction-adapter:"
 
   Scenario: The instruction adapter may contain only the canonical import
     Given a valid one-skill one-agent one-capability harness contract
@@ -53,16 +65,31 @@ Feature: Coding-harness parity
 
   Scenario: A harness declaring no command directory needs no wrappers
     Given a valid one-skill one-agent one-capability harness contract
+    And harness "beta" declares a command directory
     And harness "alpha" declares no command directory
     When I inspect harness parity
     Then harness-parity validation succeeds
 
-  Scenario: Skill descriptions and routes cannot drift
+  Scenario: A skill wrapper's description cannot drift from the skill
     Given a valid one-skill one-agent one-capability harness contract
     And harness "beta" declares a command directory
-    And the skill wrapper for "beta" has a stale description and extra body
+    And the skill wrapper for "beta" has a stale description
     When I inspect harness parity
-    Then the harness-parity violations include "skill-content-divergence"
+    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: the wrapper's description"
+
+  Scenario: A skill wrapper may not grow a body of its own
+    Given a valid one-skill one-agent one-capability harness contract
+    And harness "beta" declares a command directory
+    And the skill wrapper for "beta" has an extra body
+    When I inspect harness parity
+    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: a wrapper may contain"
+
+  Scenario: A skill wrapper must declare the skill it routes to
+    Given a valid one-skill one-agent one-capability harness contract
+    And harness "beta" declares a command directory
+    And the skill wrapper for "beta" declares another name
+    When I inspect harness parity
+    Then the only violation starts with "adapters/beta/commands/tidy.md: skill-content-divergence: the wrapper declares a name"
 
   Scenario: Skill bodies and supporting resources affect the contract digest
     Given a valid one-skill one-agent one-capability harness contract
@@ -72,11 +99,31 @@ Feature: Coding-harness parity
     Then harness-parity validation succeeds
     And the harness-parity digest changed
 
-  Scenario: Malformed or duplicated canonical skills fail
+  Scenario: Files outside the canon do not affect the contract digest
     Given a valid one-skill one-agent one-capability harness contract
-    And a duplicate canonical skill name exists
+    When I inspect and remember the harness-parity digest
+    And I add a file outside the canon
+    And I inspect harness parity again
+    Then harness-parity validation succeeds
+    And the harness-parity digest is unchanged
+
+  Scenario: A canonical skill with no declaration fails
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical skill carries no declaration
     When I inspect harness parity
-    Then the harness-parity violations include "invalid-skill"
+    Then the only violation starts with "canon/skills/tidy/SKILL.md: invalid-skill: a skill needs a declaration"
+
+  Scenario: A canonical skill with no description fails
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical skill declares no description
+    When I inspect harness parity
+    Then the only violation starts with "canon/skills/tidy/SKILL.md: invalid-skill: a skill declaration needs both"
+
+  Scenario: A canonical skill must be declared under the directory it lives in
+    Given a valid one-skill one-agent one-capability harness contract
+    And a canonical skill declares a name that is not its directory
+    When I inspect harness parity
+    Then the only violation starts with "canon/skills/tidy-again/SKILL.md: invalid-skill: the declared name"
 
   Scenario: Every canonical agent has one adapter per declared harness
     Given the repository declares a harness roster of "alpha", "beta", and "delta"
@@ -86,25 +133,37 @@ Feature: Coding-harness parity
     Then the harness-parity violations include "missing-agent-adapter"
     And 3 harnesses were inspected
 
-  Scenario: Missing, stale, or extra agent adapters fail
+  Scenario: Missing and extra agent adapters fail, each named for what it is
     Given a valid one-skill one-agent one-capability harness contract
     And the agent adapter for "alpha" is missing
     And an unexpected agent adapter exists
     When I inspect harness parity
-    Then the harness-parity violations include "missing-agent-adapter"
-    And the harness-parity violations include "unexpected-agent-adapter"
+    Then the harness-parity violation for "adapters/alpha/agents/reviewer.md" is "missing-agent-adapter"
+    And the harness-parity violation for "adapters/alpha/agents/ghost.md" is "unexpected-agent-adapter"
 
-  Scenario: Extra agent prompt content or semantic drift fails
+  Scenario: Extra prompt content and semantic drift are reported apart
     Given a valid one-skill one-agent one-capability harness contract
     And the agent adapter for "alpha" contains extra prompt instructions
     And the agent adapter for "gamma" weakens a denied capability
     When I inspect harness parity
-    Then the harness-parity violations include "agent-prompt-divergence"
-    And the harness-parity violations include "agent-semantic-divergence"
+    Then the harness-parity violation for "adapters/alpha/agents/reviewer.md" is "agent-prompt-divergence"
+    And the harness-parity violation for "adapters/gamma/agents/reviewer.md" is "agent-semantic-divergence"
+
+  Scenario: An adapter may not stop denying what the canon denies
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "beta" stops denying a capability
+    When I inspect harness parity
+    Then the harness-parity violation for "adapters/beta/agents/reviewer.md" is "agent-semantic-divergence"
 
   Scenario: An agent may declare only vocabulary the repository declared
     Given a valid one-skill one-agent one-capability harness contract
     And the canonical agent requires a capability outside the declared vocabulary
+    When I inspect harness parity
+    Then the harness-parity violations include "unknown-capability"
+
+  Scenario: An agent may declare only constraints the repository declared
+    Given a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares a constraint outside the declared vocabulary
     When I inspect harness parity
     Then the harness-parity violations include "unknown-capability"
 
@@ -126,11 +185,25 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "divergent-capability"
 
+  Scenario: A required-capability declaration with a divergent argument vector fails
+    Given a valid one-skill one-agent one-capability harness contract
+    And the required-capability arguments for harness "gamma" diverge
+    When I inspect harness parity
+    Then the only violation starts with "adapters/gamma/capabilities.json: divergent-capability:"
+    And 2 capability declarations were reconciled
+
+  Scenario: A harness that declares no capability file fails
+    Given a valid one-skill one-agent one-capability harness contract
+    And the capability declaration for harness "beta" is absent
+    When I inspect harness parity
+    Then the only violation starts with "adapters/beta/capabilities.json: divergent-capability:"
+
   Scenario: An unreadable capability declaration fails closed
     Given a valid one-skill one-agent one-capability harness contract
     And the capability declaration for harness "beta" is unreadable
     When I inspect harness parity
     Then the exit code is 2
+    And stderr names the unreadable capability file
 
   Scenario: A roster narrowed by flag still reports every finding it inspects
     Given a valid one-skill one-agent one-capability harness contract
@@ -146,13 +219,12 @@ Feature: Coding-harness parity
     And a valid one-skill one-agent one-capability harness contract
     And excluded instruction sources and a linked skill exist
     When I inspect harness parity
-    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 1 capability
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
 
   Scenario: Findings are stable, sorted, and inspection is read-only
     Given a valid one-skill one-agent one-capability harness contract
-    And two sorted harness-parity violations exist
-    And I remember the repository snapshot
+    And an out-of-order pair of harness-parity violations exists
     When I inspect harness parity twice
     Then harness-parity outputs are identical
     And harness-parity violations are ordinally sorted
-    And the repository snapshot is unchanged
+    And the repository is unchanged by the inspection

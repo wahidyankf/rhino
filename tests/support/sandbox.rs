@@ -7,7 +7,7 @@
 //! when a leaked directory would otherwise accumulate fastest.
 
 use crate::fixtures;
-use crate::world::Repository;
+use crate::world::{Observation, Repository};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -113,6 +113,52 @@ fn restore(root: &Path) {
             restore(&path);
         } else {
             let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644));
+        }
+    }
+}
+
+/// Every path under `root`, walked with `std::fs` directly.
+///
+/// Deliberately not routed through `Tree`: a validator that wrote into a
+/// directory the port excludes, or followed a link and wrote through it, would
+/// be invisible to an observation taken through the same port it used. A
+/// sealed file is present with no content, and a link is recorded by its
+/// target rather than followed.
+pub fn observe(root: &Path) -> Observation {
+    let mut found = crate::world::working_directory();
+    walk(root, root, &mut found);
+    found
+}
+
+fn walk(root: &Path, directory: &Path, found: &mut Observation) {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        let Ok(relative) = path.strip_prefix(root) else {
+            continue;
+        };
+        let name = relative.to_string_lossy().replace('\\', "/");
+
+        if metadata.is_symlink() {
+            found.insert(
+                name,
+                std::fs::read_link(&path)
+                    .ok()
+                    .map(|target| target.to_string_lossy().into_owned()),
+            );
+        } else if metadata.is_dir() {
+            found.insert(format!("{name}/"), None);
+            walk(root, &path, found);
+        } else {
+            found.insert(
+                name,
+                std::fs::read(&path).ok().map(|bytes| format!("{bytes:?}")),
+            );
         }
     }
 }

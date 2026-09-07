@@ -131,6 +131,14 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "The canonical instruction body must exist",
+    ),
+    (
+        "harness-parity",
+        "A declared instruction adapter must exist",
+    ),
+    (
+        "harness-parity",
         "The instruction adapter may contain only the canonical import",
     ),
     (
@@ -159,7 +167,15 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "Skill descriptions and routes cannot drift",
+        "A skill wrapper's description cannot drift from the skill",
+    ),
+    (
+        "harness-parity",
+        "A skill wrapper may not grow a body of its own",
+    ),
+    (
+        "harness-parity",
+        "A skill wrapper must declare the skill it routes to",
     ),
     (
         "harness-parity",
@@ -167,7 +183,19 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "Malformed or duplicated canonical skills fail",
+        "Files outside the canon do not affect the contract digest",
+    ),
+    (
+        "harness-parity",
+        "A canonical skill with no declaration fails",
+    ),
+    (
+        "harness-parity",
+        "A canonical skill with no description fails",
+    ),
+    (
+        "harness-parity",
+        "A canonical skill must be declared under the directory it lives in",
     ),
     (
         "harness-parity",
@@ -175,15 +203,23 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "Missing, stale, or extra agent adapters fail",
+        "Missing and extra agent adapters fail, each named for what it is",
     ),
     (
         "harness-parity",
-        "Extra agent prompt content or semantic drift fails",
+        "Extra prompt content and semantic drift are reported apart",
+    ),
+    (
+        "harness-parity",
+        "An adapter may not stop denying what the canon denies",
     ),
     (
         "harness-parity",
         "An agent may declare only vocabulary the repository declared",
+    ),
+    (
+        "harness-parity",
+        "An agent may declare only constraints the repository declared",
     ),
     (
         "harness-parity",
@@ -196,6 +232,14 @@ pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
         "A divergent required-capability declaration fails",
+    ),
+    (
+        "harness-parity",
+        "A required-capability declaration with a divergent argument vector fails",
+    ),
+    (
+        "harness-parity",
+        "A harness that declares no capability file fails",
     ),
     (
         "harness-parity",
