@@ -470,6 +470,13 @@ Feature: Coding-harness parity
       | alpha   | adapters/alpha/agents/reviewer.md |
       | beta    | adapters/beta/agents/reviewer.md  |
 
+  Scenario: A constraint is still enforced when the canon renames its fields
+    Given the canonical agents declare their permissions under "alternate" names
+    And a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "alpha" ignores a declared constraint
+    When I inspect harness parity
+    Then the harness-parity violations include "agent-semantic-divergence"
+
   Scenario: A canonical agent must carry the field its declaration fixes
     Given a valid one-skill one-agent one-capability harness contract
     And the canonical agent omits the field every declaration must carry

@@ -9,6 +9,10 @@ use crate::registry::{Binding, Exemption};
 pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
+        "A constraint is still enforced when the canon renames its fields",
+    ),
+    (
+        "harness-parity",
         "A capability may be written as one command vector",
     ),
     (
