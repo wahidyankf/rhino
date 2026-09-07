@@ -29,7 +29,7 @@ graph TD
 
     classDef person fill:#0173B2,stroke:#000000,color:#FFFFFF
     classDef system fill:#029E73,stroke:#000000,color:#000000
-    classDef external fill:#808080,stroke:#000000,color:#FFFFFF
+    classDef external fill:#CA9161,stroke:#000000,color:#000000
 
     class Maintainer,Gate person
     class RHINO system

@@ -1,0 +1,56 @@
+# schema: rhino/repo-config/v1
+#
+# RHINO's own policy, and the first repository other than the one the
+# validators grew up in to be described by this schema. Every value here is a
+# choice this repository made; the tool ships none of them.
+
+governance-word-budget:
+  # Ordered: the last matching glob wins, so a specific surface can override a
+  # general tree.
+  surfaces:
+    - glob: "AGENTS.md"
+      fail: 1200
+      warn: 1000
+    - glob: "README.md"
+      fail: 1600
+      warn: 1400
+
+governance-directory-map:
+  trees:
+    - path: docs
+    - path: specs
+
+md-internal-link:
+  exclude-sources: []
+
+md-mermaid:
+  node-label-graphemes: 32
+  edge-label-graphemes: 24
+  # Okabe-Ito, which stays distinguishable under the common colour vision
+  # deficiencies. A diagram that only works in full colour is a diagram some
+  # readers cannot read.
+  fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CA9161"]
+  edge-colors: ["#0173B2", "#000000"]
+  text-colors: ["#000000", "#FFFFFF"]
+
+harness-parity:
+  canonical:
+    instruction: AGENTS.md
+    instruction-adapter: CLAUDE.md
+  # Empty and explicit. RHINO carries no skills, agents, or per-harness
+  # adapters, and the difference between "none" and "not configured" has to
+  # stay visible.
+  harnesses: []
+  prohibited-instruction-sources:
+    - "**/GEMINI.md"
+    - "**/.cursorrules"
+    - "**/.windsurfrules"
+    - ".github/copilot-instructions.md"
+  capabilities: []
+  constraints: []
+
+scan:
+  exclude-directories:
+    - .git
+    - node_modules
+    - target
