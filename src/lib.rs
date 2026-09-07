@@ -122,6 +122,7 @@ pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
             .inspected(1)
             .finish(),
         "internal-link" => markdown::internal_link::validate(tree, &config),
+        "mermaid" => markdown::mermaid::validate(tree, &config),
         other => Report::refused(other, format!("`{}` is not ported yet", path.join(" "))),
     }
 }

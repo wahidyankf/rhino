@@ -12,6 +12,26 @@
 
 use crate::Outcome;
 
+/// A measured value attached to a finding.
+///
+/// Kept as a small closed enum rather than a string so a count stays a number
+/// all the way to the output: a consumer filtering on a measurement should not
+/// have to parse it back out of prose.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Detail {
+    Text(String),
+    Count(usize),
+}
+
+impl std::fmt::Display for Detail {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Text(value) => formatter.write_str(value),
+            Self::Count(value) => write!(formatter, "{value}"),
+        }
+    }
+}
+
 /// One thing a validator found wrong.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
@@ -22,6 +42,9 @@ pub struct Finding {
     pub path: String,
     pub line: Option<usize>,
     pub message: String,
+    /// Ordered, because the order is what a reader sees and what a machine
+    /// consumer's first field is.
+    pub details: Vec<(&'static str, Detail)>,
 }
 
 impl Finding {
@@ -31,7 +54,26 @@ impl Finding {
             path: path.into(),
             line: None,
             message: message.into(),
+            details: Vec::new(),
         }
+    }
+
+    /// Attach the document a finding was made in.
+    ///
+    /// A validator that walks blocks inside a file builds its findings before
+    /// it needs the path, and threading the path through every construction
+    /// site only for one of them to forget it is the failure worth avoiding.
+    #[must_use]
+    pub fn rename(mut self, path: impl Into<String>) -> Self {
+        self.path = path.into();
+        self
+    }
+
+    /// Attach a measured value, in the order it should be read.
+    #[must_use]
+    pub fn with(mut self, key: &'static str, value: Detail) -> Self {
+        self.details.push((key, value));
+        self
     }
 
     #[must_use]
@@ -41,10 +83,21 @@ impl Finding {
     }
 
     fn render(&self, category: &str) -> String {
-        match self.line {
-            Some(line) => format!("[{category}] {}:{line}: {}\n", self.path, self.message),
-            None => format!("[{category}] {}: {}\n", self.path, self.message),
-        }
+        let position = match self.line {
+            Some(line) => format!("{}:{line}", self.path),
+            None => self.path.clone(),
+        };
+        let details = if self.details.is_empty() {
+            String::new()
+        } else {
+            let pairs: Vec<String> = self
+                .details
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .collect();
+            format!(" ({})", pairs.join(", "))
+        };
+        format!("[{category}] {position}: {}{details}\n", self.message)
     }
 }
 

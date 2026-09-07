@@ -25,10 +25,10 @@ path = "src/lib.rs"
 globset = "0.4"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
+unicode-segmentation = "1"
 yaml_serde = "0.10"
 
 [dev-dependencies]
-unicode-segmentation = "1"
 
 [[test]]
 name = "unit"
