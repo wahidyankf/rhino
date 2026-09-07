@@ -22,6 +22,8 @@ name = "rhino"
 path = "src/lib.rs"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+yaml_serde = "0.10"
 
 [dev-dependencies]
 
