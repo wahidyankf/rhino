@@ -57,6 +57,10 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         // nothing to add. It stays in the vocabulary because a scenario that
         // breaks one key has to be able to say what it started from.
         "the repository declares a complete configuration" => Outcome::Passed,
+        "a required MCP server is declared" => {
+            world.declaration.declares_required_mcp = true;
+            Outcome::Passed
+        }
         "the repository has no configuration file" => {
             world.declaration.absent = true;
             Outcome::Passed

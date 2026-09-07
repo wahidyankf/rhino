@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 161] = [
+pub const VOCABULARY: [&str; 162] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -40,6 +40,7 @@ pub const VOCABULARY: [&str; 161] = [
     "a nested repository instruction file exists",
     "a nested repository under {string} scans a directory the outer repository excludes",
     "a repository declaring every section with nothing to find",
+    "a required MCP server is declared",
     "a valid one-skill one-agent one-capability harness contract",
     "all violations are {string}",
     "an argument error is raised",

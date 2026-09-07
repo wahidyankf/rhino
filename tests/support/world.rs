@@ -108,6 +108,10 @@ pub struct Declaration {
     /// Directory names a scenario declares as excluded from every scan.
     pub excluded_directories: Vec<String>,
     pub empty_roster: bool,
+    /// Whether the configuration declares a required MCP server even though no
+    /// harness would reconcile it. A non-empty roster declares one anyway, so
+    /// this is only how a scenario states the degenerate combination.
+    pub declares_required_mcp: bool,
     pub roster: Vec<String>,
     /// Whether the configuration declares a file permitted to import the
     /// canonical instruction. Absent is legal, so the flag is a tri-state only
@@ -133,6 +137,7 @@ impl Default for Declaration {
             excluded_sources: Vec::new(),
             excluded_directories: Vec::new(),
             empty_roster: false,
+            declares_required_mcp: false,
             roster: Vec::new(),
             // A declared adapter is the ordinary case; the scenario that has
             // none says so.

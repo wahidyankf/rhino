@@ -135,18 +135,23 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         "harness-parity.constraints".into(),
         "[inline-result-only]".into(),
     );
-    lines.insert(
-        "harness-parity.required-mcp.name".into(),
-        "toolserver".into(),
-    );
-    lines.insert(
-        "harness-parity.required-mcp.command".into(),
-        "toolrunner".into(),
-    );
-    lines.insert(
-        "harness-parity.required-mcp.args".into(),
-        "[\"serve\"]".into(),
-    );
+    // On the same rule as the canonical roots: a required MCP server exists to
+    // be reconciled against a harness, so an empty roster has nothing to say
+    // about one.
+    if !roster.is_empty() || declaration.declares_required_mcp {
+        lines.insert(
+            "harness-parity.required-mcp.name".into(),
+            "toolserver".into(),
+        );
+        lines.insert(
+            "harness-parity.required-mcp.command".into(),
+            "toolrunner".into(),
+        );
+        lines.insert(
+            "harness-parity.required-mcp.args".into(),
+            "[\"serve\"]".into(),
+        );
+    }
     let excluded = if declaration.excluded_directories.is_empty() {
         vec![
             ".git".to_string(),
@@ -168,8 +173,13 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
 pub fn render(declaration: &Declaration) -> String {
     let mut flat = base(declaration);
 
+    // Prefix-aware: omitting `harness-parity.required-mcp` has to remove the
+    // block, not just a key nothing was stored under. A scenario names the key
+    // the schema names, and the flattening here is an implementation detail of
+    // the fixture.
     for key in &declaration.omissions {
-        flat.remove(key);
+        let nested = format!("{key}.");
+        flat.retain(|held, _| held != key && !held.starts_with(&nested));
     }
     for (key, value) in &declaration.overrides {
         flat.insert(key.clone(), quote_if_needed(value));

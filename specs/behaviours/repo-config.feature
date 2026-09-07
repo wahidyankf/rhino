@@ -89,6 +89,14 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr names the canon that has nowhere to be reconciled
 
+  Scenario: An empty harness roster alongside a required MCP server is refused
+    Given the repository declares a configuration with an empty harness roster and no canonical skill or agent root
+    And a required MCP server is declared
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "required-mcp"
+    And stderr contains "declared alongside an empty harness roster"
+
   Scenario: A validator refuses to run against a configuration it cannot read
     Given the repository declares a complete configuration
     And the configuration adds the unknown key "trees-list" to "governance-directory-map"
@@ -126,7 +134,7 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr names the unreadable configuration file
 
-  Scenario Outline: A declared harness roster requires both canonical roots
+  Scenario Outline: A declared harness roster requires the keys that reconcile it
     Given the repository declares a complete configuration
     And the configuration omits "<key>"
     When I run the "repo-config" validator
@@ -137,3 +145,4 @@ Feature: Repository configuration contract
       | key                                   |
       | harness-parity.canonical.skills-root  |
       | harness-parity.canonical.agents-root  |
+      | harness-parity.required-mcp           |

@@ -157,8 +157,11 @@ pub struct HarnessParity {
     pub prohibited_instruction_sources: Vec<String>,
     pub capabilities: Vec<String>,
     pub constraints: Vec<String>,
-    #[serde(rename = "required-mcp")]
-    pub required_mcp: RequiredMcp,
+    /// Required whenever the roster is non-empty; refused alongside an empty
+    /// one, on the same rule as the canonical roots. A server nothing
+    /// reconciles is a declaration that silently does nothing.
+    #[serde(rename = "required-mcp", default)]
+    pub required_mcp: Option<RequiredMcp>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -277,14 +280,20 @@ fn declared_schema(text: &str) -> Result<(), ConfigError> {
 fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
     let canonical = &config.harness_parity.canonical;
 
+    // Everything a harness is reconciled *against*: the two canonical roots and
+    // the capability declaration every harness has to match. Each one is
+    // meaningful only in the presence of a harness, so each follows the roster.
+    let reconciled_against = [
+        ("skills-root", canonical.skills_root.is_some()),
+        ("agents-root", canonical.agents_root.is_some()),
+        ("required-mcp", config.harness_parity.required_mcp.is_some()),
+    ];
+
     // Canon with nowhere to reconcile it is a configuration error rather than a
     // clean pass: it means the reconciliation was silently skipped.
     if config.harness_parity.harnesses.is_empty() {
-        for (key, declared) in [
-            ("skills-root", &canonical.skills_root),
-            ("agents-root", &canonical.agents_root),
-        ] {
-            if declared.is_some() {
+        for (key, declared) in reconciled_against {
+            if declared {
                 return Err(ConfigError::Semantic {
                     key: key.to_string(),
                     line: line_of(text, key),
@@ -293,11 +302,8 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
             }
         }
     } else {
-        for (key, declared) in [
-            ("skills-root", &canonical.skills_root),
-            ("agents-root", &canonical.agents_root),
-        ] {
-            if declared.is_none() {
+        for (key, declared) in reconciled_against {
+            if !declared {
                 return Err(ConfigError::Semantic {
                     key: key.to_string(),
                     line: line_of(text, "harnesses"),

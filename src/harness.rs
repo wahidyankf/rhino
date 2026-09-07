@@ -66,7 +66,7 @@ struct Canon<'a> {
     skills_root: Option<&'a str>,
     skills: BTreeMap<String, Declaration>,
     agents: BTreeMap<String, Document>,
-    required: &'a RequiredMcp,
+    required: Option<&'a RequiredMcp>,
 }
 
 /// A file split into its declaration and the prompt beneath it.
@@ -134,7 +134,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
             config,
             &mut report,
         ),
-        required: &parity.required_mcp,
+        required: parity.required_mcp.as_ref(),
     };
 
     // The whole of RHINO's harness knowledge: iterate the declared roster and
@@ -167,7 +167,12 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         report.inspected_one();
         agent_adapters(&contents, harness, &canon, &mut report);
         skill_wrappers(&contents, harness, &canon, &mut report);
-        if capability(&contents, harness, &canon, &mut report) {
+        // The configuration contract pairs the roster and the required server:
+        // a declared harness guarantees one, an empty roster refuses one. So
+        // this is `Some` exactly when there is a harness asking the question.
+        if let Some(required) = canon.required
+            && capability(&contents, harness, required, &mut report)
+        {
             reconciled += 1;
         }
     }
@@ -533,10 +538,9 @@ fn skill_wrappers(
 fn capability(
     contents: &BTreeMap<String, String>,
     harness: &Harness,
-    canon: &Canon<'_>,
+    required: &RequiredMcp,
     report: &mut Report,
 ) -> bool {
-    let required = canon.required;
     let Some(text) = contents.get(&harness.capability_file) else {
         report.found(Finding::new(
             "divergent-capability",

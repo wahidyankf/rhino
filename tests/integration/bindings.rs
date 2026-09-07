@@ -403,6 +403,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "repo-config",
+        "An empty harness roster alongside a required MCP server is refused",
+    ),
+    (
+        "repo-config",
         "A validator refuses to run against a configuration it cannot read",
     ),
     (
@@ -442,7 +446,7 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "repo-config",
-        "A declared harness roster requires both canonical roots",
+        "A declared harness roster requires the keys that reconcile it",
     ),
     (
         "cli-contract",
