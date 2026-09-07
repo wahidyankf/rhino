@@ -110,6 +110,13 @@ pub struct Report {
     /// with a walk that silently found nothing.
     subject: &'static str,
     inspected: usize,
+    /// The paths that were looked at, when the thing inspected has one.
+    ///
+    /// Reported rather than merely counted because "which files did you read?"
+    /// is a question a maintainer has to be able to answer without reading the
+    /// validator: a surface that silently matched nothing and a surface that
+    /// matched everything both produce a clean run.
+    scanned: Vec<String>,
     findings: Vec<Finding>,
 }
 
@@ -119,12 +126,20 @@ impl Report {
             category,
             subject,
             inspected: 0,
+            scanned: Vec::new(),
             findings: Vec::new(),
         }
     }
 
     pub fn inspected(&mut self, count: usize) -> &mut Self {
         self.inspected = count;
+        self
+    }
+
+    /// Record a path as inspected, which also counts it.
+    pub fn scanned(&mut self, path: impl Into<String>) -> &mut Self {
+        self.scanned.push(path.into());
+        self.inspected += 1;
         self
     }
 
@@ -149,6 +164,13 @@ impl Report {
                 count => format!("{count} findings"),
             }
         );
+
+        let mut summary = summary;
+        let mut scanned = self.scanned.clone();
+        scanned.sort();
+        for path in scanned {
+            summary.push_str(&format!("[{}] scanned {path}\n", self.category));
+        }
 
         let stderr: String = self
             .findings

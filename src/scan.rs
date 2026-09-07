@@ -13,7 +13,7 @@
 
 use crate::config::Config;
 use crate::runtime::{Tree, TreeError};
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 
 /// One Markdown file, read.
 pub struct Document {
@@ -68,17 +68,36 @@ impl Corpus {
 pub fn markdown_files(tree: &dyn Tree, config: &Config) -> Vec<String> {
     tree.files()
         .into_iter()
-        .filter(|path| path.ends_with(".md"))
+        .filter(|path| is_markdown(path))
         .filter(|path| !is_excluded(path, &config.scan.exclude_directories))
         .collect()
 }
 
+/// Whether a path names a Markdown file.
+///
+/// Case-insensitive on the extension, because `README.MD` is a Markdown file
+/// that a repository will eventually contain and that a reader would be
+/// surprised to see skipped.
+fn is_markdown(path: &str) -> bool {
+    path.rsplit_once('.')
+        .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("md"))
+}
+
 /// Compile a declared list of globs, naming the configuration key in any
 /// failure so a bad pattern is a configuration fault a reader can locate.
+///
+/// Matching is case-insensitive for the same reason the extension check is: a
+/// surface declared as `rules/**/*.md` is meant to cover the Markdown under
+/// `rules`, and whether one file shouts its extension is not a policy decision
+/// the repository made.
 pub fn glob_set(key: &str, patterns: &[String]) -> Result<GlobSet, String> {
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
-        builder.add(Glob::new(pattern).map_err(|error| format!("{key}: `{pattern}`: {error}"))?);
+        let glob = GlobBuilder::new(pattern)
+            .case_insensitive(true)
+            .build()
+            .map_err(|error| format!("{key}: `{pattern}`: {error}"))?;
+        builder.add(glob);
     }
     builder.build().map_err(|error| format!("{key}: {error}"))
 }
