@@ -48,6 +48,12 @@ impl Corpus {
         Ok(Self { documents })
     }
 
+    /// The documents, owned, for a caller that has to hold them beside a
+    /// selection built some other way.
+    pub fn into_documents(self) -> Vec<Document> {
+        self.documents
+    }
+
     pub fn documents(&self) -> &[Document] {
         &self.documents
     }
@@ -123,4 +129,46 @@ pub fn is_excluded(path: &str, excluded: &[String]) -> bool {
     segments
         .iter()
         .any(|segment| excluded.iter().any(|name| name == segment))
+}
+
+/// What an invocation narrowed itself to.
+///
+/// Passed to the leaves that accept a narrowing flag rather than read from the
+/// command line by each of them, so "the declared surface" and "the surface I
+/// was pointed at" are one decision made once.
+#[derive(Debug, Clone, Default)]
+pub struct Scope {
+    /// Paths given with `--file`. `-` stands for standard input.
+    pub files: Vec<String>,
+    pub directory: Option<String>,
+    pub harness: Option<String>,
+    /// What `--file -` should read, when a caller supplied it.
+    pub stdin: Option<String>,
+}
+
+/// The path a document read from standard input is reported under.
+pub const STDIN: &str = "-";
+
+impl Scope {
+    pub fn is_narrowed(&self) -> bool {
+        !self.files.is_empty()
+    }
+
+    /// The documents this scope selects, in the order they were given.
+    ///
+    /// A path that cannot be read is *not* skipped: it is returned with no
+    /// content so the caller reports it, because a selection naming a file that
+    /// is not there is a mistake in the invocation and not an empty repository.
+    pub fn documents(&self, tree: &dyn Tree) -> Vec<(String, Option<String>)> {
+        self.files
+            .iter()
+            .map(|path| {
+                if path == STDIN {
+                    (STDIN.to_string(), self.stdin.clone())
+                } else {
+                    (path.clone(), tree.read(path).ok())
+                }
+            })
+            .collect()
+    }
 }

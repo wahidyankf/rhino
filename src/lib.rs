@@ -8,6 +8,7 @@
 //! conventions to be remembered: they are held by tests under `tests/`.
 #![forbid(unsafe_code)]
 
+pub mod cli;
 pub mod config;
 pub mod governance;
 pub mod harness;
@@ -74,9 +75,12 @@ where
             if let Ok(config) = load(&tree) {
                 tree.exclude(&config.scan.exclude_directories);
             }
-            execute(&tree, &arguments)
+            // Standard input is read only when a leaf was asked for it, so an
+            // ordinary run never blocks on a terminal.
+            let stdin = wants_stdin(&arguments).then(read_stdin);
+            execute_with(&tree, &arguments, stdin.as_deref())
         }
-        Err(reason) => Outcome::refused(format!("rhino: {reason}")),
+        Err(reason) => Outcome::refused(format!("rhino: {reason}\n")),
     };
 
     if !outcome.stdout.is_empty() {
@@ -88,27 +92,61 @@ where
     outcome.exit_code
 }
 
+fn wants_stdin(arguments: &[String]) -> bool {
+    arguments
+        .windows(2)
+        .any(|pair| pair[0] == "--file" && pair[1] == "-")
+}
+
+fn read_stdin() -> String {
+    use std::io::Read;
+    let mut text = String::new();
+    // A failed read leaves the string empty, which the leaf then reports as an
+    // empty document rather than as a crash.
+    let _ = std::io::stdin().read_to_string(&mut text);
+    text
+}
+
 /// Runs one invocation against a tree.
 ///
 /// The seam the whole corpus drives: a repository is whatever implements
 /// [`Tree`], so the same sentence can be asserted against an in-memory tree, a
 /// temporary directory, and the built executable.
 pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
-    let path: Vec<&str> = arguments.iter().map(String::as_str).collect();
+    execute_with(tree, arguments, None)
+}
 
-    if path.as_slice() == ["version"] {
-        return Outcome::clean(format!("{}\n", env!("CARGO_PKG_VERSION")));
-    }
-
-    let Some(category) = category_of(&path) else {
-        return match path.as_slice() {
-            [] => Outcome::refused("rhino: no command given\n".to_string()),
-            other => Outcome::refused(format!(
-                "rhino: unrecognized command `{}`\n",
-                other.join(" ")
-            )),
-        };
+/// As [`execute`], with whatever a `--file -` selection should read.
+///
+/// Standard input is passed in rather than read here, because a library that
+/// reached for the process's own stdin could not be driven twice in one test
+/// process -- and because the E2E adapter has to be the one boundary where the
+/// real stream is involved.
+pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) -> Outcome {
+    let invocation = match cli::parse(arguments) {
+        Ok(cli::Parsed::Help(cli::Help(text))) => return Outcome::clean(text),
+        Ok(cli::Parsed::Run(invocation)) => *invocation,
+        Err(refusal) => return Outcome::refused(format!("{refusal}\n")),
     };
+
+    // `--root` is answered before anything is read, so a root that names
+    // nothing is an invalid invocation rather than an empty repository
+    // reported clean.
+    let rerooted;
+    let tree: &dyn Tree = match &invocation.root {
+        None => tree,
+        Some(path) => match tree.rooted_at(path) {
+            Ok(rooted) => {
+                rerooted = rooted;
+                rerooted.as_ref()
+            }
+            Err(reason) => return Outcome::refused(format!("rhino: {reason}\n")),
+        },
+    };
+
+    if invocation.category == "version" {
+        return version(invocation.format);
+    }
 
     // Every command reads the configuration before doing anything else, so a
     // configuration it cannot use is refused rather than half-run. A validator
@@ -116,37 +154,50 @@ pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
     // a clean repository that was never checked.
     let config = match load(tree) {
         Ok(config) => config,
-        Err(error) => return Report::refused(category, error.to_string()),
+        Err(error) => {
+            return Report::refused(invocation.category, error.to_string())
+                .render(invocation.format);
+        }
     };
 
-    match category {
-        "repo-config" => Report::new("repo-config", "configuration file")
-            .inspected(1)
-            .finish(),
+    let scope = scan::Scope {
+        files: invocation.files.clone(),
+        directory: invocation.directory.clone(),
+        harness: invocation.harness.clone(),
+        stdin: stdin.map(str::to_string),
+    };
+
+    let report = match invocation.category {
+        "repo-config" => {
+            let mut report = Report::new("repo-config", "configuration file");
+            report.inspected(1);
+            report
+        }
         "word-budget" => governance::word_budget::validate(tree, &config),
-        "directory-map" => governance::directory_map::validate(tree, &config),
-        "harness-parity" => harness::validate(tree, &config),
+        "word-count" => governance::word_budget::inspect(tree, &scope),
+        "directory-map" => governance::directory_map::validate(tree, &config, &scope),
+        "harness-parity" => harness::validate(tree, &config, &scope),
         "internal-link" => markdown::internal_link::validate(tree, &config),
-        "mermaid" => markdown::mermaid::validate(tree, &config),
-        other => Report::refused(other, format!("`{}` is not ported yet", path.join(" "))),
-    }
+        // The parser only produces categories the leaf table holds, so this
+        // arm is the last leaf rather than a fallback for an unknown one.
+        _ => markdown::mermaid::validate(tree, &config, &scope),
+    };
+
+    report.render(invocation.format)
 }
 
-/// The atomic output prefix each command path reports under.
+/// This build's release identity.
 ///
-/// The mapping lives here rather than being assembled from the path, so the
-/// prefix a consumer greps for cannot change because a command was renamed or
-/// nested differently.
-fn category_of(path: &[&str]) -> Option<&'static str> {
-    match path {
-        ["repo-config", "validate"] => Some("repo-config"),
-        ["governance", "word-budget", "validate"] => Some("word-budget"),
-        ["governance", "directory-map", "validate"] => Some("directory-map"),
-        ["harness", "parity", "validate"] => Some("harness-parity"),
-        ["md", "internal-link", "validate"] => Some("internal-link"),
-        ["md", "mermaid", "validate"] => Some("mermaid"),
-        ["md", "word-count", "inspect"] => Some("word-count"),
-        _ => None,
+/// The commit is embedded at compile time by `build.rs`; a build made outside a
+/// repository reports forty zeros rather than lying about which revision it is.
+fn version(format: cli::Format) -> Outcome {
+    let version = env!("CARGO_PKG_VERSION");
+    let commit = env!("RHINO_COMMIT");
+    match format {
+        cli::Format::Text => Outcome::clean(format!("{version}\n")),
+        cli::Format::Json => Outcome::clean(format!(
+            "{{\"schemaVersion\":1,\"version\":\"{version}\",\"commit\":\"{commit}\"}}\n"
+        )),
     }
 }
 

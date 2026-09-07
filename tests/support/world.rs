@@ -156,6 +156,10 @@ pub struct World<D> {
     /// failing closed on an unreadable file is behaviour, and behaviour is
     /// never proved only at the boundaries that happen to have a filesystem.
     pub unreadable: BTreeSet<String>,
+    /// What a `--file -` selection should read. Held on the world rather than
+    /// reached for from the process, so the same sentence means the same thing
+    /// at a boundary that has no standard input to reach for.
+    pub stdin: Option<String>,
     /// Paths that are filesystem links. No tree reports them, which is the
     /// point: following one can leave the repository.
     pub links: BTreeSet<String>,
@@ -175,6 +179,7 @@ impl<D> World<D> {
             files: &self.files,
             unreadable: &self.unreadable,
             links: &self.links,
+            stdin: self.stdin.as_deref(),
         }
     }
 
@@ -203,6 +208,7 @@ pub struct Repository<'a> {
     pub files: &'a BTreeMap<String, String>,
     pub unreadable: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
+    pub stdin: Option<&'a str>,
 }
 
 /// What an adapter must be able to do. Anything a scenario can do to a
@@ -215,4 +221,25 @@ pub trait Driver {
     /// and is what makes read-only a testable property rather than a documented
     /// intention.
     fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> Run;
+}
+
+/// The placeholder a scenario writes when it means "this repository".
+pub const ROOT: &str = "{root}";
+/// And when it means a root that is not there.
+pub const MISSING_ROOT: &str = "{missing-root}";
+
+/// Substitute the root placeholders with what this adapter's root actually is.
+///
+/// A scenario cannot write the path, because it differs per adapter and per
+/// run. Substituting here rather than in the binding keeps `--root` one claim
+/// asserted at three boundaries instead of three different claims.
+pub fn with_root(arguments: &[String], root: &str, missing: &str) -> Vec<String> {
+    arguments
+        .iter()
+        .map(|argument| match argument.as_str() {
+            ROOT => root.to_string(),
+            MISSING_ROOT => missing.to_string(),
+            other => other.to_string(),
+        })
+        .collect()
 }

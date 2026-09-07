@@ -11,6 +11,7 @@
 //! how the command is spelled on the way in.
 
 use crate::Outcome;
+use crate::cli::Format;
 
 /// A measured value attached to a finding.
 ///
@@ -118,7 +119,16 @@ pub struct Report {
     /// matched everything both produce a clean run.
     scanned: Vec<String>,
     notes: Vec<String>,
+    /// Named quantities a leaf establishes about the whole run, rendered as
+    /// top-level JSON members. Distinct from a finding's details, which belong
+    /// to one violation, and from a note, which is prose.
+    measurements: Vec<(&'static str, usize)>,
     findings: Vec<Finding>,
+    /// Set when the run could not happen at all. Held on the report rather
+    /// than short-circuiting to an `Outcome`, so that one place decides how a
+    /// result is rendered and a refusal cannot quietly acquire a shape of its
+    /// own under `--output json`.
+    refusal: Option<String>,
 }
 
 impl Report {
@@ -129,7 +139,9 @@ impl Report {
             inspected: 0,
             scanned: Vec::new(),
             notes: Vec::new(),
+            measurements: Vec::new(),
             findings: Vec::new(),
+            refusal: None,
         }
     }
 
@@ -160,16 +172,107 @@ impl Report {
         self
     }
 
+    /// A quantity this run established, named as a caller will read it.
+    pub fn measure(&mut self, key: &'static str, value: usize) -> &mut Self {
+        self.measurements.push((key, value));
+        self
+    }
+
     pub fn found(&mut self, finding: Finding) -> &mut Self {
         self.findings.push(finding);
         self
     }
 
-    /// Exit `0` when clean and `1` when there are findings. Never `2`: a
-    /// validator that reached the point of reporting has a readable repository
-    /// and a readable configuration, so whatever it says is about the
-    /// repository's policy rather than about the invocation.
-    pub fn finish(&self) -> Outcome {
+    /// The category this report speaks for.
+    pub fn category(&self) -> &'static str {
+        self.category
+    }
+
+    /// Render as the caller asked. Exit `0` when clean, `1` when there are
+    /// findings, and `2` only for a refusal: a validator that reached the point
+    /// of reporting has a readable repository and a readable configuration, so
+    /// whatever it says is about the repository's policy rather than about the
+    /// invocation.
+    pub fn render(&self, format: Format) -> Outcome {
+        // A refusal renders the same way in both formats, and always with an
+        // empty stdout. A caller parsing JSON has to be able to trust that
+        // stdout either holds a result or holds nothing.
+        if let Some(reason) = &self.refusal {
+            return Outcome {
+                exit_code: 2,
+                stdout: String::new(),
+                stderr: format!("[{}] {reason}\n", self.category),
+            };
+        }
+        match format {
+            Format::Text => self.finish(),
+            Format::Json => self.as_json(),
+        }
+    }
+
+    /// One object on one line.
+    ///
+    /// Line-delimited rather than pretty-printed so a caller can pipe the
+    /// output through `grep` and `jq` alike, and so "every stdout line is a
+    /// result" stays true whatever the leaf reports.
+    fn as_json(&self) -> Outcome {
+        let mut scanned = self.scanned.clone();
+        scanned.sort();
+        let mut findings: Vec<&Finding> = self.findings.iter().collect();
+        findings.sort_by_key(|finding| (finding.path.clone(), finding.line, finding.kind));
+
+        let violations: Vec<String> = findings
+            .iter()
+            .map(|finding| {
+                let mut fields = vec![
+                    format!("\"kind\":{}", quote(finding.kind)),
+                    format!("\"path\":{}", quote(&finding.path)),
+                    format!("\"message\":{}", quote(&finding.message)),
+                ];
+                if let Some(line) = finding.line {
+                    fields.push(format!("\"line\":{line}"));
+                }
+                for (key, value) in &finding.details {
+                    fields.push(match value {
+                        Detail::Count(count) => format!("{}:{count}", quote(key)),
+                        Detail::Text(text) => format!("{}:{}", quote(key), quote(text)),
+                    });
+                }
+                format!("{{{}}}", fields.join(","))
+            })
+            .collect();
+
+        let body = format!(
+            "{{\"schemaVersion\":1,\"command\":{},\"exitCode\":{},\"subject\":{},\"inspected\":{},\"scanned\":[{}],\"notes\":[{}],\"violations\":[{}]{}}}\n",
+            quote(self.category),
+            u8::from(!self.findings.is_empty()),
+            quote(self.subject),
+            self.inspected,
+            scanned
+                .iter()
+                .map(|path| quote(path))
+                .collect::<Vec<_>>()
+                .join(","),
+            self.notes
+                .iter()
+                .map(|note| quote(note))
+                .collect::<Vec<_>>()
+                .join(","),
+            violations.join(","),
+            self.measurements
+                .iter()
+                .map(|(key, value)| format!(",{}:{value}", quote(key)))
+                .collect::<String>()
+        );
+
+        Outcome {
+            exit_code: u8::from(!self.findings.is_empty()),
+            stdout: body,
+            stderr: String::new(),
+        }
+    }
+
+    fn finish(&self) -> Outcome {
         let summary = format!(
             "[{}] checked {} {}, {}\n",
             self.category,
@@ -213,18 +316,44 @@ impl Report {
     /// A run that could not happen: an unreadable repository or an unusable
     /// configuration. stdout stays empty, because a summary line here would
     /// claim something was checked when nothing was.
-    pub fn refused(category: &str, message: impl AsRef<str>) -> Outcome {
-        Outcome {
-            exit_code: 2,
-            stdout: String::new(),
-            stderr: format!("[{category}] {}\n", message.as_ref()),
+    pub fn refused(category: &'static str, message: impl AsRef<str>) -> Self {
+        let mut report = Self::new(category, "subject");
+        report.refusal = Some(message.as_ref().to_string());
+        report
+    }
+}
+
+/// A JSON string literal.
+///
+/// Hand-written rather than serialised through a derive because a report is a
+/// handful of strings and numbers, and the alternative is a mirror type per
+/// validator kept in step with the type it mirrors.
+fn quote(value: &str) -> String {
+    let mut quoted = String::with_capacity(value.len() + 2);
+    quoted.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => quoted.push_str("\\\""),
+            '\\' => quoted.push_str("\\\\"),
+            '\n' => quoted.push_str("\\n"),
+            '\r' => quoted.push_str("\\r"),
+            '\t' => quoted.push_str("\\t"),
+            control if control < ' ' => {
+                quoted.push_str(&format!("\\u{:04x}", control as u32));
+            }
+            other => quoted.push(other),
         }
     }
+    quoted.push('"');
+    quoted
 }
 
 fn plural(subject: &str, count: usize) -> String {
     if count == 1 {
         subject.to_string()
+    } else if let Some(stem) = subject.strip_suffix('y') {
+        // `directory` -> `directories`, not `directorys`.
+        format!("{stem}ies")
     } else if subject.ends_with('s') {
         // `harness` is one of the subjects, and "4 harnesss" reads as a defect
         // in the tool rather than as a count of four.

@@ -7,27 +7,50 @@
 //! map that has drifted from the tree is worse than no map, because it is
 //! believed.
 
-use crate::Outcome;
 use crate::config::Config;
 use crate::report::{Finding, Report};
-use crate::runtime::Tree;
-use crate::scan;
+use crate::runtime::{Tree, TreeError};
+use crate::scan::{self, Scope};
 use std::collections::BTreeSet;
 
 const README: &str = "README.md";
 const SECTION: &str = "## Directory Map";
 
-pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
+pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     let mut report = Report::new("directory-map", "directory");
 
-    for declared in &config.directory_map.trees {
-        for directory in directories(tree, config, &declared.path) {
+    // A selected tree replaces the declared ones rather than adding to them,
+    // and must actually be a directory: `--directory` naming nothing is a
+    // mistake in the invocation, and reporting it as a clean walk of zero
+    // directories would be the wrong answer to the wrong question.
+    let trees: Vec<String> = match &scope.directory {
+        Some(selected) => {
+            if !tree.is_directory(selected) {
+                return Report::refused(
+                    "directory-map",
+                    format!("{selected} is not a directory in this repository"),
+                );
+            }
+            vec![selected.clone()]
+        }
+        None => config
+            .directory_map
+            .trees
+            .iter()
+            .map(|declared| declared.path.clone())
+            .collect(),
+    };
+
+    for path in &trees {
+        for directory in directories(tree, config, path) {
             report.inspected_one();
-            inspect(tree, &directory, &mut report);
+            if let Err(reason) = inspect(tree, &directory, &mut report) {
+                return Report::refused("directory-map", reason);
+            }
         }
     }
 
-    report.finish()
+    report
 }
 
 /// Every directory at or under a declared tree, in path order.
@@ -57,15 +80,24 @@ fn directories(tree: &dyn Tree, config: &Config, root: &str) -> Vec<String> {
     found.into_iter().collect()
 }
 
-fn inspect(tree: &dyn Tree, directory: &str, report: &mut Report) {
+/// `Ok(())` when the directory was inspected, `Err` when it could not be.
+///
+/// A README that exists and cannot be opened is not a missing README: reporting
+/// it as one would tell a maintainer to write a file that is already there,
+/// and would let a permission fault masquerade as a policy violation.
+fn inspect(tree: &dyn Tree, directory: &str, report: &mut Report) -> Result<(), String> {
     let readme = format!("{directory}/{README}");
-    let Ok(text) = tree.read(&readme) else {
-        report.found(Finding::new(
-            "missing-readme",
-            directory,
-            "missing README: a mapped directory has to document its own contents",
-        ));
-        return;
+    let text = match tree.read(&readme) {
+        Ok(text) => text,
+        Err(TreeError::Unreadable(reason)) => return Err(format!("{readme}: {reason}")),
+        Err(TreeError::NotFound) => {
+            report.found(Finding::new(
+                "missing-readme",
+                directory,
+                "missing README: a mapped directory has to document its own contents",
+            ));
+            return Ok(());
+        }
     };
 
     let Some(entries) = map_entries(&text) else {
@@ -74,7 +106,7 @@ fn inspect(tree: &dyn Tree, directory: &str, report: &mut Report) {
             &readme,
             format!("missing directory map: a mapped README needs a `{SECTION}` section"),
         ));
-        return;
+        return Ok(());
     };
 
     // Resolve every entry first, so an unusable one is reported as itself
@@ -112,6 +144,8 @@ fn inspect(tree: &dyn Tree, directory: &str, report: &mut Report) {
             ));
         }
     }
+
+    Ok(())
 }
 
 /// The direct children of a directory, excluding its own README.

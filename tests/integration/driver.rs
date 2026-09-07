@@ -6,7 +6,7 @@
 //! of which the in-memory tree can be wrong about.
 
 use crate::sandbox::{self, Sandbox};
-use crate::world::{CommandResult, Driver, Repository, Run, differences};
+use crate::world::{self, CommandResult, Driver, Repository, Run, differences};
 use rhino::runtime::DiskTree;
 
 #[derive(Default)]
@@ -21,8 +21,11 @@ impl Driver for IntegrationDriver {
         // port cannot express is still visible. That is the whole point: the
         // claim is that the validator wrote nothing, not that it wrote nothing
         // the validator can see.
+        let root = sandbox.root().to_string_lossy().into_owned();
+        let arguments = world::with_root(arguments, &root, &format!("{root}/no-such-directory"));
+
         let before = sandbox::observe(sandbox.root());
-        let outcome = rhino::execute(&tree, arguments);
+        let outcome = rhino::execute_with(&tree, &arguments, repository.stdin);
         let after = sandbox::observe(sandbox.root());
 
         Run {

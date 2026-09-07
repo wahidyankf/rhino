@@ -10,11 +10,10 @@
 //! change -- which is the difference between a validator that serves one
 //! repository and one that serves four.
 
-use crate::Outcome;
 use crate::config::{CapabilityFormat, Config, Harness, RequiredMcp};
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
-use crate::scan;
+use crate::scan::{self, Scope};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -96,7 +95,7 @@ fn read_document(text: &str) -> Option<Document> {
     None
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
+pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     let parity = &config.harness_parity;
     let files = scan::files(tree, config);
 
@@ -142,8 +141,29 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
     // reconcile each entry against the canon. A fourth harness is one more
     // entry in `repo-config.yml` and no line here, which is what makes this a
     // tool four repositories can share rather than one repository's script.
+    // A narrowed roster still reports every finding it inspects. It reports
+    // fewer, because it looked at fewer -- narrowing is a smaller question,
+    // never a quieter answer to the same one.
+    let roster: Vec<&Harness> = match &scope.harness {
+        Some(wanted) => {
+            let selected: Vec<&Harness> = parity
+                .harnesses
+                .iter()
+                .filter(|harness| &harness.name == wanted)
+                .collect();
+            if selected.is_empty() {
+                return Report::refused(
+                    "harness-parity",
+                    format!("`{wanted}` is not a harness this repository declares"),
+                );
+            }
+            selected
+        }
+        None => parity.harnesses.iter().collect(),
+    };
+
     let mut reconciled = 0usize;
-    for harness in &parity.harnesses {
+    for harness in roster.iter().copied() {
         report.inspected_one();
         agent_adapters(&contents, harness, &canon, &mut report);
         skill_wrappers(&contents, harness, &canon, &mut report);
@@ -156,13 +176,13 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
     // this line would report a capability declaration the run never compared.
     report.note(format!(
         "canon {} harnesses, {} skills, {} agents, {reconciled} reconciled capability declarations",
-        parity.harnesses.len(),
+        roster.len(),
         canon.skills.len(),
         canon.agents.len(),
     ));
     report.note(format!("digest {}", digest(&contents, config)));
 
-    report.finish()
+    report
 }
 
 // -- The instruction boundary -------------------------------------------------

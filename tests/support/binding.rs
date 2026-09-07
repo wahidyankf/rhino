@@ -124,6 +124,54 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .push(matched.string(0).to_string());
             Outcome::Passed
         }
+        "a repository declaring every section with nothing to find" => {
+            // Every section of the schema is declared by the base fixture. What
+            // this sentence adds is a *tree* that satisfies all of them at once
+            // -- the harness contract complete, and the mapped tree simply
+            // absent. The mapped tree is present and complete rather than
+            // missing: a walk of nothing and a clean walk of something produce
+            // the same exit code, and only the second can tell a validator that
+            // stopped reading from one that found nothing wrong.
+            reseed_contract(world);
+            world.files.insert(
+                "rules/README.md".to_string(),
+                "# Rules\n\n## Directory Map\n\nNo other entries.\n".to_string(),
+            );
+            Outcome::Passed
+        }
+        "file {string} exceeds its declared word budget" => {
+            let path = matched.string(0).to_string();
+            // The budget is declared for this file specifically, so the
+            // scenario's own words are what the tool is measured against
+            // rather than whichever surface the base happened to name.
+            world.declaration.overrides.insert(
+                "governance-word-budget.surfaces".to_string(),
+                format!("[{{glob: \"{path}\", fail: 3}}]"),
+            );
+            world
+                .files
+                .insert(path, "one two three four five six\n".to_string());
+            Outcome::Passed
+        }
+        "the governed files are exclusively locked" => {
+            // Everything the repository holds, but not the configuration: the
+            // scenario is about a tree that cannot be read, not about a tool
+            // that cannot be configured.
+            if world.files.is_empty() {
+                return Outcome::Failed("there is nothing to lock".to_string());
+            }
+            for path in world.files.keys() {
+                world.unreadable.insert(path.clone());
+            }
+            Outcome::Passed
+        }
+        "an unsafe {string} Mermaid diagram is supplied on standard input" => {
+            world.stdin = Some(mermaid::unsafe_diagram(
+                matched.string(0),
+                mermaid::Fence::Backtick,
+            ));
+            Outcome::Passed
+        }
         "the repository declares the accessible palette" => {
             // The fixture's declared palette is the accessible one. Saying so
             // is what makes the diagram scenarios readable without repeating
@@ -647,6 +695,19 @@ Body.
             world.record(result);
             Outcome::Passed
         }
+        "I invoke the CLI from the repository directory with {string}" => {
+            // No `--root`: the tool has to find the repository it was started
+            // in. Only the E2E adapter can be wrong about that, and it is the
+            // one where the process really has a working directory.
+            let arguments: Vec<String> = matched
+                .string(0)
+                .split('|')
+                .map(|argument| argument.to_string())
+                .collect();
+            let run = world.driver.invoke(&world.repository(), &arguments);
+            world.record(run);
+            Outcome::Passed
+        }
         "I invoke the CLI with {string}" => {
             let arguments: Vec<String> = matched
                 .string(0)
@@ -1105,6 +1166,95 @@ Body.
                 ),
             )
         }
+        "stdout is empty" => {
+            let result = world.result();
+            expect(
+                result.stdout.is_empty(),
+                format!("stdout is not empty: {}", result.stdout),
+            )
+        }
+        "stdout lines start with {string}" => {
+            prefixed(&world.result().stdout, matched.string(0), "stdout")
+        }
+        "stderr lines start with {string}" => {
+            prefixed(&world.result().stderr, matched.string(0), "stderr")
+        }
+        "stdout JSON property {string} is {int}" => {
+            // String and integer captures are indexed independently, so the
+            // first {int} is at 0 however many {string}s precede it.
+            let key = matched.string(0);
+            let expected = matched.integer(0);
+            match json_number(&world.result().stdout, key) {
+                Some(found) => expect(
+                    found == expected,
+                    format!("`{key}` is {found}, not {expected}"),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no numeric `{key}`\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "stdout JSON has a {string} and a {int}-character {string}" => {
+            let present = matched.string(0);
+            let sized = matched.string(1);
+            let width = matched.integer(0);
+            let stdout = &world.result().stdout;
+            let Some(value) = json_string(stdout, present) else {
+                return Outcome::Failed(format!("stdout carries no `{present}`\nstdout: {stdout}"));
+            };
+            if value.is_empty() {
+                return Outcome::Failed(format!("`{present}` is empty"));
+            }
+            match json_string(stdout, sized) {
+                Some(found) => expect(
+                    found.chars().count() == width,
+                    format!(
+                        "`{sized}` is {} characters, not {width}",
+                        found.chars().count()
+                    ),
+                ),
+                None => Outcome::Failed(format!("stdout carries no `{sized}`\nstdout: {stdout}")),
+            }
+        }
+        "the first stdout JSON violation kind is {string}" => {
+            let expected = matched.string(0);
+            match first_violation(&world.result().stdout).and_then(|v| json_string(&v, "kind")) {
+                Some(kind) => expect(
+                    kind == expected,
+                    format!("the first violation is `{kind}`, not `{expected}`"),
+                ),
+                None => Outcome::Failed(format!(
+                    "stdout carries no violation\nstdout: {}",
+                    world.result().stdout
+                )),
+            }
+        }
+        "the first stdout JSON legibility fields are {string}, {int}, and {int}" => {
+            let Some(violation) = first_violation(&world.result().stdout) else {
+                return Outcome::Failed(format!(
+                    "stdout carries no violation\nstdout: {}",
+                    world.result().stdout
+                ));
+            };
+            // Three fields together, because a measurement is only meaningful
+            // beside the limit it was compared against and the segment it was
+            // taken from.
+            let segment = json_string(&violation, "segment");
+            let measured = json_number(&violation, "measured");
+            let limit = json_number(&violation, "limit");
+            let wanted = (
+                Some(matched.string(0).to_string()),
+                Some(matched.integer(0)),
+                Some(matched.integer(1)),
+            );
+            expect(
+                (segment.clone(), measured, limit) == wanted,
+                format!(
+                    "the violation measures {segment:?}, {measured:?}, {limit:?}, not {wanted:?}"
+                ),
+            )
+        }
         "the harness-parity digest is unchanged" => {
             let Some(remembered) = world.remembered_digest.clone() else {
                 return Outcome::Failed("no digest was remembered".to_string());
@@ -1423,6 +1573,50 @@ fn reseed_contract<D: Driver>(world: &mut World<D>) {
     for (path, body) in contract {
         world.files.insert(path, body);
     }
+}
+
+/// Every non-empty line of a stream begins with `prefix`.
+fn prefixed(stream: &str, prefix: &str, name: &str) -> Outcome {
+    let offending: Vec<&str> = stream
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with(prefix))
+        .collect();
+    if stream.lines().all(str::is_empty) {
+        return Outcome::Failed(format!("{name} is empty, so nothing carries `{prefix}`"));
+    }
+    expect(
+        offending.is_empty(),
+        format!("{name} lines do not start with `{prefix}`: {offending:?}"),
+    )
+}
+
+/// A numeric JSON member, read without a parser.
+///
+/// The corpus asserts on a handful of scalars in a document this tool writes
+/// itself, and a dependency here would let a bug in the writer be hidden by the
+/// same bug in the reader.
+fn json_number(text: &str, key: &str) -> Option<usize> {
+    let needle = format!("\"{key}\":");
+    let after = text.split(&needle).nth(1)?;
+    after
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>()
+        .parse()
+        .ok()
+}
+
+fn json_string(text: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\":\"");
+    let after = text.split(&needle).nth(1)?;
+    Some(after.split('"').next()?.to_string())
+}
+
+/// The first object inside the `violations` array, as text.
+fn first_violation(text: &str) -> Option<String> {
+    let after = text.split("\"violations\":[").nth(1)?;
+    let body = after.strip_prefix('{')?;
+    Some(body.split('}').next()?.to_string())
 }
 
 /// The digest a harness-parity run reports.

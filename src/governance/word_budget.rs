@@ -6,11 +6,10 @@
 //! it read. A surface that matched nothing and a surface that matched
 //! everything both pass, and only the listing tells them apart.
 
-use crate::Outcome;
 use crate::config::Config;
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::Tree;
-use crate::scan::{self, Corpus};
+use crate::scan::{self, Corpus, Scope};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -29,7 +28,7 @@ pub fn count(text: &str) -> usize {
     WORD.find_iter(text).count()
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
+pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
     let surfaces = &config.word_budget.surfaces;
     let globs = match scan::glob_set(
         "governance-word-budget.surfaces",
@@ -77,5 +76,34 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
         }
     }
 
-    report.finish()
+    report
+}
+
+/// Report a file's word count, and never a finding.
+///
+/// A separate leaf from the budget check on purpose: this one answers "how
+/// long is this?" and has no policy to violate, so it cannot exit `1`. A
+/// caller scripting around it can rely on that.
+pub fn inspect(tree: &dyn Tree, scope: &Scope) -> Report {
+    let mut report = Report::new("word-count", "file");
+
+    if !scope.is_narrowed() {
+        return Report::refused("word-count", "`--file` names what to count; none was given");
+    }
+
+    let mut total = 0usize;
+    for (path, content) in scope.documents(tree) {
+        let Some(text) = content else {
+            return Report::refused("word-count", format!("{path}: cannot be read"));
+        };
+        let words = count(&text);
+        total += words;
+        report.inspected_one();
+        report.note(format!("{path}: {words} words"));
+    }
+
+    // The total rather than the last file's count, so the member means the same
+    // thing whether one path was selected or four.
+    report.measure("wordCount", total);
+    report
 }

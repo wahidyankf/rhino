@@ -48,6 +48,14 @@ pub trait Tree {
         let prefix = normalise_directory(path);
         self.files().iter().any(|file| file.starts_with(&prefix))
     }
+
+    /// The same repository seen from `path`, or why it cannot be.
+    ///
+    /// `--root` is a claim about which repository to inspect, and every
+    /// implementation of this port has to be able to answer it -- otherwise the
+    /// flag would only be testable at the boundary that happens to have a
+    /// filesystem, which is where a defect in it would then live.
+    fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String>;
 }
 
 /// `""` addresses the root; everything else gains one trailing separator, so a
@@ -113,6 +121,35 @@ impl Tree for MemoryTree {
             .filter(|path| !self.links.contains(*path))
             .cloned()
             .collect()
+    }
+
+    fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String> {
+        let prefix = normalise_directory(path);
+        if prefix.is_empty() {
+            return Ok(Box::new(self.clone()));
+        }
+        // A root naming nothing is refused rather than silently inspected as an
+        // empty repository, which would report every tree clean.
+        if !self.files.keys().any(|held| held.starts_with(&prefix)) {
+            return Err(format!("{path} is not a directory"));
+        }
+        let strip = |set: &BTreeSet<String>| -> BTreeSet<String> {
+            set.iter()
+                .filter_map(|held| held.strip_prefix(&prefix).map(str::to_string))
+                .collect()
+        };
+        Ok(Box::new(Self {
+            files: self
+                .files
+                .iter()
+                .filter_map(|(held, content)| {
+                    held.strip_prefix(&prefix)
+                        .map(|rest| (rest.to_string(), content.clone()))
+                })
+                .collect(),
+            unreadable: strip(&self.unreadable),
+            links: strip(&self.links),
+        }))
     }
 }
 
@@ -217,5 +254,19 @@ impl Tree for DiskTree {
 
     fn is_directory(&self, path: &str) -> bool {
         self.resolve(path).is_some_and(|resolved| resolved.is_dir())
+    }
+
+    fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String> {
+        // Resolved against the current root when relative and taken as given
+        // when absolute, so `--root` means the same thing to a caller wherever
+        // they happen to have run the tool from.
+        let candidate = if std::path::Path::new(path).is_absolute() {
+            PathBuf::from(path)
+        } else {
+            self.root.join(path)
+        };
+        let mut rooted = Self::new(candidate)?;
+        rooted.exclude(&self.excluded_directories);
+        Ok(Box::new(rooted))
     }
 }

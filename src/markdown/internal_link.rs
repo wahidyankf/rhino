@@ -4,7 +4,6 @@
 //! recognized and skipped -- never fetched, never reported on -- which is what
 //! the command name promises and what keeps the whole tool network-free.
 
-use crate::Outcome;
 use crate::config::Config;
 use crate::markdown;
 use crate::report::{Finding, Report};
@@ -57,7 +56,7 @@ impl Fault {
     }
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
+pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
     let excluded = match scan::glob_set(
         "md-internal-link.exclude-sources",
         &config.internal_link.exclude_sources,
@@ -92,7 +91,8 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
         }
     }
 
-    report.inspected(inspected).finish()
+    report.inspected(inspected);
+    report
 }
 
 /// Every link destination in a document, with the line it appears on.

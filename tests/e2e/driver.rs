@@ -7,8 +7,9 @@
 //! an end-to-end label.
 
 use crate::sandbox::{self, Sandbox};
-use crate::world::{CommandResult, Driver, Repository, Run, differences};
-use std::process::Command;
+use crate::world::{self, CommandResult, Driver, Repository, Run, differences};
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 #[derive(Default)]
 pub struct E2eDriver;
@@ -17,12 +18,30 @@ impl Driver for E2eDriver {
     fn invoke(&self, repository: &Repository<'_>, arguments: &[String]) -> Run {
         let sandbox = Sandbox::build(repository);
 
+        let root = sandbox.root().to_string_lossy().into_owned();
+        let arguments = world::with_root(arguments, &root, &format!("{root}/no-such-directory"));
+
         let before = sandbox::observe(sandbox.root());
-        let output = Command::new(env!("CARGO_BIN_EXE_rhino"))
-            .args(arguments)
+        // Standard input is always a pipe, closed when nothing was supplied, so
+        // a leaf that reads it when it should not blocks the test rather than
+        // silently inheriting the terminal.
+        let mut child = Command::new(env!("CARGO_BIN_EXE_rhino"))
+            .args(&arguments)
             .current_dir(sandbox.root())
-            .output()
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .expect("the built executable is runnable");
+        {
+            let mut pipe = child.stdin.take().expect("the child's stdin is a pipe");
+            if let Some(text) = repository.stdin {
+                let _ = pipe.write_all(text.as_bytes());
+            }
+        }
+        let output = child
+            .wait_with_output()
+            .expect("the child runs to completion");
         let after = sandbox::observe(sandbox.root());
 
         Run {

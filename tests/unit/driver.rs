@@ -34,8 +34,13 @@ impl Driver for UnitDriver {
         // Read back through the port on both sides rather than cloning the map
         // the fixture built: what the subject can see is the only thing it
         // could have changed, and it is what the assertion has to be about.
+        // `.` is this tree seen from itself, and a name nothing starts with
+        // is a root that is not there -- the same two claims the filesystem
+        // adapters make with real paths.
+        let arguments = world::with_root(arguments, ".", "no-such-directory");
+
         let before = observe(&tree);
-        let outcome = rhino::execute(&tree, arguments);
+        let outcome = rhino::execute_with(&tree, &arguments, repository.stdin);
         let after = observe(&tree);
 
         Run {

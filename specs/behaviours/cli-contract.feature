@@ -178,6 +178,8 @@ Feature: Command contract
       | md\|internal-link                                        |
       | unknown                                                  |
       | governance\|word-budget\|validate\|extra                 |
+      | governance\|word-budget\|validate\|--harness\|alpha      |
+      | md\|mermaid\|validate\|--directory\|guides                |
       | governance\|word-budget\|validate\|--root\|{missing-root} |
 
   Scenario: A governed file above its declared limit returns validation failure

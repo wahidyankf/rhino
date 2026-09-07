@@ -10,12 +10,11 @@
 //! *Which* colours and label lengths are acceptable is a property of the
 //! repository, and every one of them arrives from configuration.
 
-use crate::Outcome;
 use crate::config::Config;
 use crate::markdown::{Fenced, fenced_blocks};
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::Tree;
-use crate::scan::Corpus;
+use crate::scan::{Corpus, Document, Scope};
 use unicode_segmentation::UnicodeSegmentation;
 
 const ACCESSIBILITY: &str = "mermaid-accessibility";
@@ -57,16 +56,30 @@ struct Diagram {
     lines: Vec<(usize, String)>,
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
-    let corpus = match Corpus::read(tree, config) {
-        Ok(corpus) => corpus,
-        Err(reason) => return Report::refused("mermaid", reason),
-    };
-
+pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     let mut report = Report::new("mermaid", "diagram");
     let mut inspected = 0usize;
 
-    for document in corpus.documents() {
+    // A selection is inspected exactly as given, in the order given, and is
+    // never widened back to the declared surface: a caller who named two files
+    // asked about two files.
+    let selected: Vec<Document> = if scope.is_narrowed() {
+        let mut selected = Vec::new();
+        for (path, content) in scope.documents(tree) {
+            let Some(text) = content else {
+                return Report::refused("mermaid", format!("{path}: cannot be read"));
+            };
+            selected.push(Document { path, text });
+        }
+        selected
+    } else {
+        match Corpus::read(tree, config) {
+            Ok(corpus) => corpus.into_documents(),
+            Err(reason) => return Report::refused("mermaid", reason),
+        }
+    };
+
+    for document in &selected {
         for block in fenced_blocks(&document.text) {
             if block.info.trim() != "mermaid" {
                 continue;
@@ -81,7 +94,8 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
         }
     }
 
-    report.inspected(inspected).finish()
+    report.inspected(inspected);
+    report
 }
 
 /// Read a fenced block as a diagram, or decline it.
