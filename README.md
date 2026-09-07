@@ -1,31 +1,212 @@
-# 🦏 RHINO — Repository Hygiene & INtegration Orchestrator
+# 🦏 RHINO
 
-A configuration-driven repository-hygiene validator. RHINO checks the things a
-repository's documentation has to get right — word budgets on governed
-instructions, directory maps that match the tree, internal Markdown links that
-resolve, Mermaid diagrams that stay legible, and one canonical instruction body
-kept in parity across every coding harness the repository declares.
+**Repository Hygiene & INtegration Orchestrator** — keep a repository honest
+about the policy it wrote down.
 
-It holds no repository's policy. There is no default word limit, no default tree
-list, and no default harness roster compiled into the binary: every value it
-enforces arrives from the consuming repository's `repo-config.yml`. The product
-is read-only, network-free, and process-free.
+[![CI](https://github.com/wahidyankf/rhino/actions/workflows/ci.yml/badge.svg)](https://github.com/wahidyankf/rhino/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/rust-1.85-000000)](https://www.rust-lang.org/)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)](#-install)
+[![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
-## Project status
+RHINO is a standalone Rust CLI that checks the things a repository's
+documentation has to get right — word budgets on governed instructions,
+directory maps that match the tree, internal Markdown links that resolve,
+Mermaid diagrams that stay legible, and one canonical instruction body kept in
+parity across every coding harness the repository declares.
 
-Early construction. The specification corpus under `specs/behaviours/` is the
-canonical statement of behaviour and is being implemented against; where this
-README and the corpus disagree, the corpus wins. No release is published yet, so
-there is nothing to install.
+```console
+$ rhino governance directory-map validate
+[directory-map] checked 7 directories, no findings
+```
 
-## Development
+## ✨ Highlights
+
+- **No policy of its own.** There is no default word limit, no default palette,
+  and no default harness roster in the binary. Every value it enforces arrives
+  from your `repo-config.yml`.
+- **Knows no harness by name.** The roster is data. A fourth harness is one more
+  entry in your configuration, not a new release of the tool.
+- **Two exit codes that mean two things.** `1` is always "your repository
+  violates your policy". `2` is always "the invocation or the configuration was
+  wrong, and nothing was checked".
+- **Says what it looked at.** A glob that matches nothing also reports no
+  findings; only the list of scanned paths tells you which happened.
+- **Read-only by construction.** It never writes to the repository it inspects,
+  never starts a subprocess, and never touches the network.
+- **Machine-readable on request.** `--output json` gives the same run as one
+  line, with the same exit code.
+
+## 🤔 Why
+
+Documentation rots differently from code. A broken function fails a test; a
+directory map that lost a file, a link that lost its target, or an agent prompt
+that drifted from its canonical body all keep rendering perfectly. Nothing
+announces them. They are found by a reader who trusted them.
+
+The usual fix is a repository-specific script — a few hundred lines of glob and
+regex that encode one repository's conventions and cannot be lent to another.
+The next repository writes its own, and the two disagree quietly.
+
+RHINO separates the checking from the policy. The checks live in one binary; the
+values live in each repository's `repo-config.yml`. Four repositories with four
+different conventions run the same tool and get four different, correct answers.
+
+Longer version: [Why RHINO exists](./docs/explanation/why-rhino-exists.md).
+
+## 📦 Install
+
+**No release is published yet.** Until `v0.1.0` is tagged, build from a checkout:
+
+```sh
+git clone https://github.com/wahidyankf/rhino.git
+cd rhino
+cargo install --path .
+```
+
+Once tags exist, download the archive for your platform and verify it against
+the published checksum — pin both the tag and the expected SHA-256, and never
+follow `main` at runtime. See [how to install a pinned
+release](./docs/how-to/install-a-pinned-release.md).
+
+## 🚀 Quick start
+
+Write what your repository enforces:
+
+```sh
+cat > repo-config.yml <<'END'
+# schema: rhino/repo-config/v1
+
+governance-word-budget:
+  surfaces:
+    - glob: "AGENTS.md"
+      fail: 1200
+
+governance-directory-map:
+  trees:
+    - path: docs
+
+md-internal-link:
+  exclude-sources: []
+
+md-mermaid:
+  node-label-graphemes: 32
+  edge-label-graphemes: 24
+  fill-colors: ["#0173B2", "#DE8F05", "#029E73"]
+  edge-colors: ["#0173B2", "#000000"]
+  text-colors: ["#000000", "#FFFFFF"]
+
+harness-parity:
+  canonical:
+    instruction: AGENTS.md
+  harnesses: []
+  prohibited-instruction-sources: []
+  capabilities: []
+  constraints: []
+
+scan:
+  exclude-directories:
+    - .git
+END
+```
+
+Check the configuration itself, then run the validators:
+
+```console
+$ rhino repo-config validate
+[repo-config] checked 1 configuration file, no findings
+
+$ rhino governance word-budget validate
+$ rhino governance directory-map validate
+$ rhino md internal-link validate
+$ rhino md mermaid validate
+$ rhino harness parity validate
+```
+
+Full walkthrough: [Validate your first
+repository](./docs/tutorials/validate-your-first-repository.md).
+
+## ⚙️ How it works
+
+RHINO reads `repo-config.yml` from the repository root, refuses to run if it
+cannot understand it, walks the tree once, and reports every place the tree
+disagrees with what you declared.
+
+The configuration is a contract rather than a set of hints. A missing required
+key is exit `2`, not a fallback; an unknown key inside a section RHINO owns is
+exit `2`, not a warning; a declared path that escapes the repository root is
+exit `2`. The one thing RHINO will never do is supply a value you did not write
+down, because a tool that guessed there would report a clean run on a repository
+it never really inspected.
+
+Every command reports what it inspected — how many files, directories, links,
+diagrams, or harnesses — whether or not it found anything, so "clean" and
+"looked at nothing" are never the same output.
+
+## 📚 Documentation
+
+Full documentation lives in [`docs/`](./docs/README.md) and follows the
+[Diátaxis framework](https://diataxis.fr/).
+
+| Section                                     | Use it when                                        |
+| ------------------------------------------- | -------------------------------------------------- |
+| [Tutorials](./docs/tutorials/README.md)     | You are new and want to learn by doing             |
+| [How-to guides](./docs/how-to/README.md)    | You have a specific goal and need the steps        |
+| [Reference](./docs/reference/README.md)     | You need an exact command, flag, code, or key      |
+| [Explanation](./docs/explanation/README.md) | You want to understand why RHINO is built this way |
+
+Popular entry points:
+
+- [Validate your first repository](./docs/tutorials/validate-your-first-repository.md) — ten minutes
+- [Command line](./docs/reference/cli.md) — every command and flag
+- [Configuration](./docs/reference/configuration.md) — every key of `repo-config.yml`
+- [Exit codes](./docs/reference/exit-codes.md) — the `0` / `1` / `2` contract
+
+The [specifications tree](./specs/README.md) is canonical:
+[`specs/architecture.md`](./specs/architecture.md) holds the as-built C4 model
+and [`specs/behaviours/`](./specs/behaviours/README.md) holds the executable
+Gherkin corpus that every test adapter runs. Where this README and the corpus
+disagree, the corpus wins.
+
+## 📋 Project status
+
+Early construction. The behaviour is pinned by an executable specification and
+is being adopted across the Open Sharia Enterprise repositories, but no release
+is published yet and versions below `1.0.0` may make breaking changes — see the
+[changelog](./CHANGELOG.md).
+
+Released tags will be immutable. A published release is never rebuilt or
+replaced.
+
+**External contributions are currently closed.** Issues and pull requests from
+outside the project are not being accepted while the engineering patterns
+stabilize. You are welcome to fork the repository under the MIT license and use
+it however you like.
+
+Contributor rules for the maintainer and automated agents are in
+[`AGENTS.md`](./AGENTS.md).
+
+## 🌙 Part of Open Sharia Enterprise
+
+RHINO belongs to the [Open Sharia
+Enterprise](https://github.com/wahidyankf/ose-public) project family, where it
+supplies repository hygiene for the other repositories. It has no OSE-specific
+values compiled into it and is designed to be used entirely on its own —
+consumers supply their own budgets, trees, palettes, and harness rosters.
+
+## 🛠️ Development
+
+Source contributors need Rust 1.85 or newer.
 
 ```console
 $ cargo xtask test-quick
 ```
 
-Heavy local work runs under the pinned [HIPPO](https://github.com/wahidyankf/hippo)
-guard via `./hippo run --class ephemeral --disk-path . -- <command>`.
+That is format, lint, the unit adapter with line coverage, and the static
+coverage check — the same gate the pre-push hook runs. Heavy local work runs
+under the pinned [HIPPO](https://github.com/wahidyankf/hippo) guard via
+`./hippo run --class ephemeral --disk-path . -- <command>`.
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Test topology
 
@@ -41,27 +222,23 @@ subject, or assertions touch — not by the resources it is permitted to use.
 | `--test coverage`        | static      | executes no scenario; reads the corpus and each adapter's registry        |
 
 Every scenario is bound at all three executing boundaries, with **one declared
-exemption**. That is close to a property of this corpus rather than a default: a
-sentence here is a claim about behaviour that holds whether the tree is a map, a
-directory, or a process's working directory, so a boundary that could not run
-one is a boundary at which the claim is untested, and has to say so.
+exemption**: a sentence in the corpus is a claim about behaviour that holds
+whether the tree is a map, a directory, or a process's working directory, so a
+boundary that could not run one is a boundary at which the claim is untested,
+and has to say so.
 
 The exemption is `harness-parity :: A file that vanishes between the walk and
-the read is not a finding`, at integration and E2E. A real directory cannot be
-made to drop a file between the walk and the read without a second thread racing
-the run under inspection, which would put the outcome in the scheduler's hands
-rather than the validator's. The unit adapter drives the same
+the read is not a finding`, at integration and E2E, because a real directory
+cannot be made to drop a file mid-run without a second thread racing the run and
+putting the outcome in the scheduler's hands. The unit adapter drives the same
 `TreeError::NotFound` through the same port and is not exempt, so the behaviour
-is proved. `Sandbox::build` refuses the precondition outright, so the exemption
-cannot quietly decay into a step that passes by doing nothing.
+is proved, and `Sandbox::build` refuses the precondition outright so the
+exemption cannot decay into a step that passes by doing nothing.
 
-Two tests are deliberately split across boundaries. `no_leaf_writes_to_the_repository_it_inspects`
-appears at integration _and_ E2E: integration proves nothing was written through
-the repository root, and only E2E — where the inspected repository is also the
-running process's working directory — can see a write to a relative path. The
-loopback policy is stricter than the layer rule it sits under, which permits an
-integration test to own a loopback socket; that permission is about test
-plumbing, and this is a claim about the product.
+`no_leaf_writes_to_the_repository_it_inspects` is deliberately split across two
+boundaries: integration proves nothing was written through the repository root,
+and only E2E — where the inspected repository is also the process's working
+directory — can see a write to a relative path.
 
 Only the unit adapter and the static check run in the quick gate and the push
 hook. Integration and E2E never do.
@@ -85,6 +262,6 @@ the whole corpus through them, plus the boundary policies — which is a stronge
 claim than a line count, and the reason a number that included them would say
 less rather than more.
 
-## License
+## 📄 License
 
-MIT.
+RHINO is available under the [MIT License](./LICENSE).
