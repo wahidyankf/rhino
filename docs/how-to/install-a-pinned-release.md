@@ -18,11 +18,13 @@ VERSION=v0.1.0
 TARGET=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 BASE=https://github.com/wahidyankf/rhino/releases/download/$VERSION
 
-curl -fsSLO "$BASE/rhino-$VERSION-$TARGET.tar.gz"
-curl -fsSLO "$BASE/rhino-$VERSION-$TARGET.tar.gz.sha256"
+curl -fsSLO "$BASE/rhino-$TARGET.tar.gz"
+curl -fsSLO "$BASE/checksums.txt"
 
+# One file records every platform's digest, so `--ignore-missing` checks the
+# archive you fetched instead of failing over the three you did not.
 # shasum on macOS, sha256sum on Linux.
-shasum -a 256 -c "rhino-$VERSION-$TARGET.tar.gz.sha256"
+shasum -a 256 --ignore-missing -c checksums.txt
 ```
 
 Verifying afterwards tells you what you already ran. Verify first.
@@ -30,7 +32,7 @@ Verifying afterwards tells you what you already ran. Verify first.
 ## Put it on PATH
 
 ```sh
-tar -xzf "rhino-$VERSION-$TARGET.tar.gz"
+tar -xzf "rhino-$TARGET.tar.gz"
 install -m 0755 rhino "$HOME/.local/bin/rhino"
 ```
 
@@ -38,10 +40,10 @@ Confirm the build is the one you pinned:
 
 ```console
 $ rhino version
-0.1.0
+v0.1.0
 
 $ rhino version --json
-{"schemaVersion":1,"version":"0.1.0","commit":"5ef5ff83ef15eb45885210b9a6fa91419d1c6004"}
+{"schemaVersion":1,"version":"v0.1.0","commit":"d16fc0e7adc652ecdd61766096de0c35ba465cf5"}
 ```
 
 The commit is embedded at build time, so `--json` tells you exactly which

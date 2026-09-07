@@ -198,6 +198,7 @@ Feature: Command contract
     Then the exit code is 0
     And stdout JSON property "schemaVersion" is 1
     And stdout JSON has a "version" and a 40-character hexadecimal "commit"
+    And the reported version is spelled as its release tag
 
   Scenario Outline: Invalid invocations return usage failure
     Given a repository declaring every section with nothing to find

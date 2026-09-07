@@ -147,10 +147,10 @@ as one word, not three.
 
 ```console
 $ rhino version
-0.1.0
+v0.1.0
 
 $ rhino version --json
-{"schemaVersion":1,"version":"0.1.0","commit":"5ef5ff83ef15eb45885210b9a6fa91419d1c6004"}
+{"schemaVersion":1,"version":"v0.1.0","commit":"d16fc0e7adc652ecdd61766096de0c35ba465cf5"}
 ```
 
 The commit is embedded at build time, so the hash above is the revision that

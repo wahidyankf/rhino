@@ -96,6 +96,11 @@ The first release. Nothing is published yet, so everything below is new.
   containing the canonical import, a fenced example quoting it, and a `README.md`
   index in an adapter directory are all left alone. Each was a false positive a
   real repository produced.
+- **The release identity is spelled the way the tag is.** `version` reports
+  `vX.Y.Z`, and `version --json` emits exactly
+  `{"schemaVersion":1,"version":"vX.Y.Z","commit":"<40 hex>"}`, so a lock file
+  holding a tag compares against it without reformatting. A build made outside a
+  repository reports forty zeros for the commit rather than claiming a revision.
 - **Read-only by construction.** The product writes nothing to the repository it
   inspects, starts no subprocess, and opens no network connection — including
   loopback. Each of those is held by a boundary-policy test rather than by

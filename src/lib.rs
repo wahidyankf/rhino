@@ -145,8 +145,14 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
 ///
 /// The commit is embedded at compile time by `build.rs`; a build made outside a
 /// repository reports forty zeros rather than lying about which revision it is.
+///
+/// The version is reported the way the release tag spells it, `v` and all.
+/// Cargo's manifest cannot hold that prefix, so it is added here rather than
+/// left for every consumer to add back: a lock file holds a tag, and an
+/// identity a consumer has to reformat before comparing is one more place for
+/// the comparison to be written differently in two repositories.
 fn version(format: cli::Format) -> Outcome {
-    let version = env!("CARGO_PKG_VERSION");
+    let version = concat!("v", env!("CARGO_PKG_VERSION"));
     let commit = env!("RHINO_COMMIT");
     match format {
         cli::Format::Text => Outcome::clean(format!("{version}\n")),

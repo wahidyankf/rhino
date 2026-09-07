@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 199] = [
+pub const VOCABULARY: [&str; 200] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -169,6 +169,7 @@ pub const VOCABULARY: [&str; 199] = [
     "the only violation is a {int}-word limit for {string}",
     "the only violation is an invalid map entry from {string} to {string}",
     "the only violation starts with {string}",
+    "the reported version is spelled as its release tag",
     "the repository contains Mermaid sample {string} at {string}",
     "the repository contains a Mermaid class filled {string} with a declared stroke and text color",
     "the repository contains a Mermaid node label of {int} graphemes",

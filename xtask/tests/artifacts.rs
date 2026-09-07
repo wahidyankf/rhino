@@ -35,7 +35,11 @@ const PLATFORMS: [&str; 4] = [
 /// nobody holds, so this is close enough to the measurement to notice.
 const SIZE_CEILING: u64 = 1_835_008;
 
-/// The version the product's own manifest declares.
+/// The version the product's own manifest declares, spelled as a release tag.
+///
+/// Cargo's manifest cannot carry the `v`; the executable adds it so that what
+/// it reports is the tag verbatim. This has to add it too, or the comparison
+/// below would be between two different spellings of the same release.
 fn product_version() -> String {
     let manifest = repository_root().join("Cargo.toml");
     let text = std::fs::read_to_string(&manifest)
@@ -43,7 +47,7 @@ fn product_version() -> String {
     text.lines()
         .take_while(|line| !line.starts_with("[workspace]"))
         .find_map(|line| line.strip_prefix("version = "))
-        .map(|value| value.trim().trim_matches('"').to_string())
+        .map(|value| format!("v{}", value.trim().trim_matches('"')))
         .expect("the product manifest declares a version")
 }
 

@@ -1760,6 +1760,29 @@ Body.
                 format!("`{sized}` is all zeros, which is the no-repository fallback"),
             )
         }
+        "the reported version is spelled as its release tag" => {
+            // The release tag is what a consumer pins and what the lock file
+            // holds, so the executable has to report the tag verbatim rather
+            // than something a reader has to convert into one. Cargo cannot
+            // carry the `v`, which is exactly why this is asserted here.
+            let stdout = &world.result().stdout;
+            let Some(version) = json_string(stdout, "version") else {
+                return Outcome::Failed(format!("stdout carries no `version`\nstdout: {stdout}"));
+            };
+            let Some(number) = version.strip_prefix('v') else {
+                return Outcome::Failed(format!(
+                    "`{version}` is not spelled as a tag; a release tag starts with `v`"
+                ));
+            };
+            let parts: Vec<&str> = number.split('.').collect();
+            expect(
+                parts.len() == 3
+                    && parts
+                        .iter()
+                        .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())),
+                format!("`{version}` is not `v` followed by a three-part version"),
+            )
+        }
         "the first stdout JSON violation kind is {string}" => {
             let expected = matched.string(0);
             match first_violation(&world.result().stdout).and_then(|v| json_string(&v, "kind")) {
