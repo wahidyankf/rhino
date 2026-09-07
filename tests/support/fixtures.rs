@@ -95,6 +95,11 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         );
     }
 
+    let declares_a_server = !declaration.omit_required_server
+        && (!roster.is_empty() || declaration.declares_required_mcp);
+    let declares_capability_files = !declaration.omit_capability_files
+        && (!roster.is_empty() || declaration.declares_required_mcp);
+
     let entries: Vec<String> = roster
         .iter()
         .map(|name| {
@@ -108,10 +113,16 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
             if declaration.command_directories.contains(name) {
                 entry.push_str(&format!(", command-dir: {}", harness::command_dir(name)));
             }
-            entry.push_str(&format!(
-                ", capability-file: {}, capability-format: {format}}}",
-                harness::capability_file(name, &format)
-            ));
+            // Present exactly when a required server is, which is what the
+            // schema pairs: a declaration nothing reads and a rule nothing
+            // satisfies are the same fault seen from two sides.
+            if declares_capability_files {
+                entry.push_str(&format!(
+                    ", capability: {{file: {}, format: {format}}}",
+                    harness::capability_file(name, &format)
+                ));
+            }
+            entry.push('}');
             entry
         })
         .collect();
@@ -135,10 +146,10 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         "harness-parity.constraints".into(),
         "[inline-result-only]".into(),
     );
-    // On the same rule as the canonical roots: a required MCP server exists to
-    // be reconciled against a harness, so an empty roster has nothing to say
-    // about one.
-    if !roster.is_empty() || declaration.declares_required_mcp {
+    // An empty roster still has nothing to say about a required server, on the
+    // same rule as the canonical roots. A non-empty one merely *may* declare
+    // it, which is why a scenario can take it away.
+    if declares_a_server {
         lines.insert(
             "harness-parity.required-mcp.name".into(),
             "toolserver".into(),

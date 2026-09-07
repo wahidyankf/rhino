@@ -135,28 +135,34 @@ reader sees separately.
 | `prohibited-instruction-sources` | yes                     | Globs that may not be always-on instruction sources.        |
 | `capabilities`                   | yes, and may be empty   | The vocabulary an agent may draw capabilities from.         |
 | `constraints`                    | yes, and may be empty   | The vocabulary an agent may draw constraints from.          |
-| `required-mcp`                   | with a non-empty roster | The server every harness must declare identically.          |
+| `required-mcp`                   | with every `capability` | The server every harness must declare identically.          |
 
 `harnesses` is required even when empty, and empty is a legal, explicit
 declaration. The difference between "this repository has no coding harnesses"
 and "I forgot to configure harnesses" has to stay visible.
 
-**Three keys follow the roster.** `skills-root`, `agents-root`, and
-`required-mcp` exist to be reconciled against a harness. They are required
-whenever the roster is non-empty and **refused** alongside an empty one — a
-canon with nowhere to be reconciled is a reconciliation that was silently
-skipped, not a clean pass.
+**Two keys follow the roster.** `skills-root` and `agents-root` exist to be
+reconciled against a harness. They are required whenever the roster is
+non-empty and **refused** alongside an empty one — a canon with nowhere to be
+reconciled is a reconciliation that was silently skipped, not a clean pass.
+
+**`required-mcp` and `capability` follow each other.** A repository with
+harnesses may require its harnesses to reach a capability server, or may
+require nothing of the sort. What it may not do is declare one half: a server
+no harness is checked against enforces nothing, and a capability file no rule
+reads is a path that goes stale unnoticed. Declare `required-mcp` and every
+harness needs a `capability`; declare neither and no harness may carry one.
+`required-mcp` is still refused alongside an empty roster.
 
 Each harness takes:
 
-| Key                 | Required | Meaning                                             |
-| ------------------- | -------- | --------------------------------------------------- |
-| `name`              | yes      | How the harness is named in output and `--harness`. |
-| `agent-dir`         | yes      | Where this harness keeps its agent adapters.        |
-| `agent-extension`   | yes      | The extension those adapters use.                   |
-| `command-dir`       | no       | Where this harness keeps skill wrappers.            |
-| `capability-file`   | yes      | This harness's capability declaration.              |
-| `capability-format` | yes      | `toml` or `json`.                                   |
+| Key               | Required            | Meaning                                             |
+| ----------------- | ------------------- | --------------------------------------------------- |
+| `name`            | yes                 | How the harness is named in output and `--harness`. |
+| `agent-dir`       | yes                 | Where this harness keeps its agent adapters.        |
+| `agent-extension` | yes                 | The extension those adapters use.                   |
+| `command-dir`     | no                  | Where this harness keeps skill wrappers.            |
+| `capability`      | with `required-mcp` | `file` and `format` (`toml` or `json`).             |
 
 ## `scan`
 
@@ -178,8 +184,9 @@ harnesses:
   - name: claude
     agent-dir: .claude/agents
     agent-extension: ".md"
-    capability-file: .mcp.json
-    capability-format: json
+    capability:
+      file: .mcp.json
+      format: json
 ```
 
 ```console
@@ -190,8 +197,9 @@ $ rhino repo-config validate
 Line 31 is the `harnesses:` line. A key that is absent has no line of its own,
 so the fault is reported against the roster that made it required — which is the
 line you would have to look at to decide whether to add the key or empty the
-roster. `agents-root` and `required-mcp` are missing for the same reason;
-validation stops at the first semantic fault, so fix this one and run it again.
+roster. `agents-root` is missing for the same reason; validation stops at the first
+semantic fault, so fix this one and run it again. The `capability` block above
+would then be refused in its turn, because nothing declares `required-mcp`.
 
 None of them degrade to a partial run. A validator that skipped a tree because
 its configuration was malformed would report a clean repository that was never

@@ -157,9 +157,12 @@ pub struct HarnessParity {
     pub prohibited_instruction_sources: Vec<String>,
     pub capabilities: Vec<String>,
     pub constraints: Vec<String>,
-    /// Required whenever the roster is non-empty; refused alongside an empty
-    /// one, on the same rule as the canonical roots. A server nothing
-    /// reconciles is a declaration that silently does nothing.
+    /// Optional even alongside a roster: not every repository requires its
+    /// harnesses to reach a capability server, and a schema that insisted
+    /// would be asserting one repository's arrangement as everyone's.
+    ///
+    /// Still refused alongside an *empty* roster, on the same rule as the
+    /// canonical roots: a server nothing reconciles silently does nothing.
     #[serde(rename = "required-mcp", default)]
     pub required_mcp: Option<RequiredMcp>,
 }
@@ -193,10 +196,21 @@ pub struct Harness {
     /// wrappers is one line of configuration instead of a code change.
     #[serde(rename = "command-dir", default)]
     pub command_dir: Option<String>,
-    #[serde(rename = "capability-file")]
-    pub capability_file: String,
-    #[serde(rename = "capability-format")]
-    pub capability_format: CapabilityFormat,
+    /// Where this harness declares what it may reach, and in which format.
+    ///
+    /// The two travel together because neither means anything alone: a path
+    /// with no format cannot be parsed and a format with no path names
+    /// nothing. Nesting them makes half a declaration unrepresentable rather
+    /// than merely detectable.
+    #[serde(default)]
+    pub capability: Option<Capability>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Capability {
+    pub file: String,
+    pub format: CapabilityFormat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -289,6 +303,12 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
         ("required-mcp", config.harness_parity.required_mcp.is_some()),
     ];
 
+    // The two canonical roots are required alongside a roster; the required
+    // server is not. Splitting the lists is the whole of the difference: a
+    // repository always has instructions to reconcile, and does not always
+    // have a capability server to reach.
+    let required_alongside_a_roster = &reconciled_against[..2];
+
     // Canon with nowhere to reconcile it is a configuration error rather than a
     // clean pass: it means the reconciliation was silently skipped.
     if config.harness_parity.harnesses.is_empty() {
@@ -302,7 +322,7 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
             }
         }
     } else {
-        for (key, declared) in reconciled_against {
+        for &(key, declared) in required_alongside_a_roster {
             if !declared {
                 return Err(ConfigError::Semantic {
                     key: key.to_string(),
@@ -311,6 +331,33 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
                 });
             }
         }
+    }
+
+    // A required server and the per-harness declarations that must satisfy it
+    // stand or fall together. Declared alone, either one is a rule nothing
+    // enforces: a server no harness is checked against, or a file no rule
+    // reads.
+    let required = config.harness_parity.required_mcp.is_some();
+    for harness in &config.harness_parity.harnesses {
+        if harness.capability.is_some() == required {
+            continue;
+        }
+        let reason = if required {
+            format!(
+                "`{}` declares no capability file, so the required server is reconciled against nothing",
+                harness.name
+            )
+        } else {
+            format!(
+                "`{}` declares a capability file, but no required server names anything to find in it",
+                harness.name
+            )
+        };
+        return Err(ConfigError::Semantic {
+            key: "capability".to_string(),
+            line: line_of(text, "harnesses"),
+            reason,
+        });
     }
 
     for (key, value) in declared_paths(config) {
@@ -346,7 +393,9 @@ fn declared_paths(config: &Config) -> Vec<(&'static str, String)> {
     }
     for harness in &config.harness_parity.harnesses {
         paths.push(("agent-dir", harness.agent_dir.clone()));
-        paths.push(("capability-file", harness.capability_file.clone()));
+        if let Some(capability) = &harness.capability {
+            paths.push(("capability-file", capability.file.clone()));
+        }
         if let Some(directory) = &harness.command_dir {
             paths.push(("command-dir", directory.clone()));
         }

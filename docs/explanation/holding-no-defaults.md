@@ -57,10 +57,16 @@ absent, because a repository may genuinely have no file that merely imports the
 instruction. Absent means "there is nothing to route", and every other rule
 still applies in full.
 
-It bends for **keys that follow the roster**: `skills-root`, `agents-root`, and
-`required-mcp` are required when harnesses are declared and refused when they
-are not. That is not a default — it is the schema refusing to accept a
-declaration that could not mean anything.
+It bends for **keys that follow the roster**: `skills-root` and `agents-root`
+are required when harnesses are declared and refused when they are not. That is
+not a default — it is the schema refusing to accept a declaration that could
+not mean anything.
+
+It bends for **keys that pair with each other**: `required-mcp` and each
+harness's `capability` block are legal only together. A required server no
+harness is checked against, and a capability file no rule reads, are the same
+fault seen from two sides. Neither is required by the presence of a roster,
+because not every repository asks its harnesses to reach a server at all.
 
 It does not bend for **values**. There is no fallback limit, no built-in
 palette, no assumed directory. The two string constants inside RHINO —
@@ -74,6 +80,11 @@ RHINO validates RHINO. Its own `repo-config.yml` is the second repository this
 schema ever described, and writing it immediately found a rule the schema had
 inherited without noticing: `required-mcp` was mandatory even for a repository
 with no harnesses to reconcile it against, so RHINO could not describe itself.
+
+Pointing it at a third repository found the same rule leaking the other way. A
+repository with three harnesses and no capability server at all still could not
+be described, because a non-empty roster forced `required-mcp` — a claim about
+how one repository is arranged, wearing the clothes of a schema rule.
 
 That is the value of the rule stated as a practice. A tool that holds no
 defaults will still smuggle assumptions in through required keys, and the only

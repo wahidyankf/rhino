@@ -152,8 +152,9 @@ harness-parity:
       agent-dir: .claude/agents
       agent-extension: ".md"
       command-dir: .claude/commands
-      capability-file: .mcp.json
-      capability-format: json
+      capability:
+        file: .mcp.json
+        format: json
   required-mcp:
     name: toolserver
     command: toolrunner

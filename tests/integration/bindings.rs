@@ -430,6 +430,18 @@ pub const BINDINGS: &[Binding] = &[
         "A validator refuses to run against a configuration it cannot read",
     ),
     (
+        "repo-config",
+        "A repository whose harnesses reach no capability server is legal",
+    ),
+    (
+        "repo-config",
+        "A required server no harness declares a capability file for is refused",
+    ),
+    (
+        "repo-config",
+        "A capability file no required server reads is refused",
+    ),
+    (
         "word-budget",
         "Markdown punctuation does not create extra words",
     ),
@@ -535,6 +547,10 @@ pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
         "A narrowed inspection refuses a harness the repository does not declare",
+    ),
+    (
+        "harness-parity",
+        "A repository that requires no capability server reconciles none",
     ),
     (
         "harness-parity",

@@ -10,7 +10,7 @@
 //! change -- which is the difference between a validator that serves one
 //! repository and one that serves four.
 
-use crate::config::{CapabilityFormat, Config, Harness, RequiredMcp};
+use crate::config::{Capability, CapabilityFormat, Config, Harness, RequiredMcp};
 use crate::markdown;
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
@@ -175,11 +175,12 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         report.inspected_one();
         agent_adapters(&contents, harness, &canon, &mut report);
         skill_wrappers(&contents, harness, &canon, &mut report);
-        // The configuration contract pairs the roster and the required server:
-        // a declared harness guarantees one, an empty roster refuses one. So
-        // this is `Some` exactly when there is a harness asking the question.
-        if let Some(required) = canon.required
-            && capability(&contents, harness, required, &mut report)
+        // The configuration contract pairs the required server with the
+        // per-harness declaration that has to satisfy it, so these two are
+        // `Some` together or neither is. A repository that requires no server
+        // reconciles none, and says so by counting zero.
+        if let (Some(required), Some(declared)) = (canon.required, harness.capability.as_ref())
+            && capability(&contents, harness, declared, required, &mut report)
         {
             reconciled += 1;
         }
@@ -565,13 +566,14 @@ fn skill_wrappers(
 fn capability(
     contents: &BTreeMap<String, String>,
     harness: &Harness,
+    declared: &Capability,
     required: &RequiredMcp,
     report: &mut Report,
 ) -> bool {
-    let Some(text) = contents.get(&harness.capability_file) else {
+    let Some(text) = contents.get(&declared.file) else {
         report.found(Finding::new(
             "divergent-capability",
-            &harness.capability_file,
+            &declared.file,
             format!(
                 "divergent-capability: `{}` declares no capability file",
                 harness.name
@@ -583,14 +585,14 @@ fn capability(
     // Both formats are read into one shape, so the comparison below is about
     // meaning and a harness is never penalised for the syntax its own
     // configuration format uses.
-    let parsed = match harness.capability_format {
+    let parsed = match declared.format {
         CapabilityFormat::Json => serde_json::from_str::<Value>(text).ok(),
         CapabilityFormat::Toml => toml::from_str::<Value>(text).ok(),
     };
     let Some(document) = parsed else {
         report.found(Finding::new(
             "divergent-capability",
-            &harness.capability_file,
+            &declared.file,
             "divergent-capability: the capability declaration is not readable in its declared format",
         ));
         return false;
@@ -599,10 +601,10 @@ fn capability(
     // Searched for by name rather than by key path, because the key a vendor
     // nests its servers under is that vendor's syntax and naming it here would
     // put a harness back in the binary.
-    let Some(declared) = find_named(&document, &required.name) else {
+    let Some(entry) = find_named(&document, &required.name) else {
         report.found(Finding::new(
             "divergent-capability",
-            &harness.capability_file,
+            &declared.file,
             format!(
                 "divergent-capability: `{}` does not declare the required capability `{}`",
                 harness.name, required.name
@@ -611,8 +613,8 @@ fn capability(
         return false;
     };
 
-    let command = declared.get("command").and_then(Value::as_str);
-    let arguments: Option<Vec<&str>> = declared
+    let command = entry.get("command").and_then(Value::as_str);
+    let arguments: Option<Vec<&str>> = entry
         .get("args")
         .and_then(Value::as_array)
         .map(|values| values.iter().filter_map(Value::as_str).collect());
@@ -621,7 +623,7 @@ fn capability(
     if command != Some(required.command.as_str()) || arguments.as_deref() != Some(&expected) {
         report.found(Finding::new(
             "divergent-capability",
-            &harness.capability_file,
+            &declared.file,
             format!(
                 "divergent-capability: `{}` declares a different executable vector for `{}`",
                 harness.name, required.name

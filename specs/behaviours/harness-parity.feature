@@ -277,6 +277,12 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the only violation starts with "root-instructions.md: missing-instruction:"
 
+  Scenario: A repository that requires no capability server reconciles none
+    Given a valid one-skill one-agent one-capability harness contract
+    And no capability server is required and no harness declares a capability file
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 0 reconciled capability declarations
+
   Scenario: A file that is not text is not an instruction source
     Given a valid one-skill one-agent one-capability harness contract
     And file "logo.png" holds bytes that are not text

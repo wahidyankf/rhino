@@ -298,6 +298,19 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             world.vanished.insert(matched.string(0).to_string());
             Outcome::Passed
         }
+        "no capability server is required and no harness declares a capability file" => {
+            world.declaration.omit_required_server = true;
+            world.declaration.omit_capability_files = true;
+            Outcome::Passed
+        }
+        "no capability server is required" => {
+            world.declaration.omit_required_server = true;
+            Outcome::Passed
+        }
+        "no harness declares a capability file" => {
+            world.declaration.omit_capability_files = true;
+            Outcome::Passed
+        }
         "file {string} holds bytes that are not text" => {
             // Written as an ordinary file first so the walk lists it. What
             // makes it interesting is only what a reader finds inside.

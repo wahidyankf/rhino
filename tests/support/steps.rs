@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 169] = [
+pub const VOCABULARY: [&str; 172] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -74,6 +74,9 @@ pub const VOCABULARY: [&str; 169] = [
     "harness-parity validation succeeds with {int} harnesses, {int} skill, {int} agent, and {int} reconciled capability declarations",
     "harness-parity violations are ordinally sorted",
     "no Markdown files are scanned",
+    "no capability server is required",
+    "no capability server is required and no harness declares a capability file",
+    "no harness declares a capability file",
     "no directories were inspected",
     "stderr contains {string}",
     "stderr lines start with {string}",

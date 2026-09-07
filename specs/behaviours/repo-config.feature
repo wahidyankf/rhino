@@ -97,6 +97,26 @@ Feature: Repository configuration contract
     And stderr contains "required-mcp"
     And stderr contains "declared alongside an empty harness roster"
 
+  Scenario: A repository whose harnesses reach no capability server is legal
+    Given the repository declares a complete configuration
+    And no capability server is required and no harness declares a capability file
+    When I run the "repo-config" validator
+    Then the exit code is 0
+
+  Scenario: A required server no harness declares a capability file for is refused
+    Given the repository declares a complete configuration
+    And no harness declares a capability file
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "declares no capability file"
+
+  Scenario: A capability file no required server reads is refused
+    Given the repository declares a complete configuration
+    And no capability server is required
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "no required server names anything to find in it"
+
   Scenario: A validator refuses to run against a configuration it cannot read
     Given the repository declares a complete configuration
     And the configuration adds the unknown key "trees-list" to "governance-directory-map"
@@ -145,4 +165,3 @@ Feature: Repository configuration contract
       | key                                   |
       | harness-parity.canonical.skills-root  |
       | harness-parity.canonical.agents-root  |
-      | harness-parity.required-mcp           |
