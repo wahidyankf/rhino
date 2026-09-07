@@ -8,9 +8,8 @@ use crate::Outcome;
 use crate::config::Config;
 use crate::markdown;
 use crate::report::{Finding, Report};
-use crate::runtime::{Tree, TreeError};
-use crate::scan;
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use crate::runtime::Tree;
+use crate::scan::{self, Corpus};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -55,56 +54,41 @@ impl Fault {
 }
 
 pub fn validate(tree: &dyn Tree, config: &Config) -> Outcome {
-    let excluded = match globs(&config.internal_link.exclude_sources) {
+    let excluded = match scan::glob_set(
+        "md-internal-link.exclude-sources",
+        &config.internal_link.exclude_sources,
+    ) {
         Ok(set) => set,
+        Err(reason) => return Report::refused("internal-link", reason),
+    };
+    let corpus = match Corpus::read(tree, config) {
+        Ok(corpus) => corpus,
         Err(reason) => return Report::refused("internal-link", reason),
     };
 
     let mut report = Report::new("internal-link", "link");
     let mut inspected = 0usize;
 
-    for source in scan::markdown_files(tree, config) {
-        // An excluded source is not read for links, but stays on disk as a
-        // perfectly valid target for links elsewhere.
-        if excluded.is_match(&source) {
-            continue;
-        }
-        let text = match tree.read(&source) {
-            Ok(text) => text,
-            Err(TreeError::NotFound) => continue,
-            Err(TreeError::Unreadable(reason)) => {
-                return Report::refused("internal-link", format!("{source}: {reason}"));
-            }
-        };
-
-        for (line, destination) in destinations(&text) {
+    // An excluded source is not read for links, but stays in the corpus as a
+    // perfectly valid target for links elsewhere.
+    for document in corpus.sources(&excluded) {
+        for (line, destination) in destinations(&document.text) {
             let Some(target) = local(&destination) else {
                 continue;
             };
             inspected += 1;
             // Inspection continues past a fault: a malformed target in one file
             // must not hide a missing one in the next.
-            if let Some(fault) = resolve(tree, &source, &target) {
+            if let Some(fault) = resolve(tree, &document.path, &target) {
                 report.found(
-                    Finding::new(fault.kind(), &source, fault.message(&destination)).at_line(line),
+                    Finding::new(fault.kind(), &document.path, fault.message(&destination))
+                        .at_line(line),
                 );
             }
         }
     }
 
     report.inspected(inspected).finish()
-}
-
-fn globs(patterns: &[String]) -> Result<GlobSet, String> {
-    let mut builder = GlobSetBuilder::new();
-    for pattern in patterns {
-        let glob = Glob::new(pattern)
-            .map_err(|error| format!("md-internal-link.exclude-sources: `{pattern}`: {error}"))?;
-        builder.add(glob);
-    }
-    builder
-        .build()
-        .map_err(|error| format!("md-internal-link.exclude-sources: {error}"))
 }
 
 /// Every link destination in a document, with the line it appears on.
