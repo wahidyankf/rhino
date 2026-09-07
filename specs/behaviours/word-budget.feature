@@ -33,7 +33,7 @@ Feature: Word-budget validation
     When I find word-limit violations
     Then the only violation is a 41-word limit for "rules/too-long.md"
 
-  Scenario: A declared surface that matches nothing scans nothing
+  Scenario: An empty repository scans nothing
     Given the repository declares a word-budget surface "**/*.md" failing above 40
     And an empty repository
     When I scan the declared surfaces

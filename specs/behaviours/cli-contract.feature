@@ -251,10 +251,17 @@ Feature: Command contract
       | --verbose  |
       | --no-color |
 
-  Scenario: Repeated file selection and stdin are accepted by the Mermaid leaf
+  Scenario: Repeated file selection is accepted by the Mermaid leaf
     Given the repository declares the accessible palette
     And the repository contains Mermaid sample "accessible colored class" at "guides/one.md"
     And the repository contains Mermaid sample "accessible colored class" at "guides/two.md"
     When I invoke the CLI with "md|mermaid|validate|--file|guides/one.md|--file|guides/two.md"
     Then the exit code is 0
     And 2 Mermaid diagrams were inspected
+
+  Scenario: The Mermaid leaf reads a diagram from standard input
+    Given the repository declares the accessible palette
+    And an unsafe "flowchart" Mermaid diagram is supplied on standard input
+    When I invoke the CLI with "md|mermaid|validate|--file|-"
+    Then the exit code is 1
+    And 1 Mermaid diagrams were inspected

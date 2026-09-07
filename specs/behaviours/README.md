@@ -8,6 +8,20 @@ Scenarios establish the policy they assert. RHINO ships no default word limit,
 tree list, harness roster, or colour palette, so a scenario that needs one says
 so in a `Given` rather than relying on a value compiled into the binary.
 
+Three conventions make those declarations unambiguous, because an adapter has to
+implement them the same way at three boundaries:
+
+- A declaring `Given` is **additive over a complete, valid configuration**. It
+  states the one thing the scenario cares about; everything else the schema
+  requires is already present and legal. That is why a feature can declare only
+  a palette without its scenarios failing as an incomplete configuration.
+- A **scenario-level declaration replaces** the `Background`'s value for the same
+  key rather than merging with it. Two scenarios depend on that to prove a
+  declared value is really data: one declares a one-colour palette and another a
+  different grapheme limit, and each must fail if the `Background` value won.
+- **`an empty repository` speaks about the tree, not the configuration.** It
+  removes files; it never removes a declaration made before it.
+
 ## Directory Map
 
 - [cli-contract.feature](cli-contract.feature) — command tree, flags, output

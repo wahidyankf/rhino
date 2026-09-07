@@ -8,7 +8,9 @@ Feature: Directory-map validation
     Given the repository declares the mapped tree "rules"
 
   Scenario: Directory-map inspection ignores other validators' concerns
-    Given file "root-instructions.md" contains 800 words
+    Given the repository declares a word-budget surface "**/*.md" failing above 40
+    And the repository declares the accessible palette
+    And file "root-instructions.md" contains 41 words
     And the repository contains:
       | path              | content                                                |
       | rules/README.md   | # Rules                                                |
@@ -83,8 +85,10 @@ Feature: Directory-map validation
     And the repository contains:
       | path            | content  |
       | rules/policy.md | # Policy |
+    When I inspect the word budget
+    Then the only violation is a 41-word limit for "rules/README.md"
     When I inspect directory maps
-    Then the violations include an overlong "rules/README.md" and its missing map entry for "rules/policy.md"
+    Then the only violation is a missing map entry from "rules/README.md" to "rules/policy.md"
 
   Scenario: A map entry must exist
     Given the repository contains:

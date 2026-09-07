@@ -81,7 +81,11 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "cli-contract",
-        "Repeated file selection and stdin are accepted by the Mermaid leaf",
+        "Repeated file selection is accepted by the Mermaid leaf",
+    ),
+    (
+        "cli-contract",
+        "The Mermaid leaf reads a diagram from standard input",
     ),
     (
         "directory-map",
@@ -183,7 +187,7 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "Adapters preserve declared source and read-only constraints",
+        "An adapter may not drop a declared constraint",
     ),
     (
         "harness-parity",
@@ -203,7 +207,7 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
-        "Inspection excludes generated trees, local overrides, and links",
+        "Declared excluded directories and filesystem links are not inspected",
     ),
     (
         "harness-parity",
@@ -351,10 +355,7 @@ pub const BINDINGS: &[Binding] = &[
     ),
     ("word-budget", "Only declared surfaces are scanned"),
     ("word-budget", "The declared limit is inclusive"),
-    (
-        "word-budget",
-        "A declared surface that matches nothing scans nothing",
-    ),
+    ("word-budget", "An empty repository scans nothing"),
     (
         "word-budget",
         "Files outside every declared surface have no limit",

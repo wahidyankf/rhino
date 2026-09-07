@@ -55,14 +55,16 @@ Feature: Repository configuration contract
 
   Scenario Outline: A declared path may not escape the repository root
     Given the repository declares a complete configuration
-    And the configuration sets "governance-directory-map.trees" to "<path>"
+    And the configuration sets "harness-parity.canonical.skills-root" to "<path>"
     When I run the "repo-config" validator
     Then the exit code is 2
+    And stderr names the offending key and its position
 
     Examples:
-      | path            |
-      | ../outside      |
-      | /absolute       |
+      | path                |
+      | ../outside          |
+      | /absolute           |
+      | rules/../../outside |
 
   Scenario: An empty harness roster is a legal declaration
     Given the repository declares a configuration with an empty harness roster and no canonical skill or agent root

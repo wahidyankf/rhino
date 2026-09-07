@@ -3,6 +3,9 @@ Feature: Markdown internal-link validation
   RHINO resolves local document targets. It never fetches an external URL and
   never reports on one, which is what the command name promises.
 
+  Background:
+    Given the repository declares a complete configuration
+
   Scenario: Existing local links and non-local links pass
     Given file "README.md" contains this Markdown:
       """
@@ -63,12 +66,16 @@ Feature: Markdown internal-link validation
     Then the exit code is 0
 
   Scenario: A malformed local target fails without stopping inspection
-    Given file "guides/source.md" contains this Markdown:
+    Given file "guides/a-malformed.md" contains this Markdown:
       """
       [Malformed](bad{nul}path.md)
       """
-    When I run the "internal-link" validator
-    Then the exit code is 1
+    And file "guides/z-missing.md" contains this Markdown:
+      """
+      [Missing](missing.md)
+      """
+    When I inspect internal links
+    Then there are 2 violations
 
   Scenario: A declared excluded source is not a link source
     Given the repository declares the internal-link excluded source "archive/**"
