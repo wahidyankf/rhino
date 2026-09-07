@@ -15,25 +15,34 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Every platform a release must carry, named as the archive names them.
+/// Every platform a release must carry, with the largest its stripped
+/// executable may be, in bytes.
 ///
 /// The four are the ones a consumer of this tool actually runs on, and the
 /// list is here rather than in the workflow so a matrix that silently lost a
 /// leg fails a test instead of publishing three archives.
-const PLATFORMS: [&str; 4] = [
-    "aarch64-apple-darwin",
-    "x86_64-apple-darwin",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-unknown-linux-gnu",
-];
-
-/// The largest a stripped executable may be, in bytes.
 ///
-/// Set from the first measured build -- 1,499,424 bytes on `aarch64-apple-darwin`
-/// -- plus about a fifth for the platforms that run larger and for the growth a
-/// few more rules will bring. A ceiling loose enough never to fire is a budget
-/// nobody holds, so this is close enough to the measurement to notice.
-const SIZE_CEILING: u64 = 1_835_008;
+/// A budget per platform rather than one for all four, because the same source
+/// produces executables 43% apart:
+///
+/// | platform                    | measured  | ceiling   |
+/// | --------------------------- | --------- | --------- |
+/// | `aarch64-apple-darwin`      | 1,499,424 | 1.75 MiB  |
+/// | `x86_64-apple-darwin`       | 1,759,232 | 2 MiB     |
+/// | `aarch64-unknown-linux-gnu` | 1,905,472 | 2.25 MiB  |
+/// | `x86_64-unknown-linux-gnu`  | 2,140,760 | 2.5 MiB   |
+///
+/// Every ceiling is its own first measurement plus about a fifth -- for the
+/// growth a few more rules will bring, and no more. One ceiling covering all
+/// four would have to clear the largest, which would leave the smallest free to
+/// grow by three quarters before anything noticed. A budget nobody can exceed
+/// is a budget nobody holds.
+const PLATFORMS: [(&str, u64); 4] = [
+    ("aarch64-apple-darwin", 1_835_008),
+    ("x86_64-apple-darwin", 2_097_152),
+    ("aarch64-unknown-linux-gnu", 2_359_296),
+    ("x86_64-unknown-linux-gnu", 2_621_440),
+];
 
 /// The version the product's own manifest declares, spelled as a release tag.
 ///
@@ -114,10 +123,10 @@ fn archive_name(platform: &str) -> String {
 }
 
 /// The platforms whose archives are present, in declaration order.
-fn assembled() -> Vec<&'static str> {
+fn assembled() -> Vec<(&'static str, u64)> {
     PLATFORMS
         .into_iter()
-        .filter(|platform| dist().join(archive_name(platform)).exists())
+        .filter(|(platform, _)| dist().join(archive_name(platform)).exists())
         .collect()
 }
 
@@ -141,7 +150,11 @@ fn every_declared_platform_has_an_archive() {
             "partial matrix: {} of {} platforms assembled ({})",
             present.len(),
             PLATFORMS.len(),
-            present.join(", ")
+            present
+                .iter()
+                .map(|(platform, _)| *platform)
+                .collect::<Vec<_>>()
+                .join(", ")
         );
         assert!(
             std::env::var("RHINO_RELEASE_MATRIX").as_deref() != Ok("complete"),
@@ -159,7 +172,7 @@ fn every_archive_matches_its_recorded_checksum() {
     let present = assembled();
     assert!(!present.is_empty(), "nothing assembled to check");
 
-    for platform in &present {
+    for (platform, _) in &present {
         let name = archive_name(platform);
         let recorded = checksums
             .get(&name)
@@ -223,15 +236,45 @@ fn every_executable_reports_the_revision_it_was_built_from() {
     );
 }
 
+/// Measured out of every archive, not just the one this machine can run.
+///
+/// The identity assertion above is limited to the host executable because only
+/// that one starts here. Size is not: an archive can be opened on any platform,
+/// so the whole set is weighed wherever this runs, and a leg that grew is caught
+/// on the job that assembles the release rather than only on the runner that
+/// built it.
 #[test]
-fn the_stripped_executable_is_within_its_declared_ceiling() {
-    let host = dist().join("rhino");
-    let size = std::fs::metadata(&host)
-        .unwrap_or_else(|error| panic!("{}: {error}", host.display()))
-        .len();
-    assert!(
-        size <= SIZE_CEILING,
-        "stripped executable is {size} bytes, over the declared ceiling of {SIZE_CEILING}"
-    );
-    eprintln!("stripped executable: {size} bytes");
+fn every_executable_is_within_its_platform_ceiling() {
+    let present = assembled();
+    assert!(!present.is_empty(), "nothing assembled to weigh");
+
+    let unpacked = dist().join(".weighing");
+    for (platform, ceiling) in &present {
+        // One directory per platform: every archive holds a file called
+        // `rhino`, so unpacking them together would weigh one of them four
+        // times and call it four platforms passing.
+        let room = unpacked.join(platform);
+        std::fs::create_dir_all(&room)
+            .unwrap_or_else(|error| panic!("{}: {error}", room.display()));
+        let status = Command::new("tar")
+            .args(["-xzf"])
+            .arg(dist().join(archive_name(platform)))
+            .arg("-C")
+            .arg(&room)
+            .status()
+            .expect("tar is available");
+        assert!(status.success(), "could not unpack {platform}");
+
+        let executable = room.join("rhino");
+        let size = std::fs::metadata(&executable)
+            .unwrap_or_else(|error| panic!("{}: {error}", executable.display()))
+            .len();
+        eprintln!("{platform}: {size} bytes");
+        assert!(
+            size <= *ceiling,
+            "{platform} is {size} bytes, over its declared ceiling of {ceiling}"
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&unpacked);
 }
