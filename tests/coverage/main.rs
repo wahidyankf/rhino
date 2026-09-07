@@ -150,3 +150,199 @@ fn every_exemption_names_a_boundary_and_alternative_proof() {
         }
     }
 }
+
+// -- Parser regressions -------------------------------------------------------
+//
+// The Gherkin reader is the harness's own production code, and it shipped with
+// two defects that nothing here would have caught: it split table rows on
+// escaped pipes, and it dropped `Background:` entirely. Both were quiet. The
+// first truncated a command vector to its first segment, and several such rows
+// assert exit 2, which a truncated command also returns -- so they passed while
+// invoking nothing the scenario named. The second discarded the very `Given`s
+// that declare a repository's policy, leaving those scenarios asserting against
+// policy nobody had declared. These tests exist so neither can return.
+
+#[test]
+fn a_table_cell_may_contain_an_escaped_pipe() {
+    let corpus = Corpus::canonical();
+    let scenario = corpus
+        .find("cli-contract", "Help requests succeed")
+        .expect("the escaped-pipe scenario is in the corpus");
+
+    let invocations: Vec<String> = scenario
+        .expansions()
+        .iter()
+        .filter_map(|steps| steps.iter().find(|step| step.text.starts_with("I invoke")))
+        .map(|step| step.text.clone())
+        .collect();
+
+    assert!(
+        invocations
+            .iter()
+            .any(|text| text.contains("word-budget|validate|--help")),
+        "an escaped pipe was treated as a column separator; invocations were {invocations:?}"
+    );
+    assert!(
+        !invocations.iter().any(|text| text.contains('\\')),
+        "a cell kept its backslash instead of being unescaped: {invocations:?}"
+    );
+}
+
+#[test]
+fn no_expanded_step_carries_an_unresolved_escape() {
+    let corpus = Corpus::canonical();
+    let mut offenders: Vec<String> = Vec::new();
+
+    for scenario in &corpus.scenarios {
+        for expansion in scenario.expansions() {
+            for step in expansion {
+                if step.text.contains('\\') {
+                    offenders.push(format!(
+                        "{}: {}: {}",
+                        scenario.feature, scenario.name, step.text
+                    ));
+                }
+                if step.text.contains('<') && step.text.contains('>') && scenario.is_outline {
+                    offenders.push(format!(
+                        "{}: {}: unsubstituted placeholder in {}",
+                        scenario.feature, scenario.name, step.text
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        offenders.is_empty(),
+        "steps still carrying an escape or placeholder after expansion:\n{}",
+        offenders.join("\n")
+    );
+}
+
+#[test]
+fn a_background_reaches_every_scenario_in_its_feature() {
+    // Each of these features declares its policy in a `Background:`. Every
+    // scenario in that feature must carry the declaration, or it asserts
+    // against a value nothing established.
+    const DECLARED: [(&str, &str); 5] = [
+        ("directory-map", "the repository declares the mapped tree"),
+        (
+            "internal-link",
+            "the repository declares a complete configuration",
+        ),
+        (
+            "harness-parity",
+            "the repository declares a harness roster of",
+        ),
+        (
+            "mermaid-cli",
+            "the repository declares the accessible palette",
+        ),
+        (
+            "mermaid-legibility",
+            "the repository declares the accessible palette",
+        ),
+    ];
+
+    let corpus = Corpus::canonical();
+    let mut missing: Vec<String> = Vec::new();
+
+    for (feature, declaration) in DECLARED {
+        let scenarios: Vec<_> = corpus
+            .scenarios
+            .iter()
+            .filter(|scenario| scenario.feature == feature)
+            .collect();
+        assert!(
+            !scenarios.is_empty(),
+            "{feature} has no scenarios; the check would pass vacuously"
+        );
+
+        for scenario in scenarios {
+            let declared = scenario
+                .steps
+                .iter()
+                .any(|step| step.text.starts_with(declaration));
+            if !declared {
+                missing.push(format!("{feature}: {}", scenario.name));
+            }
+        }
+    }
+
+    assert!(
+        missing.is_empty(),
+        "scenarios missing their feature's Background declaration:\n{}",
+        missing.join("\n")
+    );
+}
+
+#[test]
+fn a_docstring_reaches_the_step_it_belongs_to() {
+    // Docstrings were dropped entirely at first, and silently: `#` opened a
+    // Gherkin comment even inside a `"""` block, so a fixture whose first line
+    // is a Markdown heading vanished along with the rest of the file it
+    // described. The scenarios then inspected an empty tree.
+    let corpus = Corpus::canonical();
+    let scenario = corpus
+        .find(
+            "internal-link",
+            "Existing local links and non-local links pass",
+        )
+        .expect("the docstring scenario is in the corpus");
+
+    let bodies: Vec<&String> = scenario
+        .steps
+        .iter()
+        .filter_map(|step| step.docstring.as_ref())
+        .collect();
+
+    assert_eq!(
+        bodies.len(),
+        4,
+        "expected four fixture files to carry content, got {}",
+        bodies.len()
+    );
+    assert!(
+        bodies.iter().any(|body| body.starts_with("# Root")),
+        "a Markdown heading inside a docstring was eaten as a Gherkin comment"
+    );
+    assert!(
+        bodies
+            .iter()
+            .any(|body| body.contains("[Reference target][target-ref]")),
+        "docstring content is missing the link the scenario inspects"
+    );
+}
+
+#[test]
+fn a_step_sentence_ending_in_a_colon_always_carries_a_payload() {
+    // A sentence written with a trailing colon promises a table, a bullet list,
+    // or a docstring beneath it. One that arrives empty means the parser lost
+    // the payload -- which is how all three parser defects presented.
+    let corpus = Corpus::canonical();
+    let mut empty: Vec<String> = Vec::new();
+
+    for scenario in &corpus.scenarios {
+        for expansion in scenario.expansions() {
+            for step in expansion {
+                let promises_payload = step.text.ends_with(':');
+                let carries_payload =
+                    !step.table.is_empty() || !step.bullets.is_empty() || step.docstring.is_some();
+                if promises_payload && !carries_payload {
+                    empty.push(format!(
+                        "{}: {}: {} {}",
+                        scenario.feature, scenario.name, step.keyword, step.text
+                    ));
+                }
+            }
+        }
+    }
+
+    empty.sort();
+    empty.dedup();
+    assert!(
+        empty.is_empty(),
+        "steps promising a payload that arrived empty:\n{}",
+        empty.join("\n")
+    );
+}
