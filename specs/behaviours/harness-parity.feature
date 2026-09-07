@@ -45,6 +45,18 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "unexpected-instruction-source"
 
+  Scenario: A README in the canonical agents root is an index, not an agent
+    Given a valid one-skill one-agent one-capability harness contract
+    And an index README sits in the canonical agents root
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
+  Scenario: A README in a harness's agent directory is an index, not an adapter
+    Given a valid one-skill one-agent one-capability harness contract
+    And an index README sits in every harness agent directory
+    When I inspect harness parity
+    Then harness-parity validation succeeds with 3 harnesses, 1 skill, 1 agent, and 3 reconciled capability declarations
+
   Scenario: A source file containing the import is not an instruction source
     Given the repository declares no instruction adapter
     And a valid one-skill one-agent one-capability harness contract

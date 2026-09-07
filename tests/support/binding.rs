@@ -298,6 +298,22 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             world.vanished.insert(matched.string(0).to_string());
             Outcome::Passed
         }
+        "an index README sits in the canonical agents root" => {
+            world.files.insert(
+                format!("{}/{}", harness::AGENTS_ROOT, "README.md"),
+                "# Agents\n\nWhat lives here.\n".to_string(),
+            );
+            Outcome::Passed
+        }
+        "an index README sits in every harness agent directory" => {
+            for name in harness::roster(&world.declaration) {
+                world.files.insert(
+                    format!("{}/README.md", harness::agent_dir(&name)),
+                    "# Adapters\n\nWhat lives here.\n".to_string(),
+                );
+            }
+            Outcome::Passed
+        }
         "a source file contains the canonical import" => {
             // The route appears because this file *implements* the check that
             // looks for it -- which is the shape the false positive took in a

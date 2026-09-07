@@ -163,6 +163,14 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "A README in the canonical agents root is an index, not an agent",
+    ),
+    (
+        "harness-parity",
+        "A README in a harness's agent directory is an index, not an adapter",
+    ),
+    (
+        "harness-parity",
         "A source file containing the import is not an instruction source",
     ),
     (

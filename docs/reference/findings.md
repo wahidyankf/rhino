@@ -113,6 +113,8 @@ parity validate` meets one, because it is the only walk that reads every file
   and data are not always-on instructions to any harness — the code that
   implements this check has to contain the route to look for it. Files
   prohibited by _name_ are still reported whatever their kind.
+- **A `README.md` in a canonical root or a harness's adapter directory.** It is
+  an index of what lives there, not a declaration of anything.
 - **A fenced example or code span quoting the import.** A page documenting the
   adapter is not one. A document that ends inside an unclosed fence gets no
   such benefit.

@@ -23,6 +23,15 @@ use std::collections::{BTreeMap, BTreeSet};
 /// The one file a skill bundle must carry.
 const SKILL_FILE: &str = "SKILL.md";
 
+/// The file a directory documents itself in.
+///
+/// RHINO already owns this name -- it is where a directory map lives -- so
+/// reading it as an index here states one fact about it consistently rather
+/// than introducing a second, consumer-shaped one. A canonical root and a
+/// harness's adapter directory are both places a repository keeps an index,
+/// and an index is not a declaration of anything.
+const INDEX_FILE: &str = "README.md";
+
 /// What a declaration front matter can say.
 ///
 /// Every field is optional here and required by the rules below, so a file
@@ -389,6 +398,9 @@ fn agents(
         if rest.contains('/') {
             continue;
         }
+        if rest == INDEX_FILE {
+            continue;
+        }
         let Some(name) = rest.strip_suffix(".md") else {
             continue;
         };
@@ -488,6 +500,9 @@ fn agent_adapters(
         let Some(rest) = path.strip_prefix(&prefix) else {
             continue;
         };
+        if rest == INDEX_FILE {
+            continue;
+        }
         let Some(name) = rest.strip_suffix(&harness.agent_extension) else {
             continue;
         };

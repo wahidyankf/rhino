@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 174] = [
+pub const VOCABULARY: [&str; 176] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -52,6 +52,8 @@ pub const VOCABULARY: [&str; 174] = [
     "all violations are {string}",
     "an argument error is raised",
     "an empty repository",
+    "an index README sits in every harness agent directory",
+    "an index README sits in the canonical agents root",
     "an out-of-order pair of harness-parity violations exists",
     "an unexpected agent adapter exists",
     "an unsafe {string} Mermaid diagram exists at {string} using backtick fences",
