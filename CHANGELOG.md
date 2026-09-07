@@ -9,6 +9,21 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.1.1] — 2026-09-08
+
+### Fixed
+
+- **Listing one directory no longer walks the whole repository.** The
+  filesystem tree used the port's default `children`, which derives the answer
+  from a full recursive walk — correct for any implementation and affordable
+  only for the in-memory one. `governance directory-map validate` asks that
+  question once per mapped directory, so on a real repository it walked the
+  tree once per question and its cost grew with the repository rather than with
+  what was being inspected. On a 49-map tree the command fell from **1,065 ms
+  to 87 ms**, and the six-command gate that repository runs from **1,150 ms to
+  178 ms**. Output is unchanged: every command's JSON is byte-identical to
+  `v0.1.0` across three real repositories.
+
 ## [v0.1.0] — 2026-09-08
 
 The first release, so everything below is new.
@@ -106,4 +121,5 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.1.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.0

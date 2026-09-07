@@ -58,7 +58,7 @@ Longer version: [Why RHINO exists](./docs/explanation/why-rhino-exists.md).
 Archives for macOS and Linux on `amd64` and `arm64`:
 
 ```sh
-BASE=https://github.com/wahidyankf/rhino/releases/download/v0.1.0
+BASE=https://github.com/wahidyankf/rhino/releases/download/v0.1.1
 curl -fsSLO "$BASE/rhino-aarch64-apple-darwin.tar.gz"
 curl -fsSLO "$BASE/checksums.txt"
 shasum -a 256 --ignore-missing -c checksums.txt
@@ -173,9 +173,8 @@ disagree, the corpus wins.
 ## 📋 Project status
 
 Early construction. The behaviour is pinned by an executable specification and
-is being adopted across the Open Sharia Enterprise repositories, but no release
-is published yet and versions below `1.0.0` may make breaking changes — see the
-[changelog](./CHANGELOG.md).
+is being adopted across the Open Sharia Enterprise repositories. Versions below
+`1.0.0` may make breaking changes — see the [changelog](./CHANGELOG.md).
 
 Released tags will be immutable. A published release is never rebuilt or
 replaced.

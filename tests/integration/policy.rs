@@ -222,6 +222,112 @@ fn no_leaf_writes_to_the_repository_it_inspects() {
 }
 
 #[test]
+fn listing_one_directory_does_not_walk_the_repository() {
+    // A cost claim rather than a correctness one, and it is here rather than in
+    // the corpus because a scenario can only say what the answer is, never what
+    // it cost to get. `Tree::children` has a default that derives the answer
+    // from `files()` -- a full recursive walk -- which is correct for any
+    // implementation and affordable only for the in-memory one. `directory-map`
+    // asks it once per mapped directory, so on a real repository the default
+    // walks the whole tree once per question: measured on a 49-map tree, that
+    // was 1.07 s against 33 ms for every other leaf, and the cost grew with the
+    // *repository*, not with what was being inspected.
+    //
+    // Checked against the source in the same way the absences above are,
+    // because no single run can show that the next one does not walk.
+    let text = std::fs::read_to_string(crate_root().join("src/runtime/disk.rs"))
+        .expect("the disk tree is readable");
+    // A positive control, so a search that had stopped working could not report
+    // the override missing by failing to find anything at all.
+    assert!(
+        text.contains("fn files("),
+        "the source search cannot find a method that is certainly present"
+    );
+    assert!(
+        text.contains("fn children("),
+        "DiskTree does not override `children`, so listing one directory walks the whole repository"
+    );
+    assert!(
+        !text.contains("self.files()"),
+        "DiskTree answers a question about one directory by walking the whole repository"
+    );
+}
+
+#[test]
+fn a_directory_listing_answers_exactly_what_a_walk_would() {
+    // The override above may not change the answer, and three of the things it
+    // must keep are not obvious from the signature: a filesystem link is not a
+    // child, an excluded directory is not a child, and a directory holding no
+    // files is not a child at all -- the last because the port exposes files,
+    // and a map cannot be missing from a directory that holds nothing.
+    //
+    // Written as a differential against the definition the default derives from
+    // `files()`, so it states the equivalence rather than restating a list.
+    let mut world: World<()> = World::default();
+    for path in [
+        "rules/README.md",
+        "rules/one/README.md",
+        "rules/one/deep/note.md",
+        "rules/two.md",
+        "rules/skipped/note.md",
+        "elsewhere/other.md",
+    ] {
+        world.files.insert(
+            path.to_string(),
+            "# Note
+"
+            .to_string(),
+        );
+    }
+    let repository = world.repository();
+    let sandbox = Sandbox::build(&repository);
+    std::fs::create_dir_all(sandbox.root().join("rules/hollow"))
+        .expect("an empty directory can be created");
+    std::os::unix::fs::symlink(
+        sandbox.root().join("elsewhere"),
+        sandbox.root().join("rules/linked"),
+    )
+    .expect("a link can be created");
+
+    let mut tree = DiskTree::new(sandbox.root()).expect("the sandbox root is a directory");
+    tree.exclude(&["skipped".to_string()]);
+
+    // What the default would say, computed here from the file list.
+    let expected = expected_children(&tree, "rules");
+    assert_eq!(
+        tree.children("rules"),
+        expected,
+        "the directory listing disagrees with the walk it replaces"
+    );
+    assert_eq!(
+        expected,
+        vec![
+            "rules/README.md".to_string(),
+            "rules/one".to_string(),
+            "rules/two.md".to_string(),
+        ],
+        "the fixture no longer exercises links, exclusions, and empty directories"
+    );
+}
+
+/// The children of `directory` as derived from the file list, which is the
+/// definition `Tree::children` documents and every implementation must match.
+fn expected_children(tree: &dyn Tree, directory: &str) -> Vec<String> {
+    let prefix = format!("{directory}/");
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for path in tree.files() {
+        let Some(rest) = path.strip_prefix(&prefix) else {
+            continue;
+        };
+        match rest.split_once('/') {
+            Some((child, _)) => seen.insert(format!("{prefix}{child}")),
+            None => seen.insert(path.clone()),
+        };
+    }
+    seen.into_iter().collect()
+}
+
+#[test]
 fn a_path_leaving_the_root_is_refused() {
     // Refused rather than resolved-and-then-checked: the tool never opens the
     // file at all, so a root it was pointed at is the whole of what it can

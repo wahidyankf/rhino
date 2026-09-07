@@ -14,7 +14,7 @@ the archive for your platform and the checksum, then verify **before**
 extracting:
 
 ```sh
-VERSION=v0.1.0
+VERSION=v0.1.1
 TARGET=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 BASE=https://github.com/wahidyankf/rhino/releases/download/$VERSION
 
@@ -40,16 +40,16 @@ Confirm the build is the one you pinned:
 
 ```console
 $ rhino version
-v0.1.0
-
-$ rhino version --json
-{"schemaVersion":1,"version":"v0.1.0","commit":"d16fc0e7adc652ecdd61766096de0c35ba465cf5"}
+v0.1.1
 ```
 
-The commit is embedded at build time, so `--json` tells you exactly which
-revision produced _your_ binary — the hash above is whichever revision built the
-one this page was written against. A build made outside a repository reports
-forty zeros rather than lying about it.
+`rhino version --json` reports the same version alongside the forty-character
+commit embedded at build time, as
+`{"schemaVersion":1,"version":"v0.1.1","commit":"…"}`. The commit is not written
+out here on purpose: it is a property of _your_ binary rather than of this page,
+and a hash printed beside a version is one a reader will compare against theirs
+and find different. Compare it against your lock file instead. A build made
+outside a repository reports forty zeros rather than lying about it.
 
 ## Build from source instead
 

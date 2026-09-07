@@ -71,6 +71,35 @@ impl DiskTree {
         }
     }
 
+    /// Whether a directory holds any file at any depth, stopping at the first.
+    ///
+    /// The walk's definition of a child asked of one subtree rather than of the
+    /// whole repository: the port exposes files, so a directory appearing in no
+    /// file path is not a child. Short-circuiting matters -- the common case is
+    /// a directory whose very first entry is a file.
+    fn holds_a_file(&self, directory: &Path) -> bool {
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return false;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.is_symlink() {
+                continue;
+            }
+            if !metadata.is_dir() {
+                return true;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !self.excluded_directories.contains(&name) && self.holds_a_file(&path) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Resolve a repository-relative path, refusing one that would leave the
     /// root even if the caller built it from configuration.
     fn resolve(&self, path: &str) -> Option<PathBuf> {
@@ -107,6 +136,58 @@ impl Tree for DiskTree {
     fn files(&self) -> Vec<String> {
         let mut found = Vec::new();
         self.walk(&self.root, &mut found);
+        found.sort();
+        found
+    }
+
+    /// The direct children of one directory, read from that directory alone.
+    ///
+    /// The port defines a child in terms of the file list, and the trait's
+    /// default obtains it by walking the whole repository -- correct for any
+    /// implementation, affordable only for the in-memory one. `directory-map`
+    /// asks this once per mapped directory, so on disk the default turned
+    /// forty-nine questions about one directory each into forty-nine walks of
+    /// the tree, and the cost grew with the repository rather than with what
+    /// was being inspected.
+    ///
+    /// The answer does not change, which means keeping three things the walk
+    /// implies rather than states: a filesystem link is not a child, an
+    /// excluded directory name is not a child at any depth, and a subdirectory
+    /// holding no file is not a child at all.
+    fn children(&self, directory: &str) -> Vec<String> {
+        let prefix = super::normalise_directory(directory);
+        // A directory the exclusion list removes contributes no file to the
+        // walk, so it has no children either. Asking about one directly has to
+        // answer the same way as asking about its parent did.
+        if prefix
+            .split('/')
+            .any(|segment| self.excluded_directories.iter().any(|name| name == segment))
+        {
+            return Vec::new();
+        }
+        let Some(resolved) = self.resolve(directory) else {
+            return Vec::new();
+        };
+        let Ok(entries) = std::fs::read_dir(&resolved) else {
+            return Vec::new();
+        };
+        let mut found = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.is_symlink() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if metadata.is_dir()
+                && (self.excluded_directories.contains(&name) || !self.holds_a_file(&path))
+            {
+                continue;
+            }
+            found.push(format!("{prefix}{name}"));
+        }
         found.sort();
         found
     }
