@@ -232,6 +232,7 @@ pub const BINDINGS: &[Binding] = &[
         "internal-link",
         "A malformed local target fails without stopping inspection",
     ),
+    ("internal-link", "Image syntax is not an internal link"),
     (
         "internal-link",
         "A declared excluded source is not a link source",

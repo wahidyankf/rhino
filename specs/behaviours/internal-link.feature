@@ -77,6 +77,14 @@ Feature: Markdown internal-link validation
     When I inspect internal links
     Then there are 2 violations
 
+  Scenario: Image syntax is not an internal link
+    Given file "guides/source.md" contains this Markdown:
+      """
+      ![Missing diagram](missing.png) and [Missing document](missing.md)
+      """
+    When I inspect internal links
+    Then the only violation starts with "guides/source.md:1: `missing.md`"
+
   Scenario: A declared excluded source is not a link source
     Given the repository declares the internal-link excluded source "archive/**"
     And file "archive/historical.md" contains this Markdown:

@@ -26,7 +26,10 @@ impl Sandbox {
         let ordinal = NEXT.fetch_add(1, Ordering::Relaxed);
         let root =
             std::env::temp_dir().join(format!("rhino-spec-{}-{ordinal}", std::process::id()));
-        std::fs::create_dir_all(&root).expect("the sandbox root is creatable");
+        // `create_dir`, not `create_dir_all`: a root that already exists is a
+        // leaked fixture from an earlier run, and silently reusing it would
+        // mean a scenario inspecting files it never declared.
+        std::fs::create_dir(&root).expect("the sandbox root is new and creatable");
 
         let sandbox = Self { root };
         for (path, content) in files {

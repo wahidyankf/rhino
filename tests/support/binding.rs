@@ -52,7 +52,6 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
     match matched.pattern {
         // -- Arrange: the configuration ---------------------------------------
         "the repository declares a complete configuration" => {
-            world.declaration.complete = true;
             world.declaration.present = true;
             Outcome::Passed
         }
@@ -62,7 +61,6 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         }
         "the repository declares the schema {string}" => {
             world.declaration.present = true;
-            world.declaration.complete = true;
             world.declaration.schema = Some(matched.string(0).to_string());
             Outcome::Passed
         }
@@ -133,14 +131,12 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             // The fixture's declared palette is the accessible one. Saying so
             // is what makes the diagram scenarios readable without repeating
             // six colours in every Background.
-            world.declaration.complete = true;
             world.declaration.present = true;
             Outcome::Passed
         }
         "an empty repository" => {
             // About the tree, not the configuration: a repository with a
             // complete policy and nothing to apply it to.
-            world.declaration.complete = true;
             world.declaration.present = true;
             world.files.clear();
             Outcome::Passed
@@ -249,14 +245,12 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         "the repository declares a configuration with an empty harness roster and no canonical skill or agent root" =>
         {
             world.declaration.present = true;
-            world.declaration.complete = true;
             world.declaration.empty_roster = true;
             Outcome::Passed
         }
         "the repository declares a configuration with an empty harness roster and a canonical skills root" =>
         {
             world.declaration.present = true;
-            world.declaration.complete = true;
             world.declaration.empty_roster = true;
             world.declaration.canonical_skills_root = Some("canon/skills".to_string());
             Outcome::Passed
@@ -406,6 +400,33 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                     "expected a mermaid violation at `{}`, got `{}`",
                     matched.string(0),
                     lines[0]
+                ),
+            )
+        }
+        "the only violation starts with {string}" => {
+            // Count and identity in one sentence. A count alone cannot tell a
+            // correct implementation from one that reported the wrong thing,
+            // and an identity alone cannot tell it from one that reported the
+            // right thing plus something else.
+            let result = world.result();
+            let lines: Vec<&str> = result
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with('['))
+                .collect();
+            if lines.len() != 1 {
+                return Outcome::Failed(format!(
+                    "expected exactly one violation, got {}\nstderr: {}",
+                    lines.len(),
+                    result.stderr
+                ));
+            }
+            let body = lines[0].split_once("] ").map_or(lines[0], |(_, rest)| rest);
+            expect(
+                body.starts_with(matched.string(0)),
+                format!(
+                    "expected the violation to start `{}`, got `{body}`",
+                    matched.string(0)
                 ),
             )
         }

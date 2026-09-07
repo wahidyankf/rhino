@@ -26,10 +26,9 @@ pub struct CommandResult {
 /// it.
 #[derive(Debug, Clone, Default)]
 pub struct Declaration {
-    /// Start from a complete, valid configuration rather than an empty one.
-    /// `specs/behaviours/README.md` states why: a declaring `Given` is additive
-    /// over a legal base, so a feature can declare only a palette.
-    pub complete: bool,
+    /// Whether a configuration file exists at all. What it contains is always
+    /// the complete, legal base plus whatever the scenario declared on top:
+    /// `specs/behaviours/README.md` states why a declaring `Given` is additive.
     pub present: bool,
     pub schema: Option<String>,
     /// Dotted key to replacement scalar, applied after the base is built.

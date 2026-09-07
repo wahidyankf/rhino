@@ -115,6 +115,14 @@ fn integration_and_e2e_are_bound_or_validly_exempt() {
             unknown.is_empty(),
             "{layer}: bindings or exemptions with no scenario: {unknown:?}"
         );
+
+        // A duplicated binding runs its scenario twice and reads as extra
+        // coverage rather than as the mistake it is.
+        assert_eq!(
+            bindings.len(),
+            bound.len(),
+            "{layer}: a scenario is bound more than once"
+        );
     }
 }
 

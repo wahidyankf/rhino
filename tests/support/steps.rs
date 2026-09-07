@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 117] = [
+pub const VOCABULARY: [&str; 118] = [
     "I add a canonical skill supporting resource",
     "I count the words in {string}",
     "I find word-limit violations",
@@ -93,6 +93,7 @@ pub const VOCABULARY: [&str; 117] = [
     "the harness-parity digest changed",
     "the harness-parity violations include {string}",
     "the only violation is a Mermaid accessibility issue at {string}",
+    "the only violation starts with {string}",
     "the only violation is a missing README at {string}",
     "the only violation is a missing directory map at {string}",
     "the only violation is a missing map entry from {string} to {string}",
