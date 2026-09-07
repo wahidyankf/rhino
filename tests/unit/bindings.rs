@@ -10,6 +10,26 @@ use crate::registry::{Binding, Exemption};
 pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
+        "A route template written with uneven spacing is the same route",
+    ),
+    (
+        "harness-parity",
+        "A closed adapter still declares the fields its translations name",
+    ),
+    (
+        "harness-parity",
+        "A route wrapped across lines is the same route",
+    ),
+    (
+        "word-budget",
+        "A repository counting whitespace-separated fields counts the marker too",
+    ),
+    (
+        "word-budget",
+        "The budget is measured by the rule the repository declared",
+    ),
+    (
+        "harness-parity",
         "The canon declares its permissions under names the repository chose",
     ),
     (

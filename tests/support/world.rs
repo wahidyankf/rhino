@@ -142,6 +142,16 @@ pub struct Declaration {
     /// are gone -- the half of the pairing a scenario cannot state any other
     /// way, since the shape is otherwise written alongside the root.
     pub keep_declaration_shape: bool,
+    /// What this repository means by a word, when a scenario says so. `None`
+    /// leaves the base rule in force.
+    pub word_rule: Option<String>,
+    /// Whether every harness closes its agent adapter's declaration -- which
+    /// must not then accuse the adapter of the fields its own translations
+    /// oblige it to carry.
+    pub closed_agent_adapters: bool,
+    /// Whether the configuration writes its route template with uneven
+    /// spacing, as a repository that wrapped or re-indented the line would.
+    pub padded_route_template: bool,
     pub roster: Vec<String>,
     /// Whether the configuration declares a file permitted to import the
     /// canonical instruction. Absent is legal, so the flag is a tri-state only
@@ -178,6 +188,9 @@ impl Default for Declaration {
             renamed_declaration: false,
             omit_declaration_shape: false,
             keep_declaration_shape: false,
+            word_rule: None,
+            closed_agent_adapters: false,
+            padded_route_template: false,
             roster: Vec::new(),
             // A declared adapter is the ordinary case; the scenario that has
             // none says so.

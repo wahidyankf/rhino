@@ -608,6 +608,35 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the repository writes its route template with uneven spacing" => {
+            world.declaration.padded_route_template = true;
+            Outcome::Passed
+        }
+        "every harness closes its agent adapter declaration" => {
+            world.declaration.closed_agent_adapters = true;
+            Outcome::Passed
+        }
+        "the agent adapter for {string} wraps its route across lines" => {
+            world.files.insert(
+                harness::agent_adapter(matched.string(0)),
+                harness::agent_with_a_wrapped_route(matched.string(0)),
+            );
+            Outcome::Passed
+        }
+        "the repository counts words as {string}" => {
+            world.declaration.word_rule = Some(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "file {string} holds a bolded word and a URL" => {
+            // Two whitespace-separated fields, and six runs of letters and
+            // digits. Which number the budget is measured against is the whole
+            // difference between the two rules.
+            world.files.insert(
+                matched.string(0).to_string(),
+                "**bold** https://example.com/a/b\n".to_string(),
+            );
+            Outcome::Passed
+        }
         "the repository declares a word-budget surface {string} failing above {int}" => {
             world.declaration.overrides.insert(
                 "governance-word-budget.surfaces".to_string(),

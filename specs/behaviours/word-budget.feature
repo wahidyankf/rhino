@@ -1,13 +1,27 @@
 Feature: Word-budget validation
 
-  A repository declares its own word surfaces and limits. RHINO holds no opinion
-  about which files are governed or how long they may be; it enforces what the
-  configuration says and reports what it counted.
+  A repository declares its own word surfaces and limits, and what it means by a
+  word. RHINO holds no opinion about which files are governed, how long they may
+  be, or how to count them; it enforces what the configuration says and reports
+  what it counted.
 
   Scenario: Markdown punctuation does not create extra words
     Given Markdown text containing a heading marker, Hello, can't-stop, naïve, and 42
     When I count the words in "subject.md"
     Then the word count is 4
+
+  Scenario: A repository counting whitespace-separated fields counts the marker too
+    Given the repository counts words as "whitespace-separated"
+    And Markdown text containing a heading marker, Hello, can't-stop, naïve, and 42
+    When I count the words in "subject.md"
+    Then the word count is 5
+
+  Scenario: The budget is measured by the rule the repository declared
+    Given the repository counts words as "whitespace-separated"
+    And the repository declares a word-budget surface "notes/**/*.md" failing above 4
+    And file "notes/entry.md" holds a bolded word and a URL
+    When I inspect the word budget
+    Then the exit code is 0
 
   Scenario: Only declared surfaces are scanned
     Given the repository declares word-budget surfaces:

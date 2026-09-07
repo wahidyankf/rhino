@@ -29,6 +29,7 @@ This is RHINO's own configuration, and the whole schema:
 # schema: rhino/repo-config/v1
 
 governance-word-budget:
+  count: letters-and-digits
   surfaces:
     - glob: "AGENTS.md"
       fail: 1200
@@ -74,7 +75,19 @@ scan:
 
 | Key        | Required | Meaning                                           |
 | ---------- | -------- | ------------------------------------------------- |
+| `count`    | yes      | What this repository means by a word.             |
 | `surfaces` | yes      | Ordered list of governed globs and their budgets. |
+
+`count` is `letters-and-digits` or `whitespace-separated`, and there is no
+default because two real repositories already disagree:
+
+| Rule                   | A word is                                                                    | `**bold** https://x.dev/a` |
+| ---------------------- | ---------------------------------------------------------------------------- | -------------------------- |
+| `letters-and-digits`   | a run of letters, marks and digits, joined by `'`, `-` or `_` to another run | 5                          |
+| `whitespace-separated` | anything between two runs of whitespace                                      | 2                          |
+
+One repository's `AGENTS.md` is 749 words under the second rule and 905 under
+the first. Picking either would enforce a budget that repository never set.
 
 Each surface takes `glob` and `fail`, and optionally `warn` and `target`.
 `fail` is inclusive: a file exactly at the declared count passes, and strictly
@@ -239,6 +252,16 @@ Each translation says **when** it applies and **what** it then obliges:
 A field read for members takes a sequence as its items and a scalar as its
 comma-separated parts, so a harness writing `tools: Read, Grep` and one writing
 a list are read the same way.
+
+`closed` permits everything the contract itself names — the route field, the
+identity and fixed fields, and **every field a translation is about**. A closed
+set that excluded the last of those would report the very field the adapter is
+obliged to declare.
+
+Routes are compared as sentences, not as bytes: runs of whitespace collapse to
+one space on both sides first. A route is prose, every Markdown formatter wraps
+prose, and where a line breaks is not something an adapter can be said to have
+got wrong.
 
 The check is **non-weakening, not equality**. An adapter may grant more than the
 canon requires; it may not grant less, and it may not grant what the canon

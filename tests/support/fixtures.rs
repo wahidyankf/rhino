@@ -30,6 +30,13 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
 
     lines.insert("schema".into(), schema);
     lines.insert(
+        "governance-word-budget.count".into(),
+        declaration
+            .word_rule
+            .clone()
+            .unwrap_or_else(|| "letters-and-digits".into()),
+    );
+    lines.insert(
         "governance-word-budget.surfaces".into(),
         "[{glob: \"rules/**/*.md\", fail: 40}]".into(),
     );
@@ -96,7 +103,10 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
     {
         lines.insert(
             "harness-parity.canonical.agent-route".into(),
-            format!("\"{}\"", harness::AGENT_ROUTE),
+            match declaration.padded_route_template {
+                true => format!("\"{}\"", harness::AGENT_ROUTE.replace(' ', "  ")),
+                false => format!("\"{}\"", harness::AGENT_ROUTE),
+            },
         );
         lines.insert(
             "harness-parity.canonical.agents-root".into(),
@@ -141,6 +151,7 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
                         name,
                         declaration.unnamed_translation,
                         declaration.undeclared_translation,
+                        declaration.closed_agent_adapters,
                     )
                 ));
             }

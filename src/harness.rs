@@ -834,15 +834,21 @@ impl Read {
     }
 
     /// The route this adapter carries, wherever its harness keeps it.
+    /// The route this adapter carries, as a sentence rather than as bytes.
+    ///
+    /// Runs of whitespace collapse to one space before the comparison. A route
+    /// is prose, every Markdown formatter wraps prose, and both repositories
+    /// this reconciles run one -- so comparing the bytes would report drift on
+    /// an adapter nobody edited and offer no remedy but turning the formatter
+    /// off. Where a line breaks is not something an adapter can be said to have
+    /// got wrong.
     fn route(&self, adapter: &Adapter) -> String {
-        if adapter.route_field == BODY {
-            self.body.trim().to_string()
+        let raw = if adapter.route_field == BODY {
+            self.body.clone()
         } else {
-            self.scalar(&adapter.route_field)
-                .unwrap_or_default()
-                .trim()
-                .to_string()
-        }
+            self.scalar(&adapter.route_field).unwrap_or_default()
+        };
+        raw.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 }
 
@@ -872,7 +878,14 @@ fn name_in(pattern: &str, path: &str) -> Option<String> {
 
 /// The route sentence a canonical document at `path` obliges.
 fn route_for(template: &str, path: &str) -> String {
-    template.replace("{path}", path)
+    // Collapsed on the same rule the adapter's own route is, so a template a
+    // repository wrote across two YAML lines means the same sentence as one
+    // written across one.
+    template
+        .replace("{path}", path)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Every way one adapter can fall short of the canon behind it.
@@ -925,10 +938,15 @@ fn shortfalls(
     }
 
     if adapter.closed {
+        // Everything the contract itself is about. The translations belong here
+        // as much as the identity does: a closed set that left them out would
+        // report the very field a translation obliges the adapter to declare,
+        // which is a rule no adapter could satisfy and no repository could use.
         let permitted: BTreeSet<&str> = adapter
             .identity
             .keys()
             .chain(adapter.fixed.keys())
+            .chain(adapter.translations.iter().map(|rule| &rule.field))
             .map(String::as_str)
             .chain((adapter.route_field != BODY).then_some(adapter.route_field.as_str()))
             .collect();

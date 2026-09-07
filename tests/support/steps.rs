@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 193] = [
+pub const VOCABULARY: [&str; 198] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -64,6 +64,7 @@ pub const VOCABULARY: [&str; 193] = [
     "an unsafe {string} Mermaid diagram is supplied on standard input",
     "each declared excluded directory contains an unsafe Mermaid diagram",
     "each harness declares the required capability in its own capability format",
+    "every harness closes its agent adapter declaration",
     "excluded instruction sources and a linked skill exist",
     "file {string} cannot be opened",
     "file {string} contains this Markdown:",
@@ -71,6 +72,7 @@ pub const VOCABULARY: [&str; 193] = [
     "file {string} exceeds its declared word budget",
     "file {string} has an empty {string} directory map followed by {int} words",
     "file {string} has title {string} and an empty directory map",
+    "file {string} holds a bolded word and a URL",
     "file {string} holds bytes that are not text",
     "file {string} vanishes between the walk and the read",
     "harness {string} declares a command directory",
@@ -123,6 +125,7 @@ pub const VOCABULARY: [&str; 193] = [
     "the agent adapter for {string} names another agent",
     "the agent adapter for {string} weakens a denied capability",
     "the agent adapter for {string} withholds a required capability",
+    "the agent adapter for {string} wraps its route across lines",
     "the agent directory for {string} holds the extra file {string}",
     "the canonical agent carries no declaration",
     "the canonical agent declares a constraint outside the declared vocabulary",
@@ -170,6 +173,7 @@ pub const VOCABULARY: [&str; 193] = [
     "the repository contains a Mermaid node label of {int} graphemes",
     "the repository contains a Mermaid node label written as {string}",
     "the repository contains:",
+    "the repository counts words as {string}",
     "the repository declares a complete configuration",
     "the repository declares a configuration with an empty harness roster and a canonical skills root",
     "the repository declares a configuration with an empty harness roster and no canonical skill or agent root",
@@ -189,6 +193,7 @@ pub const VOCABULARY: [&str; 193] = [
     "the repository has no configuration file",
     "the repository holds a map entry whose target needs escaping",
     "the repository is unchanged by the inspection",
+    "the repository writes its route template with uneven spacing",
     "the required-capability arguments for harness {string} diverge",
     "the required-capability command for harness {string} diverges",
     "the scanned Markdown paths are:",

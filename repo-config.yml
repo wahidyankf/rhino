@@ -5,6 +5,9 @@
 # choice this repository made; the tool ships none of them.
 
 governance-word-budget:
+  # A word is a run of letters and digits, so Markdown syntax counts for
+  # nothing and a URL counts as its parts.
+  count: letters-and-digits
   # Ordered: the last matching glob wins, so a specific surface can override a
   # general tree.
   surfaces:

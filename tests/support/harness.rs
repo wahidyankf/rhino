@@ -462,8 +462,16 @@ pub fn capability_without_the_required_server() -> String {
 /// would present as a scenario failing for a reason nobody wrote down.
 /// The declaration, optionally spoiled in one of the two ways a translation can
 /// be written so that nothing would ever trigger it.
-pub fn agent_adapter_declaration_with(harness: &str, unnamed: bool, undeclared: bool) -> String {
+pub fn agent_adapter_declaration_with(
+    harness: &str,
+    unnamed: bool,
+    undeclared: bool,
+    closed: bool,
+) -> String {
     let declared = agent_adapter_declaration(harness);
+    if closed {
+        return declared.replacen('{', "{closed: true, ", 1);
+    }
     if unnamed {
         return declared.replace(
             "when: requires, capability: repository-read, ",
@@ -537,6 +545,18 @@ pub fn agent_without_a_matching_grant(harness: &str) -> String {
         Shape::List => agent_adapter_body(harness).replace(", ShellRun", ""),
         _ => agent_adapter_body(harness).replace("  shell-run: allow\n", ""),
     }
+}
+
+/// The same adapter with its route wrapped the way a Markdown formatter wraps
+/// prose: identical words, a line break where a space was.
+pub fn agent_with_a_wrapped_route(harness: &str) -> String {
+    let body = agent_adapter_body(harness);
+    // Only past the front matter: a formatter wraps the prose, not the
+    // declaration, and breaking a YAML line would be a different fault.
+    let (declaration, prose) = body
+        .rsplit_once("---\n")
+        .expect("an adapter carries front matter");
+    format!("{declaration}---\n{}", prose.replacen(' ', "\n", 4))
 }
 
 /// A canonical agent asking for less than every adapter already grants.

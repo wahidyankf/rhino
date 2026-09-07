@@ -49,6 +49,7 @@ cat > repo-config.yml <<'END'
 # schema: rhino/repo-config/v1
 
 governance-word-budget:
+  count: letters-and-digits
   surfaces:
     - glob: "AGENTS.md"
       fail: 400

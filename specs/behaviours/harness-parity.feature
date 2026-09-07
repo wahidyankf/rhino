@@ -413,6 +413,29 @@ Feature: Coding-harness parity
       | canon/agents/nested/deep.md |
       | canon/agents/notes.txt      |
 
+  Scenario: A closed adapter still declares the fields its translations name
+    Given every harness closes its agent adapter declaration
+    And a valid one-skill one-agent one-capability harness contract
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+  Scenario: A route template written with uneven spacing is the same route
+    Given the repository writes its route template with uneven spacing
+    And a valid one-skill one-agent one-capability harness contract
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+  Scenario Outline: A route wrapped across lines is the same route
+    Given a valid one-skill one-agent one-capability harness contract
+    And the agent adapter for "<harness>" wraps its route across lines
+    When I inspect harness parity
+    Then harness-parity validation succeeds
+
+    Examples:
+      | harness |
+      | alpha   |
+      | beta    |
+
   Scenario Outline: The canon declares its permissions under names the repository chose
     Given the canonical agents declare their permissions under "<spelling>" names
     And a valid one-skill one-agent one-capability harness contract

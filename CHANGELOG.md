@@ -49,6 +49,13 @@ The first release. Nothing is published yet, so everything below is new.
   than equality: an adapter may grant more than the canon requires, never less,
   and never what the canon denies. Semantic drift is reported apart from a
   wrong route, because they are different problems.
+- **What counts as a word is declared, not assumed.** `governance-word-budget`
+  takes a `count` of `letters-and-digits` or `whitespace-separated`. The two
+  repositories being reconciled here already disagree, by 156 words on the same
+  file, so either choice made silently would enforce a budget nobody set.
+- **A route is compared as a sentence.** Runs of whitespace collapse on both
+  sides before an adapter's route is matched against the canonical one, so an
+  adapter a Markdown formatter wrapped is not drift.
 - **The canon's own field names are configuration too.** A repository says
   which field of a canonical agent holds what it may do, what it may not, and
   how it must behave, and which fields every such agent must carry outright.

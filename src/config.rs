@@ -93,9 +93,30 @@ pub struct Config {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WordBudget {
+    /// What this repository means by a word.
+    ///
+    /// Required, because the two repositories being reconciled here already
+    /// disagree: one counts runs of letters and digits, the other counts
+    /// whitespace-separated fields, and one repository's `AGENTS.md` is 749
+    /// words by its own rule and 905 by the other's. A tool that picked either
+    /// would be enforcing a budget the repository never set.
+    pub count: WordRule,
     /// Ordered: where two globs match one file, the last matching entry wins,
     /// which is how a specific surface overrides a general tree.
     pub surfaces: Vec<Surface>,
+}
+
+/// The two definitions of a word in use, each transcribed rather than designed.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum WordRule {
+    /// A run of letters, marks, and digits, optionally joined to another such
+    /// run by an apostrophe, hyphen, or underscore. Markdown syntax and
+    /// punctuation count for nothing; a URL counts as its several parts.
+    LettersAndDigits,
+    /// Anything between two runs of whitespace. `**bold**` is one word, and so
+    /// is a whole URL.
+    WhitespaceSeparated,
 }
 
 #[derive(Debug, Clone, Deserialize)]

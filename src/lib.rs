@@ -129,7 +129,7 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
             report
         }
         "word-budget" => governance::word_budget::validate(tree, &config),
-        "word-count" => governance::word_budget::inspect(tree, &scope),
+        "word-count" => governance::word_budget::inspect(tree, &config, &scope),
         "directory-map" => governance::directory_map::validate(tree, &config, &scope),
         "harness-parity" => harness::validate(tree, &config, &scope),
         "internal-link" => markdown::internal_link::validate(tree, &config),
