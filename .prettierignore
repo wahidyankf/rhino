@@ -2,3 +2,5 @@ target
 node_modules
 dist
 CHANGELOG.md
+local-tmp
+worktrees

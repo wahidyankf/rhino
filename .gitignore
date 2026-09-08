@@ -3,3 +3,8 @@
 /node_modules
 /dist
 lcov.info
+
+# Task worktrees live in the repository so this repository's own rules can see
+# them. Only the placeholder is tracked; a worktree never enters history.
+/worktrees/*
+!/worktrees/.gitkeep
