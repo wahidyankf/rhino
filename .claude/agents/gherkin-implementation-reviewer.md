@@ -1,0 +1,7 @@
+---
+name: gherkin-implementation-reviewer
+description: Review changed Gherkin scenarios and their bindings against this repository's rules, read-only, and report what each binding actually asserts.
+tools: Read, Glob, Grep
+---
+
+Before acting, read the complete canonical agent definition at the repository-root path .agents/agents/gherkin-implementation-reviewer.md and follow it as authoritative. If it cannot be read, stop and report the missing path.
