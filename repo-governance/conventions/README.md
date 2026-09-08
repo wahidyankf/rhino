@@ -14,6 +14,8 @@ Repository-wide choices, within the [vision](../vision/README.md) and the [princ
 - [Last-resort questions](last-resort-questions.md) — exhaust independent progress before asking.
 - [Markdown links](markdown-links.md) — internal links resolve, and move with their targets.
 - [Markdown visualizations](markdown-visualizations.md) — when to draw one, and the accessible palette.
+- [Plan lifecycle](plan-lifecycle.md) — the four stages a plan moves through, and what each folder contains.
+- [Plan specification changes](plan-specification-changes.md) — how a plan states the specification work before it starts.
 - [Public repository data safety](public-repository-data-safety.md) — what may never be committed here.
 - [Pull request body](pull-request-body.md) — what the body carries, and that it never goes stale.
 - [Pull request boundaries](pull-request-boundaries.md) — one branch, one pull request, one delivery unit.
