@@ -157,6 +157,16 @@ pub struct Declaration {
     /// canonical instruction. Absent is legal, so the flag is a tri-state only
     /// in the sense that a scenario may leave it alone.
     pub declares_instruction_adapter: bool,
+    /// Whether the canonical instruction body and its adapter carry a
+    /// non-Markdown extension.
+    ///
+    /// Nothing in the contract says the canon has to be Markdown -- only that
+    /// a *competing* source found by its content can only be Markdown -- so a
+    /// repository is free to declare one that is not, and a fixture in which
+    /// every canonical file happens to end in `.md` cannot tell the difference
+    /// between a rule that reads the file it was told to and one that reads
+    /// every Markdown file and no other.
+    pub canon_is_not_markdown: bool,
     /// Harnesses that declare a command directory. Per-harness, because that is
     /// how the schema states it.
     pub command_directories: BTreeSet<String>,
@@ -195,6 +205,7 @@ impl Default for Declaration {
             // A declared adapter is the ordinary case; the scenario that has
             // none says so.
             declares_instruction_adapter: true,
+            canon_is_not_markdown: false,
             command_directories: BTreeSet::new(),
             capability_formats: BTreeMap::new(),
             canonical_skills_root: None,

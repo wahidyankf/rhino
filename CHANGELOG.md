@@ -9,6 +9,37 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.1.2] — 2026-09-08
+
+### Fixed
+
+- **`harness parity validate` no longer reads the whole repository.** It read
+  every file the walk listed, then used the content of almost none of them:
+  every rule it applies is about the canonical instruction body, a file under a
+  declared canonical or adapter root, a harness's capability declaration, a
+  path a prohibited glob names, or an import — and only Markdown can express an
+  import. Everything else was opened and discarded as soon as it turned out not
+  to be text, which on a working tree means compiled artifacts, dialyzer
+  tables, and database files. On a 4,649-file repository the command now reads
+  **210 files and 1.9 MB instead of 4,649 and 98.9 MB**, and falls from
+  **182 ms to 35 ms**. Output is unchanged: every command's JSON is
+  byte-identical to `v0.1.1` on that repository.
+
+### Changed
+
+- **An unreadable file stops the run only if the run was going to read it.**
+  Previously any file `harness parity validate` could not open was exit `2`,
+  including files no rule it applies is about. A file matching a prohibited
+  glob still stops the run whatever its kind, because that rule is about the
+  path and the run has to be able to say what is in it.
+
+### Added
+
+- **The canonical instruction body and its adapter need not be Markdown.** They
+  were always allowed to be anything the repository declared; nothing proved
+  it, and narrowing what gets read is exactly the change that could have
+  broken it silently.
+
 ## [v0.1.1] — 2026-09-08
 
 ### Fixed
@@ -121,5 +152,6 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.1.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.0

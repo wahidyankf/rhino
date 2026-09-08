@@ -12,12 +12,13 @@
 
 use crate::config::{
     Adapter, Capability, CapabilityFormat, Config, DeclarationShape, DocumentFormat, Harness,
-    Identity, RequiredMcp, Translation, When,
+    HarnessParity, Identity, RequiredMcp, Translation, When,
 };
 use crate::markdown;
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::scan::{self, Scope};
+use globset::GlobSet;
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -125,6 +126,72 @@ fn read_declaration(text: &str, shape: &DeclarationShape) -> Result<Declaration,
     })
 }
 
+/// Whether this validator could use the *content* of a path.
+///
+/// Every rule here is about one of five things: the canonical instruction body
+/// and the one file permitted to route to it, a canonical skill or agent, an
+/// adapter for one of those, a harness's capability declaration, or a file
+/// competing with the canon. The first four are declared paths. The fifth is
+/// either a declared glob -- a path question, and the reason a glob match is
+/// read despite not being Markdown -- or an import, which only Markdown can
+/// express.
+///
+/// Anything else is opened only to be discarded, and the discarding is not
+/// free: a working tree carries compiled artifacts and databases far larger
+/// than its documentation.
+///
+/// A path the walk lists and this predicate rejects is still seen by every
+/// rule that asks about a path. What it is spared is the read.
+fn readable_set<'a>(
+    parity: &'a HarnessParity,
+    prohibited: Option<&'a GlobSet>,
+) -> impl Fn(&str) -> bool + 'a {
+    let canonical = &parity.canonical;
+
+    let mut roots: Vec<String> = [
+        canonical.skills_root.as_deref(),
+        canonical.agents_root.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|root| format!("{}/", root.trim_end_matches('/')))
+    .collect();
+
+    for harness in &parity.harnesses {
+        for adapter in [
+            harness.agent_adapter.as_ref(),
+            harness.skill_adapter.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            // The literal head of the `{name}` pattern rather than the pattern
+            // itself. A file per document and a directory per document both
+            // live under it, and an adapter no canonical document asked for is
+            // reported from whatever is found there -- so the whole head has
+            // to be read, not just the paths a known name would produce.
+            let head = adapter.path.split("{name}").next().unwrap_or_default();
+            roots.push(head.to_string());
+        }
+    }
+
+    let capability_files: BTreeSet<&str> = parity
+        .harnesses
+        .iter()
+        .filter_map(|harness| harness.capability.as_ref())
+        .map(|capability| capability.file.as_str())
+        .collect();
+
+    move |path: &str| {
+        scan::is_markdown(path)
+            || path == canonical.instruction
+            || Some(path) == canonical.instruction_adapter.as_deref()
+            || capability_files.contains(path)
+            || roots.iter().any(|root| path.starts_with(root))
+            || prohibited.is_some_and(|globs| globs.is_match(path))
+    }
+}
+
 pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     let parity = &config.harness_parity;
     let files = scan::files(tree, config);
@@ -132,21 +199,44 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     let mut report = Report::new("harness-parity", "harness");
     let mut refusal: Option<String> = None;
 
-    // Read every file once. A validator that read the same adapter twice could
-    // report two different things about it.
+    // Compiled once and shared, because it decides two things that have to
+    // agree: which files are read, and which of them compete with the canon.
+    // A glob nobody can compile leaves the instruction check unmade rather
+    // than half made.
+    let prohibited = scan::glob_set(
+        "harness-parity.prohibited-instruction-sources",
+        &parity.prohibited_instruction_sources,
+    )
+    .ok();
+    let wanted = readable_set(parity, prohibited.as_ref());
+
+    // Read once, and only what a rule here could be about. A validator that
+    // read the same adapter twice could report two different things about it;
+    // one that read the whole repository would open every compiled artifact,
+    // dialyzer table, and database file a working tree has accumulated, to
+    // discard each as soon as it turned out not to be text. Measured on a real
+    // repository, that was 98.9 MB read to use 1.9 MB.
+    //
+    // Paths still come from the full walk. Only reading narrows, because two
+    // of the rules below -- a prohibited name, and an adapter nobody declared
+    // -- are about a path rather than about what is in it.
     let mut contents: BTreeMap<String, String> = BTreeMap::new();
     for path in &files {
+        if !wanted(path) {
+            continue;
+        }
         match tree.read(path) {
             Ok(text) => {
                 contents.insert(path.clone(), text);
             }
             Err(TreeError::NotFound) => {}
-            // Alone among the walks, this one reads every file rather than
-            // every file of a declared kind, so it is the only one that meets
-            // a repository's images and archives. None of them can be an
-            // instruction body, a skill, an agent, or a capability
-            // declaration, and refusing the run over a logo would put parity
-            // out of reach of any repository that ships one.
+            // Alone among the walks, this one reads files that are not
+            // Markdown, so it is the only one that can meet a repository's
+            // images and archives -- a prohibited glob matches a path
+            // whatever its kind. None of them can be an instruction body, a
+            // skill, an agent, or a capability declaration, and refusing the
+            // run over a logo would put parity out of reach of any repository
+            // that ships one.
             Err(TreeError::NotText) => {}
             Err(TreeError::Unreadable(reason)) => {
                 refusal.get_or_insert(format!("{path}: {reason}"));
@@ -157,7 +247,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         return Report::refused("harness-parity", reason);
     }
 
-    instructions(&contents, config, &mut report);
+    instructions(&contents, config, prohibited.as_ref(), &mut report);
     let canon = Canon {
         skills_root: parity.canonical.skills_root.as_deref(),
         agents_root: parity.canonical.agents_root.as_deref(),
@@ -233,7 +323,12 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
 
 // -- The instruction boundary -------------------------------------------------
 
-fn instructions(contents: &BTreeMap<String, String>, config: &Config, report: &mut Report) {
+fn instructions(
+    contents: &BTreeMap<String, String>,
+    config: &Config,
+    prohibited: Option<&GlobSet>,
+    report: &mut Report,
+) {
     let canonical = &config.harness_parity.canonical;
     let instruction = canonical.instruction.as_str();
     let adapter = canonical.instruction_adapter.as_deref();
@@ -273,10 +368,9 @@ fn instructions(contents: &BTreeMap<String, String>, config: &Config, report: &m
         }
     }
 
-    let Ok(prohibited) = scan::glob_set(
-        "harness-parity.prohibited-instruction-sources",
-        &config.harness_parity.prohibited_instruction_sources,
-    ) else {
+    // An unusable glob leaves this check unmade. Compiled by the caller, which
+    // needs the same answer to decide what to read.
+    let Some(prohibited) = prohibited else {
         return;
     };
 

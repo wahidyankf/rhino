@@ -211,6 +211,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "The canonical instruction body and its adapter need not be Markdown",
+    ),
+    (
+        "harness-parity",
         "A declared instruction adapter is optional",
     ),
     (
@@ -700,6 +704,14 @@ pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
         "A file that cannot be opened still stops the run",
+    ),
+    (
+        "harness-parity",
+        "A file no rule here reads does not stop the run when it cannot be opened",
+    ),
+    (
+        "harness-parity",
+        "A file a prohibited glob names stops the run when it cannot be opened",
     ),
     (
         "harness-parity",

@@ -110,11 +110,14 @@ Some situations look like findings and are not.
   changed under the run; reporting it would blame the maintainer for a race.
 - **A file that exists and cannot be opened.** That is exit `2`, not a finding.
   Reporting it as missing would tell a maintainer to write a file that is
-  already there.
+  already there — but only for a file the command was going to read. A file
+  outside every declared root, glob, and document kind is one no rule is about,
+  and refusing the run over it would make a repository's build directory able
+  to stop its documentation from being checked.
 - **A file that opens and holds no text.** An image or an archive is not an
   instruction, a skill, an agent, or a capability declaration. Only `harness
-parity validate` meets one, because it is the only walk that reads every file
-  rather than every file of a declared kind.
+parity validate` meets one, because it is the only walk that reads files that
+  are not Markdown: a prohibited glob names a path whatever its kind.
 - **A non-Markdown file containing the canonical import.** Source, fixtures,
   and data are not always-on instructions to any harness — the code that
   implements this check has to contain the route to look for it. Files

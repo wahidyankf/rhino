@@ -15,6 +15,27 @@ use std::collections::BTreeMap;
 
 pub const INSTRUCTION: &str = "root-instructions.md";
 pub const ADAPTER: &str = "adapter-instructions.md";
+/// The same two files under a name no Markdown scan would pick up.
+pub const INSTRUCTION_UNMARKED: &str = "root-instructions.txt";
+pub const ADAPTER_UNMARKED: &str = "adapter-instructions.txt";
+
+/// Where this declaration puts the canonical instruction body.
+pub fn instruction(declaration: &Declaration) -> &'static str {
+    if declaration.canon_is_not_markdown {
+        INSTRUCTION_UNMARKED
+    } else {
+        INSTRUCTION
+    }
+}
+
+/// Where this declaration puts the file permitted to route to it.
+pub fn adapter(declaration: &Declaration) -> &'static str {
+    if declaration.canon_is_not_markdown {
+        ADAPTER_UNMARKED
+    } else {
+        ADAPTER
+    }
+}
 pub const SKILLS_ROOT: &str = "canon/skills";
 pub const AGENTS_ROOT: &str = "canon/agents";
 pub const SKILL: &str = "tidy";
@@ -259,11 +280,14 @@ pub fn valid_contract(declaration: &Declaration) -> BTreeMap<String, String> {
     let mut files: BTreeMap<String, String> = BTreeMap::new();
 
     files.insert(
-        INSTRUCTION.to_string(),
+        instruction(declaration).to_string(),
         "# Project rules\n\nEvery harness reaches this body.\n".to_string(),
     );
     if declaration.declares_instruction_adapter {
-        files.insert(ADAPTER.to_string(), import(INSTRUCTION));
+        files.insert(
+            adapter(declaration).to_string(),
+            import(instruction(declaration)),
+        );
     }
     files.insert(canonical_skill(), skill_body());
     files.insert(
@@ -295,6 +319,8 @@ pub fn contract_paths() -> impl Fn(&String) -> bool {
     |path: &String| {
         path == INSTRUCTION
             || path == ADAPTER
+            || path == INSTRUCTION_UNMARKED
+            || path == ADAPTER_UNMARKED
             || path.starts_with(&format!("{SKILLS_ROOT}/"))
             || path.starts_with(&format!("{AGENTS_ROOT}/"))
             || path.starts_with("adapters/")

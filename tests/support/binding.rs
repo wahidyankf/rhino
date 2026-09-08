@@ -331,6 +331,14 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the canonical instruction body and its adapter are not Markdown" => {
+            // Declared before the contract is seeded, so the files the fixture
+            // writes and the configuration that names them agree about where
+            // the canon lives.
+            world.declaration.canon_is_not_markdown = true;
+            reseed_contract(world);
+            Outcome::Passed
+        }
         "a file with a prohibited name is not Markdown" => {
             // Prohibited by name and unreadable as Markdown, so only the glob
             // can catch it -- which is the half of the rule that has to stay

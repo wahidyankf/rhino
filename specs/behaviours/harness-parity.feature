@@ -32,6 +32,12 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "invalid-instruction-adapter"
 
+  Scenario: The canonical instruction body and its adapter need not be Markdown
+    Given the canonical instruction body and its adapter are not Markdown
+    And a valid one-skill one-agent one-capability harness contract
+    When I inspect harness parity
+    Then there are no violations
+
   Scenario: A declared instruction adapter is optional
     Given the repository declares no instruction adapter
     And a valid one-skill one-agent one-capability harness contract
@@ -384,6 +390,19 @@ Feature: Coding-harness parity
   Scenario: A file that cannot be opened still stops the run
     Given a valid one-skill one-agent one-capability harness contract
     And file "notes.md" cannot be opened
+    When I inspect harness parity
+    Then the exit code is 2
+
+  Scenario: A file no rule here reads does not stop the run when it cannot be opened
+    Given a valid one-skill one-agent one-capability harness contract
+    And file "assets/logo.svg" cannot be opened
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A file a prohibited glob names stops the run when it cannot be opened
+    Given a valid one-skill one-agent one-capability harness contract
+    And a file with a prohibited name is not Markdown
+    And file "nested/always.instructions" cannot be opened
     When I inspect harness parity
     Then the exit code is 2
 

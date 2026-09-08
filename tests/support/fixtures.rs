@@ -72,12 +72,12 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
     );
     lines.insert(
         "harness-parity.canonical.instruction".into(),
-        harness::INSTRUCTION.into(),
+        harness::instruction(declaration).into(),
     );
     if declaration.declares_instruction_adapter {
         lines.insert(
             "harness-parity.canonical.instruction-adapter".into(),
-            harness::ADAPTER.into(),
+            harness::adapter(declaration).into(),
         );
     }
 

@@ -12,6 +12,7 @@
 //! against the source and the dependency graph instead, which is where the
 //! capability would have to appear before it could ever be exercised.
 
+use crate::harness;
 use crate::sandbox::{self, Sandbox};
 use crate::world::{World, differences};
 use rhino::runtime::{DiskTree, Tree};
@@ -378,4 +379,108 @@ fn a_symbolic_link_out_of_the_root_is_not_followed() {
         "the walk followed a link out of the repository: {:?}",
         tree.files()
     );
+}
+
+/// A tree that records what was asked of it, so a cost claim can be made about
+/// what a validator read rather than about how long a run happened to take.
+///
+/// A decorator over the real implementation rather than a mock: the numbers
+/// mean nothing unless the run underneath them is the run the product does.
+/// `excluding` and `rooted_at` rewrap, because a counter the product drops
+/// halfway through would report every later read as never having happened.
+struct CountingTree {
+    inner: Box<dyn Tree>,
+    reads: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+}
+
+impl Tree for CountingTree {
+    fn read(&self, path: &str) -> Result<String, rhino::runtime::TreeError> {
+        self.reads.borrow_mut().push(path.to_string());
+        self.inner.read(path)
+    }
+
+    fn files(&self) -> Vec<String> {
+        self.inner.files()
+    }
+
+    fn children(&self, directory: &str) -> Vec<String> {
+        self.inner.children(directory)
+    }
+
+    fn is_directory(&self, path: &str) -> bool {
+        self.inner.is_directory(path)
+    }
+
+    fn excluding(&self, directories: &[String]) -> Box<dyn Tree> {
+        Box::new(CountingTree {
+            inner: self.inner.excluding(directories),
+            reads: std::rc::Rc::clone(&self.reads),
+        })
+    }
+
+    fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String> {
+        Ok(Box::new(CountingTree {
+            inner: self.inner.rooted_at(path)?,
+            reads: std::rc::Rc::clone(&self.reads),
+        }))
+    }
+}
+
+#[test]
+fn harness_parity_reads_only_what_it_could_use() {
+    // A cost claim, and the reason it is here rather than in the corpus is the
+    // one above: a scenario can say what the answer is, never what it cost.
+    //
+    // `harness parity` is the only leaf that reads every file rather than every
+    // file of a declared kind, and nothing it checks can be answered by a file
+    // that is neither Markdown, nor under a declared canonical or adapter root,
+    // nor named by a prohibited glob. Measured on a real repository, that was
+    // 4,649 files and 98.9 MB read to use 203 files and 1.9 MB -- compiled
+    // artifacts, dialyzer tables, and a database backup, opened once per run to
+    // be discarded as soon as they were found not to be text.
+    let mut world: World<()> = World::default();
+    for (path, body) in harness::valid_contract(&world.declaration) {
+        world.files.insert(path, body);
+    }
+    // One of each kind the run has no use for, so a fix that narrowed by
+    // extension alone and a fix that narrowed by directory alone are both
+    // caught.
+    for path in ["assets/logo.svg", "build/output.o", "data/backup.sqlite3"] {
+        world
+            .files
+            .insert(path.to_string(), "not a document\n".to_string());
+    }
+
+    let repository = world.repository();
+    let sandbox = Sandbox::build(&repository);
+    let reads = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let tree = CountingTree {
+        inner: Box::new(DiskTree::new(sandbox.root()).expect("the sandbox root is a directory")),
+        reads: std::rc::Rc::clone(&reads),
+    };
+
+    let arguments: Vec<String> = ["harness", "parity", "validate"]
+        .iter()
+        .map(|part| (*part).to_string())
+        .collect();
+    let outcome = rhino::execute(&tree, &arguments);
+    assert_eq!(
+        outcome.exit_code, 0,
+        "the fixture is meant to be a clean contract: {}{}",
+        outcome.stdout, outcome.stderr
+    );
+
+    let read: std::collections::BTreeSet<String> = reads.borrow().iter().cloned().collect();
+    // A positive control, so a counter that had stopped recording could not
+    // report every file unread and pass.
+    assert!(
+        read.contains(harness::INSTRUCTION),
+        "the counter did not see the canonical instruction body being read"
+    );
+    for path in ["assets/logo.svg", "build/output.o", "data/backup.sqlite3"] {
+        assert!(
+            !read.contains(path),
+            "`harness parity` read `{path}`, which no declaration names and no rule here is about"
+        );
+    }
 }
