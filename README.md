@@ -157,13 +157,6 @@ Full documentation lives in [`docs/`](./docs/README.md) and follows the
 | [Reference](./docs/reference/README.md)     | You need an exact command, flag, code, or key      |
 | [Explanation](./docs/explanation/README.md) | You want to understand why RHINO is built this way |
 
-Popular entry points:
-
-- [Validate your first repository](./docs/tutorials/validate-your-first-repository.md) — ten minutes
-- [Command line](./docs/reference/cli.md) — every command and flag
-- [Configuration](./docs/reference/configuration.md) — every key of `repo-config.yml`
-- [Exit codes](./docs/reference/exit-codes.md) — the `0` / `1` / `2` contract
-
 The [specifications tree](./specs/README.md) is canonical:
 [`specs/architecture.md`](./specs/architecture.md) holds the as-built C4 model
 and [`specs/behaviours/`](./specs/behaviours/README.md) holds the executable
@@ -210,6 +203,12 @@ under the pinned [HIPPO](https://github.com/wahidyankf/hippo) guard via
 `./hippo run --class ephemeral --disk-path . -- <command>`.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+Only `main` persists. Work reaches it through a pull request from a branch in
+`worktrees/`; direct pushes are refused for every actor, with no bypass. One
+aggregate `Quality gate` check, defined in
+`.github/workflows/pr-quality-gate.yml`, is required, and it is a superset of
+the Git hooks.
 
 ### Test topology
 
