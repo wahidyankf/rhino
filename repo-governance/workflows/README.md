@@ -9,6 +9,8 @@ Several here carry a terminal contract — a fixed set of results, one of which 
 - [Coding-harness contract change](coding-harness-contract-change.md) — one canonical edit, every adapter reconciled with it.
 - [Coding-harness parity verification](coding-harness-parity-verification.md) — the read-only audit of the same contract.
 - [Gherkin implementation review](gherkin-implementation-review.md) — semantic review of what a binding actually asserts.
+- [Plan execution](plan-execution.md) — executing one formal plan while keeping its records true.
+- [Plan quality gate](plan-quality-gate.md) — a semantic verdict on one plan's readiness. Explicit request only.
 - [Red, green, refactor](red-green-refactor.md) — the executable form of the test-driven cycle.
 - [Release cut](release-cut.md) — building, checksumming, and tagging a release that can never be replaced.
 - [Rules grooming](rules-grooming.md) — a sweep for volume carrying no obligation. Never writes.
