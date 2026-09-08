@@ -376,7 +376,7 @@ fn the_quick_gate_and_the_hooks_run_no_slow_adapter() {
         (".husky/pre-push", "#"),
         (".husky/pre-commit", "#"),
         (".husky/commit-msg", "#"),
-        (".github/workflows/ci.yml", "#"),
+        (".github/workflows/pr-quality-gate.yml", "#"),
     ];
 
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));

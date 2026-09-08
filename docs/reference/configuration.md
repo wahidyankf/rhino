@@ -143,21 +143,21 @@ reader sees separately.
 
 ## `harness-parity`
 
-| Key                              | Required                | Meaning                                                     |
-| -------------------------------- | ----------------------- | ----------------------------------------------------------- |
-| `canonical.instruction`          | yes                     | The one always-on instruction body.                         |
-| `canonical.instruction-adapter`  | no                      | A file that may contain only the import of the instruction. |
-| `canonical.skills-root`          | no                      | Where canonical skills live.                                |
-| `canonical.skill-route`          | with `skills-root`      | What a wrapper carries in place of the skill.               |
-| `canonical.agents-root`          | no                      | Where canonical agents live.                                |
-| `canonical.agent-route`          | with `agents-root`      | What an adapter carries in place of the prompt.             |
-| `canonical.declaration`          | with `agents-root`      | Which field of a canonical agent holds which permission.    |
-| `harnesses`                      | yes, and may be empty   | The coding harnesses to reconcile.                          |
-| `prohibited-instruction-sources` | yes                     | Globs that may not be always-on instruction sources.        |
+| Key                              | Required                | Meaning                                                             |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------------- |
+| `canonical.instruction`          | yes                     | The one always-on instruction body.                                 |
+| `canonical.instruction-adapter`  | no                      | A file that may contain only the import of the instruction.         |
+| `canonical.skills-root`          | no                      | Where canonical skills live.                                        |
+| `canonical.skill-route`          | with `skills-root`      | What a wrapper carries in place of the skill.                       |
+| `canonical.agents-root`          | no                      | Where canonical agents live.                                        |
+| `canonical.agent-route`          | with `agents-root`      | What an adapter carries in place of the prompt.                     |
+| `canonical.declaration`          | with `agents-root`      | Which field of a canonical agent holds which permission.            |
+| `harnesses`                      | yes, and may be empty   | The coding harnesses to reconcile.                                  |
+| `prohibited-instruction-sources` | yes                     | Globs that may not be always-on instruction sources.                |
 | `prohibited-instruction-fields`  | no                      | Fields of a harness's own settings that may not carry instructions. |
-| `capabilities`                   | yes, and may be empty   | The vocabulary an agent may draw capabilities from.         |
-| `constraints`                    | yes, and may be empty   | The vocabulary an agent may draw constraints from.          |
-| `required-mcp`                   | with every `capability` | The server every harness must declare identically.          |
+| `capabilities`                   | yes, and may be empty   | The vocabulary an agent may draw capabilities from.                 |
+| `constraints`                    | yes, and may be empty   | The vocabulary an agent may draw constraints from.                  |
+| `required-mcp`                   | with every `capability` | The server every harness must declare identically.                  |
 
 Each entry of `prohibited-instruction-fields` takes `file`, `format` (`json`
 or `toml`), and `field` — a key read at the document's top level. The file
