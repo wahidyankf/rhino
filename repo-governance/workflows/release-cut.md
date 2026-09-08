@@ -7,7 +7,7 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 ## Preconditions
 
 - The commit to release is already on `origin/main`, reached through a pull request.
-- Local `main` equals `origin/main`.
+- Local `main` equals `origin/main`, reconciled after the last merge by the [integration path](../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
 - The quick gate passes on that exact commit.
 - `CHANGELOG.md` describes this version, and `README.md` and `docs/` are true to the binary being built.
