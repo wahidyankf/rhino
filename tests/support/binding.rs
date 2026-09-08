@@ -331,6 +331,33 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "a harness configuration field is declared as a prohibited instruction source" => {
+            declare_prohibited_field(world, "json")
+        }
+        "a harness configuration field in TOML is declared as a prohibited instruction source" => {
+            declare_prohibited_field(world, "toml")
+        }
+        "that field is written as {string}" => {
+            let file = harness::prohibited_field_file(&world.declaration);
+            let body = settings_holding(&world.declaration, matched.string(0))
+                .expect("the shape table names every shape the corpus writes");
+            world.files.insert(file.to_string(), body);
+            Outcome::Passed
+        }
+        "that settings file is not in the repository" => {
+            let file = harness::prohibited_field_file(&world.declaration);
+            world.files.remove(file);
+            Outcome::Passed
+        }
+        "that settings file is not written in its declared format" => {
+            // Neither JSON nor TOML, so the declared reader fails whichever
+            // format the scenario declared.
+            let file = harness::prohibited_field_file(&world.declaration);
+            world
+                .files
+                .insert(file.to_string(), "{ this is not either one\n".to_string());
+            Outcome::Passed
+        }
         "the canonical instruction body and its adapter are not Markdown" => {
             // Declared before the contract is seeded, so the files the fixture
             // writes and the configuration that names them agree about where
@@ -2185,6 +2212,49 @@ fn reseed_contract<D: Driver>(world: &mut World<D>) {
     for (path, body) in contract {
         world.files.insert(path, body);
     }
+}
+
+/// Declare one field of a harness's own settings file off limits.
+///
+/// The file itself is legitimate -- it is that harness's settings, and holds
+/// everything else the harness needs -- so the repository carries it whether or
+/// not the prohibited key is there.
+fn declare_prohibited_field<D: Driver>(world: &mut World<D>, format: &'static str) -> Outcome {
+    world.declaration.prohibited_field_format = Some(format);
+    let file = harness::prohibited_field_file(&world.declaration);
+    let body = match format {
+        "toml" => "model = \"inherit\"\n".to_string(),
+        _ => "{\n  \"model\": \"inherit\"\n}\n".to_string(),
+    };
+    world.files.insert(file.to_string(), body);
+    Outcome::Passed
+}
+
+/// That settings file with the prohibited key written in one shape.
+///
+/// The shapes are the ones a configuration language can hold, because "does
+/// this key say anything" is a question about the value's shape rather than
+/// about its text: a rule that answered it for lists alone would let the same
+/// instructions through written as a string. Every value below is spelled the
+/// way both formats spell it, so one table of shapes serves both.
+fn settings_holding(declaration: &crate::world::Declaration, shape: &str) -> Option<String> {
+    let field = harness::PROHIBITED_FIELD;
+    const SHAPES: [(&str, &str); 8] = [
+        ("a non-empty list", "[\"always read this first\"]"),
+        ("a non-empty text", "\"always read this first\""),
+        ("a non-empty table", "{ \"always\": \"read this first\" }"),
+        ("a number", "7"),
+        ("an empty list", "[]"),
+        ("blank text", "\"   \""),
+        ("an empty table", "{}"),
+        ("nothing", "null"),
+    ];
+    let value = SHAPES.iter().find(|(name, _)| *name == shape)?.1;
+    Some(if declaration.prohibited_field_format == Some("toml") {
+        format!("model = \"inherit\"\n{field} = {value}\n")
+    } else {
+        format!("{{\n  \"model\": \"inherit\",\n  \"{field}\": {value}\n}}\n")
+    })
 }
 
 /// Replace one harness's capability declaration, in the format it declares.

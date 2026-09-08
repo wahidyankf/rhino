@@ -182,11 +182,20 @@ fn readable_set<'a>(
         .map(|capability| capability.file.as_str())
         .collect();
 
+    // Named outright by the repository, in a format that is not Markdown, so
+    // no other clause here would reach it.
+    let prohibited_fields: BTreeSet<&str> = parity
+        .prohibited_instruction_fields
+        .iter()
+        .map(|declared| declared.file.as_str())
+        .collect();
+
     move |path: &str| {
         scan::is_markdown(path)
             || path == canonical.instruction
             || Some(path) == canonical.instruction_adapter.as_deref()
             || capability_files.contains(path)
+            || prohibited_fields.contains(path)
             || roots.iter().any(|root| path.starts_with(root))
             || prohibited.is_some_and(|globs| globs.is_match(path))
     }
@@ -368,6 +377,42 @@ fn instructions(
         }
     }
 
+    // A harness that reads its always-on instructions out of its own settings
+    // is the same competing source in that vendor's syntax. The file is not
+    // prohibited -- it holds everything else the harness needs -- so the
+    // question is asked of one declared key, and a key nobody wrote and a key
+    // written empty are both answers rather than violations.
+    for declared in &config.harness_parity.prohibited_instruction_fields {
+        let Some(text) = contents.get(&declared.file) else {
+            continue;
+        };
+        let parsed = match declared.format {
+            CapabilityFormat::Json => serde_json::from_str::<Value>(text).ok(),
+            CapabilityFormat::Toml => toml::from_str::<Value>(text).ok(),
+        };
+        let Some(document) = parsed else {
+            report.found(Finding::new(
+                "unexpected-instruction-source",
+                &declared.file,
+                "unexpected-instruction-source: the file is not readable in its declared format",
+            ));
+            continue;
+        };
+        if document
+            .get(&declared.field)
+            .is_some_and(carries_instructions)
+        {
+            report.found(Finding::new(
+                "unexpected-instruction-source",
+                &declared.file,
+                format!(
+                    "unexpected-instruction-source: `{}` carries instructions that compete with the canon",
+                    declared.field
+                ),
+            ));
+        }
+    }
+
     // An unusable glob leaves this check unmade. Compiled by the caller, which
     // needs the same answer to decide what to read.
     let Some(prohibited) = prohibited else {
@@ -415,6 +460,21 @@ fn instructions(
                 "unexpected-instruction-source: a second always-on instruction source competes with the canon",
             ));
         }
+    }
+}
+
+/// Whether a configuration value says anything, whatever shape it says it in.
+///
+/// A key written as an empty list, an empty string, or `null` is a repository
+/// stating that this harness carries no instructions of its own, which is the
+/// answer the rule wants rather than a violation of it.
+fn carries_instructions(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::String(text) => !text.trim().is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(fields) => !fields.is_empty(),
+        _ => true,
     }
 }
 

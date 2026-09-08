@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 203] = [
+pub const VOCABULARY: [&str; 208] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -51,6 +51,11 @@ pub const VOCABULARY: [&str; 203] = [
     "a required MCP server is declared",
     "a source file contains the canonical import",
     "the canonical instruction body and its adapter are not Markdown",
+    "a harness configuration field is declared as a prohibited instruction source",
+    "a harness configuration field in TOML is declared as a prohibited instruction source",
+    "that field is written as {string}",
+    "that settings file is not in the repository",
+    "that settings file is not written in its declared format",
     "a valid one-skill one-agent one-capability harness contract",
     "all violations are {string}",
     "an argument error is raised",

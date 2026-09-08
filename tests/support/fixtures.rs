@@ -80,6 +80,16 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
             harness::adapter(declaration).into(),
         );
     }
+    if let Some(format) = declaration.prohibited_field_format {
+        lines.insert(
+            "harness-parity.prohibited-instruction-fields".into(),
+            format!(
+                "[{{ file: {}, format: {format}, field: {} }}]",
+                harness::prohibited_field_file(declaration),
+                harness::PROHIBITED_FIELD
+            ),
+        );
+    }
 
     let roster = harness::roster(declaration);
 

@@ -177,6 +177,17 @@ pub struct HarnessParity {
     pub harnesses: Vec<Harness>,
     #[serde(rename = "prohibited-instruction-sources")]
     pub prohibited_instruction_sources: Vec<String>,
+    /// Fields of a harness's own configuration file that may not carry
+    /// instructions.
+    ///
+    /// Optional, because most harnesses keep their always-on instructions in a
+    /// Markdown file and a repository with none of these has nothing to
+    /// declare. Where a harness does read instructions out of its settings,
+    /// that key is a competing always-on source wearing the vendor's syntax,
+    /// and prohibiting the *file* would be wrong -- the file is legitimate and
+    /// holds everything else that harness needs.
+    #[serde(rename = "prohibited-instruction-fields", default)]
+    pub prohibited_instruction_fields: Vec<ProhibitedField>,
     pub capabilities: Vec<String>,
     pub constraints: Vec<String>,
     /// Optional even alongside a roster: not every repository requires its
@@ -384,6 +395,19 @@ pub struct Capability {
 pub enum CapabilityFormat {
     Toml,
     Json,
+}
+
+/// One configuration field that may not carry instructions.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProhibitedField {
+    pub file: String,
+    pub format: CapabilityFormat,
+    /// The key, read at the document's top level. Nested keys are not
+    /// expressible on purpose: a harness that buried its instructions would be
+    /// a different rule, and guessing at one would report a repository clean
+    /// for a reason nobody wrote down.
+    pub field: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

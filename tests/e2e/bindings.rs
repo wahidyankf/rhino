@@ -259,6 +259,34 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "harness-parity",
+        "A harness configuration field may not carry its own instructions",
+    ),
+    (
+        "harness-parity",
+        "A prohibited configuration field that says nothing is not a source",
+    ),
+    (
+        "harness-parity",
+        "A prohibited configuration field in a settings file nobody wrote is not a source",
+    ),
+    (
+        "harness-parity",
+        "A settings file unreadable in its declared format is a source that cannot be ruled out",
+    ),
+    (
+        "harness-parity",
+        "A prohibited configuration field is read in the format its harness writes",
+    ),
+    (
+        "harness-parity",
+        "A settings file written in TOML is read as TOML rather than refused",
+    ),
+    (
+        "harness-parity",
+        "A prohibited configuration field nobody wrote is not a source",
+    ),
+    (
+        "harness-parity",
         "A harness instruction overlay is a competing source",
     ),
     (
@@ -708,6 +736,10 @@ pub const BINDINGS: &[Binding] = &[
     (
         "harness-parity",
         "A file no rule here reads does not stop the run when it cannot be opened",
+    ),
+    (
+        "harness-parity",
+        "A file a prohibited glob names holding no text is not a source",
     ),
     (
         "harness-parity",

@@ -16,6 +16,21 @@ use std::collections::BTreeMap;
 pub const INSTRUCTION: &str = "root-instructions.md";
 pub const ADAPTER: &str = "adapter-instructions.md";
 /// The same two files under a name no Markdown scan would pick up.
+/// A harness's own configuration file, in that vendor's format rather than in
+/// Markdown, which is where a field-shaped instruction source would live.
+pub const PROHIBITED_FIELD_JSON: &str = "harness-settings.json";
+pub const PROHIBITED_FIELD_TOML: &str = "harness-settings.toml";
+/// The one key of that file the repository declares off limits.
+pub const PROHIBITED_FIELD: &str = "instructions";
+
+/// Where this declaration keeps the settings file holding the prohibited key.
+pub fn prohibited_field_file(declaration: &Declaration) -> &'static str {
+    match declaration.prohibited_field_format {
+        Some("toml") => PROHIBITED_FIELD_TOML,
+        _ => PROHIBITED_FIELD_JSON,
+    }
+}
+
 pub const INSTRUCTION_UNMARKED: &str = "root-instructions.txt";
 pub const ADAPTER_UNMARKED: &str = "adapter-instructions.txt";
 

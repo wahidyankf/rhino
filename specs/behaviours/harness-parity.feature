@@ -112,6 +112,75 @@ Feature: Coding-harness parity
     When I inspect harness parity
     Then the harness-parity violations include "unexpected-instruction-source"
 
+  Scenario Outline: A harness configuration field may not carry its own instructions
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field is declared as a prohibited instruction source
+    And that field is written as "<shape>"
+    When I inspect harness parity
+    Then the harness-parity violations include "unexpected-instruction-source"
+
+    Examples:
+      | shape             |
+      | a non-empty list  |
+      | a non-empty text  |
+      | a non-empty table |
+      | a number          |
+
+  Scenario Outline: A prohibited configuration field that says nothing is not a source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field is declared as a prohibited instruction source
+    And that field is written as "<shape>"
+    When I inspect harness parity
+    Then there are no violations
+
+    Examples:
+      | shape          |
+      | an empty list  |
+      | blank text     |
+      | an empty table |
+      | nothing        |
+
+  Scenario: A prohibited configuration field nobody wrote is not a source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field is declared as a prohibited instruction source
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A prohibited configuration field in a settings file nobody wrote is not a source
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field is declared as a prohibited instruction source
+    And that settings file is not in the repository
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A settings file unreadable in its declared format is a source that cannot be ruled out
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field is declared as a prohibited instruction source
+    And that settings file is not written in its declared format
+    When I inspect harness parity
+    Then the harness-parity violations include "unexpected-instruction-source"
+
+  Scenario: A prohibited configuration field is read in the format its harness writes
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field in TOML is declared as a prohibited instruction source
+    And that field is written as "a non-empty text"
+    When I inspect harness parity
+    Then the harness-parity violations include "unexpected-instruction-source"
+
+  Scenario: A settings file written in TOML is read as TOML rather than refused
+    Given the repository declares no instruction adapter
+    And a valid one-skill one-agent one-capability harness contract
+    And a harness configuration field in TOML is declared as a prohibited instruction source
+    And that field is written as "an empty list"
+    When I inspect harness parity
+    Then there are no violations
+
   Scenario: A harness instruction overlay is a competing source
     Given a valid one-skill one-agent one-capability harness contract
     And harness "gamma" declares an instruction overlay
@@ -396,6 +465,13 @@ Feature: Coding-harness parity
   Scenario: A file no rule here reads does not stop the run when it cannot be opened
     Given a valid one-skill one-agent one-capability harness contract
     And file "assets/logo.svg" cannot be opened
+    When I inspect harness parity
+    Then there are no violations
+
+  Scenario: A file a prohibited glob names holding no text is not a source
+    Given a valid one-skill one-agent one-capability harness contract
+    And a file with a prohibited name is not Markdown
+    And file "nested/always.instructions" holds bytes that are not text
     When I inspect harness parity
     Then there are no violations
 

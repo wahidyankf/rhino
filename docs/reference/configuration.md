@@ -154,9 +154,20 @@ reader sees separately.
 | `canonical.declaration`          | with `agents-root`      | Which field of a canonical agent holds which permission.    |
 | `harnesses`                      | yes, and may be empty   | The coding harnesses to reconcile.                          |
 | `prohibited-instruction-sources` | yes                     | Globs that may not be always-on instruction sources.        |
+| `prohibited-instruction-fields`  | no                      | Fields of a harness's own settings that may not carry instructions. |
 | `capabilities`                   | yes, and may be empty   | The vocabulary an agent may draw capabilities from.         |
 | `constraints`                    | yes, and may be empty   | The vocabulary an agent may draw constraints from.          |
 | `required-mcp`                   | with every `capability` | The server every harness must declare identically.          |
+
+Each entry of `prohibited-instruction-fields` takes `file`, `format` (`json`
+or `toml`), and `field` — a key read at the document's top level. The file
+itself is never prohibited; it is that harness's legitimate settings. What is
+prohibited is one key inside it carrying always-on instructions, which is the
+same competing source as a second `CLAUDE.md` written in the vendor's own
+syntax. A key nobody wrote, and a key written as an empty list, empty table,
+empty string, or `null`, are both answers rather than violations. A file RHINO
+cannot read in its declared format is reported instead: a source that cannot be
+ruled out has not been ruled out.
 
 `required-mcp` takes `name`, `command`, and `args`. RHINO looks for the server
 by **name**, wherever the vendor nests it, and compares the whole executable

@@ -167,6 +167,15 @@ pub struct Declaration {
     /// between a rule that reads the file it was told to and one that reads
     /// every Markdown file and no other.
     pub canon_is_not_markdown: bool,
+    /// Whether the configuration names a harness configuration file and one
+    /// of its fields as a place instructions may not live.
+    ///
+    /// A harness that keeps its always-on instructions in a JSON key rather
+    /// than in a Markdown file is the same competing source wearing that
+    /// vendor's syntax, and a repository has to be able to say so. The value
+    /// is the declared format, because the same rule has to survive being
+    /// written in whatever a harness's settings file happens to be.
+    pub prohibited_field_format: Option<&'static str>,
     /// Harnesses that declare a command directory. Per-harness, because that is
     /// how the schema states it.
     pub command_directories: BTreeSet<String>,
@@ -206,6 +215,7 @@ impl Default for Declaration {
             // none says so.
             declares_instruction_adapter: true,
             canon_is_not_markdown: false,
+            prohibited_field_format: None,
             command_directories: BTreeSet::new(),
             capability_formats: BTreeMap::new(),
             canonical_skills_root: None,
