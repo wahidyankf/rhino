@@ -44,3 +44,10 @@ mod driver;
 fn the_corpus_passes_at_the_unit_boundary() {
     runner::run_bound_scenarios::<driver::UnitDriver>("unit", bindings::BINDINGS);
 }
+
+#[test]
+fn probe_deliberate_failure() {
+    // PROBE ONLY -- never merged. Proves the quick gate refuses a failing test
+    // when the pushing checkout's own pre-push hook saw a clean tree.
+    assert_eq!(1, 2, "deliberate probe failure");
+}
