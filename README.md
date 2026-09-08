@@ -165,9 +165,9 @@ disagree, the corpus wins.
 
 ## 📋 Project status
 
-Early construction. The behaviour is pinned by an executable specification and
-is being adopted across the Open Sharia Enterprise repositories. Versions below
-`1.0.0` may make breaking changes — see the [changelog](./CHANGELOG.md).
+Early construction. The behaviour is pinned by an executable specification.
+Versions below `1.0.0` may make breaking changes — see the
+[changelog](./CHANGELOG.md).
 
 Released tags will be immutable. A published release is never rebuilt or
 replaced.
@@ -183,11 +183,14 @@ Contributor rules for the maintainer and automated agents start at
 
 ## 🌙 Part of Open Sharia Enterprise
 
-RHINO belongs to the [Open Sharia
-Enterprise](https://github.com/wahidyankf/ose-public) project family, where it
-supplies repository hygiene for the other repositories. It has no OSE-specific
-values compiled into it and is designed to be used entirely on its own —
-consumers supply their own budgets, trees, palettes, and harness rosters.
+RHINO is one of the five **OSE Code Repositories**, with `ose-public`,
+`ose-private`, `hippo`, and `beaver-nest`. It supplies their repository hygiene.
+The name is navigation, not coupling — see
+[project context](./docs/README.md#project-context).
+
+RHINO has no OSE-specific values compiled into it and is designed to be used
+entirely on its own — consumers supply their own budgets, trees, palettes, and
+harness rosters.
 
 ## 🛠️ Development
 
