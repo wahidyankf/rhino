@@ -58,7 +58,7 @@ Longer version: [Why RHINO exists](./docs/explanation/why-rhino-exists.md).
 Archives for macOS and Linux on `amd64` and `arm64`:
 
 ```sh
-BASE=https://github.com/wahidyankf/rhino/releases/download/v0.1.2
+BASE=https://github.com/wahidyankf/rhino/releases/download/v0.1.3
 curl -fsSLO "$BASE/rhino-aarch64-apple-darwin.tar.gz"
 curl -fsSLO "$BASE/checksums.txt"
 shasum -a 256 --ignore-missing -c checksums.txt

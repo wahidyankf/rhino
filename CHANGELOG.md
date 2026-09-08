@@ -9,6 +9,22 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.1.3] — 2026-09-08
+
+### Added
+
+- **A harness's own settings can be a prohibited instruction source.**
+  `harness-parity.prohibited-instruction-fields` names a configuration file, its
+  format, and one top-level key that may not carry always-on instructions — the
+  same rule as "no second canonical instruction body", written in the vendor's
+  syntax rather than as a path. The file stays legitimate; only the key is
+  prohibited. A key nobody wrote, and a key written as an empty list, empty
+  table, empty string, or `null`, are both answers rather than violations; a
+  file that cannot be read in its declared format is reported, because a source
+  that cannot be ruled out has not been ruled out. Optional: a repository that
+  declares none is unaffected, and every existing configuration keeps working
+  unchanged.
+
 ## [v0.1.2] — 2026-09-08
 
 ### Fixed
@@ -152,6 +168,7 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.1.3]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.0
