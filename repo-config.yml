@@ -53,7 +53,15 @@ harness-parity:
   constraints: []
 
 scan:
+  # Directory names, matched at any depth. `worktrees` and `local-tmp` are not
+  # optional conveniences: RHINO walks the filesystem rather than the index, so
+  # a git-ignored directory is still read. An in-repository worktree is a whole
+  # second copy of this tree, and leaving it in doubles every counted document,
+  # every resolved link and every mapped directory -- and reports the copy's own
+  # CLAUDE.md as a second always-on instruction source.
   exclude-directories:
     - .git
     - node_modules
     - target
+    - local-tmp
+    - worktrees
