@@ -195,6 +195,15 @@ jobs:
         if: steps.route.outputs.changed == 'true'
         run: ./hippo run --class ephemeral --disk-path . -- true
 
+  probe-skipped:
+    name: Probe skipped dependency
+    # PROBE ONLY -- never merged. A job that always skips, wired into the
+    # aggregate, to prove that a skipped dependency is not treated as a pass.
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "unreachable"
+
   quality-gate:
     name: Quality gate
     # The single required status check. Individual jobs may legitimately skip,
