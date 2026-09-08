@@ -30,11 +30,17 @@ governance-word-budget:
 governance-directory-map:
   trees:
     - path: docs
+    - path: plans
     - path: repo-governance
     - path: specs
 
 md-internal-link:
-  exclude-sources: []
+  # Archived plans are excluded as link *sources* only; they stay valid link
+  # targets. A completed plan deliberately describes the repository as it was
+  # and may name paths that have since moved, so reporting its outward links
+  # would make finishing a plan produce findings.
+  exclude-sources:
+    - "plans/done/**"
 
 md-mermaid:
   node-label-graphemes: 32

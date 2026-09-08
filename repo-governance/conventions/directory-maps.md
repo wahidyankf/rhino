@@ -1,6 +1,6 @@
 # Directory Maps
 
-Every directory under `repo-governance/`, `docs/`, and `specs/` — including each tree's own root — must contain a `README.md` that explains the directory and maps its contents.
+Every directory under `repo-governance/`, `docs/`, `specs/`, and `plans/` — including each tree's own root — must contain a `README.md` that explains the directory and maps its contents.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ Which trees are mapped is declared in [`repo-config.yml`](../../repo-config.yml)
 
 ## Word Budget
 
-Root `AGENTS.md` and every Markdown file under `repo-governance/` carry the word limits declared in `repo-config.yml`. Markdown under `docs/` and `specs/` is exempt, because reference material and a behaviour corpus are sized by what they must say.
+Root `AGENTS.md` and every Markdown file under `repo-governance/` carry the word limits declared in `repo-config.yml`. Markdown under `docs/`, `specs/`, and `plans/` is exempt, because reference material, a behaviour corpus, and a delivery record are each sized by what they must say.
 
 The budget is a maximum, not a target. When a governed document outgrows it, split it into coherent documents with distinct reader tasks and give each one a map entry. Never raise the limit to fit a document and never cut substance to fit the limit.
 
