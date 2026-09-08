@@ -11,16 +11,26 @@ governance-word-budget:
   # Ordered: the last matching glob wins, so a specific surface can override a
   # general tree.
   surfaces:
+    # AGENTS.md is an index into repo-governance and states no rule of its own,
+    # so it is budgeted as an index. Going over means a rule was written here
+    # instead of in the tree.
     - glob: "AGENTS.md"
-      fail: 1200
-      warn: 1000
+      fail: 650
+      warn: 550
     - glob: "README.md"
       fail: 1600
       warn: 1400
+    # The governance tree. 750 is a ceiling, not a target: a document that
+    # outgrows it is split into documents with distinct reader tasks, and the
+    # number is never raised to fit one.
+    - glob: "repo-governance/**/*.md"
+      fail: 750
+      warn: 650
 
 governance-directory-map:
   trees:
     - path: docs
+    - path: repo-governance
     - path: specs
 
 md-internal-link:

@@ -1,49 +1,38 @@
 # RHINO Contributor Rules
 
-RHINO is a generic repository-hygiene validator. It reads a repository's declared policy and reports findings against it. It owns no repository's answers.
+RHINO is a generic repository-hygiene validator that [owns no repository's answers](repo-governance/vision/README.md). This file is an index; every rule below lives in [`repo-governance/`](repo-governance/README.md), where it is stated once.
 
-## The Generic-Tool Rule
+## The Product
 
-- Ship no default for any value a repository could reasonably decide differently. A repository that declares nothing gets a configuration error, never a borrowed assumption from whichever repository was in front of the author.
-- Name no specific repository, harness, or organization in `src/`. Harnesses, trees, globs, limits, and vocabularies arrive from `repo-config.yml`; the code iterates what it is given.
-- The line between policy and tool behaviour is whether a consumer could hold a different opinion and be right. Which diagram syntaxes the parser understands is tool behaviour. Which colours are acceptable is policy.
-
-## Compatibility
-
-- Exit `0` means checked and clean, `1` means findings, `2` means the invocation, root, or configuration was unusable. Only validators report `1`. A caller must be able to read the code without knowing which subcommand ran.
-- `version --json` emits `schemaVersion`, `version`, and `commit`. Consumers verify a pinned install against it, so its shape is a public contract.
-- Never remove or rename a command, flag, or exit code without a major version. Adding is free; moving is not.
+- Ship no default a repository could reasonably decide differently, and name no repository, harness, or organization in `src/`. The [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
+- Exit codes, `version --json`, commands, flags, and configuration keys are [a public contract](repo-governance/development/public-contract.md). Adding is free; moving is a major version.
+- Read-only, network-free, process-free, path-contained, `#![forbid(unsafe_code)]` — [enforced by tests](repo-governance/development/software-quality-enforcement.md), not by documentation.
 
 ## Specifications
 
-- `specs/` is canonical and lives at the repository root, not under a project directory: this repository is the tool, so there is no second project to disambiguate from.
-- `specs/behaviours/` holds the Gherkin corpus and `specs/architecture.md` the C4 model. Assess both for impact before every change, and record a verified no-op rather than churning an unaffected specification.
-- Behaviour changes are written Gherkin-first. Prove the binding fails for the stated reason before writing production code.
-- Every scenario binds at the unit adapter; there is no unit exemption. An integration or E2E exemption must name the concrete boundary that cannot be reached and the alternative proof that covers it — never difficulty, runtime, flakiness, or cost.
-- Classify a test by the strongest real boundary its setup, subject, or assertions touch. E2E is defined by observing only the process contract, not by permission to use more resources.
+- `specs/` is canonical. Assess [behaviours and architecture](repo-governance/development/specification-maintenance.md) before every change; record a verified no-op over churn.
+- Gherkin first, prove the [red for the stated reason](repo-governance/development/test-driven-development.md), then implement. Write scenarios and bindings under [BDD](repo-governance/development/behaviour-driven-development.md); keep [the C4 model](repo-governance/development/architecture-specifications.md) true.
+- Every scenario binds at the unit adapter, with no unit exemption. Changed Gherkin gets [the review](repo-governance/workflows/gherkin-implementation-review.md).
 
 ## Testing
 
-- `cargo xtask test-quick` is what the pre-push hook runs, so it holds only checks fast enough to run on every push: formatting, lints, the static behaviour check, and the unit adapter once it is green. Integration and E2E adapters run on a schedule, never in a Git hook and never in the quick gate.
-- Keep line coverage over the validator modules at or above 99%. `src/main.rs` and the concrete filesystem adapter are the only declared exclusions, and `README.md` says why.
-- The product is read-only, network-free, and process-free: it opens no socket including loopback, spawns no child process, writes nothing into the tree it inspects, and follows no path outside the declared root. These are enforced by tests, not by documentation. The no-loopback rule is stricter than the integration layer's own boundary, which permits an owned socket — that is deliberate.
+- `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook.
+- The 99% coverage floor and its two declared exclusions are [not negotiable](repo-governance/development/software-quality-enforcement.md).
+- Guard heavy local work with [`./hippo`](repo-governance/development/resource-aware-development.md): exit `75` retry, `73` clean up, `78` replan, never bypass.
 
 ## Change Discipline
 
-- Understand before adding, reuse before writing, and stop at the smallest change that is verified. A new dependency needs a stated need, rejected alternatives, evidence of maintenance and defect response, and an owned consequence.
-- `#![forbid(unsafe_code)]` stays. `cargo deny check` gates advisories, licences, and duplicate sources.
-- Keep `README.md`, `docs/`, and `CHANGELOG.md` true to the built binary. `docs/` follows Diátaxis: each page belongs to exactly one of `tutorials/`, `how-to/`, `reference/`, or `explanation/`. Never publish a command or transcript that has not been executed against the current build. `docs/` may not contradict `specs/`.
-- Separate setup, validation, decision, mutation, and return phases with blank lines. A formatter is not semantic grouping.
-- Comment non-obvious safety invariants and lifecycle boundaries; do not narrate line by line.
+- [Understand, reuse, minimize, verify](repo-governance/principles/minimal-sufficiency.md). A new dependency carries [its own record](repo-governance/development/dependency-selection.md).
+- Keep `README.md`, `docs/`, and `CHANGELOG.md` true to the built binary under [Diátaxis](repo-governance/conventions/documentation-architecture.md). Follow [code clarity](repo-governance/development/code-clarity.md), [English](repo-governance/conventions/language.md), [Mermaid](repo-governance/conventions/markdown-visualizations.md), [links](repo-governance/conventions/markdown-links.md), and [directory maps](repo-governance/conventions/directory-maps.md).
+- Track work in [granular items](repo-governance/conventions/task-tracking.md), preserve rules through [compaction](repo-governance/principles/governance-continuity.md), and [ask last](repo-governance/conventions/last-resort-questions.md).
 
-## Release
+## Version Control
 
-- Build release assets only through `cargo xtask dist`, and record their digests only through `cargo xtask checksums`. A release describes a commit reachable from the default branch or it does not publish.
-- Never replace an existing tag, and never weaken checksum verification. A defect becomes a new patch version and a new pin.
-- Every release publishes an archive per supported platform plus `checksums.txt`, and each executable's embedded identity matches the tag and commit exactly.
+- `main` refuses direct pushes for everyone. Work in `worktrees/<name>/` and integrate by [pull request](repo-governance/workflows/worktree-to-pull-request.md) under [the integration path](repo-governance/conventions/integration-path.md), one [delivery unit](repo-governance/conventions/pull-request-boundaries.md) each, with an accurate [body](repo-governance/conventions/pull-request-body.md) and all five [merge preconditions](repo-governance/conventions/pull-request-merge.md).
+- Make [thematic commits](repo-governance/conventions/thematic-commits.md) when [authorized](repo-governance/conventions/commit-authorization.md). Never commit prohibited [data](repo-governance/conventions/public-repository-data-safety.md). Fix [hook failures](repo-governance/conventions/push-hook-verification.md) at the cause. Keep [the working tree](repo-governance/conventions/working-tree.md) clean and [poll GitHub](repo-governance/conventions/github-polling.md) every three minutes.
+- Cut releases only through [the release workflow](repo-governance/workflows/release-cut.md); never replace a tag.
 
-## Repository Hygiene
+## Harnesses
 
-- Install locked tooling with `npm ci`; hooks enforce Conventional Commits, staged formatting, and the quick gate before push.
-- Keep build output, coverage, and `local-tmp/` scratch ignored.
-- Never commit credentials, personal or machine identifiers, absolute local paths, or private infrastructure values.
+- Claude Code, Codex, and OpenCode reach the same rules under [the contract](repo-governance/conventions/coding-harness-contract.md); [change](repo-governance/workflows/coding-harness-contract-change.md) and [verify](repo-governance/workflows/coding-harness-parity-verification.md) it through its workflows.
+- A [rule](repo-governance/conventions/rules.md) change runs [propagation](repo-governance/workflows/rules-propagation.md) automatically; [the quality gate](repo-governance/workflows/rules-quality-gate.md) and [grooming](repo-governance/workflows/rules-grooming.md) need an explicit request.
