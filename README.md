@@ -184,8 +184,9 @@ outside the project are not being accepted while the engineering patterns
 stabilize. You are welcome to fork the repository under the MIT license and use
 it however you like.
 
-Contributor rules for the maintainer and automated agents are in
-[`AGENTS.md`](./AGENTS.md).
+Contributor rules for the maintainer and automated agents start at
+[`AGENTS.md`](./AGENTS.md), an index into
+[`repo-governance/`](./repo-governance/README.md).
 
 ## 🌙 Part of Open Sharia Enterprise
 
