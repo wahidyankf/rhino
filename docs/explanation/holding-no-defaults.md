@@ -86,6 +86,14 @@ repository with three harnesses and no capability server at all still could not
 be described, because a non-empty roster forced `required-mcp` — a claim about
 how one repository is arranged, wearing the clothes of a schema rule.
 
+RHINO has since become that third shape itself. Its roster is no longer
+empty: three harnesses, three canonical skills, one canonical agent, and no
+capability server at all -- and one of those harnesses declares a skill adapter
+while the other two do not, because they read the canonical directory natively
+and an adapter pointing at a directory a vendor never reads would reconcile
+nothing. Every one of those is a shape the schema had to permit without
+preferring.
+
 That is the value of the rule stated as a practice. A tool that holds no
 defaults will still smuggle assumptions in through required keys, and the only
 way to find them is to point it at a repository that is not the one it grew up
