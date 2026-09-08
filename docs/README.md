@@ -52,7 +52,24 @@ a bug worth reporting.
 
 ## Project context
 
-RHINO is part of the [Open Sharia
-Enterprise](https://github.com/wahidyankf/ose-public) project family, where it
-supplies repository hygiene for the other repositories. It is usable on its own
-and has no OSE-specific values compiled into it.
+RHINO is one of the five **OSE Code Repositories** — the repositories
+[Open Sharia Enterprise](https://github.com/wahidyankf/ose-public) is built and
+maintained in:
+
+| Repository                                                 | What it does                          |
+| ---------------------------------------------------------- | ------------------------------------- |
+| [`ose-public`](https://github.com/wahidyankf/ose-public)   | The OSE product platform and research |
+| `ose-private`                                              | Authorized operations, private        |
+| **`rhino`**                                                | Repository hygiene — this repository  |
+| [`hippo`](https://github.com/wahidyankf/hippo)             | Host resource coordination            |
+| [`beaver-nest`](https://github.com/wahidyankf/beaver-nest) | An independent family product         |
+
+RHINO supplies repository hygiene to the rest of the set and is being adopted
+across them; it consumes [HIPPO](https://github.com/wahidyankf/hippo) for local
+resource coordination. Nothing else crosses.
+
+**That name is navigation, not coupling.** The five are developed, versioned,
+and released independently — no shared version number, no shared release
+cadence, no monorepo, and no parent repository above them. Membership means only
+that a reader who finds one can find the other four. RHINO is usable entirely on
+its own and has no OSE-specific values compiled into it.
