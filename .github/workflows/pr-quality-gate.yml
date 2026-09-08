@@ -1,0 +1,223 @@
+name: PR Quality Gate
+
+# Integration moved to worktree-to-pull-request, so the guarantees that used to
+# rest on this workstation's Git hooks need a server-side mirror: a pull request
+# can be opened from any checkout, including one whose hooks never ran.
+#
+# This workflow replaces `ci.yml` rather than sitting beside it. Two workflows
+# would mean two places to edit when a hook contract changes, and one of them
+# would eventually be missed. Everything the retired workflow ran is here.
+#
+# It is deliberately not wrapped in `./hippo run`. HIPPO arbitrates contention
+# on one shared workstation; a GitHub runner is dedicated and ephemeral and has
+# none, so the guard could only add a download, a checksum, and an exit-75
+# "host was busy" path that cannot occur and therefore cannot be tested. The
+# local hooks keep the guard, where the contention is real.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commit-messages:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The real head, not the synthetic merge commit: commitlint must read the
+      # messages this branch actually contributes. GitHub's merge commit carries
+      # a "Merge ... into ..." subject that no Conventional Commits rule accepts.
+      - name: Check out the pull request head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Lint every commit this pull request adds
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          git fetch --no-tags origin "${BASE_REF}"
+          # The fork point, not the base tip: a branch behind `main` would
+          # otherwise re-lint commits it never authored and fail on history it
+          # did not write.
+          from=$(git merge-base FETCH_HEAD HEAD)
+          npm exec -- commitlint --from "${from}" --to HEAD --verbose
+
+  formatting:
+    name: Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      # The whole tree, not the changed files. `lint-staged` only ever sees
+      # staged paths, and nothing else in this repository ran Prettier at all,
+      # so a file could drift unformatted and no gate would say so -- which is
+      # exactly what had happened to one document before this job existed. A
+      # changed-files check would not have caught it, and would not catch the
+      # next one either. `.prettierignore` carries the exclusions.
+      - name: Verify Prettier formatting across the repository
+        run: npm exec -- prettier --check --ignore-unknown .
+
+  quick:
+    name: Quick gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Coverage tooling
+        # The quick gate measures unit coverage in the same execution that runs
+        # the unit adapter, so the gate cannot run without this.
+        run: cargo install --locked cargo-llvm-cov
+
+      # `cargo fmt`, `clippy`, the unit adapter under a 99% line floor, and the
+      # static behaviour check -- the exact contract `.husky/pre-push` runs.
+      - name: Quick gate
+        run: cargo xtask test-quick
+
+      - name: Self-validation
+        # Also the last step of the quick gate above, and named again here so a
+        # failing repository is legible in the job list without opening a log.
+        # Cheap to repeat: six read-only walks over an already-built binary.
+        run: cargo xtask self-validate
+
+  supply-chain:
+    name: Supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The one check CI adds over the pre-push hook. Advisories, licences and
+      # duplicate sources are a property of the dependency graph rather than of
+      # a diff, so they belong on a gate rather than in a hook.
+      - name: Advisories, licences and duplicate sources
+        run: |
+          cargo install --locked cargo-deny
+          cargo deny check
+
+  consumer-bootstrap:
+    name: Pinned HIPPO bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Narrower than the rest of the gate on purpose: an ordinary pull request
+      # pays nothing for a consumer boundary it did not touch.
+      - name: Route on the pinned consumer boundary
+        id: route
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          git fetch --no-tags origin "${BASE_REF}"
+          changed=$(git diff --name-only FETCH_HEAD...HEAD -- \
+            hippo hippo.lock '.github/workflows/pr-quality-gate.yml')
+          if [ -n "${changed}" ]; then
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Pinned to the version this workstation runs. The runner image ships an
+      # older ShellCheck that still emits SC2015 for `A && B || C`, an idiom
+      # this wrapper uses correctly at lines 177 and 270 -- a gate that fails on
+      # linter drift rather than on the code would train its readers to ignore
+      # it. Checksum-verified, because an unverified download in a gate is a
+      # supply chain this repository did not choose.
+      - name: Install the pinned ShellCheck
+        if: steps.route.outputs.changed == 'true'
+        env:
+          SHELLCHECK_VERSION: "0.11.0"
+          SHELLCHECK_LINUX_X86_64_SHA512: "25df28923d7d89cfdb9fa8aeef762a887f2bd4ebfbcd43ae71068c60e9458d66250b0f8d6fd66b4bc03723e6cdd47983c547e3ab4f3ea2cbc4bc4028842cc7b9"
+        run: |
+          set -eu
+          archive="${RUNNER_TEMP}/shellcheck.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            --output "${archive}"
+          printf '%s  %s\n' "${SHELLCHECK_LINUX_X86_64_SHA512}" "${archive}" | sha512sum --check --strict
+          tar --extract --xz --file "${archive}" --directory "${RUNNER_TEMP}" \
+            "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          # A dedicated directory, not RUNNER_TEMP itself: prepending the whole
+          # scratch directory to PATH would make every file dropped there by any
+          # step resolvable as a command.
+          mkdir -p "${RUNNER_TEMP}/pinned-bin"
+          install -m 0755 "${RUNNER_TEMP}/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" \
+            "${RUNNER_TEMP}/pinned-bin/shellcheck"
+          printf '%s\n' "${RUNNER_TEMP}/pinned-bin" >> "${GITHUB_PATH}"
+
+      # This wrapper is repository-owned rather than a vendored upstream file,
+      # and no other gate reads it. It is also the only surface here that runs
+      # on a clean machine, which is the condition a local hook cannot observe.
+      - name: Lint the wrapper
+        if: steps.route.outputs.changed == 'true'
+        run: shellcheck --version && shellcheck hippo
+
+      - name: Verify the pinned bootstrap resolves and verifies
+        if: steps.route.outputs.changed == 'true'
+        run: ./hippo run --class ephemeral --disk-path . -- true
+
+  quality-gate:
+    name: Quality gate
+    # The single required status check. Individual jobs may legitimately skip,
+    # and a skipped required check never reports at all, so merge protection
+    # points at this aggregate rather than at each job.
+    needs:
+      [commit-messages, formatting, quick, supply-chain, consumer-bootstrap]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check every gate
+        env:
+          # A cancelled or skipped dependency is not a pass: only an explicit
+          # success from every job may open the merge button.
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -eu
+          echo "Gate results: ${RESULTS}"
+          for result in ${RESULTS}; do
+            if [ "${result}" != "success" ]; then
+              echo "A quality gate job did not succeed." >&2
+              exit 1
+            fi
+          done
+          echo "All quality gates passed."

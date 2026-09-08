@@ -3,7 +3,7 @@
 **Repository Hygiene & INtegration Orchestrator** — keep a repository honest
 about the policy it wrote down.
 
-[![CI](https://github.com/wahidyankf/rhino/actions/workflows/ci.yml/badge.svg)](https://github.com/wahidyankf/rhino/actions/workflows/ci.yml)
+[![Quality gate](https://github.com/wahidyankf/rhino/actions/workflows/pr-quality-gate.yml/badge.svg)](https://github.com/wahidyankf/rhino/actions/workflows/pr-quality-gate.yml)
 [![Rust](https://img.shields.io/badge/rust-1.85-000000)](https://www.rust-lang.org/)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)](#-install)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
