@@ -9,7 +9,7 @@ Several here carry a terminal contract — a fixed set of results, one of which 
 - [Coding-harness contract change](coding-harness-contract-change.md) — one canonical edit, every adapter reconciled with it.
 - [Coding-harness parity verification](coding-harness-parity-verification.md) — the read-only audit of the same contract.
 - [Gherkin implementation review](gherkin-implementation-review.md) — semantic review of what a binding actually asserts.
-- [Git clean-up](git-clean-up.md) — removing the artifacts one piece of work created, and nothing else.
+- [Dev artifact clean-up](dev-artifact-clean-up.md) — removing the artifacts one piece of work created, and nothing else.
 - [PR leak review](pr-leak-review.md) — the posted, current-head review a merge requires.
 - [Plan execution](plan-execution.md) — executing one formal plan while keeping its records true.
 - [Plan quality gate](plan-quality-gate.md) — a semantic verdict on one plan's readiness. Explicit request only.

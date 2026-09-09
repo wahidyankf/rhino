@@ -46,7 +46,7 @@ Provision **one** worktree per task and reuse it for every delivery unit the tas
 
 ## When the Last Unit Has Landed
 
-Run [git clean-up](git-clean-up.md). It removes the worktree, both copies of the branch, and reconciles the primary checkout.
+Run [dev artifact clean-up](dev-artifact-clean-up.md). It removes the worktree, both copies of the branch, and the build output this work produced, then reconciles the primary checkout.
 
 ## Related
 
