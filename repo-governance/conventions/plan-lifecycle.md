@@ -29,7 +29,7 @@ Use `plans/backlogs/<slug>/` when queued, `plans/in-progress/<slug>/` when activ
 
 That shape is a single `tech-docs.md`, or `tech-docs/README.md` with mapped companions. Keep one document while it stays coherent; split when distinct responsibilities each deserve their own reading order; collapse a fragment with no distinct job. Never keep both shapes, and never pre-create an empty companion. Length is a review signal, never a requirement. Follow [minimal sufficiency](../principles/minimal-sufficiency.md).
 
-Split companions carry a two-digit reading-order prefix such as `01-config-schema.md`, with `README.md` first. Renumber on insertion and order every map by number.
+Split companions carry a three-digit reading-order prefix such as `001-config-schema.md`, with `README.md` first. Renumber on insertion and order every map by number. The width matches the sibling repositories, which number the ordered modules of a split governed document the same way; one workspace-wide width means a reader never has to remember which tree they are in.
 
 Plans carry no word limit, but they obey [directory maps](directory-maps.md), [Mermaid](markdown-visualizations.md), and [data safety](public-repository-data-safety.md). Write for a junior. Name every affected path exactly, labelled `[E]` edited, `[N]` new, `[M]` moved, or `[D]` deleted; a directory or a glob is not a path.
 
