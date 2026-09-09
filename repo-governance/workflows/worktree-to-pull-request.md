@@ -46,15 +46,7 @@ Provision **one** worktree per task and reuse it for every delivery unit the tas
 
 ## When the Last Unit Has Landed
 
-Confirm nothing is unpushed and nothing is running, then delete all three artifacts:
-
-```sh
-git -C <repo> worktree remove worktrees/<name>
-git -C <repo> branch -d worktree/<name>
-git -C <repo> push origin --delete worktree/<name>
-```
-
-Retain a worktree whose run failed, and say so, rather than deleting the evidence.
+Run [git clean-up](git-clean-up.md). It removes the worktree, both copies of the branch, and reconciles the primary checkout.
 
 ## Related
 
