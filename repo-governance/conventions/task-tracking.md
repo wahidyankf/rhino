@@ -14,6 +14,12 @@ Represent repository work as a granular task list, and keep that list synchroniz
 - Before reporting completion, reconcile the whole list against the repository state. Finish what remains or say plainly what does not and why.
 - Carry the list and its accurate status across context compaction or handoff, under [governance continuity](../principles/governance-continuity.md).
 
+## New Direction Mid-Task
+
+New, follow-on, or changed direction reaches the list before it reaches the work. Read it against every open item first: some are now wrong, some are superseded, some are unaffected, and the new direction is usually more than one item. Record that reconciliation, then continue.
+
+Acting first and updating afterwards produces a list describing the task as it was requested rather than as it is being performed, which is the state the list exists to prevent. The reconciliation is also where a contradiction between old and new direction becomes visible; carrying both silently resolves it by accident.
+
 ## Concurrent Ownership
 
 Another task may be creating, changing, or removing rules under `repo-governance/` at the same time. Refresh that state before relying on or editing it. Treat unfamiliar concurrent changes as another task's work: preserve and reconcile around them rather than reverting them or reporting them as an error.
