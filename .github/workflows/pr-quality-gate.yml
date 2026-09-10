@@ -26,6 +26,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  public-safety:
+    name: Public safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The pull request head, not the synthetic merge commit: the tree that
+      # would be published is the tree that has to be screened.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # This is the repository's own wrapper, and it is the one gate here that
+      # runs before every other job's output exists. Its bootstrap verifies the
+      # pinned scanner against an approved digest and proves detection and
+      # non-disclosure with a credential generated on the runner, so a scanner
+      # that silently stopped working fails the job rather than passing it.
+      - name: Screen the tracked baseline
+        run: ./scripts/public-safety/public-safety.sh --surface baseline
+
+      - name: Screen the branch name
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: ./scripts/public-safety/public-safety.sh --surface ref --text "${HEAD_REF}"
+
+      # Title and body are outbound text on a public service. They are passed
+      # through the environment rather than interpolated into the command, so a
+      # pull request cannot write shell.
+      - name: Screen the pull request text
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          ./scripts/public-safety/public-safety.sh --surface pull-request \
+            --text "${PR_TITLE}" --text "${PR_BODY}"
+
+      - name: Prove the wrapper still holds its own contract
+        run: bash scripts/public-safety/tests/run.sh
+
   commit-messages:
     name: Commit messages
     runs-on: ubuntu-latest
@@ -149,7 +187,8 @@ jobs:
           set -eu
           git fetch --no-tags origin "${BASE_REF}"
           changed=$(git diff --name-only FETCH_HEAD...HEAD -- \
-            hippo hippo.lock '.github/workflows/pr-quality-gate.yml')
+            hippo hippo.lock scripts/public-safety \
+            '.github/workflows/pr-quality-gate.yml')
           if [ -n "${changed}" ]; then
             echo "changed=true" >> "${GITHUB_OUTPUT}"
           else
@@ -187,9 +226,14 @@ jobs:
       # This wrapper is repository-owned rather than a vendored upstream file,
       # and no other gate reads it. It is also the only surface here that runs
       # on a clean machine, which is the condition a local hook cannot observe.
-      - name: Lint the wrapper
+      - name: Lint the wrappers
         if: steps.route.outputs.changed == 'true'
-        run: shellcheck --version && shellcheck hippo
+        run: |
+          shellcheck --version
+          shellcheck hippo
+          shellcheck scripts/public-safety/public-safety.sh
+          shellcheck scripts/public-safety/tests/run.sh
+          shellcheck --shell=bash scripts/public-safety/tests/cases/*.sh
 
       - name: Verify the pinned bootstrap resolves and verifies
         if: steps.route.outputs.changed == 'true'
@@ -201,7 +245,14 @@ jobs:
     # and a skipped required check never reports at all, so merge protection
     # points at this aggregate rather than at each job.
     needs:
-      [commit-messages, formatting, quick, supply-chain, consumer-bootstrap]
+      [
+        public-safety,
+        commit-messages,
+        formatting,
+        quick,
+        supply-chain,
+        consumer-bootstrap,
+      ]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -1,0 +1,33 @@
+# The generic private-metadata shape set.
+#
+# Format: <class> <kind> <pattern>, whitespace-separated, the pattern running to
+# the end of the line. `kind` is always `regex`. A literal row is refused: this
+# file ships in a public repository, so a literal private term here would be the
+# disclosure the wrapper exists to stop. Identifiers belong in the confidential
+# layer, which never enters a public checkout.
+#
+# Patterns are POSIX extended regular expressions, because they are read by
+# `grep -E` on both macOS and Linux and the two disagree about everything else.
+#
+# Classes: maintainer-path, internal-host, private-address, private-topology,
+# credential-assignment.
+
+# An absolute path into somebody's home directory. It names the machine the work
+# was done on and, usually, the person who did it.
+maintainer-path regex /(Users|home)/[A-Za-z][A-Za-z0-9._-]*/
+
+# A hostname in a private or site-local namespace. The trailing class excludes
+# `_` so an identifier such as `local_categories` is not a hostname.
+internal-host regex [A-Za-z0-9][A-Za-z0-9-]*[.](local|internal|lan|intranet|corp)($|[^A-Za-z0-9._-])
+
+# RFC 1918 and link-local addresses. Anything reachable only from inside a
+# network says where that network is.
+private-address regex (^|[^0-9.])(10[.][0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}|192[.]168[.][0-9]{1,3}[.][0-9]{1,3}|172[.](1[6-9]|2[0-9]|3[01])[.][0-9]{1,3}[.][0-9]{1,3}|169[.]254[.][0-9]{1,3}[.][0-9]{1,3})([^0-9]|$)
+
+# A private remote written as an SSH URL with an explicit port. The public form
+# carries no port, so the port is what makes this topology.
+private-topology regex ssh://[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:[0-9]+/
+
+# A credential written as an assignment. TruffleHog knows the shapes vendors
+# publish; this catches the ones nobody registered.
+credential-assignment regex (password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key)[[:space:]]*[:=][[:space:]]*"?[A-Za-z0-9/+_.-]{16,}

@@ -19,7 +19,13 @@ run() {
 
 	# The wrapper's own shipped shape set is the default, and it is generic: it
 	# blocks a private address without any repository having to configure it.
-	out=$("$WRAPPER" --surface commit --text "reachable at 10.1.2.3:8006" 2>&1)
+	#
+	# Assembled at runtime rather than written out: this file is tracked, and a
+	# private address spelled here would be a finding in this repository's own
+	# baseline scan, which is the gate this wrapper installs.
+	local address
+	address=$(printf '10.%d.%d.%d' 1 2 3)
+	out=$("$WRAPPER" --surface commit --text "reachable at $address" 2>&1)
 	rc=$?
 	assert_exit 1 "$rc" "exit code for a private address under the shipped shape set" || return 1
 }

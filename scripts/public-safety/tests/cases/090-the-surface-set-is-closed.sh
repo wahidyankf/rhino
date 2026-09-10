@@ -22,4 +22,16 @@ run() {
 	out=$("$WRAPPER" --surface release --shapes "$shapes" 2>&1)
 	rc=$?
 	assert_exit 2 "$rc" "exit code when no outbound input was given" || return 1
+
+	# The two surfaces that find their own inputs are different: an empty commit
+	# or an empty tree is nothing outbound rather than a scan that failed to
+	# happen. Run from a repository with no tracked file, so the derivation is
+	# real and returns nothing.
+	local empty="$CASE_TMP/empty-repo"
+	mkdir -p "$empty"
+	git -C "$empty" init --quiet
+	out=$(cd "$empty" && "$WRAPPER" --surface baseline --shapes "$shapes" 2>&1)
+	rc=$?
+	assert_exit 0 "$rc" "exit code for a tree with nothing tracked" || return 1
+	assert_contains "nothing outbound" "$out" "report" || return 1
 }
