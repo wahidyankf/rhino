@@ -1705,6 +1705,30 @@ pub const BINDINGS: &[Binding] = &[
         "harness-parity",
         "A canonical agent declaring no tier has nothing to project",
     ),
+    (
+        "companion-set",
+        "A document directly under the governance root belongs to no set",
+    ),
+    (
+        "companion-set",
+        "A malformed link in the index names no module",
+    ),
+    (
+        "companion-set",
+        "An entrypoint that cannot be read refuses the run",
+    ),
+    (
+        "companion-set",
+        "An index that holds no text refuses the run",
+    ),
+    (
+        "instruction-spine",
+        "A canonical instruction that holds no text refuses the run",
+    ),
+    (
+        "instruction-spine",
+        "An import that cannot be read refuses the run",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

@@ -246,6 +246,15 @@ pub struct InternalLink {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mermaid {
+    /// The one authoring rule this repository applies to conceptual diagrams.
+    ///
+    /// Optional, on the same rule as every section added after `v0.1`. Absent
+    /// leaves both halves unchecked, which is what a repository that never
+    /// adopted the rule already had -- and a default would be RHINO choosing an
+    /// authoring style on a repository's behalf, which is the one thing the
+    /// contract says a repository decides.
+    #[serde(rename = "authoring-rule", default)]
+    pub authoring_rule: Option<AuthoringRule>,
     #[serde(rename = "node-label-graphemes")]
     pub node_label_graphemes: usize,
     #[serde(rename = "edge-label-graphemes")]
@@ -256,6 +265,21 @@ pub struct Mermaid {
     pub edge_colors: Vec<String>,
     #[serde(rename = "text-colors")]
     pub text_colors: Vec<String>,
+}
+
+/// The two diagram authoring rules, one of which a repository declares.
+///
+/// Closed, and closed on purpose: the contract's whole argument is that a
+/// repository having both is the state in which a reader cannot predict what
+/// they will get and no tool can check either rule.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AuthoringRule {
+    /// Mermaid, carrying both an accessible title and an accessible
+    /// description.
+    Rendered,
+    /// ASCII with prose beside it, and no Mermaid at all.
+    PlainText,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -495,6 +519,19 @@ pub struct Harness {
     pub capability: Option<Capability>,
 }
 
+/// Where one harness's adapter keeps a projected tier.
+///
+/// Both together or neither, which is the same pairing the mapping itself
+/// obeys: a repository that named only the model field could describe an
+/// adapter carrying half a pair and would have no way to say the other half
+/// was missing.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TierFields {
+    pub model: String,
+    pub effort: String,
+}
+
 /// One harness's expression of one kind of canonical document.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -518,6 +555,15 @@ pub struct Adapter {
     /// Fields that must be present and hold exactly this scalar.
     #[serde(default)]
     pub fixed: BTreeMap<String, String>,
+    /// Which two fields of this harness's adapter carry the model and the
+    /// effort a portable tier maps to.
+    ///
+    /// Declared beside the adapter rather than globally, because the field
+    /// names are this harness's vocabulary and a second harness names them its
+    /// own way. Omitting them is a valid answer: a harness that expresses no
+    /// model has no projection to get wrong.
+    #[serde(rename = "tier-fields", default)]
+    pub tier_fields: Option<TierFields>,
     /// Fields that must not appear at all.
     #[serde(default)]
     pub absent: Vec<String>,

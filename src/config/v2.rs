@@ -50,7 +50,7 @@ const PUBLIC_SAFETY: &str = "public-safety";
 const VISIBILITIES: [&str; 2] = ["public", "private"];
 
 /// The governance layers a local category may extend.
-const LAYERS: [&str; 5] = [
+pub const LAYERS: [&str; 5] = [
     "conventions",
     "development",
     "principles",
@@ -62,6 +62,14 @@ const LAYERS: [&str; 5] = [
 #[derive(Debug, Default)]
 pub struct Document {
     pub visibility: String,
+    /// The `<layer>/<category>` values this repository declared as its own.
+    ///
+    /// Kept rather than merely checked, because the declaration is what a
+    /// governance walk compares a directory against: a category outside the
+    /// shared registry is accepted only where the repository said so, and a
+    /// reader that discarded the list would have to infer it from the tree --
+    /// which is the inference the whole rule exists to prevent.
+    pub local_categories: Vec<String>,
     pub gates: Vec<Gate>,
 }
 
@@ -369,13 +377,17 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     optional_sections_carry_something(entries)?;
 
     let visibility = visibility(entries)?;
-    governance(entries)?;
+    let local_categories = governance(entries)?;
     model_tiers(entries)?;
     extensions(entries)?;
     let gates = gates(entries)?;
     public_safety(&visibility, &gates, entries)?;
 
-    Ok(Document { visibility, gates })
+    Ok(Document {
+        visibility,
+        local_categories,
+        gates,
+    })
 }
 
 fn refuse(key: &str, line: usize, reason: &str) -> ConfigError {
@@ -460,9 +472,9 @@ fn visibility(entries: &[(String, Node)]) -> Result<String, ConfigError> {
     Ok(declared.to_string())
 }
 
-fn governance(entries: &[(String, Node)]) -> Result<(), ConfigError> {
+fn governance(entries: &[(String, Node)]) -> Result<Vec<String>, ConfigError> {
     let Some(node) = find(entries, "governance") else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let section = node.value.mapping().unwrap_or_default();
     keys_are_known_and_ordered(
@@ -486,6 +498,7 @@ fn governance(entries: &[(String, Node)]) -> Result<(), ConfigError> {
     }
 
     let mut previous: Option<String> = None;
+    let mut declared_categories: Vec<String> = Vec::new();
     for item in declared.value.list().unwrap_or_default() {
         let category = item.value.scalar().unwrap_or_default();
         if !is_governed_category(category) {
@@ -508,8 +521,9 @@ fn governance(entries: &[(String, Node)]) -> Result<(), ConfigError> {
             _ => {}
         }
         previous = Some(category.to_string());
+        declared_categories.push(category.to_string());
     }
-    Ok(())
+    Ok(declared_categories)
 }
 
 fn is_governed_category(value: &str) -> bool {

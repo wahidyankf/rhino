@@ -12,7 +12,7 @@
 
 use crate::config::{
     Adapter, Capability, CapabilityFormat, Config, DeclarationShape, DocumentFormat, Harness,
-    HarnessParity, Identity, RequiredMcp, Translation, When,
+    HarnessParity, Identity, RequiredMcp, TierMapping, Translation, When,
 };
 use crate::markdown;
 use crate::report::{Finding, Report};
@@ -45,6 +45,12 @@ const INDEX_FILE: &str = "README.md";
 struct Declaration {
     name: Option<String>,
     description: Option<String>,
+    /// The portable tier this artifact declares, when it declares one.
+    ///
+    /// Read here rather than in the metadata command because this is where the
+    /// tier is *used*: it selects the mapping a harness's adapter has to
+    /// project, and an agent with no tier has nothing to project.
+    tier: Option<String>,
     #[serde(default)]
     capabilities: Vec<String>,
     #[serde(default)]
@@ -84,6 +90,12 @@ struct Canon<'a> {
     skills: BTreeMap<String, Declaration>,
     agents: BTreeMap<String, Declaration>,
     required: Option<&'a RequiredMcp>,
+    /// The model and effort each harness uses for each portable tier.
+    ///
+    /// Part of the canon rather than of a harness, because the mapping is the
+    /// repository's one statement about tiers and every harness's adapter is
+    /// held to the same one.
+    tiers: Option<&'a BTreeMap<String, BTreeMap<String, Option<TierMapping>>>>,
 }
 
 /// What a canonical document says about itself, for documents that only name
@@ -120,6 +132,7 @@ fn read_declaration(text: &str, shape: &DeclarationShape) -> Result<Declaration,
     Ok(Declaration {
         name: read.scalar("name"),
         description: read.scalar("description"),
+        tier: read.scalar("tier"),
         capabilities: read.members(&shape.grants).into_iter().collect(),
         denied: read.members(&shape.denials).into_iter().collect(),
         constraints: read.members(&shape.limits).into_iter().collect(),
@@ -277,6 +290,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
             &mut report,
         ),
         required: parity.required_mcp.as_ref(),
+        tiers: config.model_tiers.as_ref(),
     };
 
     // The whole of RHINO's harness knowledge: iterate the declared roster and
@@ -677,6 +691,8 @@ fn agent_adapters(
             &Permits::of(expected),
         );
 
+        tier_projection(&read, adapter, harness, canon, expected, &path, report);
+
         // Semantics first, and the route only when the semantics agree. An
         // adapter that permits something the canon refused is a different
         // agent, not one that quoted the route wrongly, and reporting the
@@ -704,6 +720,79 @@ fn agent_adapters(
         "has no canonical agent behind it",
         report,
     );
+}
+
+/// What this adapter projects for the canonical agent's portable tier.
+///
+/// Three states, and each is a different fault. A mapped tier that projects
+/// nothing leaves the harness inheriting a model the repository chose against.
+/// A mapped tier that projects half a pair is the same thing wearing the shape
+/// of a complete answer. An unmapped tier that projects anything is a vendor
+/// choice made in an adapter, which is the one place the contract says it may
+/// not be made -- an adapter is an output.
+///
+/// A harness declaring no tier fields is held to none of it. Which field
+/// carries a model is that harness's vocabulary, and omitting it is a valid
+/// mapping rather than a gap.
+fn tier_projection(
+    read: &Read,
+    adapter: &Adapter,
+    harness: &Harness,
+    canon: &Canon<'_>,
+    expected: &Declaration,
+    path: &str,
+    report: &mut Report,
+) {
+    let (Some(fields), Some(tier)) = (adapter.tier_fields.as_ref(), expected.tier.as_deref())
+    else {
+        return;
+    };
+    let mapped = canon
+        .tiers
+        .and_then(|tiers| tiers.get(&harness.name))
+        .and_then(|tiers| tiers.get(tier))
+        .and_then(Option::as_ref);
+    let model = read.scalar(&fields.model);
+    let effort = read.scalar(&fields.effort);
+
+    match mapped {
+        Some(mapping) => {
+            if model.is_none() || effort.is_none() {
+                report.found(Finding::new(
+                    "unprojected-tier",
+                    path,
+                    format!(
+                        "unprojected-tier: `{}` maps the tier `{tier}` and this adapter projects only part of it; a present tier carries both a model and an effort",
+                        harness.name
+                    ),
+                ));
+                return;
+            }
+            // Total in this arm: both were just found to be present.
+            let (model, effort) = (model.unwrap_or_default(), effort.unwrap_or_default());
+            if Some(&model) != mapping.model.as_ref() || Some(&effort) != mapping.effort.as_ref() {
+                report.found(Finding::new(
+                    "tier-projection-drift",
+                    path,
+                    format!(
+                        "tier-projection-drift: this adapter projects `{model}` at `{effort}` for the tier `{tier}`, and the mapping names `{}` at `{}`",
+                        mapping.model.clone().unwrap_or_default(),
+                        mapping.effort.clone().unwrap_or_default()
+                    ),
+                ));
+            }
+        }
+        None if model.is_some() || effort.is_some() => {
+            report.found(Finding::new(
+                "unmapped-tier-projected",
+                path,
+                format!(
+                    "unmapped-tier-projected: this adapter projects a model or an effort for the tier `{tier}`, and nothing maps it; an absent mapping means the harness applies its own inheritance"
+                ),
+            ));
+        }
+        None => {}
+    }
 }
 
 fn skill_wrappers(

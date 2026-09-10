@@ -135,3 +135,21 @@ Feature: The instruction spine
     When I run the "governance-instructions" validator
     Then the exit code is 2
     And stderr contains "ose/repo-config/v2"
+
+  Scenario: A canonical instruction that holds no text refuses the run
+    Given the repository declares a v2 configuration
+    And file "AGENTS.md" holds bytes that are not text
+    When I run the "governance-instructions" validator
+    Then the exit code is 2
+    And stderr contains "holds no text"
+
+  Scenario: An import that cannot be read refuses the run
+    Given the repository declares a v2 configuration
+    And the repository declares the canonical instruction spine
+    And the repository contains:
+      | path      | content    |
+      | CLAUDE.md | @AGENTS.md |
+    And the file "CLAUDE.md" cannot be read
+    When I run the "governance-instructions" validator
+    Then the exit code is 2
+    And stderr names a file it could not read

@@ -149,7 +149,7 @@ Feature: Mermaid legibility inspection
       ```
       """
     When I inspect Mermaid accessibility
-    Then the only violation starts with "guides/diagram.md: declares no accessible title"
+    Then the only violation starts with "guides/diagram.md:4: declares no accessible title"
 
   Scenario: A rendered diagram with no accessible description is a finding
     Given the configuration sets "md-mermaid.authoring-rule" to "rendered"
@@ -164,7 +164,7 @@ Feature: Mermaid legibility inspection
       ```
       """
     When I inspect Mermaid accessibility
-    Then the only violation starts with "guides/diagram.md: declares no accessible description"
+    Then the only violation starts with "guides/diagram.md:4: declares no accessible description"
 
   Scenario: The braced description form is a description
     Given the configuration sets "md-mermaid.authoring-rule" to "rendered"
@@ -200,7 +200,7 @@ Feature: Mermaid legibility inspection
       ```
       """
     When I inspect Mermaid accessibility
-    Then the only violation starts with "guides/diagram.md: carries a Mermaid diagram"
+    Then the only violation starts with "guides/diagram.md:4: carries a Mermaid diagram"
 
   Scenario: A plain-text repository accepts an ASCII drawing with prose beside it
     Given the configuration sets "md-mermaid.authoring-rule" to "plain-text"

@@ -146,6 +146,20 @@ pub fn execute_using(
                 launcher,
             );
         }
+        // The governance families arrived with v2. A v1 repository adopted
+        // none of them, and holding it to a contract it never agreed to is
+        // exactly what the optional sections of the v1 schema exist to
+        // prevent -- so the refusal names the schema that carries the rule
+        // rather than a section the repository could add.
+        ("governance-roots", Document::V2(document)) => {
+            return governance::structure::validate(tree, &document).render(invocation.format);
+        }
+        ("governance-companions", Document::V2(_)) => {
+            return governance::companion::validate(tree).render(invocation.format);
+        }
+        ("governance-instructions", Document::V2(_)) => {
+            return governance::instructions::validate(tree).render(invocation.format);
+        }
         ("gate", Document::V1(_)) => {
             return Report::refused(
                 "gate",
@@ -162,6 +176,20 @@ pub fn execute_using(
                 category,
                 format!(
                     "{}: line 1: {}: this schema carries no section for this command",
+                    config::PATH,
+                    config::v2::SCHEMA
+                ),
+            )
+            .render(invocation.format);
+        }
+        (
+            category @ ("governance-roots" | "governance-companions" | "governance-instructions"),
+            Document::V1(_),
+        ) => {
+            return Report::refused(
+                category,
+                format!(
+                    "{}: line 1: this rule is part of `{}`, which this repository does not declare",
                     config::PATH,
                     config::v2::SCHEMA
                 ),

@@ -64,6 +64,24 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Run the gates the declared surface selects, in declaration order.",
     },
     Leaf {
+        path: &["governance", "roots", "validate"],
+        category: "governance-roots",
+        accepts: &[],
+        summary: "Check the governance layers, their categories, and that each holds something.",
+    },
+    Leaf {
+        path: &["governance", "companions", "validate"],
+        category: "governance-companions",
+        accepts: &[],
+        summary: "Check each companion directory's name, index, and ordinals.",
+    },
+    Leaf {
+        path: &["governance", "instructions", "validate"],
+        category: "governance-instructions",
+        accepts: &[],
+        summary: "Check the canonical instruction spine and the exact import beside it.",
+    },
+    Leaf {
         path: &["governance", "word-budget", "validate"],
         category: "word-budget",
         accepts: &[],

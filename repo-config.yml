@@ -18,16 +18,16 @@ governance-word-budget:
       fail: 650
       warn: 550
     # Raised for v0.2.0, which added five commands, and again for v0.3.0, which
-    # added metadata validation and gate dispatch: the quick start has to name
-    # every command the tool answers to, so the ceiling follows the command
-    # count rather than the other way round. This is the one surface where that
+    # added metadata validation, gate dispatch, and three governance structure
+    # commands: the quick start has to name every command the tool answers to,
+    # so the ceiling follows the command count rather than the other way round. This is the one surface where that
     # is true; the governance ceiling below is never raised to fit a document.
     # The warning line is the previous release's ceiling, so passing where
     # v0.2.0 stopped is something the author is told rather than something that
     # happens quietly.
     - glob: "README.md"
-      fail: 1800
-      warn: 1700
+      fail: 2000
+      warn: 1900
     # The governance tree. 750 is a ceiling, not a target: a document that
     # outgrows it is split into documents with distinct reader tasks, and the
     # number is never raised to fit one.
