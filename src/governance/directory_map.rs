@@ -10,10 +10,9 @@
 use crate::config::Config;
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
-use crate::scan::{self, Scope};
+use crate::scan::{self, README, Scope};
 use std::collections::BTreeSet;
 
-const README: &str = "README.md";
 const SECTION: &str = "## Directory Map";
 
 pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
@@ -42,7 +41,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     };
 
     for path in &trees {
-        for directory in directories(tree, config, path) {
+        for directory in scan::directories(tree, config, path) {
             report.inspected_one();
             if let Err(reason) = inspect(tree, &directory, &mut report) {
                 return Report::refused("directory-map", reason);
@@ -51,33 +50,6 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     }
 
     report
-}
-
-/// Every directory at or under a declared tree, in path order.
-///
-/// Derived from the files rather than from a directory listing, because the
-/// port's read-only tree exposes files and a directory that holds nothing is
-/// not a directory a map can be missing from.
-fn directories(tree: &dyn Tree, config: &Config, root: &str) -> Vec<String> {
-    let prefix = format!("{}/", root.trim_end_matches('/'));
-    let mut found: BTreeSet<String> = BTreeSet::new();
-
-    for path in tree.files() {
-        if !path.starts_with(&prefix) {
-            continue;
-        }
-        if scan::is_excluded(&path, &config.scan.exclude_directories) {
-            continue;
-        }
-        let mut segments: Vec<&str> = path.split('/').collect();
-        segments.pop();
-        while segments.len() >= prefix.matches('/').count() {
-            found.insert(segments.join("/"));
-            segments.pop();
-        }
-    }
-
-    found.into_iter().collect()
 }
 
 /// `Ok(())` when the directory was inspected, `Err` when it could not be.

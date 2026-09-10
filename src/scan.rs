@@ -14,6 +14,7 @@
 use crate::config::Config;
 use crate::runtime::{Tree, TreeError};
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
+use std::collections::BTreeSet;
 
 /// One Markdown file, read.
 pub struct Document {
@@ -111,7 +112,10 @@ pub fn is_markdown(path: &str) -> bool {
 /// surface declared as `rules/**/*.md` is meant to cover the Markdown under
 /// `rules`, and whether one file shouts its extension is not a policy decision
 /// the repository made.
-pub fn glob_set(key: &str, patterns: &[String]) -> Result<GlobSet, String> {
+pub fn glob_set<'a>(
+    key: &str,
+    patterns: impl IntoIterator<Item = &'a str>,
+) -> Result<GlobSet, String> {
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
         let glob = GlobBuilder::new(pattern)
@@ -121,6 +125,66 @@ pub fn glob_set(key: &str, patterns: &[String]) -> Result<GlobSet, String> {
         builder.add(glob);
     }
     builder.build().map_err(|error| format!("{key}: {error}"))
+}
+
+/// The file a directory documents itself in.
+///
+/// Named here rather than in each validator that looks for it, because two
+/// already do and they have to be looking for the same file.
+pub const README: &str = "README.md";
+
+/// Every directory at or under a tree, in path order.
+///
+/// Derived from the files rather than from a directory listing, because the
+/// port's read-only tree exposes files and a directory that holds nothing is
+/// not a directory a README can be missing from.
+pub fn directories(tree: &dyn Tree, config: &Config, root: &str) -> Vec<String> {
+    let prefix = format!("{}/", root.trim_end_matches('/'));
+    let mut found: BTreeSet<String> = BTreeSet::new();
+
+    for path in tree.files() {
+        if !path.starts_with(&prefix) {
+            continue;
+        }
+        if is_excluded(&path, &config.scan.exclude_directories) {
+            continue;
+        }
+        let mut segments: Vec<&str> = path.split('/').collect();
+        segments.pop();
+        while segments.len() >= prefix.matches('/').count() {
+            found.insert(segments.join("/"));
+            segments.pop();
+        }
+    }
+
+    found.into_iter().collect()
+}
+
+/// An ordered list of declared surface globs.
+///
+/// Two sections already state the same rule -- ordered globs where the last
+/// matching entry wins -- so the rule lives here once rather than in each of
+/// them. A third section stating it the other way round would be a repository
+/// policy that changed meaning depending on which command read it.
+pub struct Surfaces(GlobSet);
+
+impl Surfaces {
+    pub fn compile<'a>(
+        key: &str,
+        globs: impl IntoIterator<Item = &'a str>,
+    ) -> Result<Self, String> {
+        glob_set(key, globs).map(Self)
+    }
+
+    /// The index of the surface that governs a path, or `None` when no declared
+    /// surface covers it.
+    ///
+    /// The *last* match rather than the first: where two surfaces cover one
+    /// file, the later declaration is the more specific intent, which is how a
+    /// repository says "this tree, except that one file".
+    pub fn governing(&self, path: &str) -> Option<usize> {
+        self.0.matches(path).into_iter().max()
+    }
 }
 
 /// Whether any directory on the way to a file is one the repository excludes.
