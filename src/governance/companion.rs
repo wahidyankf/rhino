@@ -14,7 +14,7 @@
 use crate::governance::structure::ROOT;
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 const INDEX: &str = "README.md";
 
@@ -128,9 +128,9 @@ fn inspect(
     };
     match index {
         Some(index) => {
-            let linked = targets(&index);
+            let linked = crate::markdown::sibling_links(&index);
             for name in &live {
-                if !linked.contains(name.as_str()) {
+                if !linked.contains_key(name.as_str()) {
                     report.found(Finding::new(
                         "unindexed-companion-module",
                         format!("{directory}/{name}"),
@@ -138,7 +138,7 @@ fn inspect(
                     ));
                 }
             }
-            for target in &linked {
+            for target in linked.keys() {
                 if !held.iter().any(|name| name == target) {
                     report.found(Finding::new(
                         "missing-indexed-companion",
@@ -231,27 +231,4 @@ fn ordinal(name: &str) -> Option<usize> {
         return None;
     }
     prefix.parse().ok()
-}
-
-/// The repository-local link targets a README names, one directory deep.
-///
-/// Only the names of siblings matter here: a companion index links its own
-/// modules, and a link to anywhere else is somebody else's rule.
-fn targets(index: &str) -> BTreeSet<String> {
-    let mut found = BTreeSet::new();
-    for (_, line) in crate::markdown::prose_lines(index) {
-        let mut rest = line;
-        while let Some(open) = rest.find("](") {
-            let after = &rest[open + 2..];
-            let Some(close) = after.find(')') else {
-                break;
-            };
-            let target = after[..close].split(['#', '?']).next().unwrap_or_default();
-            if !target.is_empty() && !target.contains('/') && !target.contains(':') {
-                found.insert(target.to_string());
-            }
-            rest = &after[close + 1..];
-        }
-    }
-    found
 }

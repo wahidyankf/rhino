@@ -17,6 +17,32 @@ pub mod readme_index;
 ///
 /// A fence is closed by a fence of the same character and at least the same
 /// length, which is what lets a document show a fenced block inside a fenced
+/// The sibling names a document links to, with the line each link is on.
+///
+/// One directory deep and repository-local: an index links the files beside it,
+/// and a link to anywhere else is another rule's to check. Shared because two
+/// commands ask the same question of a README -- the governance companion rule
+/// and the plan companion rule -- and two parsers of the same syntax would
+/// disagree the first time either was corrected.
+pub fn sibling_links(text: &str) -> std::collections::BTreeMap<String, usize> {
+    let mut found = std::collections::BTreeMap::new();
+    for (number, line) in prose_lines(text) {
+        let mut rest = line;
+        while let Some((_, after)) = rest.split_once("](") {
+            // A `](` that nothing closes names nothing and ends the line. Read
+            // as an empty pair rather than as an arm, so the expression is
+            // total without a branch no document reaches.
+            let (target, remainder) = after.split_once(')').unwrap_or(("", ""));
+            let target = target.split(['#', '?']).next().unwrap_or_default();
+            if !target.is_empty() && !target.contains('/') && !target.contains(':') {
+                found.entry(target.to_string()).or_insert(number);
+            }
+            rest = remainder;
+        }
+    }
+    found
+}
+
 /// block -- the common case being documentation about Markdown itself.
 pub fn prose_lines(text: &str) -> Vec<(usize, &str)> {
     let mut open: Option<(char, usize)> = None;

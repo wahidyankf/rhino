@@ -84,15 +84,15 @@ Feature: Plan structure
   Scenario: A missing plan document is a finding naming the document
     Given the repository declares a v2 configuration
     And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
-    And the plan at "plans/backlog/tidy-the-corpus" has no "learnings.md"
+    And the plan at "plans/backlog/tidy-the-corpus" has no "prd.md"
     When I run the "plan" validator
-    Then the only violation starts with "plans/backlog/tidy-the-corpus:1:1 PLAN-DOCUMENT-001 learnings.md"
+    Then the only violation starts with "plans/backlog/tidy-the-corpus:1:1 PLAN-DOCUMENT-001 prd.md"
 
   Scenario: Each missing document is named once
     Given the repository declares a v2 configuration
     And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
     And the plan at "plans/backlog/tidy-the-corpus" has no "learnings.md"
-    And the plan at "plans/backlog/tidy-the-corpus" has no "brd.md"
+    And the plan at "plans/backlog/tidy-the-corpus" has no "delivery.md"
     When I run the "plan" validator
     Then there are 2 violations
     And all violations are "PLAN-DOCUMENT-001"
@@ -343,6 +343,10 @@ Feature: Plan structure
     Given the repository declares a v2 configuration
     And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
     And the plan at "plans/backlog/tidy-the-corpus" has no "learnings.md"
+    And the repository holds a conforming plan at "plans/backlog/split-the-shape"
+    And the plan at "plans/backlog/split-the-shape" has no "brd.md"
+    And the repository holds a conforming plan at "plans/in-progress/retire-the-alias"
+    And the plan at "plans/in-progress/retire-the-alias" has no "README.md"
     When I run the "plan" validator twice
     Then the two runs are byte-identical
 
@@ -375,3 +379,37 @@ Feature: Plan structure
     When I run the "plan" validator
     Then the exit code is 2
     And stderr contains "ose/repo-config/v2"
+
+  Scenario: A requirements document that cannot be read refuses the run
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And the file "plans/backlog/tidy-the-corpus/prd.md" cannot be read
+    When I run the "plan" validator
+    Then the exit code is 2
+    And stderr names a file it could not read
+
+  Scenario: A checklist that holds no text refuses the run
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And file "plans/backlog/tidy-the-corpus/delivery.md" holds bytes that are not text
+    When I run the "plan" validator
+    Then the exit code is 2
+    And stderr contains "holds no text"
+
+  Scenario: A companion index that cannot be read refuses the run
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And the plan at "plans/backlog/tidy-the-corpus" uses the directory technical shape
+    And the file "plans/backlog/tidy-the-corpus/tech-docs/README.md" cannot be read
+    When I run the "plan" validator
+    Then the exit code is 2
+    And stderr names a file it could not read
+
+  Scenario: A companion set with no index reports its modules rather than the index
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And the plan at "plans/backlog/tidy-the-corpus" uses the directory technical shape
+    And the plan at "plans/backlog/tidy-the-corpus" has no "tech-docs/README.md"
+    When I run the "plan" validator
+    Then there are 2 violations
+    And all violations are "PLAN-COMPANION-005"

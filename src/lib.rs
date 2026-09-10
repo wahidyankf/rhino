@@ -16,6 +16,7 @@ pub mod governance;
 pub mod harness;
 pub mod markdown;
 pub mod metadata;
+pub mod plan;
 pub mod report;
 pub mod runtime;
 pub mod scan;
@@ -160,6 +161,9 @@ pub fn execute_using(
         ("governance-instructions", Document::V2(_)) => {
             return governance::instructions::validate(tree).render(invocation.format);
         }
+        ("plan", Document::V2(_)) => {
+            return plan::validate(tree).render(invocation.format);
+        }
         ("gate", Document::V1(_)) => {
             return Report::refused(
                 "gate",
@@ -183,7 +187,10 @@ pub fn execute_using(
             .render(invocation.format);
         }
         (
-            category @ ("governance-roots" | "governance-companions" | "governance-instructions"),
+            category @ ("governance-roots"
+            | "governance-companions"
+            | "governance-instructions"
+            | "plan"),
             Document::V1(_),
         ) => {
             return Report::refused(

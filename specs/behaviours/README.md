@@ -61,6 +61,9 @@ implement them the same way at three boundaries:
   discovered, parsed, and reported on.
 - [mermaid-legibility.feature](mermaid-legibility.feature) — the accessibility
   rules a diagram must satisfy once it has been parsed.
+- [plan-structure.feature](plan-structure.feature) — the lifecycle roots, six
+  documents, ordered companions, acceptance identifiers, and delivery order a
+  formal plan is held to.
 - [repo-config.feature](repo-config.feature) — both configuration schemas,
   their required fields, and what an unusable configuration does.
 - [word-budget.feature](word-budget.feature) — declared word surfaces, their

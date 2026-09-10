@@ -1858,6 +1858,22 @@ pub const BINDINGS: &[Binding] = &[
         "plan-structure",
         "A v1 repository is refused rather than held to a contract it never adopted",
     ),
+    (
+        "plan-structure",
+        "A requirements document that cannot be read refuses the run",
+    ),
+    (
+        "plan-structure",
+        "A checklist that holds no text refuses the run",
+    ),
+    (
+        "plan-structure",
+        "A companion index that cannot be read refuses the run",
+    ),
+    (
+        "plan-structure",
+        "A companion set with no index reports its modules rather than the index",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete
