@@ -1730,31 +1730,46 @@ Body.
             &[matched.string(0), matched.string(1), "invalid map entry"],
         ),
         "the violations are ordinally sorted" => {
-            // Sorted by the diagnostic line itself, which for the structural
-            // format is path, then rule, then field in that order. Comparing
-            // the reported order with its own sort is the only form of this
-            // assertion that cannot be satisfied by reporting one finding.
+            // Compared against the key the structural contract states -- path,
+            // then line, then column, then rule, then field -- rather than
+            // against the rendered text. Sorting the text would accept
+            // `:10:` before `:2:`, which is the one ordering defect a
+            // string comparison cannot see.
             let result = world.result();
-            let reported: Vec<&str> = result
+            let keys: Vec<(String, usize, usize, String, String)> = result
                 .stderr
                 .lines()
                 .filter(|line| line.starts_with('['))
+                .filter_map(|line| {
+                    let body = line.split_once("] ")?.1;
+                    let (position, rest) = body.split_once(' ')?;
+                    let mut parts = position.split(':');
+                    let path = parts.next()?.to_string();
+                    let line_number = parts.next()?.parse().ok()?;
+                    let column = parts.next()?.parse().ok()?;
+                    let (rule, rest) = rest.split_once(' ')?;
+                    let field = rest.split_whitespace().next().unwrap_or_default();
+                    Some((
+                        path,
+                        line_number,
+                        column,
+                        rule.to_string(),
+                        field.to_string(),
+                    ))
+                })
                 .collect();
-            if reported.len() < 2 {
+            if keys.len() < 2 {
                 return Outcome::Failed(format!(
-                    "ordering needs at least two violations, got {}\nstderr: {}",
-                    reported.len(),
+                    "ordering needs at least two structural violations, got {}\nstderr: {}",
+                    keys.len(),
                     result.stderr
                 ));
             }
-            let mut sorted = reported.clone();
-            sorted.sort_unstable();
+            let mut sorted = keys.clone();
+            sorted.sort();
             expect(
-                reported == sorted,
-                format!(
-                    "violations are not ordinally sorted:\n{}",
-                    reported.join("\n")
-                ),
+                keys == sorted,
+                format!("violations are not ordinally sorted:\n{}", result.stderr),
             )
         }
         "all violations are {string}" => {

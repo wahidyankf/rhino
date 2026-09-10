@@ -42,6 +42,16 @@ pub struct Finding {
     /// Repository-relative, so output does not depend on where the tool ran.
     pub path: String,
     pub line: Option<usize>,
+    /// Set only by the structural validators, whose diagnostic format the
+    /// standardization contract fixes as `path:line:column rule field message`.
+    ///
+    /// Its presence is what selects that format. The validators that shipped
+    /// before it keep `path:line: message`, because a consumer's stored output
+    /// may not change because a later command arrived with a different taste
+    /// in diagnostics.
+    pub column: Option<usize>,
+    /// The metadata field a structural finding is about, when it is about one.
+    pub field: Option<String>,
     pub message: String,
     /// Ordered, because the order is what a reader sees and what a machine
     /// consumer's first field is.
@@ -54,6 +64,8 @@ impl Finding {
             kind,
             path: path.into(),
             line: None,
+            column: None,
+            field: None,
             message: message.into(),
             details: Vec::new(),
         }
@@ -83,11 +95,22 @@ impl Finding {
         self
     }
 
+    /// Place a structural finding, which selects the structural format.
+    #[must_use]
+    pub fn at(mut self, line: usize, column: usize) -> Self {
+        self.line = Some(line);
+        self.column = Some(column);
+        self
+    }
+
+    /// Name the field a structural finding is about.
+    #[must_use]
+    pub fn about(mut self, field: impl Into<String>) -> Self {
+        self.field = Some(field.into());
+        self
+    }
+
     fn render(&self, category: &str) -> String {
-        let position = match self.line {
-            Some(line) => format!("{}:{line}", self.path),
-            None => self.path.clone(),
-        };
         let details = if self.details.is_empty() {
             String::new()
         } else {
@@ -97,6 +120,21 @@ impl Finding {
                 .map(|(key, value)| format!("{key}={value}"))
                 .collect();
             format!(" ({})", pairs.join(", "))
+        };
+        if let Some(column) = self.column {
+            let line = self.line.unwrap_or(1);
+            let field = match &self.field {
+                Some(field) => format!(" {field}"),
+                None => String::new(),
+            };
+            return format!(
+                "[{category}] {}:{line}:{column} {}{field} {}{details}\n",
+                self.path, self.kind, self.message
+            );
+        }
+        let position = match self.line {
+            Some(line) => format!("{}:{line}", self.path),
+            None => self.path.clone(),
         };
         format!("[{category}] {position}: {}{details}\n", self.message)
     }
@@ -214,7 +252,15 @@ impl Report {
         let mut scanned = self.scanned.clone();
         scanned.sort();
         let mut findings: Vec<&Finding> = self.findings.iter().collect();
-        findings.sort_by_key(|finding| (finding.path.clone(), finding.line, finding.kind));
+        findings.sort_by_key(|finding| {
+            (
+                finding.path.clone(),
+                finding.line,
+                finding.column,
+                finding.kind,
+                finding.field.clone(),
+            )
+        });
 
         let violations: Vec<String> = findings
             .iter()
@@ -226,6 +272,12 @@ impl Report {
                 ];
                 if let Some(line) = finding.line {
                     fields.push(format!("\"line\":{line}"));
+                }
+                if let Some(column) = finding.column {
+                    fields.push(format!("\"column\":{column}"));
+                }
+                if let Some(field) = &finding.field {
+                    fields.push(format!("\"field\":{}", quote(field)));
                 }
                 for (key, value) in &finding.details {
                     fields.push(match value {
@@ -293,13 +345,38 @@ impl Report {
         // Sorted, so two runs over one repository produce byte-identical
         // output and a diff between two repositories is a diff about the
         // repositories.
-        let mut rendered: Vec<String> = self
-            .findings
-            .iter()
-            .map(|finding| finding.render(self.category))
-            .collect();
-        rendered.sort();
-        let stderr: String = rendered.concat();
+        //
+        // Structural findings sort by the key their contract states -- path,
+        // line, column, rule, field -- which is not what sorting the rendered
+        // text would give: `:10:` precedes `:2:` as a string. Everything else
+        // keeps the rendered-text order it shipped with, because a consumer's
+        // stored output may not be reordered by a release it did not ask for.
+        let structural =
+            !self.findings.is_empty() && self.findings.iter().all(|f| f.column.is_some());
+        let stderr: String = if structural {
+            let mut ordered: Vec<&Finding> = self.findings.iter().collect();
+            ordered.sort_by(|left, right| {
+                (&left.path, left.line, left.column, left.kind, &left.field).cmp(&(
+                    &right.path,
+                    right.line,
+                    right.column,
+                    right.kind,
+                    &right.field,
+                ))
+            });
+            ordered
+                .iter()
+                .map(|finding| finding.render(self.category))
+                .collect()
+        } else {
+            let mut rendered: Vec<String> = self
+                .findings
+                .iter()
+                .map(|finding| finding.render(self.category))
+                .collect();
+            rendered.sort();
+            rendered.concat()
+        };
 
         Outcome {
             exit_code: u8::from(!self.findings.is_empty()),

@@ -125,7 +125,7 @@ $ rhino md mermaid validate
 $ rhino harness parity validate
 ```
 
-Five more read an optional section. Undeclared, each exits `2` naming it,
+Six more read an optional section. Undeclared, each exits `2` naming it,
 never a convention RHINO chose for you:
 
 ```console
@@ -134,7 +134,14 @@ $ rhino md frontmatter validate
 $ rhino md heading-hierarchy validate
 $ rhino md readme-index validate
 $ rhino convention emoji validate
+$ rhino metadata validate
 ```
+
+`metadata validate` is the one whose schemas RHINO owns. A repository declares
+which trees hold governance documents, workflows, skills, and agents; the path
+then selects the schema. It reports `path:line:column rule field message`, a
+format the validators above deliberately keep out of, so nothing a consumer
+already records changes shape.
 
 Full walkthrough: [Validate your first
 repository](./docs/tutorials/validate-your-first-repository.md).

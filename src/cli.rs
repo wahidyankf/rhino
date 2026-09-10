@@ -86,6 +86,12 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check every declared surface's heading structure.",
     },
     Leaf {
+        path: &["metadata", "validate"],
+        category: "metadata",
+        accepts: &[],
+        summary: "Check every declared surface against its path-selected metadata schema.",
+    },
+    Leaf {
         path: &["md", "internal-link", "validate"],
         category: "internal-link",
         accepts: &[],

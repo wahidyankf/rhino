@@ -1134,6 +1134,48 @@ pub const BINDINGS: &[Binding] = &[
         "repo-config",
         "A mapping keyed by an agent name is not a tier mapping",
     ),
+    (
+        "metadata",
+        "A trigger of more than three sentences stops being a trigger",
+    ),
+    (
+        "metadata",
+        "A name that is not a portable identifier is refused before it is compared",
+    ),
+    ("metadata", "A list key written as one value is refused"),
+    (
+        "metadata",
+        "A single-value key written as a list is refused",
+    ),
+    (
+        "metadata",
+        "A description written as a literal block is refused",
+    ),
+    (
+        "metadata",
+        "A line inside the block that declares nothing is reported",
+    ),
+    (
+        "metadata",
+        "A horizontal rule further down the document is not front matter",
+    ),
+    (
+        "metadata",
+        "A blank line between declarations is not a declaration",
+    ),
+    ("metadata", "A quoted value is the value it quotes"),
+    (
+        "metadata",
+        "A surface glob that cannot compile is a configuration fault",
+    ),
+    (
+        "metadata",
+        "A file that cannot be read refuses the whole run",
+    ),
+    (
+        "metadata",
+        "The JSON form carries the column and the field a finding is about",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete
