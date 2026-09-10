@@ -29,11 +29,27 @@ fn validator_arguments(name: &str) -> Option<Vec<String>> {
         "harness-parity" => &["harness", "parity", "validate"],
         "internal-link" => &["md", "internal-link", "validate"],
         "mermaid" => &["md", "mermaid", "validate"],
+        "heading-hierarchy" => &["md", "heading-hierarchy", "validate"],
+        "emoji" => &["convention", "emoji", "validate"],
+        "frontmatter" => &["md", "frontmatter", "validate"],
+        "readme-index" => &["md", "readme-index", "validate"],
+        "naming" => &["md", "naming", "validate"],
         "repo-config" => &["repo-config", "validate"],
         _ => return None,
     };
     Some(path.iter().map(|part| (*part).to_string()).collect())
 }
+
+/// Every configuration section a release added after the one a consumer already
+/// runs. Each is optional, and a repository declaring none of them has to be
+/// told nothing at all.
+const OPTIONAL_SECTIONS: [&str; 5] = [
+    "convention-emoji",
+    "md-frontmatter",
+    "md-heading-hierarchy",
+    "md-naming",
+    "md-readme-index",
+];
 
 fn expect(condition: bool, message: String) -> Outcome {
     if condition {
@@ -124,6 +140,87 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 placed > 0,
                 "the step promised a table of files and carried none".to_string(),
             )
+        }
+        "the repository declares the front-matter surface {string} requiring {string}" => {
+            let required: Vec<&str> = matched.string(1).split(',').map(str::trim).collect();
+            push_frontmatter_surface(
+                world,
+                matched.string(0),
+                &format!("require: [{}]", required.join(", ")),
+            )
+        }
+        "the repository declares the front-matter surface {string} requiring nothing" => {
+            push_frontmatter_surface(world, matched.string(0), "require: []")
+        }
+        "the repository declares the front-matter surface {string} with the {string} values {string}" =>
+        {
+            let permitted: Vec<&str> = matched.string(2).split(',').map(str::trim).collect();
+            push_frontmatter_surface(
+                world,
+                matched.string(0),
+                &format!(
+                    "require: [], enum: {{{}: [{}]}}",
+                    matched.string(1),
+                    permitted.join(", ")
+                ),
+            )
+        }
+        "the repository declares the front-matter surface {string} with the ISO date key {string}" => {
+            push_frontmatter_surface(
+                world,
+                matched.string(0),
+                &format!("require: [], iso-date: [{}]", matched.string(1)),
+            )
+        }
+        "the repository declares the front-matter surface {string} forbidding {string}" => {
+            push_frontmatter_surface(
+                world,
+                matched.string(0),
+                &format!("require: [], forbid: [{}]", matched.string(1)),
+            )
+        }
+        "the repository declares the heading surface {string} with one H1 and a maximum jump of {int}" => {
+            push_heading_surface(world, matched.string(0), true, matched.integer(0))
+        }
+        "the repository declares the heading surface {string} with any number of H1s and a maximum jump of {int}" => {
+            push_heading_surface(world, matched.string(0), false, matched.integer(0))
+        }
+        "the repository declares the README-index tree {string}" => {
+            world
+                .declaration
+                .readme_index_trees
+                .push(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the repository declares the emoji-prohibited surface {string}" => {
+            world
+                .declaration
+                .emoji_prohibited
+                .push(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the repository declares the kebab-case naming surface {string}" => {
+            world.declaration.naming_surfaces.push(format!(
+                "{{glob: \"{}\", style: kebab-case}}",
+                matched.string(0)
+            ));
+            Outcome::Passed
+        }
+        "the repository declares the path-prefixed naming surface {string} separated by {string}" =>
+        {
+            world.declaration.naming_surfaces.push(format!(
+                "{{glob: \"{}\", style: path-prefixed, separator: \"{}\"}}",
+                matched.string(0),
+                matched.string(1)
+            ));
+            Outcome::Passed
+        }
+        "the repository declares the naming exemption {string}" => {
+            world
+                .declaration
+                .naming_exempt
+                .push(matched.string(0).to_string());
+            Outcome::Passed
         }
         "the repository declares the internal-link excluded source {string}" => {
             world
@@ -1418,6 +1515,27 @@ Body.
                 ),
             )
         }
+        "no output names an optional section" => {
+            // The additive claim, asserted rather than assumed: a repository
+            // that declares none of the sections a later release added must not
+            // be told about them. The base fixture declares none, so this
+            // sentence is about the configuration every other scenario is
+            // built on.
+            let result = world.result();
+            let named: Vec<&str> = OPTIONAL_SECTIONS
+                .into_iter()
+                .filter(|section| {
+                    result.stdout.contains(section) || result.stderr.contains(section)
+                })
+                .collect();
+            expect(
+                named.is_empty(),
+                format!(
+                    "output names {named:?}\nstdout: {}\nstderr: {}",
+                    result.stdout, result.stderr
+                ),
+            )
+        }
         "there are no violations" => {
             let counted = violations(world.result());
             expect(
@@ -2007,6 +2125,36 @@ Body.
             Outcome::Unimplemented(other)
         }
     }
+}
+
+/// Append one front-matter surface, written as the flow mapping a repository
+/// would commit. Assembled here rather than in five arms so the glob and the
+/// braces are spelled once.
+fn push_frontmatter_surface<D: Driver>(world: &mut World<D>, glob: &str, rules: &str) -> Outcome {
+    world
+        .declaration
+        .frontmatter_surfaces
+        .push(format!("{{glob: \"{glob}\", {rules}}}"));
+    Outcome::Passed
+}
+
+/// Append one heading surface and state the section's two rules.
+///
+/// The rules are section-level rather than per surface, so a scenario declaring
+/// two surfaces states the same pair twice and means it once.
+fn push_heading_surface<D: Driver>(
+    world: &mut World<D>,
+    glob: &str,
+    single_h1: bool,
+    max_jump: usize,
+) -> Outcome {
+    world
+        .declaration
+        .heading_surfaces
+        .push(format!("{{glob: \"{glob}\"}}"));
+    world.declaration.heading_single_h1 = Some(single_h1);
+    world.declaration.heading_max_jump = Some(max_jump);
+    Outcome::Passed
 }
 
 /// stderr must name each fragment, and carry a line reference so a maintainer

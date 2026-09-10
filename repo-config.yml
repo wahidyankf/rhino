@@ -17,9 +17,13 @@ governance-word-budget:
     - glob: "AGENTS.md"
       fail: 650
       warn: 550
+    # Raised for v0.2.0, which added five commands: the quick start has to name
+    # every command the tool answers to, so the ceiling follows the command
+    # count rather than the other way round. This is the one surface where that
+    # is true; the governance ceiling below is never raised to fit a document.
     - glob: "README.md"
-      fail: 1600
-      warn: 1400
+      fail: 1700
+      warn: 1550
     # The governance tree. 750 is a ceiling, not a target: a document that
     # outgrows it is split into documents with distinct reader tasks, and the
     # number is never raised to fit one.
@@ -51,6 +55,47 @@ md-mermaid:
   fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CA9161"]
   edge-colors: ["#0173B2", "#000000"]
   text-colors: ["#000000", "#FFFFFF"]
+
+# Optional since v0.2.0. Declared because these are rules this repository
+# already follows and had no way to state; the two sections left undeclared are
+# left undeclared on purpose, and the reasons are below.
+md-naming:
+  surfaces:
+    - glob: "repo-governance/**/*.md"
+      style: kebab-case
+    - glob: "docs/**/*.md"
+      style: kebab-case
+    - glob: "plans/**/*.md"
+      style: kebab-case
+  # A README is named for what it is, not for what it says, and the ordinal
+  # prefix convention for companion documents is already kebab-case.
+  exempt:
+    - "**/README.md"
+
+md-heading-hierarchy:
+  surfaces:
+    - glob: "repo-governance/**/*.md"
+    - glob: "docs/**/*.md"
+  single-h1: true
+  max-level-jump: 1
+
+# Configuration and data files. Not `**/*.md`: this repository's README opens
+# its sections with an emoji by convention, and nothing here should stop it.
+convention-emoji:
+  prohibited:
+    - glob: "**/*.json"
+    - glob: "**/*.toml"
+    - glob: "**/*.yml"
+
+# `md-readme-index` is not declared. It is the weaker half of a rule this
+# repository already holds in full: every tree it would name is already a
+# `governance-directory-map` tree, which wants the README *and* a map section.
+# Declaring both would check the same directories twice and report the weaker
+# failure alongside the stronger one.
+#
+# `md-frontmatter` is not declared. Nothing here carries front matter, and a
+# surface that required nothing of files that hold nothing would be a rule
+# whose passing says nothing.
 
 harness-parity:
   canonical:

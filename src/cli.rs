@@ -74,6 +74,18 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Reconcile the canon against every declared coding harness.",
     },
     Leaf {
+        path: &["md", "frontmatter", "validate"],
+        category: "frontmatter",
+        accepts: &[],
+        summary: "Check every declared surface's front matter against its declared schema.",
+    },
+    Leaf {
+        path: &["md", "heading-hierarchy", "validate"],
+        category: "heading-hierarchy",
+        accepts: &[],
+        summary: "Check every declared surface's heading structure.",
+    },
+    Leaf {
         path: &["md", "internal-link", "validate"],
         category: "internal-link",
         accepts: &[],
@@ -86,10 +98,28 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check Mermaid diagrams for label length and colour contrast.",
     },
     Leaf {
+        path: &["md", "naming", "validate"],
+        category: "naming",
+        accepts: &[],
+        summary: "Check every declared surface's filenames against its declared style.",
+    },
+    Leaf {
+        path: &["md", "readme-index", "validate"],
+        category: "readme-index",
+        accepts: &[],
+        summary: "Check that every directory in a declared tree carries a README.",
+    },
+    Leaf {
         path: &["md", "word-count", "inspect"],
         category: "word-count",
         accepts: &[Accepts::File],
         summary: "Report a file's word count. Never reports findings.",
+    },
+    Leaf {
+        path: &["convention", "emoji", "validate"],
+        category: "emoji",
+        accepts: &[],
+        summary: "Check that no declared file carries an emoji code point.",
     },
     Leaf {
         path: &["version"],

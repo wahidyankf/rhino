@@ -26,12 +26,23 @@ implement them the same way at three boundaries:
 
 - [cli-contract.feature](cli-contract.feature) — command tree, flags, output
   formats, and the exit codes every command shares.
+- [convention-emoji.feature](convention-emoji.feature) — the files an emoji
+  code point may not appear in, and the punctuation that is not one.
 - [directory-map.feature](directory-map.feature) — README presence and
   directory-map completeness across declared trees.
 - [harness-parity.feature](harness-parity.feature) — one canonical instruction
   body, skill bundle, and agent roster reconciled across every declared harness.
 - [internal-link.feature](internal-link.feature) — repository-local Markdown
   links resolve to files that exist.
+- [md-frontmatter.feature](md-frontmatter.feature) — declared front-matter
+  schemas: required keys, closed value sets, date keys, and forbidden keys.
+- [md-heading-hierarchy.feature](md-heading-hierarchy.feature) — one level-1
+  heading per governed document, and how far a heading may drop below its
+  predecessor.
+- [md-naming.feature](md-naming.feature) — declared filename styles, the
+  directory prefix an encoded style derives, and what is exempt from both.
+- [md-readme-index.feature](md-readme-index.feature) — a README in every
+  directory of a declared tree, and nothing about what is in it.
 - [mermaid-cli.feature](mermaid-cli.feature) — how Mermaid diagrams are
   discovered, parsed, and reported on.
 - [mermaid-legibility.feature](mermaid-legibility.feature) — the accessibility

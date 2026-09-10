@@ -125,6 +125,17 @@ $ rhino md mermaid validate
 $ rhino harness parity validate
 ```
 
+Five more read an optional section. Undeclared, each exits `2` naming it,
+never a convention RHINO chose for you:
+
+```console
+$ rhino md naming validate
+$ rhino md frontmatter validate
+$ rhino md heading-hierarchy validate
+$ rhino md readme-index validate
+$ rhino convention emoji validate
+```
+
 Full walkthrough: [Validate your first
 repository](./docs/tutorials/validate-your-first-repository.md).
 

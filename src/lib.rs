@@ -10,6 +10,7 @@
 
 pub mod cli;
 pub mod config;
+pub mod convention;
 pub mod governance;
 pub mod harness;
 pub mod markdown;
@@ -131,14 +132,51 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
         "word-budget" => governance::word_budget::validate(tree, &config),
         "word-count" => governance::word_budget::inspect(tree, &config, &scope),
         "directory-map" => governance::directory_map::validate(tree, &config, &scope),
+        "emoji" => match &config.emoji {
+            Some(section) => convention::emoji::validate(tree, &config, section),
+            None => undeclared("emoji", "convention-emoji"),
+        },
         "harness-parity" => harness::validate(tree, &config, &scope),
+        "frontmatter" => match &config.frontmatter {
+            Some(section) => markdown::frontmatter::validate(tree, &config, section),
+            None => undeclared("frontmatter", "md-frontmatter"),
+        },
+        "heading-hierarchy" => match &config.heading_hierarchy {
+            Some(section) => markdown::heading_hierarchy::validate(tree, &config, section),
+            None => undeclared("heading-hierarchy", "md-heading-hierarchy"),
+        },
         "internal-link" => markdown::internal_link::validate(tree, &config),
+        "readme-index" => match &config.readme_index {
+            Some(section) => markdown::readme_index::validate(tree, &config, section),
+            None => undeclared("readme-index", "md-readme-index"),
+        },
+        "naming" => match &config.naming {
+            Some(section) => markdown::naming::validate(tree, &config, section),
+            None => undeclared("naming", "md-naming"),
+        },
         // The parser only produces categories the leaf table holds, so this
         // arm is the last leaf rather than a fallback for an unknown one.
         _ => markdown::mermaid::validate(tree, &config, &scope),
     };
 
     report.render(invocation.format)
+}
+
+/// A command whose section the repository never declared.
+///
+/// Refused rather than skipped, and refused rather than defaulted. Every section
+/// added after `v0.1` is optional so that a release costs an existing consumer
+/// nothing, and the whole value of that optionality depends on absence meaning
+/// *nothing to enforce* instead of *enforce whatever the binary happens to
+/// think*.
+fn undeclared(category: &'static str, section: &str) -> Report {
+    Report::refused(
+        category,
+        format!(
+            "{}: line 1: {section}: the section is not declared, and RHINO holds no default for it",
+            config::PATH
+        ),
+    )
 }
 
 /// This build's release identity.
