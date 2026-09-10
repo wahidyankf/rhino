@@ -400,3 +400,165 @@ Feature: Canonical metadata validation
     When I run the "metadata" validator
     Then the exit code is 2
     And stderr contains "the section is not declared"
+
+  Scenario: A trigger of more than three sentences stops being a trigger
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description: Defines the durable repository rule for naming one governed file.
+      when_to_use: >-
+        Use when creating a file. Use when renaming one. Use when splitting one. Use when deleting one.
+      ---
+      """
+    When I run the "metadata" validator
+    Then the only violation starts with "repo-governance/conventions/file-naming.md:3:1 metadata-when-to-use-sentences when_to_use"
+
+  Scenario: A name that is not a portable identifier is refused before it is compared
+    Given the repository declares the metadata surface "repo-governance/workflows/**/*.md" using the "workflow" schema
+    And file "repo-governance/workflows/adopt-artifact.md" contains this Markdown:
+      """
+      ---
+      name: Adopt_Artifact
+      description: Adopts explicitly requested catalog artifacts into a repository-owned local form.
+      when_to_use: >-
+        Use after the user names an artifact or a bounded family to adopt.
+      ---
+      """
+    When I run the "metadata" validator
+    Then the only violation starts with "repo-governance/workflows/adopt-artifact.md:2:1 metadata-name-format name"
+
+  Scenario: A list key written as one value is refused
+    Given the repository declares the metadata surface ".agents/agents/*.md" using the "agent" schema
+    And file ".agents/agents/plan-checker.md" contains this Markdown:
+      """
+      ---
+      name: plan-checker
+      description: Audits project plans for completeness, consistency, safety, and execution readiness.
+      when_to_use: >-
+        Use after a plan rewrite and before implementation begins.
+      tier: plan
+      capabilities: repository-read
+      ---
+      """
+    When I run the "metadata" validator
+    Then the only violation starts with ".agents/agents/plan-checker.md:7:1 metadata-array-required capabilities"
+
+  Scenario: A single-value key written as a list is refused
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description:
+        - Defines the durable repository rule for naming one governed file.
+      when_to_use: >-
+        Use when creating or renaming a governed Markdown document.
+      ---
+      """
+    When I run the "metadata" validator
+    Then the only violation starts with "repo-governance/conventions/file-naming.md:2:1 metadata-scalar-required description"
+
+  Scenario: A description written as a literal block is refused
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description: |
+        Defines the durable repository rule for naming one governed file.
+      when_to_use: >-
+        Use when creating or renaming a governed Markdown document.
+      ---
+      """
+    When I run the "metadata" validator
+    Then the only violation starts with "repo-governance/conventions/file-naming.md:2:1 metadata-description-form description"
+
+  Scenario: A line inside the block that declares nothing is reported
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description: Defines the durable repository rule for naming one governed file.
+      this line declares nothing
+      when_to_use: >-
+        Use when creating or renaming a governed Markdown document.
+      ---
+      """
+    When I run the "metadata" validator
+    Then the only violation starts with "repo-governance/conventions/file-naming.md:3:1 metadata-frontmatter-malformed"
+
+  Scenario: A horizontal rule further down the document is not front matter
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      # File Naming
+
+      One rule about naming.
+
+      ---
+
+      A closing note.
+      """
+    When I run the "metadata" validator
+    Then there are 2 violations
+    And all violations are "file-naming.md:1:1 metadata-required-key-missing"
+
+  Scenario: A blank line between declarations is not a declaration
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description: Defines the durable repository rule for naming one governed file.
+
+      when_to_use: >-
+        Use when creating or renaming a governed Markdown document.
+      ---
+      """
+    When I run the "metadata" validator
+    Then the exit code is 0
+    And 1 files were inspected
+
+  Scenario: A quoted value is the value it quotes
+    Given the repository declares the metadata surface ".agents/agents/*.md" using the "agent" schema
+    And file ".agents/agents/plan-checker.md" contains this Markdown:
+      """
+      ---
+      name: "plan-checker"
+      description: Audits project plans for completeness, consistency, safety, and execution readiness.
+      when_to_use: >-
+        Use after a plan rewrite and before implementation begins.
+      tier: 'plan'
+      capabilities:
+        - repository-read
+      ---
+      """
+    When I run the "metadata" validator
+    Then the exit code is 0
+    And 1 files were inspected
+
+  Scenario: A surface glob that cannot compile is a configuration fault
+    Given the repository declares the metadata surface "repo-governance/**/[" using the "governance" schema
+    When I run the "metadata" validator
+    Then the exit code is 2
+    And stderr contains "metadata.surfaces"
+
+  Scenario: A file that cannot be read refuses the whole run
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" cannot be opened
+    When I run the "metadata" validator
+    Then the exit code is 2
+    And stderr names a file it could not read
+
+  Scenario: The JSON form carries the column and the field a finding is about
+    Given the repository declares the metadata surface "repo-governance/**/*.md" using the "governance" schema
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description: Defines the durable repository rule for naming one governed file.
+      when_to_use: >-
+        Use when creating or renaming a governed Markdown document.
+      title: File Naming
+      ---
+      """
+    When I invoke the CLI with "metadata|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "metadata-unknown-key"

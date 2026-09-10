@@ -14,6 +14,7 @@ pub mod convention;
 pub mod governance;
 pub mod harness;
 pub mod markdown;
+pub mod metadata;
 pub mod report;
 pub mod runtime;
 pub mod scan;
@@ -146,6 +147,10 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
             None => undeclared("heading-hierarchy", "md-heading-hierarchy"),
         },
         "internal-link" => markdown::internal_link::validate(tree, &config),
+        "metadata" => match &config.metadata {
+            Some(section) => metadata::validate(tree, &config, section),
+            None => undeclared("metadata", "metadata"),
+        },
         "readme-index" => match &config.readme_index {
             Some(section) => markdown::readme_index::validate(tree, &config, section),
             None => undeclared("readme-index", "md-readme-index"),

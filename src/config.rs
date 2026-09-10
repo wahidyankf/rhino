@@ -106,7 +106,77 @@ pub struct Config {
     /// Optional, on the same rule as every section added after `v0.1`.
     #[serde(rename = "convention-emoji", default)]
     pub emoji: Option<Emoji>,
+    /// Where this repository's governed artifacts live, and which canonical
+    /// schema each surface carries.
+    ///
+    /// The mapping is the repository's because RHINO ships no path. The four
+    /// schemas are not: they are the shared contract, and a repository able to
+    /// redefine what an agent declares would have adopted nothing.
+    #[serde(default)]
+    pub metadata: Option<Metadata>,
+    /// The optional model and effort a harness uses for each portable tier.
+    ///
+    /// Read here rather than from an agent, because a mapping written beside
+    /// the agent would make one repository's vendor choice part of a portable
+    /// artifact. Every harness and every tier may be omitted; what may not be
+    /// omitted is half of a pair.
+    #[serde(rename = "model-tiers", default)]
+    pub model_tiers: Option<BTreeMap<String, BTreeMap<String, Option<TierMapping>>>>,
     pub scan: Scan,
+}
+
+/// The harness profiles this schema recognizes.
+///
+/// Closed rather than open: an unrecognized key is far more often a typo than
+/// a harness nobody has heard of, and a typo that silently maps nothing is a
+/// vendor pin that quietly stops applying.
+pub const HARNESS_PROFILES: [&str; 3] = ["claude", "codex", "opencode"];
+
+/// The portable tiers a mapping may be keyed by.
+///
+/// Named for the workload rather than for a model, so the same four survive a
+/// vendor renaming its lineup.
+pub const TIERS: [&str; 4] = ["ultra", "plan", "execution", "fast"];
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Metadata {
+    /// Ordered, on the same rule as `governance-word-budget.surfaces`: where
+    /// two globs match one file, the last matching entry wins. That is how a
+    /// workflow subtree carries a different schema from the governance tree it
+    /// sits inside.
+    pub surfaces: Vec<MetadataSurface>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataSurface {
+    pub glob: String,
+    pub schema: MetadataSchema,
+}
+
+/// The four canonical artifact families.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum MetadataSchema {
+    Governance,
+    Workflow,
+    Skill,
+    Agent,
+}
+
+/// One harness's choice for one tier.
+///
+/// Both fields are optional *to the decoder* and required *to the checker*, so
+/// that half a pair is reported as the policy fault it is rather than as a
+/// decoding failure a reader has to translate.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TierMapping {
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -622,6 +692,8 @@ fn declared_schema(text: &str) -> Result<(), ConfigError> {
 
 /// The rules a well-typed document can still break.
 fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
+    check_model_tiers(config, text)?;
+
     let canonical = &config.harness_parity.canonical;
 
     // Everything a harness is reconciled *against*: the two canonical roots and
@@ -922,6 +994,91 @@ fn escapes_root(value: &str) -> Option<&'static str> {
 
 /// The first line declaring `key`, one-based, for a fault the parser did not
 /// raise and so did not position.
+/// The tier mapping, which is refused before anything could be generated from it.
+///
+/// Every fault here is a fault a generator would otherwise have to guess its
+/// way around, and a guess is exactly what the mapping exists to prevent: an
+/// unmapped tier means "inherit the harness default", so a half-mapped one has
+/// no honest reading at all.
+fn check_model_tiers(config: &Config, text: &str) -> Result<(), ConfigError> {
+    const KEY: &str = "model-tiers";
+    let Some(harnesses) = &config.model_tiers else {
+        return Ok(());
+    };
+    let line = line_of(text, KEY);
+    let refuse = |reason: String| {
+        Err(ConfigError::Semantic {
+            key: KEY.to_string(),
+            line,
+            reason,
+        })
+    };
+
+    // An empty section and an omitted one would mean the same thing to a
+    // generator, which is why the empty one is refused: only the omission is
+    // an answer a repository can be held to.
+    if harnesses.is_empty() {
+        return refuse(
+            "declares no harness, and an empty section cannot be told from one a repository meant to omit"
+                .to_string(),
+        );
+    }
+
+    for (harness, tiers) in harnesses {
+        if !HARNESS_PROFILES.contains(&harness.as_str()) {
+            return refuse(format!(
+                "`{harness}` is not a harness profile this schema recognizes; the initial profiles are {}",
+                listed(&HARNESS_PROFILES)
+            ));
+        }
+        if tiers.is_empty() {
+            return refuse(format!(
+                "`{harness}` declares no tier, and an empty map cannot be told from a harness a repository meant to omit"
+            ));
+        }
+        for (tier, mapping) in tiers {
+            if !TIERS.contains(&tier.as_str()) {
+                return refuse(format!(
+                    "`{harness}` maps `{tier}`, which is not a portable tier; the closed set is {}. A mapping keyed by an agent name is the same fault: model and effort resolve by tier, never by artifact",
+                    listed(&TIERS)
+                ));
+            }
+            let Some(mapping) = mapping else {
+                return refuse(format!(
+                    "`{harness}.{tier}` declares no model or effort; an unmapped tier is written by omitting it, not by mapping it to nothing"
+                ));
+            };
+            for (field, value) in [("model", &mapping.model), ("effort", &mapping.effort)] {
+                match value {
+                    None => {
+                        return refuse(format!(
+                            "`{harness}.{tier}` declares no {field}; a present tier carries both, or the generator would emit half a pin"
+                        ));
+                    }
+                    Some(value) if value.trim().is_empty() => {
+                        return refuse(format!(
+                            "`{harness}.{tier}` declares an empty {field}, which is not a value a harness can be given"
+                        ));
+                    }
+                    Some(_) => {}
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// A closed set, written the way a sentence would read it.
+fn listed(values: &[&str]) -> String {
+    let quoted: Vec<String> = values.iter().map(|value| format!("`{value}`")).collect();
+    match quoted.split_last() {
+        None => String::new(),
+        Some((last, [])) => last.clone(),
+        Some((last, rest)) => format!("{}, and {last}", rest.join(", ")),
+    }
+}
+
 fn line_of(text: &str, key: &str) -> usize {
     text.lines()
         .position(|line| line.trim_start().starts_with(&format!("{key}:")))
