@@ -74,6 +74,11 @@ graph TD
     Word["word_budget"]
     Map["directory_map"]
     Harness["harness"]
+    Metadata["metadata"]
+    Gate["gate — dispatch"]
+    Structure["governance structure"]
+    Companion["governance companion"]
+    Instructions["governance instructions"]
 
     Cli --> ConfigMod
     Cli --> Link
@@ -81,10 +86,19 @@ graph TD
     Cli --> Word
     Cli --> Map
     Cli --> Harness
+    Cli --> Metadata
+    Cli --> Gate
+    Cli --> Structure
+    Cli --> Companion
+    Cli --> Instructions
     ConfigMod --> Runtime
     Scan --> Runtime
     Harness --> Runtime
     Map --> Runtime
+    Metadata --> Scan
+    Structure --> Runtime
+    Companion --> Runtime
+    Instructions --> Runtime
     Link --> Scan
     Mermaid --> Scan
     Word --> Scan
@@ -94,13 +108,16 @@ graph TD
     classDef shared fill:#029E73,stroke:#000000,color:#000000
 
     class Cli entry
-    class Link,Mermaid,Word,Map,Harness check
+    class Link,Mermaid,Word,Map,Harness,Metadata,Structure,Companion,Instructions check
+    class Gate entry
     class ConfigMod,Runtime,Scan shared
 ```
 
 Every validator reaches the filesystem through one port trait rather than through `std::fs` directly. That is what makes the unit adapter able to drive the whole corpus against an in-memory tree, and it is also the seam the read-only constraint is enforced at: the port exposes no write operation, so a validator cannot write even by mistake.
 
 The three Markdown validators share one scan so the tree is walked once per invocation. `harness` and `directory_map` do not use it, because they read named paths and directory structure rather than Markdown content.
+
+The three governance structure modules arrived with `ose/repo-config/v2` and read the shared contract rather than a declared section, so a repository still on `v1` is refused rather than held to rules it never adopted. `structure` is the one module that asks the port for directories rather than files, because an empty governed directory is the single state a file list cannot express. `gate` dispatches declared children through the launcher port, the second port and the only place a process is spawned.
 
 ## Data
 

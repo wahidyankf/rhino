@@ -10,7 +10,7 @@
 //! *Which* colours and label lengths are acceptable is a property of the
 //! repository, and every one of them arrives from configuration.
 
-use crate::config::Config;
+use crate::config::{AuthoringRule, Config};
 use crate::markdown::{Fenced, fenced_blocks};
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::Tree;
@@ -19,6 +19,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 const ACCESSIBILITY: &str = "mermaid-accessibility";
 const LEGIBILITY: &str = "mermaid-legibility";
+const AUTHORING: &str = "diagram-authoring-rule";
 
 /// The diagram syntaxes this build can read well enough to judge.
 ///
@@ -84,6 +85,23 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
             if block.info.trim() != "mermaid" {
                 continue;
             }
+            // The form comes before anything about the diagram's content. A
+            // repository that authors in plain text has said no Mermaid may
+            // appear, and reporting the colours of a diagram that may not be
+            // there would be answering the wrong question politely.
+            if config.mermaid.authoring_rule == Some(AuthoringRule::PlainText) {
+                inspected += 1;
+                report.found(
+                    Finding::new(
+                        AUTHORING,
+                        "",
+                        "carries a Mermaid diagram, and this repository authors conceptual diagrams in plain text",
+                    )
+                    .at_line(block.lines.first().map_or(1, |(number, _)| *number))
+                    .rename(&document.path),
+                );
+                continue;
+            }
             let Some(diagram) = read(&block) else {
                 continue;
             };
@@ -129,9 +147,47 @@ fn read(block: &Fenced<'_>) -> Option<Diagram> {
 }
 
 fn inspect(diagram: &Diagram, config: &Config) -> Vec<Finding> {
-    let mut findings = colors(diagram, config);
+    let mut findings = accessibility(diagram, config);
+    findings.extend(colors(diagram, config));
     findings.extend(legibility(diagram, config));
     findings.sort_by_key(|finding| finding.line);
+    findings
+}
+
+/// The accessible title and description a rendered repository requires.
+///
+/// Checked only where the repository declared the rule. A default here would be
+/// this tool choosing an authoring style on a repository's behalf, and it would
+/// change what an existing consumer's run reports without that consumer having
+/// declared anything.
+fn accessibility(diagram: &Diagram, config: &Config) -> Vec<Finding> {
+    if config.mermaid.authoring_rule != Some(AuthoringRule::Rendered) {
+        return Vec::new();
+    }
+    let line = diagram.lines.first().map_or(1, |(number, _)| *number);
+    let mut findings = Vec::new();
+    for (declaration, what) in [("accTitle", "title"), ("accDescr", "description")] {
+        // Either form counts: `accDescr:` carries one line and `accDescr {`
+        // opens a block. A rule that accepted only the first would report a
+        // diagram whose description is longer than a line as having none.
+        let declared = diagram.lines.iter().any(|(_, text)| {
+            let trimmed = text.trim();
+            trimmed.starts_with(&format!("{declaration}:"))
+                || trimmed.starts_with(&format!("{declaration} {{"))
+        });
+        if !declared {
+            findings.push(
+                Finding::new(
+                    ACCESSIBILITY,
+                    "",
+                    format!(
+                        "declares no accessible {what}; a rendered diagram is opaque to every reader who will never see it, including every automated check and every text search"
+                    ),
+                )
+                .at_line(line),
+            );
+        }
+    }
     findings
 }
 

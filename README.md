@@ -143,8 +143,30 @@ then selects the schema. It reports `path:line:column rule field message`, a
 format the validators above deliberately keep out of, so nothing a consumer
 already records changes shape.
 
-A repository may instead declare `ose/repo-config/v2`, which carries an ordered
-list of gates. `rhino gate run --surface pre-commit` runs the gates that surface
+A repository may instead declare `ose/repo-config/v2`, which adds three
+structural commands and an ordered list of gates. The three read the shared
+governance contract rather than a section you write, and a repository still on
+`v1` is refused rather than held to a contract it never adopted:
+
+```console
+$ rhino governance roots validate
+$ rhino governance companions validate
+$ rhino governance instructions validate
+```
+
+They check that `repo-governance/` holds only registered categories and no empty
+governed directory, that a companion directory is named exactly after its
+entrypoint and indexed in reading order, and that `AGENTS.md` carries the five
+spine sections in order with `CLAUDE.md` importing it exactly.
+
+Two optional keys shape existing commands under `v2`. `mermaid.authoring-rule`
+picks one diagram style per repository — `rendered` requires `accTitle` and
+`accDescr` on every diagram, `plain-text` refuses Mermaid outright — and
+declaring neither holds a repository to neither. `harness-parity`'s
+`agent-adapter.tier-fields` names the two fields a generated adapter projects a
+model tier into, so a harness that declares none is not held to the mapping.
+
+`rhino gate run --surface pre-commit` runs the gates that surface
 selects, in order, stopping at the first failure. Each child is given the
 repository root, the surface in `OSE_GATE_SURFACE`, the hook's arguments, and
 its standard input; its own output is never repeated. Exit `3` means a child

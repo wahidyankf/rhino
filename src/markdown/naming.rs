@@ -14,6 +14,16 @@ use crate::runtime::Tree;
 use crate::scan::{self, Surfaces};
 
 const KIND: &str = "invalid-md-name";
+const FRAGMENT: &str = "fragmented-md-name";
+
+/// Name endings that say a file is half a document.
+///
+/// A closed list, and closed twice over: a name is judged against exactly these
+/// shapes, and nothing beyond them is judged at all. Whether a name reads as
+/// multi-topic or fragmentary in some other way is a review of what the
+/// document says, and a validator answering it would be asserting that word
+/// shapes prove meaning.
+const FRAGMENTS: [&str; 3] = ["-part-", "-continuation-", "-continued"];
 
 pub fn validate(tree: &dyn Tree, config: &Config, naming: &Naming) -> Report {
     let globs = match Surfaces::compile(
@@ -42,6 +52,13 @@ pub fn validate(tree: &dyn Tree, config: &Config, naming: &Naming) -> Report {
     // Names are read, not opened. A validator about filenames that refused an
     // unreadable file would be refusing on a fact it never needed.
     for path in scan::markdown_files(tree, config) {
+        // Checked before the surfaces and through the exemptions, because this
+        // is not a style. An exemption says "this file does not follow the
+        // declared style", not "this file may be half a document", and a
+        // hard-fail a repository could exempt itself from is not one.
+        if let Some(finding) = fragment(&path) {
+            report.found(finding);
+        }
         // Exemption wins over every surface. A repository saying "not this
         // file" has said so about all of them at once.
         if exempt.is_match(&path) {
@@ -57,6 +74,30 @@ pub fn validate(tree: &dyn Tree, config: &Config, naming: &Naming) -> Report {
     }
 
     report
+}
+
+/// Whether a name ends in one of the closed mechanical fragment shapes.
+///
+/// `-part-` and `-continuation-` take a number and `-continued` takes nothing,
+/// which is why the ending is tested rather than the substring: `-parted` and
+/// `-part-two` are ordinary names, and a rule that matched them would be
+/// guessing at what the words mean.
+fn fragment(path: &str) -> Option<Finding> {
+    let file = path.rsplit_once('/').map_or(path, |(_, file)| file);
+    let name = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
+    let fragmented = FRAGMENTS.iter().any(|shape| match *shape {
+        "-continued" => name.ends_with(shape),
+        _ => name
+            .rsplit_once(shape)
+            .is_some_and(|(_, tail)| !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit())),
+    });
+    fragmented.then(|| {
+        Finding::new(
+            FRAGMENT,
+            path,
+            "is named as a fragment; a document that outgrew its budget splits into an entrypoint and a companion set rather than into numbered halves",
+        )
+    })
 }
 
 fn inspect(path: &str, surface: &NamingSurface, root: &str) -> Option<Finding> {

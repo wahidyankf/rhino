@@ -331,3 +331,59 @@ Feature: Ordered companion sets
     When I run the "governance-companions" validator
     Then the exit code is 0
     And there are no violations
+
+  Scenario: A document directly under the governance root belongs to no set
+    Given the repository declares a v2 configuration
+    And the repository contains:
+      | path                     | content       |
+      | repo-governance/README.md | # Governance |
+    When I run the "governance-companions" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A malformed link in the index names no module
+    Given the repository declares a v2 configuration
+    And file "repo-governance/conventions/security.md" contains this Markdown:
+      """
+      # Security
+
+      - [Secrets](security/secrets.md)
+      """
+    And file "repo-governance/conventions/security/README.md" contains this Markdown:
+      """
+      # Security Modules
+
+      - [Secrets](secrets.md
+      """
+    And the repository contains:
+      | path                                            | content   |
+      | repo-governance/conventions/security/secrets.md | # Secrets |
+    When I run the "governance-companions" validator
+    Then the only violation starts with "repo-governance/conventions/security/secrets.md: is not indexed"
+
+  Scenario: An entrypoint that cannot be read refuses the run
+    Given the repository declares a v2 configuration
+    And the repository contains:
+      | path                                            | content   |
+      | repo-governance/conventions/security.md         | # Security |
+      | repo-governance/conventions/security/secrets.md | # Secrets |
+    And the file "repo-governance/conventions/security.md" cannot be read
+    When I run the "governance-companions" validator
+    Then the exit code is 2
+    And stderr names a file it could not read
+
+  Scenario: An index that holds no text refuses the run
+    Given the repository declares a v2 configuration
+    And file "repo-governance/conventions/security.md" contains this Markdown:
+      """
+      # Security
+
+      - [Secrets](security/secrets.md)
+      """
+    And the repository contains:
+      | path                                            | content   |
+      | repo-governance/conventions/security/secrets.md | # Secrets |
+    And file "repo-governance/conventions/security/README.md" holds bytes that are not text
+    When I run the "governance-companions" validator
+    Then the exit code is 2
+    And stderr contains "holds no text"
