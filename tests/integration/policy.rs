@@ -154,16 +154,58 @@ fn no_dependency_can_reach_the_network() {
     );
 }
 
+/// The one module allowed to start a process, and the only reason it exists.
+const LAUNCHER: &str = "src/runtime/disk.rs";
+
 #[test]
-fn the_tool_spawns_no_child_process() {
+fn no_validator_spawns_a_child_process() {
     // `build.rs` runs `git rev-parse` and the E2E adapter spawns the binary;
     // neither is under `src/`, and neither is in the shipped tool. What this
-    // forbids is the tool shelling out at *inspection* time, which would make
-    // its result depend on what happens to be installed on the machine.
-    let found = mentions(&["std::process::Command", "Command::new", "process::Command"]);
+    // forbids is a *validator* shelling out at inspection time, which would
+    // make its result depend on what happens to be installed on the machine.
+    //
+    // Gate dispatch is the one thing here that is not inspection: running a
+    // repository's declared gates *is* starting children, and a runner that
+    // could not would be a runner in name only. That capability is confined to
+    // one module and reached through one port, and the rule below is the
+    // confinement rather than a waiver of it.
+    let found: Vec<String> =
+        mentions(&["std::process::Command", "Command::new", "process::Command"])
+            .into_iter()
+            .filter(|finding| !finding.starts_with(LAUNCHER))
+            .collect();
     assert!(
         found.is_empty(),
-        "the tool spawns a child process:\n{}",
+        "a module that is not the launcher spawns a child process:\n{}",
+        found.join("\n")
+    );
+}
+
+#[test]
+fn the_launcher_is_reached_only_by_gate_dispatch() {
+    // Confinement is worth nothing if every validator can call it. The port is
+    // named in the module that defines it, the module that implements it, the
+    // dispatcher that hands it along, and the gate runner that uses it -- and
+    // nowhere else. A validator that named it could start a process without
+    // ever writing `Command`.
+    const ALLOWED: [&str; 5] = [
+        "src/runtime.rs",
+        LAUNCHER,
+        "src/lib.rs",
+        "src/main.rs",
+        "src/gate.rs",
+    ];
+    let found: Vec<String> = mentions(&["Launcher", "Launch {"])
+        .into_iter()
+        .filter(|finding| {
+            !ALLOWED
+                .iter()
+                .any(|allowed| finding.starts_with(&format!("{allowed}:")))
+        })
+        .collect();
+    assert!(
+        found.is_empty(),
+        "a module outside the gate dispatch reaches the launcher:\n{}",
         found.join("\n")
     );
 }

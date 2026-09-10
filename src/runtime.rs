@@ -9,7 +9,7 @@
 
 pub mod disk;
 
-pub use disk::DiskTree;
+pub use disk::{DiskTree, ProcessLauncher};
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,6 +27,64 @@ pub enum TreeError {
     /// artifact -- and refusing the run over one would mean no repository with
     /// a logo in it could be inspected at all.
     NotText,
+}
+
+/// What one gate child was asked to do.
+///
+/// Every field is stated by the runner rather than inherited from the process
+/// RHINO happens to have been started in. A hook that behaved one way under Git
+/// and another under a hosted runner would be a gate nobody could trust, and
+/// inheritance is exactly how that difference gets in.
+pub struct Launch<'a> {
+    /// The declared vector with the hook's own arguments already appended. The
+    /// first value is the executable; there is no shell, so a value holding a
+    /// space or a metacharacter is one ordinary argument.
+    pub arguments: &'a [String],
+    /// The repository root, which is the child's working directory.
+    pub directory: &'a str,
+    /// The one environment variable RHINO sets, and the only thing a leaf may
+    /// branch on.
+    pub surface: &'a str,
+    /// The hook's own standard input, forwarded unmodified.
+    pub stdin: Option<&'a str>,
+}
+
+/// How a child ended.
+///
+/// Only the code is kept. A child's own streams are deliberately not carried
+/// back, because the report may repeat nothing a child wrote and a value that
+/// is never read cannot be leaked by a later change.
+pub struct Launched {
+    pub code: i32,
+}
+
+/// Why a child never ran.
+pub struct LaunchError(pub String);
+
+/// The one place RHINO starts a process.
+///
+/// A port rather than a direct `Command`, for the same reason the filesystem is
+/// one: which gates ran, what each was handed, and whether any two overlapped
+/// are claims the unit boundary has to be able to make, and it has no process
+/// to spawn.
+pub trait Launcher {
+    fn launch(&self, launch: Launch<'_>) -> Result<Launched, LaunchError>;
+}
+
+/// The launcher every command that is not a gate dispatch is given.
+///
+/// Refusing rather than absent, so `execute` stays the entry point a consumer
+/// calls without having to supply something it has no use for, and so a gate
+/// dispatch reaching it is a protocol failure with a reason rather than a
+/// silent pass.
+pub struct NoLauncher;
+
+impl Launcher for NoLauncher {
+    fn launch(&self, _: Launch<'_>) -> Result<Launched, LaunchError> {
+        Err(LaunchError(
+            "this build was called through an entry point that starts no process".to_string(),
+        ))
+    }
 }
 
 /// A repository as RHINO is allowed to see it: read, list, and nothing else.
@@ -78,6 +136,16 @@ pub trait Tree {
     /// flag would only be testable at the boundary that happens to have a
     /// filesystem, which is where a defect in it would then live.
     fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String>;
+
+    /// Where this repository is, as a child would have to be told it.
+    ///
+    /// Only the gate runner asks, and only so a child's working directory is
+    /// the repository root rather than wherever the hook happened to be
+    /// started. A tree with no place on a filesystem answers with the working
+    /// directory, which is what it already means to every other caller.
+    fn root(&self) -> String {
+        ".".to_string()
+    }
 }
 
 /// `""` addresses the root; everything else gains one trailing separator, so a

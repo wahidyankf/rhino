@@ -143,6 +143,13 @@ then selects the schema. It reports `path:line:column rule field message`, a
 format the validators above deliberately keep out of, so nothing a consumer
 already records changes shape.
 
+A repository may instead declare `ose/repo-config/v2`, which carries an ordered
+list of gates. `rhino gate run --surface pre-commit` runs the gates that surface
+selects, in order, stopping at the first failure. Each child is given the
+repository root, the surface in `OSE_GATE_SURFACE`, the hook's arguments, and
+its standard input; its own output is never repeated. Exit `3` means a child
+never started.
+
 Full walkthrough: [Validate your first
 repository](./docs/tutorials/validate-your-first-repository.md).
 

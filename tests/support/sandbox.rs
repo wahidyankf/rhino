@@ -13,6 +13,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
+/// Where a declared gate child is written, and where the children record.
+const GATES: &str = "gates";
+const JOURNAL: &str = ".gate-journal";
+
+/// The marker every recorder writes into its own streams, so a runner that
+/// repeated what a child wrote is caught wherever it surfaced rather than by
+/// the wording of a summary.
+const CHILD_MARKER: &str = crate::binding::CHILD_MARKER;
+
 pub struct Sandbox {
     root: PathBuf,
 }
@@ -57,11 +66,74 @@ impl Sandbox {
         for path in repository.links {
             sandbox.link(path);
         }
+        for (id, code) in repository.gate_outcomes {
+            sandbox.recorder(id, *code);
+        }
         // Permissions last: a file has to be written before it can be closed.
         for path in repository.unreadable {
             sandbox.seal(path);
         }
         sandbox
+    }
+
+    /// Write the child a scenario declared: a real executable that records what
+    /// it was handed and exits with the stated code.
+    ///
+    /// Real rather than simulated, because the claims this stands under are all
+    /// claims about a process boundary. That a vector arrives unsplit, that the
+    /// environment carries exactly one variable, that a hook's standard input
+    /// reaches every child -- none of them can fail against something standing
+    /// in for a process, so none of them would be proved by one.
+    fn recorder(&self, id: &str, code: i32) {
+        use std::os::unix::fs::PermissionsExt;
+        let path = format!("{GATES}/{id}.sh");
+        self.write(
+            &path,
+            &format!(
+                r#"#!/bin/sh
+journal="$PWD/{JOURNAL}"
+arguments=""
+for argument in "$@"; do
+  if [ -z "$arguments" ]; then arguments="$argument"; else arguments="$arguments|$argument"; fi
+done
+input=$(cat)
+printf 'start\t{id}\t%s\t%s\t%s\t%s\n' "$arguments" "$OSE_GATE_SURFACE" "$input" "$PWD" >> "$journal"
+printf '{marker} {id}\n'
+printf '{marker} {id}\n' >&2
+printf 'stop\t{id}\n' >> "$journal"
+exit {code}
+"#,
+                marker = CHILD_MARKER,
+            ),
+        );
+        let target = self.root.join(&path);
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))
+            .expect("the recorder is made executable");
+    }
+
+    /// What the children recorded, with the sandbox path replaced by the
+    /// placeholder a scenario can name.
+    pub fn journal(&self) -> Vec<String> {
+        // Both spellings of the root are replaced. A temporary directory is
+        // reached through a symbolic link on macOS, so the path a child reports
+        // as its own working directory is the resolved one and the path this
+        // fixture built is not.
+        let mut spellings = vec![self.root.to_string_lossy().into_owned()];
+        if let Ok(resolved) = std::fs::canonicalize(&self.root) {
+            spellings.push(resolved.to_string_lossy().into_owned());
+        }
+        spellings.sort_by_key(|spelling| std::cmp::Reverse(spelling.len()));
+        std::fs::read_to_string(self.root.join(JOURNAL))
+            .unwrap_or_default()
+            .lines()
+            .map(|line| {
+                let mut line = line.to_string();
+                for spelling in &spellings {
+                    line = line.replace(spelling, crate::world::ROOT);
+                }
+                line
+            })
+            .collect()
     }
 
     /// Replace a written file's content with bytes no decoder will accept, so

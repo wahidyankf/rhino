@@ -1402,6 +1402,40 @@ pub const BINDINGS: &[Binding] = &[
         "repo-config",
         "The v2 reader refuses a schema identifier it does not know",
     ),
+    (
+        "repo-config",
+        "A v2 repository is not asked for a section its schema does not carry",
+    ),
+    (
+        "repo-config",
+        "A v2 visibility written with nothing after it is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 governance section that is not a section is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 line that names no key at all is refused",
+    ),
+    ("repo-config", "A v2 line whose key is empty is refused"),
+    (
+        "repo-config",
+        "A v2 local category list written inline is read the same way",
+    ),
+    (
+        "repo-config",
+        "A v2 top-level key declared twice is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 local category naming no layer is refused",
+    ),
+    ("repo-config", "A v2 tier mapped to nothing is refused"),
+    (
+        "repo-config",
+        "A v2 gate entry omitting one of its keys is refused",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

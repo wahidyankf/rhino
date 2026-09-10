@@ -958,16 +958,16 @@ Feature: Repository configuration contract
           run:
             - ./gates/hygiene.sh
           surfaces:
-            - commit-msg
-            - pre-commit
-            - pre-push
-            - ci
+            - <surface>
         - id: public-safety
           kind: check
           run:
             - ./gates/public-safety.sh
           surfaces:
-            - <surface>
+            - commit-msg
+            - pre-commit
+            - pre-push
+            - ci
       """
     When I run the "repo-config" validator
     Then the exit code is 2
@@ -1155,3 +1155,200 @@ Feature: Repository configuration contract
     When I run the "repo-config" validator
     Then the exit code is 2
     And stderr contains "ose/repo-config/v3"
+
+  Scenario: A v2 repository is not asked for a section its schema does not carry
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "word-budget" validator
+    Then the exit code is 2
+    And stderr contains "this schema carries no section for this command"
+
+  Scenario: A v2 visibility written with nothing after it is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility:
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "visibility: is neither public nor private"
+
+  Scenario: A v2 governance section that is not a section is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      governance: local
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "governance: keeps only `local-categories`"
+
+  Scenario: A v2 line that names no key at all is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      provenance
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "is not a key this schema keeps"
+
+  Scenario: A v2 line whose key is empty is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      : hand-written
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "is not a key this schema keeps"
+
+  Scenario: A v2 local category list written inline is read the same way
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      governance: {local-categories: [development/example, workflows/example]}
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A v2 top-level key declared twice is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      visibility: public
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "visibility: is declared twice"
+
+  Scenario: A v2 local category naming no layer is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      governance:
+        local-categories:
+          - example
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "example: is not a governed layer and category"
+
+  Scenario: A v2 tier mapped to nothing is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      model-tiers:
+        codex:
+          plan:
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "declares no model or effort"
+
+  Scenario: A v2 gate entry omitting one of its keys is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "surfaces: the gate entry contract requires it"

@@ -11,6 +11,7 @@
 pub mod cli;
 pub mod config;
 pub mod convention;
+pub mod gate;
 pub mod governance;
 pub mod harness;
 pub mod markdown;
@@ -19,9 +20,9 @@ pub mod report;
 pub mod runtime;
 pub mod scan;
 
-use config::ConfigError;
+use config::{ConfigError, Document};
 use report::Report;
-use runtime::{Tree, TreeError};
+use runtime::{Launcher, NoLauncher, Tree, TreeError};
 
 /// Everything an invocation produces, and all the process contract exposes.
 ///
@@ -72,6 +73,21 @@ pub fn execute(tree: &dyn Tree, arguments: &[String]) -> Outcome {
 /// process -- and because the E2E adapter has to be the one boundary where the
 /// real stream is involved.
 pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) -> Outcome {
+    execute_using(tree, arguments, stdin, &NoLauncher)
+}
+
+/// As [`execute_with`], with the launcher a gate dispatch starts its children
+/// through.
+///
+/// Passed in for the same reason the tree is: which gates ran, what each was
+/// handed, and whether any two overlapped are claims the unit boundary has to
+/// be able to make, and it has no process to spawn.
+pub fn execute_using(
+    tree: &dyn Tree,
+    arguments: &[String],
+    stdin: Option<&str>,
+    launcher: &dyn Launcher,
+) -> Outcome {
     let invocation = match cli::parse(arguments) {
         Ok(cli::Parsed::Help(cli::Help(text))) => return Outcome::clean(text),
         Ok(cli::Parsed::Run(invocation)) => *invocation,
@@ -101,12 +117,58 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
     // configuration it cannot use is refused rather than half-run. A validator
     // that skipped a tree because its configuration was malformed would report
     // a clean repository that was never checked.
-    let config = match load(tree) {
-        Ok(config) => config,
+    let document = match load(tree) {
+        Ok(document) => document,
         Err(error) => {
             return Report::refused(invocation.category, error.to_string())
                 .render(invocation.format);
         }
+    };
+
+    // Which schema a repository wrote decides which commands it can be asked
+    // for. Refusing rather than defaulting: a validator run against a document
+    // that declares none of its sections would report a clean tree it never
+    // checked.
+    let config = match (invocation.category, document) {
+        ("repo-config", _) => {
+            let mut report = Report::new("repo-config", "configuration file");
+            report.inspected(1);
+            return report.render(invocation.format);
+        }
+        ("gate", Document::V2(document)) => {
+            let surface = invocation.surface.clone().unwrap_or_default();
+            return gate::dispatch(
+                &document,
+                &surface,
+                &tree.root(),
+                &invocation.forwarded,
+                stdin,
+                launcher,
+            );
+        }
+        ("gate", Document::V1(_)) => {
+            return Report::refused(
+                "gate",
+                format!(
+                    "{}: line 1: gates: `{}` declares no gates, and there is nothing to dispatch",
+                    config::PATH,
+                    config::SCHEMA
+                ),
+            )
+            .render(invocation.format);
+        }
+        (category, Document::V2(_)) => {
+            return Report::refused(
+                category,
+                format!(
+                    "{}: line 1: {}: this schema carries no section for this command",
+                    config::PATH,
+                    config::v2::SCHEMA
+                ),
+            )
+            .render(invocation.format);
+        }
+        (_, Document::V1(config)) => *config,
     };
 
     // Exclusions are applied only now, from the configuration of the repository
@@ -125,11 +187,6 @@ pub fn execute_with(tree: &dyn Tree, arguments: &[String], stdin: Option<&str>) 
     };
 
     let report = match invocation.category {
-        "repo-config" => {
-            let mut report = Report::new("repo-config", "configuration file");
-            report.inspected(1);
-            report
-        }
         "word-budget" => governance::word_budget::validate(tree, &config),
         "word-count" => governance::word_budget::inspect(tree, &config, &scope),
         "directory-map" => governance::directory_map::validate(tree, &config, &scope),
@@ -205,7 +262,7 @@ fn version(format: cli::Format) -> Outcome {
     }
 }
 
-fn load(tree: &dyn Tree) -> Result<config::Config, ConfigError> {
+fn load(tree: &dyn Tree) -> Result<Document, ConfigError> {
     let text = tree.read(config::PATH).map_err(|error| match error {
         TreeError::NotFound => ConfigError::Missing,
         TreeError::Unreadable(reason) => ConfigError::Unreadable(reason),

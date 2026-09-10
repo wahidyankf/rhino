@@ -33,6 +33,8 @@ pub enum Accepts {
     Directory,
     /// One harness to reconcile instead of the whole roster.
     Harness,
+    /// The one surface a gate dispatch is selected by.
+    Surface,
     /// `version --json`, which predates `--output` and is kept because a
     /// release script already reads it.
     Json,
@@ -54,6 +56,12 @@ pub const LEAVES: &[Leaf] = &[
         category: "repo-config",
         accepts: &[],
         summary: "Check that repo-config.yml is complete and usable.",
+    },
+    Leaf {
+        path: &["gate", "run"],
+        category: "gate",
+        accepts: &[Accepts::Surface],
+        summary: "Run the gates the declared surface selects, in declaration order.",
     },
     Leaf {
         path: &["governance", "word-budget", "validate"],
@@ -144,6 +152,9 @@ pub struct Invocation {
     pub files: Vec<String>,
     pub directory: Option<String>,
     pub harness: Option<String>,
+    pub surface: Option<String>,
+    /// Everything after `--`: the hook's own arguments, forwarded unmodified.
+    pub forwarded: Vec<String>,
 }
 
 /// A request for help, which is answered rather than refused.
@@ -174,6 +185,8 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     let mut files: Vec<String> = Vec::new();
     let mut directory: Option<String> = None;
     let mut harness: Option<String> = None;
+    let mut surface: Option<String> = None;
+    let mut forwarded: Vec<String> = Vec::new();
     let mut json_flag = false;
 
     let mut rest = arguments.iter();
@@ -197,6 +210,14 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
             "--output" => value("--output", &mut format, &mut rest)?,
             "--directory" => value("--directory", &mut directory, &mut rest)?,
             "--harness" => value("--harness", &mut harness, &mut rest)?,
+            "--surface" => value("--surface", &mut surface, &mut rest)?,
+            // Everything past this point belongs to the child, not to RHINO. A
+            // hook argument that happens to start with a hyphen is payload, and
+            // a parser that read it as a flag would refuse the invocation Git
+            // itself assembled.
+            "--" => {
+                forwarded.extend(rest.by_ref().cloned());
+            }
             "--file" => {
                 let mut held = None;
                 value("--file", &mut held, &mut rest)?;
@@ -248,6 +269,7 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         (!files.is_empty(), Accepts::File, "--file"),
         (directory.is_some(), Accepts::Directory, "--directory"),
         (harness.is_some(), Accepts::Harness, "--harness"),
+        (surface.is_some(), Accepts::Surface, "--surface"),
         (json_flag, Accepts::Json, "--json"),
     ] {
         if given && !accepted.contains(&flag) {
@@ -294,6 +316,8 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         files,
         directory,
         harness,
+        surface,
+        forwarded,
     })))
 }
 
@@ -358,10 +382,13 @@ fn help_for(segments: &[&str]) -> Option<String> {
             Accepts::Harness => {
                 "  --harness <name>       Reconcile this harness instead of the whole roster.\n"
             }
+            Accepts::Surface => {
+                "  --surface <name>       Which surface is dispatching: commit-msg, pre-commit,\n                         pre-push, or ci. Arguments after `--` reach every child.\n"
+            }
             Accepts::Json => "  --json                 Shorthand for --output json.\n",
         });
     }
-    text.push_str("\nExit codes:\n  0  checked and clean\n  1  the repository violates its declared policy\n  2  the invocation, root, or configuration was unusable\n");
+    text.push_str("\nExit codes:\n  0  checked and clean\n  1  the repository violates its declared policy\n  2  the invocation, root, or configuration was unusable\n  3  a gate child could not be started\n");
     Some(text)
 }
 

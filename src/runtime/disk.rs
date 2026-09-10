@@ -5,8 +5,10 @@
 //! proof is the integration and E2E adapters running the whole corpus
 //! against it -- not a smaller number in a report.
 
-use super::{Tree, TreeError};
+use super::{Launch, LaunchError, Launched, Launcher, Tree, TreeError};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 /// A tree backed by a real directory.
 ///
@@ -202,6 +204,10 @@ impl Tree for DiskTree {
         Box::new(excluded)
     }
 
+    fn root(&self) -> String {
+        self.root.to_string_lossy().into_owned()
+    }
+
     fn rooted_at(&self, path: &str) -> Result<Box<dyn Tree>, String> {
         // Resolved against the current root when relative and taken as given
         // when absolute, so `--root` means the same thing to a caller wherever
@@ -215,5 +221,61 @@ impl Tree for DiskTree {
         // new root declares its own, and inheriting one would skip directories
         // the selected repository never excluded.
         Ok(Box::new(Self::new(candidate)?))
+    }
+}
+
+/// The real launcher: one child at a time, through `std::process`.
+///
+/// Lives here rather than beside the port because this module is the only one
+/// allowed to reach the operating system, and because the corpus proves the
+/// dispatch itself at three boundaries through the port instead.
+pub struct ProcessLauncher;
+
+impl Launcher for ProcessLauncher {
+    fn launch(&self, launch: Launch<'_>) -> Result<Launched, LaunchError> {
+        let Some((program, arguments)) = launch.arguments.split_first() else {
+            return Err(LaunchError("the gate declares no command".to_string()));
+        };
+
+        // Standard input is always a pipe, closed when the hook supplied
+        // nothing. Inheriting the terminal would let a child block a hook on a
+        // read the hook never intended to allow.
+        // Both output streams are captured and dropped. A gate exists to look
+        // at content that may not be publishable, so a runner that let a
+        // child's stream through would publish what it found on the way to
+        // saying it should not be published. Only the identifier and a
+        // sanitized status reach the report.
+        let mut child = Command::new(program)
+            .args(arguments)
+            .current_dir(launch.directory)
+            .env("OSE_GATE_SURFACE", launch.surface)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| LaunchError(format!("`{program}` could not be started: {error}")))?;
+
+        {
+            let Some(mut pipe) = child.stdin.take() else {
+                return Err(LaunchError(format!("`{program}` has no standard input")));
+            };
+            if let Some(text) = launch.stdin {
+                let _ = pipe.write_all(text.as_bytes());
+            }
+        }
+
+        // Waited on with its output collected rather than with `wait`: a child
+        // writing more than a pipe holds would otherwise block forever on a
+        // buffer nobody is draining.
+        let output = child
+            .wait_with_output()
+            .map_err(|error| LaunchError(format!("`{program}` could not be waited on: {error}")))?;
+
+        // A signal leaves no code. Reported as the protocol failure it is
+        // rather than as a finding, because a killed child checked nothing.
+        match output.status.code() {
+            Some(code) => Ok(Launched { code }),
+            None => Err(LaunchError(format!("`{program}` was ended by a signal"))),
+        }
     }
 }
