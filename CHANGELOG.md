@@ -9,6 +9,48 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.2.0] — 2026-09-10
+
+Additive. **An existing consumer changes nothing but its pin.** All five new
+configuration sections are optional; a `repo-config.yml` that declares none of
+them validates clean, and the six commands that shipped before this release
+behave exactly as they did. The five new commands exit `2` naming their missing
+section rather than enforcing a convention RHINO chose.
+
+### Added
+
+- **`rhino md naming validate`** — filenames against the style their surface
+  declares. Two styles: `kebab-case`, and `path-prefixed`, where a filename
+  begins with its own directory path encoded, then a declared separator, then a
+  kebab-case content name. The encoded prefix is derived from the path being
+  walked, so a repository declares the separator and nothing else. Reads
+  `md-naming`. Finding kind: `invalid-md-name`.
+- **`rhino md frontmatter validate`** — front matter against the schema its
+  surface declares: `require`, `enum`, `iso-date`, and `forbid`. `forbid` is
+  what lets a repository keep a rule RHINO knows nothing about without RHINO
+  having to know what the rule is for. Reads `md-frontmatter`. Finding kinds:
+  `unterminated-frontmatter`, `missing-frontmatter-key`,
+  `invalid-frontmatter-value`, `forbidden-frontmatter-key`.
+- **`rhino md heading-hierarchy validate`** — one level-1 heading per governed
+  document, and no heading dropping further below its predecessor than the
+  repository allows. A `#` inside a fenced block is not a heading. Reads
+  `md-heading-hierarchy`. Finding kinds: `missing-h1`, `multiple-h1`,
+  `heading-level-jump`.
+- **`rhino md readme-index validate`** — a `README.md` in every directory of a
+  declared tree, presence only. Deliberately weaker than
+  `governance directory-map validate`, so a repository with many READMEs and no
+  map sections can adopt this rung today and the stronger one later. Reads
+  `md-readme-index`. Finding kind: `missing-readme-index`.
+- **`rhino convention emoji validate`** — no emoji code point in a file matching
+  a declared glob. Only the prohibition is expressible: whether an emoji belongs
+  in a sentence is a judgement about meaning. This is the one command that reads
+  files no Markdown corpus contains. Reads `convention-emoji`. Finding kind:
+  `emoji-in-prohibited-file`.
+
+### Changed
+
+- `rhino --help` lists thirteen commands; `rhino md --help` lists seven.
+
 ## [v0.1.3] — 2026-09-08
 
 ### Added
