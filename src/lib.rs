@@ -175,17 +175,6 @@ pub fn execute_using(
             )
             .render(invocation.format);
         }
-        (category, Document::V2(_)) => {
-            return Report::refused(
-                category,
-                format!(
-                    "{}: line 1: {}: this schema carries no section for this command",
-                    config::PATH,
-                    config::v2::SCHEMA
-                ),
-            )
-            .render(invocation.format);
-        }
         (
             category @ ("governance-roots"
             | "governance-companions"
@@ -203,6 +192,12 @@ pub fn execute_using(
             )
             .render(invocation.format);
         }
+        // Both schemas carry the validator sections, so both reach the same leaf
+        // table below. What differs is requiredness, and that is a rule of the
+        // schema rather than of the command: v1 requires five sections and says
+        // so when it parses, v2 requires none and lets each command refuse for
+        // the one section it needed.
+        (_, Document::V2(document)) => *document.sections,
         (_, Document::V1(config)) => *config,
     };
 
@@ -211,7 +206,7 @@ pub fn execute_using(
     // `--root` run skipping directories the selected repository never excluded
     // -- a clean result for a tree that was never fully read, which is the one
     // failure this tool exists to prevent.
-    let excluded = tree.excluding(&config.scan.exclude_directories);
+    let excluded = tree.excluding(config.excluded());
     let tree: &dyn Tree = excluded.as_ref();
 
     let scope = scan::Scope {
@@ -222,14 +217,26 @@ pub fn execute_using(
     };
 
     let report = match invocation.category {
-        "word-budget" => governance::word_budget::validate(tree, &config),
-        "word-count" => governance::word_budget::inspect(tree, &config, &scope),
-        "directory-map" => governance::directory_map::validate(tree, &config, &scope),
+        "word-budget" => match &config.word_budget {
+            Some(section) => governance::word_budget::validate(tree, &config, section),
+            None => undeclared("word-budget", "governance-word-budget"),
+        },
+        "word-count" => match &config.word_budget {
+            Some(section) => governance::word_budget::inspect(tree, section, &scope),
+            None => undeclared("word-count", "governance-word-budget"),
+        },
+        "directory-map" => match &config.directory_map {
+            Some(section) => governance::directory_map::validate(tree, &config, section, &scope),
+            None => undeclared("directory-map", "governance-directory-map"),
+        },
         "emoji" => match &config.emoji {
             Some(section) => convention::emoji::validate(tree, &config, section),
             None => undeclared("emoji", "convention-emoji"),
         },
-        "harness-parity" => harness::validate(tree, &config, &scope),
+        "harness-parity" => match &config.harness_parity {
+            Some(section) => harness::validate(tree, &config, section, &scope),
+            None => undeclared("harness-parity", "harness-parity"),
+        },
         "frontmatter" => match &config.frontmatter {
             Some(section) => markdown::frontmatter::validate(tree, &config, section),
             None => undeclared("frontmatter", "md-frontmatter"),
@@ -253,7 +260,10 @@ pub fn execute_using(
         },
         // The parser only produces categories the leaf table holds, so this
         // arm is the last leaf rather than a fallback for an unknown one.
-        _ => markdown::mermaid::validate(tree, &config, &scope),
+        _ => match &config.mermaid {
+            Some(section) => markdown::mermaid::validate(tree, &config, section, &scope),
+            None => undeclared("mermaid", "md-mermaid"),
+        },
     };
 
     report.render(invocation.format)

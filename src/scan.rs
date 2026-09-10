@@ -82,7 +82,7 @@ impl Corpus {
 pub fn files(tree: &dyn Tree, config: &Config) -> Vec<String> {
     tree.files()
         .into_iter()
-        .filter(|path| !is_excluded(path, &config.scan.exclude_directories))
+        .filter(|path| !is_excluded(path, config.excluded()))
         .collect()
 }
 
@@ -91,7 +91,7 @@ pub fn markdown_files(tree: &dyn Tree, config: &Config) -> Vec<String> {
     tree.files()
         .into_iter()
         .filter(|path| is_markdown(path))
-        .filter(|path| !is_excluded(path, &config.scan.exclude_directories))
+        .filter(|path| !is_excluded(path, config.excluded()))
         .collect()
 }
 
@@ -146,7 +146,7 @@ pub fn directories(tree: &dyn Tree, config: &Config, root: &str) -> Vec<String> 
         if !path.starts_with(&prefix) {
             continue;
         }
-        if is_excluded(&path, &config.scan.exclude_directories) {
+        if is_excluded(&path, config.excluded()) {
             continue;
         }
         let mut segments: Vec<&str> = path.split('/').collect();

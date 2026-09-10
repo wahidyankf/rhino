@@ -10,7 +10,7 @@
 //! *Which* colours and label lengths are acceptable is a property of the
 //! repository, and every one of them arrives from configuration.
 
-use crate::config::{AuthoringRule, Config};
+use crate::config::{AuthoringRule, Config, Mermaid};
 use crate::markdown::{Fenced, fenced_blocks};
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::Tree;
@@ -57,7 +57,7 @@ struct Diagram {
     lines: Vec<(usize, String)>,
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
+pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Scope) -> Report {
     let mut report = Report::new("mermaid", "diagram");
     let mut inspected = 0usize;
 
@@ -89,7 +89,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
             // repository that authors in plain text has said no Mermaid may
             // appear, and reporting the colours of a diagram that may not be
             // there would be answering the wrong question politely.
-            if config.mermaid.authoring_rule == Some(AuthoringRule::PlainText) {
+            if mermaid.authoring_rule == Some(AuthoringRule::PlainText) {
                 inspected += 1;
                 report.found(
                     Finding::new(
@@ -106,7 +106,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
                 continue;
             };
             inspected += 1;
-            for finding in inspect(&diagram, config) {
+            for finding in inspect(&diagram, mermaid) {
                 report.found(finding.rename(&document.path));
             }
         }
@@ -146,10 +146,10 @@ fn read(block: &Fenced<'_>) -> Option<Diagram> {
     Some(Diagram { kind: kind?, lines })
 }
 
-fn inspect(diagram: &Diagram, config: &Config) -> Vec<Finding> {
-    let mut findings = accessibility(diagram, config);
-    findings.extend(colors(diagram, config));
-    findings.extend(legibility(diagram, config));
+fn inspect(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
+    let mut findings = accessibility(diagram, mermaid);
+    findings.extend(colors(diagram, mermaid));
+    findings.extend(legibility(diagram, mermaid));
     findings.sort_by_key(|finding| finding.line);
     findings
 }
@@ -160,8 +160,8 @@ fn inspect(diagram: &Diagram, config: &Config) -> Vec<Finding> {
 /// this tool choosing an authoring style on a repository's behalf, and it would
 /// change what an existing consumer's run reports without that consumer having
 /// declared anything.
-fn accessibility(diagram: &Diagram, config: &Config) -> Vec<Finding> {
-    if config.mermaid.authoring_rule != Some(AuthoringRule::Rendered) {
+fn accessibility(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
+    if mermaid.authoring_rule != Some(AuthoringRule::Rendered) {
         return Vec::new();
     }
     let line = diagram.lines.first().map_or(1, |(number, _)| *number);
@@ -198,7 +198,7 @@ fn accessibility(diagram: &Diagram, config: &Config) -> Vec<Finding> {
 /// Everywhere else -- `style`, `linkStyle`, an initialization directive -- puts
 /// a colour outside the palette's reach, so it is refused wherever it appears
 /// rather than checked against the declared sets.
-fn colors(diagram: &Diagram, config: &Config) -> Vec<Finding> {
+fn colors(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
     let mut findings = Vec::new();
 
     for (number, text) in &diagram.lines {
@@ -211,7 +211,7 @@ fn colors(diagram: &Diagram, config: &Config) -> Vec<Finding> {
         }
 
         if let Some(rest) = trimmed.strip_prefix("classDef ") {
-            findings.extend(class_definition(*number, rest, config));
+            findings.extend(class_definition(*number, rest, mermaid));
         } else if contains_color(trimmed) {
             findings.push(Finding::new(
                 ACCESSIBILITY,
@@ -224,9 +224,9 @@ fn colors(diagram: &Diagram, config: &Config) -> Vec<Finding> {
     findings
 }
 
-fn class_definition(line: usize, rest: &str, config: &Config) -> Vec<Finding> {
+fn class_definition(line: usize, rest: &str, mermaid: &Mermaid) -> Vec<Finding> {
     let mut findings = Vec::new();
-    let palette = &config.mermaid;
+    let palette = mermaid;
 
     let mut fill = None;
     let mut stroke = None;
@@ -436,15 +436,15 @@ impl Segment {
         }
     }
 
-    fn limit(self, config: &Config) -> usize {
+    fn limit(self, mermaid: &Mermaid) -> usize {
         match self {
-            Self::Node => config.mermaid.node_label_graphemes,
-            Self::Edge => config.mermaid.edge_label_graphemes,
+            Self::Node => mermaid.node_label_graphemes,
+            Self::Edge => mermaid.edge_label_graphemes,
         }
     }
 }
 
-fn legibility(diagram: &Diagram, config: &Config) -> Vec<Finding> {
+fn legibility(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
     let mut findings = Vec::new();
 
     for (number, text) in &diagram.lines {
@@ -467,7 +467,7 @@ fn legibility(diagram: &Diagram, config: &Config) -> Vec<Finding> {
         }
 
         for (segment, label) in labels(diagram.kind, trimmed) {
-            let limit = segment.limit(config);
+            let limit = segment.limit(mermaid);
             for visible in segments(&label) {
                 let measured = visible.graphemes(true).count();
                 if measured > limit {

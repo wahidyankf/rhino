@@ -1156,7 +1156,7 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr contains "ose/repo-config/v3"
 
-  Scenario: A v2 repository is not asked for a section its schema does not carry
+  Scenario: A v2 repository declaring no section for a command is refused by the same rule v1 uses
     Given the configuration file is this text:
       """
       schema: ose/repo-config/v2
@@ -1173,7 +1173,7 @@ Feature: Repository configuration contract
       """
     When I run the "word-budget" validator
     Then the exit code is 2
-    And stderr contains "this schema carries no section for this command"
+    And stderr contains "the section is not declared, and RHINO holds no default for it"
 
   Scenario: A v2 visibility written with nothing after it is refused
     Given the configuration file is this text:
@@ -1352,3 +1352,163 @@ Feature: Repository configuration contract
     When I run the "repo-config" validator
     Then the exit code is 2
     And stderr contains "surfaces: the gate entry contract requires it"
+
+  # -- v2 carries the validator sections too ------------------------------------
+  #
+  # v2 arrived carrying only what a gate runner needs, so a repository that
+  # declared it to get gate dispatch gave up every command that reads a surface
+  # list. That partition is invisible from inside the release: the repository
+  # that notices is the first one to want both, and by then a tag exists. The
+  # sections below are the same sections v1 declares, read by the same code, so
+  # one rule keeps one implementation and a repository states its policy once.
+
+  Scenario: A v2 document declaring a metadata surface is held to it
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      metadata:
+        surfaces:
+          - glob: "repo-governance/**/*.md"
+            schema: governance
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      ---
+      description: Defines the durable repository rule for naming one governed file.
+      when_to_use: >-
+        Use when creating or renaming a governed Markdown document.
+      ---
+
+      # File Naming
+      """
+    When I run the "metadata" validator
+    Then the exit code is 0
+    And 1 files were inspected
+
+  Scenario: A v2 document declaring a word budget is held to it
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      governance-word-budget:
+        count: letters-and-digits
+        surfaces:
+          - glob: "repo-governance/**/*.md"
+            fail: 5
+            warn: 3
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    And file "repo-governance/conventions/file-naming.md" contains 40 words
+    When I run the "word-budget" validator
+    Then the exit code is 1
+
+  Scenario: A v2 document declaring an emoji prohibition is held to it
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      convention-emoji:
+        prohibited:
+          - glob: "**/*.md"
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    And file "repo-governance/conventions/file-naming.md" contains this Markdown:
+      """
+      # File Naming 🚀
+      """
+    When I run the "emoji" validator
+    Then the exit code is 1
+
+  Scenario: A v2 validator section written out of canonical order is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      convention-emoji:
+        prohibited:
+          - glob: "**/*.md"
+      metadata:
+        surfaces:
+          - glob: "repo-governance/**/*.md"
+            schema: governance
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "metadata"
+
+  Scenario: A v2 validator section declared with nothing in it is refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      metadata:
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "is declared with nothing in it"
+
+  Scenario: A v2 top-level key outside the schema is still refused
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      md-spelling:
+        surfaces:
+          - glob: "**/*.md"
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "md-spelling"

@@ -1404,7 +1404,31 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "repo-config",
-        "A v2 repository is not asked for a section its schema does not carry",
+        "A v2 repository declaring no section for a command is refused by the same rule v1 uses",
+    ),
+    (
+        "repo-config",
+        "A v2 document declaring a metadata surface is held to it",
+    ),
+    (
+        "repo-config",
+        "A v2 document declaring a word budget is held to it",
+    ),
+    (
+        "repo-config",
+        "A v2 document declaring an emoji prohibition is held to it",
+    ),
+    (
+        "repo-config",
+        "A v2 validator section written out of canonical order is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 validator section declared with nothing in it is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 top-level key outside the schema is still refused",
     ),
     (
         "repo-config",

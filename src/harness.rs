@@ -214,8 +214,7 @@ fn readable_set<'a>(
     }
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
-    let parity = &config.harness_parity;
+pub fn validate(tree: &dyn Tree, config: &Config, parity: &HarnessParity, scope: &Scope) -> Report {
     let files = scan::files(tree, config);
 
     let mut report = Report::new("harness-parity", "harness");
@@ -272,7 +271,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         return Report::refused("harness-parity", reason);
     }
 
-    instructions(&contents, config, prohibited.as_ref(), &mut report);
+    instructions(&contents, parity, prohibited.as_ref(), &mut report);
     let canon = Canon {
         skills_root: parity.canonical.skills_root.as_deref(),
         agents_root: parity.canonical.agents_root.as_deref(),
@@ -286,7 +285,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         agents: agents(
             &contents,
             parity.canonical.agents_root.as_deref(),
-            config,
+            parity,
             &mut report,
         ),
         required: parity.required_mcp.as_ref(),
@@ -342,7 +341,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         canon.skills.len(),
         canon.agents.len(),
     ));
-    report.note(format!("digest {}", digest(&contents, config)));
+    report.note(format!("digest {}", digest(&contents, parity)));
 
     report
 }
@@ -351,11 +350,11 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
 
 fn instructions(
     contents: &BTreeMap<String, String>,
-    config: &Config,
+    parity: &HarnessParity,
     prohibited: Option<&GlobSet>,
     report: &mut Report,
 ) {
-    let canonical = &config.harness_parity.canonical;
+    let canonical = &parity.canonical;
     let instruction = canonical.instruction.as_str();
     let adapter = canonical.instruction_adapter.as_deref();
     let route = format!("@{instruction}");
@@ -399,7 +398,7 @@ fn instructions(
     // prohibited -- it holds everything else the harness needs -- so the
     // question is asked of one declared key, and a key nobody wrote and a key
     // written empty are both answers rather than violations.
-    for declared in &config.harness_parity.prohibited_instruction_fields {
+    for declared in &parity.prohibited_instruction_fields {
         let Some(text) = contents.get(&declared.file) else {
             continue;
         };
@@ -562,29 +561,18 @@ fn skills(
 fn agents(
     contents: &BTreeMap<String, String>,
     root: Option<&str>,
-    config: &Config,
+    parity: &HarnessParity,
     report: &mut Report,
 ) -> BTreeMap<String, Declaration> {
     let mut found: BTreeMap<String, Declaration> = BTreeMap::new();
     // Paired by `repo-config validate`, so one missing means the other is too:
     // a repository with no canonical agents, which has none of these to read.
-    let (Some(root), Some(shape)) = (root, config.harness_parity.canonical.declaration.as_ref())
-    else {
+    let (Some(root), Some(shape)) = (root, parity.canonical.declaration.as_ref()) else {
         return found;
     };
     let prefix = format!("{}/", root.trim_end_matches('/'));
-    let vocabulary: BTreeSet<&str> = config
-        .harness_parity
-        .capabilities
-        .iter()
-        .map(String::as_str)
-        .collect();
-    let constraints: BTreeSet<&str> = config
-        .harness_parity
-        .constraints
-        .iter()
-        .map(String::as_str)
-        .collect();
+    let vocabulary: BTreeSet<&str> = parity.capabilities.iter().map(String::as_str).collect();
+    let constraints: BTreeSet<&str> = parity.constraints.iter().map(String::as_str).collect();
 
     for (path, text) in contents {
         let Some(rest) = path.strip_prefix(&prefix) else {
@@ -1325,8 +1313,8 @@ fn unmet(read: &Read, translation: &Translation) -> Option<String> {
 /// Everything under a skill directory is included, not only its declaration: a
 /// supporting resource is part of what the skill tells a harness to do, and a
 /// digest that ignored it would say the contract was unchanged when it was not.
-fn digest(contents: &BTreeMap<String, String>, config: &Config) -> String {
-    let canonical = &config.harness_parity.canonical;
+fn digest(contents: &BTreeMap<String, String>, parity: &HarnessParity) -> String {
+    let canonical = &parity.canonical;
     let mut hasher = Sha256::new();
 
     let roots: Vec<String> = [canonical.skills_root.clone(), canonical.agents_root.clone()]
