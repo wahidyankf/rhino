@@ -201,6 +201,18 @@ pub struct Declaration {
     pub readme_index_trees: Vec<String>,
     /// Globs a scenario declares as files an emoji may not appear in.
     pub emoji_prohibited: Vec<String>,
+    /// Metadata surfaces, in declaration order, each rendered as the flow
+    /// mapping a repository would write. Ordered because the last matching
+    /// glob wins, which is how a workflow subtree carries a different schema
+    /// from the governance tree it sits inside.
+    pub metadata_surfaces: Vec<String>,
+    /// Model-tier mappings stated one complete pair at a time, as a repository
+    /// that means the mapping would write it.
+    pub model_tier_pairs: Vec<(String, String, String, String)>,
+    /// The model-tier section written literally. Held separately because the
+    /// shapes worth refusing -- an empty map, a null tier, half a pair -- are
+    /// exactly the ones a well-formed pair cannot express.
+    pub model_tier_literal: Option<String>,
 }
 
 impl Default for Declaration {
@@ -250,6 +262,9 @@ impl Default for Declaration {
             heading_max_jump: None,
             readme_index_trees: Vec::new(),
             emoji_prohibited: Vec::new(),
+            metadata_surfaces: Vec::new(),
+            model_tier_pairs: Vec::new(),
+            model_tier_literal: None,
         }
     }
 }

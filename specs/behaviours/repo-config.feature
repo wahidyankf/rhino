@@ -13,7 +13,7 @@ Feature: Repository configuration contract
     Given the repository declares a complete configuration
     When I run the "repo-config" validator
     Then the exit code is 0
-    And no output names an optional section
+    And there are no violations
 
   Scenario: An absent configuration file is a configuration fault
     Given the repository has no configuration file
@@ -239,3 +239,55 @@ Feature: Repository configuration contract
       | key                                   |
       | harness-parity.canonical.skills-root  |
       | harness-parity.canonical.agents-root  |
+
+  Scenario: A complete tier mapping carries both of its fields
+    Given the repository declares a complete configuration
+    And the repository maps harness "codex" tier "plan" to model "gpt-5.6-sol" at effort "high"
+    And the repository maps harness "codex" tier "execution" to model "gpt-5.6-terra" at effort "xhigh"
+    When I run the "repo-config" validator
+    Then the exit code is 0
+
+  Scenario: An unmapped tier is an answer rather than an omission
+    Given the repository declares a complete configuration
+    And the repository maps harness "codex" tier "plan" to model "gpt-5.6-sol" at effort "high"
+    When I run the "repo-config" validator
+    Then the exit code is 0
+    And no output names an optional section
+
+  Scenario Outline: A broken tier mapping is refused before anything is generated
+    Given the repository declares a complete configuration
+    And the repository declares the model-tier mapping "<mapping>"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "<reason>"
+
+    Examples:
+      | mapping                                          | reason                          |
+      | {}                                               | declares no harness             |
+      | {codex: {}}                                      | declares no tier                |
+      | {codex: {plan: null}}                            | declares no model or effort     |
+      | {codex: {plan: {model: gpt-5.6-sol}}}            | declares no effort              |
+      | {codex: {plan: {effort: high}}}                  | declares no model               |
+      | {codex: {plan: {model: '', effort: high}}}        | declares an empty model         |
+      | {codex: {plan: {model: gpt-5.6-sol, effort: ''}}} | declares an empty effort        |
+
+  Scenario: A tier mapping keyed by an unsupported harness is refused
+    Given the repository declares a complete configuration
+    And the repository declares the model-tier mapping "{gemini: {plan: {model: gpt-5.6-sol, effort: high}}}"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "gemini"
+
+  Scenario: A tier mapping keyed by a tier outside the closed set is refused
+    Given the repository declares a complete configuration
+    And the repository declares the model-tier mapping "{codex: {architect: {model: gpt-5.6-sol, effort: high}}}"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "architect"
+
+  Scenario: A mapping keyed by an agent name is not a tier mapping
+    Given the repository declares a complete configuration
+    And the repository declares the model-tier mapping "{codex: {plan-checker: {model: gpt-5.6-sol, effort: high}}}"
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "plan-checker"

@@ -43,6 +43,8 @@ implement them the same way at three boundaries:
   directory prefix an encoded style derives, and what is exempt from both.
 - [md-readme-index.feature](md-readme-index.feature) — a README in every
   directory of a declared tree, and nothing about what is in it.
+- [metadata.feature](metadata.feature) — the four canonical metadata schemas,
+  selected by the artifact's path, and the rules every field shares.
 - [mermaid-cli.feature](mermaid-cli.feature) — how Mermaid diagrams are
   discovered, parsed, and reported on.
 - [mermaid-legibility.feature](mermaid-legibility.feature) — the accessibility

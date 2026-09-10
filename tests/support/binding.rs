@@ -34,6 +34,7 @@ fn validator_arguments(name: &str) -> Option<Vec<String>> {
         "frontmatter" => &["md", "frontmatter", "validate"],
         "readme-index" => &["md", "readme-index", "validate"],
         "naming" => &["md", "naming", "validate"],
+        "metadata" => &["metadata", "validate"],
         "repo-config" => &["repo-config", "validate"],
         _ => return None,
     };
@@ -190,6 +191,28 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .declaration
                 .readme_index_trees
                 .push(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the repository declares the metadata surface {string} using the {string} schema" => {
+            world.declaration.metadata_surfaces.push(format!(
+                "{{glob: \"{}\", schema: {}}}",
+                matched.string(0),
+                matched.string(1)
+            ));
+            Outcome::Passed
+        }
+        "the repository maps harness {string} tier {string} to model {string} at effort {string}" =>
+        {
+            world.declaration.model_tier_pairs.push((
+                matched.string(0).to_string(),
+                matched.string(1).to_string(),
+                matched.string(2).to_string(),
+                matched.string(3).to_string(),
+            ));
+            Outcome::Passed
+        }
+        "the repository declares the model-tier mapping {string}" => {
+            world.declaration.model_tier_literal = Some(matched.string(0).to_string());
             Outcome::Passed
         }
         "the repository declares the emoji-prohibited surface {string}" => {
@@ -1706,6 +1729,34 @@ Body.
             world,
             &[matched.string(0), matched.string(1), "invalid map entry"],
         ),
+        "the violations are ordinally sorted" => {
+            // Sorted by the diagnostic line itself, which for the structural
+            // format is path, then rule, then field in that order. Comparing
+            // the reported order with its own sort is the only form of this
+            // assertion that cannot be satisfied by reporting one finding.
+            let result = world.result();
+            let reported: Vec<&str> = result
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with('['))
+                .collect();
+            if reported.len() < 2 {
+                return Outcome::Failed(format!(
+                    "ordering needs at least two violations, got {}\nstderr: {}",
+                    reported.len(),
+                    result.stderr
+                ));
+            }
+            let mut sorted = reported.clone();
+            sorted.sort_unstable();
+            expect(
+                reported == sorted,
+                format!(
+                    "violations are not ordinally sorted:\n{}",
+                    reported.join("\n")
+                ),
+            )
+        }
         "all violations are {string}" => {
             let result = world.result();
             let lines: Vec<&str> = result

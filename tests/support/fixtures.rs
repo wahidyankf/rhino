@@ -111,6 +111,12 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
             ),
         );
     }
+    if !declaration.metadata_surfaces.is_empty() {
+        lines.insert(
+            "metadata.surfaces".into(),
+            format!("[{}]", declaration.metadata_surfaces.join(", ")),
+        );
+    }
     if !declaration.frontmatter_surfaces.is_empty() {
         lines.insert(
             "md-frontmatter.surfaces".into(),
@@ -358,11 +364,46 @@ pub fn render(declaration: &Declaration) -> String {
         }
     }
 
+    if let Some(mapping) = model_tiers(declaration) {
+        // Written as one flow mapping rather than through the flattening above,
+        // because the section nests three deep -- harness, tier, field -- and a
+        // fixture that could only express two levels could not state the shape
+        // the contract actually describes.
+        out.push_str(&format!("\nmodel-tiers: {mapping}\n"));
+    }
+
     for section in &declaration.extra_sections {
         out.push_str(&format!("\n{section}:\n  note: ignored by the contract\n"));
     }
 
     out
+}
+
+/// The model-tier section a scenario declared, if it declared one.
+///
+/// A literal declaration wins over stated pairs: a scenario reaching for the
+/// literal form is saying something about a shape no well-formed pair can
+/// express, and merging the two would quietly repair the thing under test.
+fn model_tiers(declaration: &Declaration) -> Option<String> {
+    if let Some(literal) = &declaration.model_tier_literal {
+        return Some(literal.clone());
+    }
+    if declaration.model_tier_pairs.is_empty() {
+        return None;
+    }
+    let mut harnesses: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (harness, tier, model, effort) in &declaration.model_tier_pairs {
+        harnesses
+            .entry(harness.clone())
+            .or_default()
+            .push(format!("{tier}: {{model: {model}, effort: {effort}}}"));
+    }
+    let body = harnesses
+        .into_iter()
+        .map(|(harness, tiers)| format!("{harness}: {{{}}}", tiers.join(", ")))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!("{{{body}}}"))
 }
 
 /// Values that would otherwise be read as YAML structure keep their quotes; a

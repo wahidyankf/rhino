@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 221] = [
+pub const VOCABULARY: [&str; 225] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -206,6 +206,10 @@ pub const VOCABULARY: [&str; 221] = [
     "the repository declares the front-matter surface {string} with the {string} values {string}",
     "the repository declares the internal-link excluded source {string}",
     "the repository declares the kebab-case naming surface {string}",
+    "the repository declares the metadata surface {string} using the {string} schema",
+    "the repository declares the model-tier mapping {string}",
+    "the repository maps harness {string} tier {string} to model {string} at effort {string}",
+    "the violations are ordinally sorted",
     "the repository declares the mapped tree {string}",
     "the repository declares the mapped trees {string} and {string}",
     "the repository declares the naming exemption {string}",

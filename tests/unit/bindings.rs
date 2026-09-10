@@ -1035,6 +1035,113 @@ pub const BINDINGS: &[Binding] = &[
         "convention-emoji",
         "A file that vanishes between the walk and the read is not a finding",
     ),
+    (
+        "metadata",
+        "A governance document carrying both required keys passes",
+    ),
+    (
+        "metadata",
+        "A workflow carries the name its own schema requires",
+    ),
+    (
+        "metadata",
+        "The path selects the schema, so the same key is right in one tree and wrong in another",
+    ),
+    (
+        "metadata",
+        "A skill declares the one optional key its schema allows",
+    ),
+    ("metadata", "An agent declares both of its optional lists"),
+    (
+        "metadata",
+        "A required key that is absent is reported against the artifact",
+    ),
+    (
+        "metadata",
+        "An artifact carrying no front matter is missing every required key",
+    ),
+    (
+        "metadata",
+        "Front matter that opens and never closes is unusable",
+    ),
+    (
+        "metadata",
+        "A duplicate key fails before a decoder could discard one of them",
+    ),
+    ("metadata", "A key the path already supplies is refused"),
+    ("metadata", "An explicit null is not a value"),
+    ("metadata", "An empty value is not a value either"),
+    (
+        "metadata",
+        "Canonical key order is enforced rather than preferred",
+    ),
+    (
+        "metadata",
+        "A description shorter than the floor is a description that says nothing",
+    ),
+    (
+        "metadata",
+        "A routing trigger written as a plain scalar is refused",
+    ),
+    (
+        "metadata",
+        "A trigger that repeats the description routes nothing",
+    ),
+    (
+        "metadata",
+        "A declared name that is not the path identity fails",
+    ),
+    (
+        "metadata",
+        "A workflow entrypoint README takes its name from its directory",
+    ),
+    ("metadata", "A tier outside the closed set is not a tier"),
+    (
+        "metadata",
+        "A capability outside the portable vocabulary is refused",
+    ),
+    (
+        "metadata",
+        "Capabilities are listed in the canonical order rather than the author's",
+    ),
+    ("metadata", "An empty required array is an absent answer"),
+    ("metadata", "A repeated array member is refused"),
+    (
+        "metadata",
+        "A file outside every declared surface is not inspected",
+    ),
+    (
+        "metadata",
+        "Diagnostics sort by path, then rule, then field",
+    ),
+    (
+        "metadata",
+        "The metadata section is optional and its absence is refused rather than assumed",
+    ),
+    (
+        "repo-config",
+        "A complete tier mapping carries both of its fields",
+    ),
+    (
+        "repo-config",
+        "An unmapped tier is an answer rather than an omission",
+    ),
+    (
+        "repo-config",
+        "A broken tier mapping is refused before anything is generated",
+    ),
+    (
+        "repo-config",
+        "A tier mapping keyed by an unsupported harness is refused",
+    ),
+    (
+        "repo-config",
+        "A tier mapping keyed by a tier outside the closed set is refused",
+    ),
+    (
+        "repo-config",
+        "A mapping keyed by an agent name is not a tier mapping",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete
