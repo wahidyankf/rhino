@@ -272,13 +272,13 @@ surface's root contributes one encoded segment and the levels are joined by a
 hyphen. A segment's hyphen-separated words each contribute two characters, or
 one character and an underscore when the word is a single character:
 
-| Directory below the root | Encoded prefix |
-| ------------------------ | -------------- |
-| `people`                 | `pe`           |
-| `docs/tutorials`         | `do-tu`        |
-| `f-sharp`                | `f_sh`         |
-| `2025-syariah-banking`   | `20syba`       |
-| `jobs/hijra-bank/events` | `jo-hiba-ev`   |
+| Directory below the root   | Encoded prefix |
+| -------------------------- | -------------- |
+| `people`                   | `pe`           |
+| `docs/tutorials`           | `do-tu`        |
+| `f-sharp`                  | `f_sh`         |
+| `2025-annual-review`       | `20anre`       |
+| `jobs/north-branch/events` | `jo-nobr-ev`   |
 
 The surface's root is the fixed leading path of its glob: everything before the
 first segment carrying a metacharacter. `vault/**/*.md` roots at `vault`, so
