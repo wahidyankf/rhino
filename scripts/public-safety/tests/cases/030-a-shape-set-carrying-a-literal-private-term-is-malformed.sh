@@ -17,7 +17,9 @@ run() {
 
 	# A credential-shaped pattern is malformed for the same reason: a shape set
 	# is read by anyone who clones the repository.
-	printf 'maintainer-path regex ghp_0123456789abcdef0123456789abcdef0123\n' >"$shapes"
+	# Assembled from a prefix and a body so no credential-shaped literal is
+	# tracked in this repository.
+	printf 'maintainer-path regex %s_%s\n' "ghp" "0123456789abcdef0123456789abcdef0123" >"$shapes"
 	out=$("$WRAPPER" --surface release --shapes "$shapes" --file "$CASE_TMP/clean.txt" 2>&1)
 	rc=$?
 	assert_exit 2 "$rc" "exit code for a credential-shaped pattern" || return 1

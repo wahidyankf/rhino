@@ -1,3 +1,13 @@
+# A hook is a sequence, and without this a gate that failed would print its
+# finding and let the push through -- the failure mode a gate cannot have.
+set -e
+
+# Public safety runs first, and this is the surface that matters: nothing has
+# left the machine yet. The whole tracked tree is screened, then the branch name
+# that is about to appear on a hosted service.
+./scripts/public-safety/public-safety.sh --surface baseline
+./scripts/public-safety/public-safety.sh --surface ref --text "$(git rev-parse --abbrev-ref HEAD)"
+
 # The quick gate is real compute, so it runs under the pinned HIPPO guard the
 # same way every other heavy task in this maintainer's repositories does.
 # HIPPO cannot guard HIPPO; RHINO has no such constraint, so it does not exempt

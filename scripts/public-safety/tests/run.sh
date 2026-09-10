@@ -29,7 +29,7 @@ set -uo pipefail
 unset CDPATH
 
 here=$(cd -- "$(dirname -- "$0")" && pwd)
-root=$(cd -- "$here/../.." && pwd)
+root=$(cd -- "$here/../../.." && pwd)
 export PUBLIC_SAFETY_ROOT="$root"
 export WRAPPER="$root/scripts/public-safety/public-safety.sh"
 
