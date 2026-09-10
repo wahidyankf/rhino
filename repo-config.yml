@@ -252,3 +252,10 @@ scan:
     - target
     - local-tmp
     - worktrees
+    # The shared plan-structure fixture corpus. Excluded because its bytes are
+    # the boundary two implementations agree on: every case is deliberately
+    # malformed in exactly one way, and holding it to this repository's own
+    # naming, heading, and directory-map rules would either report those
+    # defects as findings or pressure someone to reformat bytes another
+    # repository verifies by digest.
+    - fixtures

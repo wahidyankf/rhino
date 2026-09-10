@@ -9,6 +9,7 @@ use crate::fixtures;
 use crate::gherkin::Step;
 use crate::harness;
 use crate::mermaid;
+use crate::plan;
 use crate::steps::{self, Match};
 use crate::world::{CommandResult, Declaration, Driver, World};
 
@@ -39,6 +40,7 @@ fn validator_arguments(name: &str) -> Option<Vec<String>> {
         "governance-roots" => &["governance", "roots", "validate"],
         "governance-companions" => &["governance", "companions", "validate"],
         "governance-instructions" => &["governance", "instructions", "validate"],
+        "plan" => &["plan", "validate"],
         _ => return None,
     };
     Some(path.iter().map(|part| (*part).to_string()).collect())
@@ -96,6 +98,60 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .empty_directories
                 .insert(matched.string(0).to_string());
             Outcome::Passed
+        }
+        "the repository holds a conforming plan at {string}" => {
+            plan::seed(world, matched.string(0));
+            Outcome::Passed
+        }
+        "the plan at {string} has no {string}" => {
+            let path = format!("{}/{}", matched.string(0), matched.string(1));
+            world.files.remove(&path);
+            Outcome::Passed
+        }
+        "the plan at {string} uses the directory technical shape" => {
+            let root = matched.string(0).to_string();
+            world.files.remove(&format!("{root}/tech-docs.md"));
+            plan::companions(world, &root, &["001-context.md", "002-approach.md"]);
+            Outcome::Passed
+        }
+        "the plan at {string} also carries a directory technical shape" => {
+            let root = matched.string(0).to_string();
+            plan::companions(world, &root, &["001-context.md"]);
+            Outcome::Passed
+        }
+        "the companion set at {string} holds {string}" => {
+            // Written straight into the set rather than through the index, so
+            // the file is on disk and unlisted -- which is the whole claim.
+            world.files.insert(
+                format!("{}/{}", matched.string(0), matched.string(1)),
+                "# Module\n".to_string(),
+            );
+            Outcome::Passed
+        }
+        "the companion index at {string} lists {string}" => {
+            let index = format!("{}/README.md", matched.string(0));
+            let Some(text) = world.files.get(&index).cloned() else {
+                return Outcome::Failed(format!("{index} is not there to add an entry to"));
+            };
+            let name = matched.string(1);
+            let position = text
+                .lines()
+                .filter(|line| line.starts_with(char::is_numeric))
+                .count()
+                + 1;
+            world
+                .files
+                .insert(index, format!("{text}{position}. [{name}]({name})\n"));
+            Outcome::Passed
+        }
+        "the companion {string} is renamed to {string}" => {
+            // The index is rewritten with the file, because a rename that left
+            // the index behind would trip two further rules and the scenario
+            // would no longer be about the one it names.
+            match plan::rename(world, matched.string(0), matched.string(1)) {
+                Ok(()) => Outcome::Passed,
+                Err(reason) => Outcome::Failed(reason),
+            }
         }
         "the file {string} cannot be read" => {
             world.unreadable.insert(matched.string(0).to_string());
@@ -1612,6 +1668,21 @@ Body.
             world.record(result);
             Outcome::Passed
         }
+        "I run the {string} validator twice" => {
+            let Some(arguments) = validator_arguments(matched.string(0)) else {
+                return Outcome::Failed(format!(
+                    "no command path is defined for the `{}` validator",
+                    matched.string(0)
+                ));
+            };
+            let repository = world.repository();
+            let first = world.driver.invoke(&repository, &arguments);
+            world.record(first);
+            let repository = world.repository();
+            let second = world.driver.invoke(&repository, &arguments);
+            world.record(second);
+            Outcome::Passed
+        }
         "I run the {string} validator" => {
             let Some(arguments) = validator_arguments(matched.string(0)) else {
                 return Outcome::Failed(format!(
@@ -2252,6 +2323,15 @@ Body.
             )
         }
         "{int} harnesses were inspected" => inspected(world, matched.integer(0), "harness"),
+        "the two runs are byte-identical" => {
+            let Some(previous) = world.previous_command_result.clone() else {
+                return Outcome::Failed("only one run was made".to_string());
+            };
+            expect(
+                &previous == world.result(),
+                "the two runs disagreed".to_string(),
+            )
+        }
         "harness-parity outputs are identical" => {
             let Some(previous) = world.previous_command_result.clone() else {
                 return Outcome::Failed("only one inspection was run".to_string());

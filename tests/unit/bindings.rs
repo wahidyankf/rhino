@@ -1738,6 +1738,134 @@ pub const BINDINGS: &[Binding] = &[
         "instruction-spine",
         "An import that cannot be read refuses the run",
     ),
+    (
+        "plan-structure",
+        "A conforming plan in the single-file shape passes",
+    ),
+    (
+        "plan-structure",
+        "A conforming plan in the directory shape passes",
+    ),
+    (
+        "plan-structure",
+        "A completed plan carrying a completion date passes",
+    ),
+    ("plan-structure", "An idea brief is not a formal plan"),
+    (
+        "plan-structure",
+        "A lifecycle root outside the four canonical names is a finding",
+    ),
+    (
+        "plan-structure",
+        "A live plan slug carrying a date is a finding",
+    ),
+    (
+        "plan-structure",
+        "A completed plan slug with no completion date is a finding",
+    ),
+    (
+        "plan-structure",
+        "A plan slug that is not lowercase hyphen-separated is a finding",
+    ),
+    (
+        "plan-structure",
+        "One slug occupying two lifecycle roots is a finding",
+    ),
+    (
+        "plan-structure",
+        "A missing plan document is a finding naming the document",
+    ),
+    ("plan-structure", "Each missing document is named once"),
+    (
+        "plan-structure",
+        "A plan carrying both technical shapes is a finding",
+    ),
+    (
+        "plan-structure",
+        "A plan carrying no technical shape is a finding",
+    ),
+    (
+        "plan-structure",
+        "An archived plan is held to its lifecycle form and not to its contents",
+    ),
+    (
+        "plan-structure",
+        "A companion ordinal that is not three digits is a finding",
+    ),
+    (
+        "plan-structure",
+        "Companion ordinals with a gap are a finding",
+    ),
+    ("plan-structure", "One ordinal used twice is a finding"),
+    (
+        "plan-structure",
+        "A companion name that is not kebab-case after its ordinal is a finding",
+    ),
+    (
+        "plan-structure",
+        "A companion the entrypoint does not list is a finding",
+    ),
+    (
+        "plan-structure",
+        "An entrypoint listing a companion that does not exist is a finding",
+    ),
+    (
+        "plan-structure",
+        "Contiguity is not reported for a set whose ordinals are already malformed",
+    ),
+    (
+        "plan-structure",
+        "An acceptance identifier defined twice is a finding",
+    ),
+    (
+        "plan-structure",
+        "A delivery item citing an undefined acceptance identifier is a finding",
+    ),
+    (
+        "plan-structure",
+        "A checklist item carrying no executor label is a finding",
+    ),
+    (
+        "plan-structure",
+        "An executor label outside the two permitted values is a finding",
+    ),
+    (
+        "plan-structure",
+        "A delivery phase heading with no phase number is a finding",
+    ),
+    (
+        "plan-structure",
+        "Archival items before a substantive phase are a finding",
+    ),
+    (
+        "plan-structure",
+        "A human executor label is one of the two permitted values",
+    ),
+    ("plan-structure", "Suppression never crosses families"),
+    (
+        "plan-structure",
+        "Findings are reported in the contract's order",
+    ),
+    (
+        "plan-structure",
+        "Two runs over unchanged input agree exactly",
+    ),
+    (
+        "plan-structure",
+        "A repository with no plans tree has nothing to report",
+    ),
+    (
+        "plan-structure",
+        "A malformed document outside the plans tree is not this command's",
+    ),
+    (
+        "plan-structure",
+        "A plan document that cannot be read refuses the run",
+    ),
+    (
+        "plan-structure",
+        "A v1 repository is refused rather than held to a contract it never adopted",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

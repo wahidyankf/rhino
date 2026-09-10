@@ -4,3 +4,4 @@ dist
 CHANGELOG.md
 local-tmp
 worktrees
+specs/fixtures
