@@ -14,6 +14,7 @@ use crate::world::Declaration;
 use std::collections::BTreeMap;
 
 pub const SCHEMA: &str = "rhino/repo-config/v1";
+pub const V2_SCHEMA: &str = "ose/repo-config/v2";
 pub const CONFIG_PATH: &str = "repo-config.yml";
 
 /// A complete, legal configuration in the declared schema.
@@ -236,6 +237,20 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
                     )
                 ));
             }
+            // Which two adapter fields carry a tier's model and its effort.
+            // Declared beside the adapter rather than globally, because the
+            // fields are this harness's vocabulary and a second harness names
+            // them its own way.
+            if let Some((model, effort)) = &declaration.tier_fields
+                && !declaration.omit_agent_adapters
+            {
+                entry = entry.replace(
+                    ", agent-adapter: {",
+                    &format!(
+                        ", agent-adapter: {{tier-fields: {{model: {model}, effort: {effort}}}, "
+                    ),
+                );
+            }
             // Per-harness, because that is how the schema states it: a second
             // harness gaining skill wrappers is one line of configuration.
             if declaration.command_directories.contains(name) {
@@ -311,8 +326,99 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
     lines
 }
 
+/// The canonical instruction path, and the five sections it opens with.
+///
+/// Named here rather than in a scenario because the spine is a shared contract
+/// rather than this repository's choice: a fixture that could rename a section
+/// would be able to state a spine nobody agreed to.
+pub const CANONICAL_INSTRUCTION: &str = "AGENTS.md";
+pub const IMPORT_INSTRUCTION: &str = "CLAUDE.md";
+pub const SPINE: [&str; 5] = [
+    "Repository Contract",
+    "Ownership",
+    "Required Workflow",
+    "Authoring Rules",
+    "Harnesses",
+];
+
+/// The canonical instruction a scenario declared, with its edits applied.
+///
+/// Built from the spine rather than written out, so a scenario states the one
+/// difference it is about and every other section is known to be right.
+pub fn instruction(declaration: &Declaration) -> String {
+    let mut sections: Vec<(usize, String)> = SPINE
+        .iter()
+        .map(|name| (2usize, (*name).to_string()))
+        .collect();
+
+    if let Some((earlier, later)) = &declaration.instruction_swapped {
+        let (Some(first), Some(second)) = (
+            sections.iter().position(|(_, name)| name == earlier),
+            sections.iter().position(|(_, name)| name == later),
+        ) else {
+            panic!("a scenario swapped a section the spine does not carry");
+        };
+        sections.swap(first, second);
+    }
+    if let Some(name) = &declaration.instruction_demoted {
+        for section in &mut sections {
+            if &section.1 == name {
+                section.0 = 3;
+            }
+        }
+    }
+    sections.retain(|(_, name)| !declaration.instruction_omissions.contains(name));
+    if let Some((added, after)) = &declaration.instruction_inserted {
+        let position = sections
+            .iter()
+            .position(|(_, name)| name == after)
+            .expect("a scenario inserted after a section the spine does not carry");
+        sections.insert(position + 1, (2, added.clone()));
+    }
+    if let Some(added) = &declaration.instruction_appended {
+        sections.push((2, added.clone()));
+    }
+
+    let mut out = String::from("# Repository\n");
+    for (level, name) in sections {
+        out.push_str(&format!(
+            "\n{} {name}\n\nWhat this section says.\n",
+            "#".repeat(level)
+        ));
+    }
+    if let Some(shown) = &declaration.instruction_fenced {
+        out.push_str(&format!("\n```markdown\n{shown}\n```\n"));
+    }
+    out
+}
+
+/// A minimal, legal `ose/repo-config/v2` document.
+///
+/// Written as text for the same reason the v1 base is: a scenario has to be
+/// able to state a document this renderer would otherwise normalise into a
+/// legal one.
+fn render_v2(declaration: &Declaration) -> String {
+    let mut out = format!("schema: {V2_SCHEMA}\nvisibility: private\n");
+    if !declaration.local_categories.is_empty() {
+        let mut declared = declaration.local_categories.clone();
+        declared.sort();
+        declared.dedup();
+        out.push_str("governance:\n  local-categories:\n");
+        for category in declared {
+            out.push_str(&format!("    - {category}\n"));
+        }
+    }
+    out.push_str(
+        "gates:\n  - id: format\n    kind: check\n    run:\n      - ./gates/format.sh\n    surfaces:\n      - commit-msg\n      - pre-commit\n      - pre-push\n",
+    );
+    out
+}
+
 /// Render the declaration as the YAML text a repository would commit.
 pub fn render(declaration: &Declaration) -> String {
+    if declaration.v2 {
+        return render_v2(declaration);
+    }
     let mut flat = base(declaration);
 
     // Prefix-aware: omitting `harness-parity.required-mcp` has to remove the

@@ -73,6 +73,34 @@ impl DiskTree {
         }
     }
 
+    /// Every directory at or under one directory, repository-relative.
+    ///
+    /// Links are skipped for the same reason the file walk skips them:
+    /// following one can leave the repository, and a directory outside the root
+    /// is not this repository's to report on.
+    fn walk_directories(&self, directory: &Path, found: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.is_symlink() || !metadata.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if self.excluded_directories.contains(&name) {
+                continue;
+            }
+            if let Ok(relative) = path.strip_prefix(&self.root) {
+                found.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+            self.walk_directories(&path, found);
+        }
+    }
+
     /// Whether a directory holds any file at any depth, stopping at the first.
     ///
     /// The walk's definition of a child asked of one subtree rather than of the
@@ -196,6 +224,20 @@ impl Tree for DiskTree {
 
     fn is_directory(&self, path: &str) -> bool {
         self.resolve(path).is_some_and(|resolved| resolved.is_dir())
+    }
+
+    /// Every directory under the root, read from the filesystem rather than
+    /// derived from the file list.
+    ///
+    /// The default answers from the files, which is right for every caller that
+    /// wants the directories documents live in and wrong for the one rule that
+    /// is about a directory holding nothing. Only a real listing can report
+    /// that, so only the implementation that has one overrides this.
+    fn directories(&self) -> Vec<String> {
+        let mut found = Vec::new();
+        self.walk_directories(&self.root, &mut found);
+        found.sort();
+        found
     }
 
     fn excluding(&self, directories: &[String]) -> Box<dyn Tree> {

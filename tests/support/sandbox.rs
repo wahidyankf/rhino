@@ -66,6 +66,12 @@ impl Sandbox {
         for path in repository.links {
             sandbox.link(path);
         }
+        // Created after the files, so a directory a scenario declared empty is
+        // empty however the paths happened to sort.
+        for path in repository.empty_directories {
+            std::fs::create_dir_all(sandbox.root.join(path))
+                .expect("the empty directory is creatable");
+        }
         for (id, code) in repository.gate_outcomes {
             sandbox.recorder(id, *code);
         }

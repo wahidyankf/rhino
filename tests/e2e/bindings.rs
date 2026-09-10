@@ -1428,6 +1428,284 @@ pub const BINDINGS: &[Binding] = &[
         "repo-config",
         "A v2 gate entry omitting one of its keys is refused",
     ),
+    (
+        "governance-structure",
+        "A tree using only canonical layers and registered categories passes",
+    ),
+    (
+        "governance-structure",
+        "A directory that is not a canonical layer is a finding",
+    ),
+    (
+        "governance-structure",
+        "The five canonical layers are all accepted",
+    ),
+    (
+        "governance-structure",
+        "A category outside the shared registry and undeclared is a finding",
+    ),
+    (
+        "governance-structure",
+        "The same category declared under governance.local-categories passes",
+    ),
+    (
+        "governance-structure",
+        "A declared category the repository never used is a finding",
+    ),
+    (
+        "governance-structure",
+        "A declaration is not a directory, so an empty one is still reported once",
+    ),
+    (
+        "governance-structure",
+        "A governed directory holding nothing is a finding",
+    ),
+    (
+        "governance-structure",
+        "An empty directory below a category is a finding too",
+    ),
+    (
+        "governance-structure",
+        "An empty layer directory is reported as empty rather than as a category",
+    ),
+    (
+        "governance-structure",
+        "A companion directory beside its document is not a category",
+    ),
+    (
+        "governance-structure",
+        "A category holding a file directly is a live category",
+    ),
+    (
+        "governance-structure",
+        "A file directly under a layer is not a category",
+    ),
+    (
+        "governance-structure",
+        "A repository with no governance tree has nothing to report",
+    ),
+    (
+        "governance-structure",
+        "Findings are reported in path order",
+    ),
+    (
+        "governance-structure",
+        "Two categories meaning the same thing under different words both pass",
+    ),
+    (
+        "governance-structure",
+        "A v1 repository is refused rather than held to a contract it never adopted",
+    ),
+    (
+        "governance-structure",
+        "A file directly under the governance root is not a layer",
+    ),
+    (
+        "companion-set",
+        "An ordered set the entrypoint declares an order for passes",
+    ),
+    (
+        "companion-set",
+        "An unordered set with no declared order and no ordinals passes",
+    ),
+    (
+        "companion-set",
+        "A companion directory carrying a suffix is a finding",
+    ),
+    (
+        "companion-set",
+        "Every recognized suffix is reported the same way",
+    ),
+    (
+        "companion-set",
+        "A companion directory with no README is a finding",
+    ),
+    (
+        "companion-set",
+        "A module with no ordinal in a set declaring an order is a finding",
+    ),
+    (
+        "companion-set",
+        "An ordinal in a set declaring no order is a finding",
+    ),
+    (
+        "companion-set",
+        "Ordinals that do not start at one are a finding",
+    ),
+    ("companion-set", "A gap in the ordinals is a finding"),
+    ("companion-set", "One ordinal used twice is a finding"),
+    (
+        "companion-set",
+        "A module the index does not link is a finding",
+    ),
+    (
+        "companion-set",
+        "An indexed module that is not there is a finding",
+    ),
+    (
+        "companion-set",
+        "A directory with no sibling document is not a companion set",
+    ),
+    (
+        "companion-set",
+        "Three related modules with no declared order are not judged",
+    ),
+    (
+        "companion-set",
+        "A companion set outside the governance tree is not this command's",
+    ),
+    (
+        "companion-set",
+        "A v1 repository is refused rather than held to a contract it never adopted",
+    ),
+    (
+        "companion-set",
+        "A repository with no governance tree has nothing to report",
+    ),
+    (
+        "instruction-spine",
+        "A canonical instruction with the five sections in order passes",
+    ),
+    (
+        "instruction-spine",
+        "Repository-specific sections may follow the spine",
+    ),
+    ("instruction-spine", "A missing spine section is a finding"),
+    (
+        "instruction-spine",
+        "Spine sections out of order are a finding",
+    ),
+    (
+        "instruction-spine",
+        "A section inserted between two spine sections is a finding",
+    ),
+    (
+        "instruction-spine",
+        "A repository with no canonical instruction is a finding",
+    ),
+    (
+        "instruction-spine",
+        "A CLAUDE.md that is exactly the import passes",
+    ),
+    (
+        "instruction-spine",
+        "A CLAUDE.md carrying its own instruction is a finding",
+    ),
+    (
+        "instruction-spine",
+        "A CLAUDE.md importing something else is a finding",
+    ),
+    (
+        "instruction-spine",
+        "A repository with no Claude surface needs no CLAUDE.md",
+    ),
+    (
+        "instruction-spine",
+        "Surrounding whitespace in the import is not a difference",
+    ),
+    (
+        "instruction-spine",
+        "A spine heading written at the wrong level is not a spine section",
+    ),
+    (
+        "instruction-spine",
+        "A spine section named inside a fenced example is not a section",
+    ),
+    (
+        "instruction-spine",
+        "An unreadable canonical instruction refuses the run",
+    ),
+    (
+        "instruction-spine",
+        "A v1 repository is refused rather than held to a contract it never adopted",
+    ),
+    (
+        "md-naming",
+        "A name ending in a numbered part is a fragment",
+    ),
+    ("md-naming", "A name ending in continued is a fragment"),
+    (
+        "md-naming",
+        "A name ending in a numbered continuation is a fragment",
+    ),
+    (
+        "md-naming",
+        "A fragment outside every declared surface is still a fragment",
+    ),
+    ("md-naming", "An exemption excuses a style, not a fragment"),
+    (
+        "md-naming",
+        "A multi-topic name that carries no mechanical suffix is not reported",
+    ),
+    ("md-naming", "The fragment patterns are closed"),
+    (
+        "md-naming",
+        "A fragment that also breaks its declared style is reported for both",
+    ),
+    (
+        "mermaid-legibility",
+        "A rendered repository requires an accessible title and description",
+    ),
+    (
+        "mermaid-legibility",
+        "A rendered diagram with no accessible title is a finding",
+    ),
+    (
+        "mermaid-legibility",
+        "A rendered diagram with no accessible description is a finding",
+    ),
+    (
+        "mermaid-legibility",
+        "The braced description form is a description",
+    ),
+    (
+        "mermaid-legibility",
+        "A plain-text repository refuses a Mermaid diagram",
+    ),
+    (
+        "mermaid-legibility",
+        "A plain-text repository accepts an ASCII drawing with prose beside it",
+    ),
+    (
+        "mermaid-legibility",
+        "An ASCII drawing with no prose beside it is a review, not a finding",
+    ),
+    (
+        "mermaid-legibility",
+        "A repository declaring no authoring rule is held to neither",
+    ),
+    (
+        "harness-parity",
+        "A mapped tier projects both of its values into every adapter",
+    ),
+    (
+        "harness-parity",
+        "An adapter that projects neither half of a mapped pair is a finding",
+    ),
+    (
+        "harness-parity",
+        "An adapter that projects half a mapped pair is a finding",
+    ),
+    (
+        "harness-parity",
+        "An adapter projecting a model the mapping does not name is a finding",
+    ),
+    (
+        "harness-parity",
+        "An absent mapping projects nothing, which is the designed default",
+    ),
+    (
+        "harness-parity",
+        "An adapter projecting a tier nothing maps is a finding",
+    ),
+    (
+        "harness-parity",
+        "A harness that declares no tier fields is not held to the mapping",
+    ),
+    (
+        "harness-parity",
+        "A canonical agent declaring no tier has nothing to project",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

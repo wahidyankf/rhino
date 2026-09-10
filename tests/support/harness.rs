@@ -199,6 +199,93 @@ fn agent_body() -> String {
     agent_body_named([GRANTS, DENIALS, LIMITS])
 }
 
+/// The canonical agent with the portable tier a scenario gave it.
+///
+/// Written beside the field the declaration shape fixes rather than appended,
+/// because front matter order is one of the things the metadata contract has a
+/// rule about and a fixture that wrote keys anywhere would be stating a shape
+/// no repository would commit.
+fn agent_body_with_tier(body: &str, tier: Option<&str>) -> String {
+    let Some(tier) = tier else {
+        return body.to_string();
+    };
+    body.replace(
+        &format!("{FIXED_FIELD}: {FIXED_VALUE}\n"),
+        &format!("{FIXED_FIELD}: {FIXED_VALUE}\ntier: {tier}\n"),
+    )
+}
+
+/// What this harness's agent adapter actually writes for the canonical tier.
+///
+/// A pair of optional halves rather than an optional pair: the contract is that
+/// a mapped tier projects both and an unmapped one projects neither, and a
+/// fixture that could only state "both" or "neither" could not express the half
+/// that is the whole point of the rule.
+fn projection(declaration: &Declaration, harness: &str) -> (Option<String>, Option<String>) {
+    if declaration.adapters_projecting_nothing.contains(harness) {
+        return (None, None);
+    }
+    let mapped = declaration.canonical_tier.as_ref().and_then(|tier| {
+        declaration
+            .model_tier_pairs
+            .iter()
+            .find(|(named, mapped_tier, _, _)| named == harness && mapped_tier == tier)
+            .map(|(_, _, model, effort)| (model.clone(), effort.clone()))
+    });
+    let model = declaration
+        .adapter_models
+        .get(harness)
+        .cloned()
+        .or_else(|| mapped.as_ref().map(|(model, _)| model.clone()));
+    let effort = if declaration.adapters_projecting_no_effort.contains(harness) {
+        None
+    } else {
+        mapped.map(|(_, effort)| effort)
+    };
+    (model, effort)
+}
+
+/// The adapter body with whatever this scenario says it projects written into
+/// the two fields the repository declared for the purpose.
+fn projected(declaration: &Declaration, harness: &str, body: &str) -> String {
+    let Some((model_field, effort_field)) = &declaration.tier_fields else {
+        return body.to_string();
+    };
+    let (model, effort) = projection(declaration, harness);
+    let mut written: Vec<(&str, String)> = Vec::new();
+    if let Some(model) = model {
+        written.push((model_field.as_str(), model));
+    }
+    if let Some(effort) = effort {
+        written.push((effort_field.as_str(), effort));
+    }
+    if written.is_empty() {
+        return body.to_string();
+    }
+    match shape_of(harness) {
+        Shape::Toml => {
+            let head: String = written
+                .iter()
+                .map(|(field, value)| format!("{field} = \"{value}\"\n"))
+                .collect();
+            format!("{head}{body}")
+        }
+        // Inserted before the closing marker rather than appended, because a
+        // front-matter key written after it is prose.
+        _ => {
+            let head: String = written
+                .iter()
+                .map(|(field, value)| format!("{field}: {value}\n"))
+                .collect();
+            let closing = body[4..]
+                .find("\n---\n")
+                .map(|position| position + 5)
+                .expect("an adapter in front-matter form closes its declaration");
+            format!("{}{head}{}", &body[..closing], &body[closing..])
+        }
+    }
+}
+
 /// A canonical agent that omits the field its declaration shape fixes.
 pub fn agent_without_its_fixed_field() -> String {
     agent_body().replace(&format!("{FIXED_FIELD}: {FIXED_VALUE}\n"), "")
@@ -307,11 +394,17 @@ pub fn valid_contract(declaration: &Declaration) -> BTreeMap<String, String> {
     files.insert(canonical_skill(), skill_body());
     files.insert(
         canonical_agent(),
-        agent_body_named(declaration_names(declaration)),
+        agent_body_with_tier(
+            &agent_body_named(declaration_names(declaration)),
+            declaration.canonical_tier.as_deref(),
+        ),
     );
 
     for harness in roster(declaration) {
-        files.insert(agent_adapter(&harness), agent_adapter_body(&harness));
+        files.insert(
+            agent_adapter(&harness),
+            projected(declaration, &harness, &agent_adapter_body(&harness)),
+        );
         files.insert(
             capability_file(&harness, &format_for(declaration, &harness)),
             capability_declaration(&format_for(declaration, &harness)),

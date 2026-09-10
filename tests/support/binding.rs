@@ -36,6 +36,9 @@ fn validator_arguments(name: &str) -> Option<Vec<String>> {
         "naming" => &["md", "naming", "validate"],
         "metadata" => &["metadata", "validate"],
         "repo-config" => &["repo-config", "validate"],
+        "governance-roots" => &["governance", "roots", "validate"],
+        "governance-companions" => &["governance", "companions", "validate"],
+        "governance-instructions" => &["governance", "instructions", "validate"],
         _ => return None,
     };
     Some(path.iter().map(|part| (*part).to_string()).collect())
@@ -74,6 +77,101 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
         // nothing to add. It stays in the vocabulary because a scenario that
         // breaks one key has to be able to say what it started from.
         "the repository declares a complete configuration" => Outcome::Passed,
+        // The v2 schema shares no key with v1, so a scenario declaring it is
+        // declaring a different file rather than overriding one value in this
+        // one. Nothing else in the base survives, which is the point.
+        "the repository declares a v2 configuration" => {
+            world.declaration.v2 = true;
+            Outcome::Passed
+        }
+        "the repository declares the local governance category {string}" => {
+            world
+                .declaration
+                .local_categories
+                .push(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the repository contains the empty directory {string}" => {
+            world
+                .empty_directories
+                .insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the file {string} cannot be read" => {
+            world.unreadable.insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the repository declares the canonical instruction spine" => {
+            world.files.insert(
+                fixtures::CANONICAL_INSTRUCTION.to_string(),
+                fixtures::instruction(&world.declaration),
+            );
+            Outcome::Passed
+        }
+        "the instruction adds the section {string} after the spine" => {
+            world.declaration.instruction_appended = Some(matched.string(0).to_string());
+            reissue_instruction(world)
+        }
+        "the instruction omits the section {string}" => {
+            world
+                .declaration
+                .instruction_omissions
+                .push(matched.string(0).to_string());
+            reissue_instruction(world)
+        }
+        "the instruction swaps {string} with {string}" => {
+            world.declaration.instruction_swapped =
+                Some((matched.string(0).to_string(), matched.string(1).to_string()));
+            reissue_instruction(world)
+        }
+        "the instruction inserts the section {string} after {string}" => {
+            world.declaration.instruction_inserted =
+                Some((matched.string(0).to_string(), matched.string(1).to_string()));
+            reissue_instruction(world)
+        }
+        "the instruction demotes the section {string}" => {
+            world.declaration.instruction_demoted = Some(matched.string(0).to_string());
+            reissue_instruction(world)
+        }
+        "the instruction shows {string} inside a fenced example" => {
+            world.declaration.instruction_fenced = Some(matched.string(0).to_string());
+            reissue_instruction(world)
+        }
+        "the canonical agent declares the tier {string}" => {
+            world.declaration.canonical_tier = Some(matched.string(0).to_string());
+            reseed_if_seeded(world);
+            Outcome::Passed
+        }
+        "every harness projects a tier into {string} and {string}" => {
+            world.declaration.tier_fields =
+                Some((matched.string(0).to_string(), matched.string(1).to_string()));
+            reseed_if_seeded(world);
+            Outcome::Passed
+        }
+        "the agent adapter for {string} projects no tier" => {
+            world
+                .declaration
+                .adapters_projecting_nothing
+                .insert(matched.string(0).to_string());
+            reseed_if_seeded(world);
+            Outcome::Passed
+        }
+        "the agent adapter for {string} projects no effort" => {
+            world
+                .declaration
+                .adapters_projecting_no_effort
+                .insert(matched.string(0).to_string());
+            reseed_if_seeded(world);
+            Outcome::Passed
+        }
+        "the agent adapter for {string} projects the model {string}" => {
+            world
+                .declaration
+                .adapter_models
+                .insert(matched.string(0).to_string(), matched.string(1).to_string());
+            reseed_if_seeded(world);
+            Outcome::Passed
+        }
         "a required MCP server is declared" => {
             world.declaration.declares_required_mcp = true;
             Outcome::Passed
@@ -209,6 +307,7 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 matched.string(2).to_string(),
                 matched.string(3).to_string(),
             ));
+            reseed_if_seeded(world);
             Outcome::Passed
         }
         "the repository declares the model-tier mapping {string}" => {
@@ -2594,6 +2693,30 @@ fn invalid_location(name: &str) -> Option<&'static str> {
 /// Called whenever a step changes something the contract's shape depends on --
 /// the roster, a command directory, a capability format -- so the files and the
 /// rendered configuration never disagree about what the repository is.
+/// Rebuild the harness contract when one is already standing.
+///
+/// A declaration a scenario states *after* the contract was seeded -- a tier,
+/// a projection, a mapping -- has to reach the files the contract wrote, and
+/// the alternative is a corpus where the order of two `Given`s silently decides
+/// whether the second one counted.
+fn reseed_if_seeded<D: Driver>(world: &mut World<D>) {
+    if world.files.contains_key(&harness::canonical_agent()) {
+        reseed_contract(world);
+    }
+}
+
+/// Rewrite the canonical instruction after a scenario edits its spine.
+fn reissue_instruction<D: Driver>(world: &mut World<D>) -> Outcome {
+    if !world.files.contains_key(fixtures::CANONICAL_INSTRUCTION) {
+        return Outcome::Failed("no canonical instruction was declared".to_string());
+    }
+    world.files.insert(
+        fixtures::CANONICAL_INSTRUCTION.to_string(),
+        fixtures::instruction(&world.declaration),
+    );
+    Outcome::Passed
+}
+
 fn reseed_contract<D: Driver>(world: &mut World<D>) {
     let contract = harness::valid_contract(&world.declaration);
     // Prune first. A declaration that moves a harness from one capability

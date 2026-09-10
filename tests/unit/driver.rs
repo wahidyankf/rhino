@@ -37,6 +37,9 @@ impl Driver for UnitDriver {
         for path in repository.links {
             tree.mark_link(path);
         }
+        for path in repository.empty_directories {
+            tree.mark_directory(path);
+        }
 
         // Read back through the port on both sides rather than cloning the map
         // the fixture built: what the subject can see is the only thing it

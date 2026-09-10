@@ -3,6 +3,18 @@ Feature: Mermaid legibility inspection
   Label length limits are declared by the repository and counted in Unicode
   grapheme clusters after markup removal and entity decoding.
 
+  A repository may also declare one authoring rule for conceptual diagrams.
+  Under `rendered` a Mermaid diagram carries an accessible title and an
+  accessible description; under `plain-text` no Mermaid diagram may appear at
+  all. Declaring neither leaves both unchecked, which is what a repository that
+  never adopted the rule already had.
+
+  The other half of the plain-text rule stays outside RHINO. A fenced block of
+  ASCII is a conceptual drawing, a quoted file tree, or command output, and the
+  contract excludes the last two from the rule -- so a validator requiring prose
+  beside every one of them would be reporting exactly the cases the rule
+  excludes. Whether a drawing is described is a review.
+
   Background:
     Given the repository declares the accessible palette
     And the repository declares node labels at 32 graphemes and edge labels at 24
@@ -106,3 +118,130 @@ Feature: Mermaid legibility inspection
       | &lt;&gt;&quot;&apos;&nbsp;aaa                    | 0    |
       | &frob;aaa                                        | 1    |
       | a&b aaaaa                                        | 1    |
+
+  Scenario: A rendered repository requires an accessible title and description
+    Given the configuration sets "md-mermaid.authoring-rule" to "rendered"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```mermaid
+      flowchart LR
+        accTitle: Delivery path
+        accDescr: A change moves from a worktree to a pull request to main.
+        A[Worktree] --> B[Pull request]
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A rendered diagram with no accessible title is a finding
+    Given the configuration sets "md-mermaid.authoring-rule" to "rendered"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```mermaid
+      flowchart LR
+        accDescr: A change moves from a worktree to a pull request to main.
+        A[Worktree] --> B[Pull request]
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the only violation starts with "guides/diagram.md: declares no accessible title"
+
+  Scenario: A rendered diagram with no accessible description is a finding
+    Given the configuration sets "md-mermaid.authoring-rule" to "rendered"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```mermaid
+      flowchart LR
+        accTitle: Delivery path
+        A[Worktree] --> B[Pull request]
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the only violation starts with "guides/diagram.md: declares no accessible description"
+
+  Scenario: The braced description form is a description
+    Given the configuration sets "md-mermaid.authoring-rule" to "rendered"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```mermaid
+      flowchart LR
+        accTitle: Delivery path
+        accDescr {
+          A change moves from a worktree
+          to a pull request to main.
+        }
+        A[Worktree] --> B[Pull request]
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A plain-text repository refuses a Mermaid diagram
+    Given the configuration sets "md-mermaid.authoring-rule" to "plain-text"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```mermaid
+      flowchart LR
+        accTitle: Delivery path
+        accDescr: A change moves from a worktree to a pull request to main.
+        A[Worktree] --> B[Pull request]
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the only violation starts with "guides/diagram.md: carries a Mermaid diagram"
+
+  Scenario: A plain-text repository accepts an ASCII drawing with prose beside it
+    Given the configuration sets "md-mermaid.authoring-rule" to "plain-text"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      A change moves from a worktree to a pull request to main.
+
+      ```text
+      worktree --> pull request --> main
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: An ASCII drawing with no prose beside it is a review, not a finding
+    Given the configuration sets "md-mermaid.authoring-rule" to "plain-text"
+    And file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```text
+      worktree --> pull request --> main
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A repository declaring no authoring rule is held to neither
+    Given file "guides/diagram.md" contains this Markdown:
+      """
+      # Guide
+
+      ```mermaid
+      flowchart LR
+        A[Worktree] --> B[Pull request]
+      ```
+      """
+    When I inspect Mermaid accessibility
+    Then the exit code is 0
+    And there are no violations
