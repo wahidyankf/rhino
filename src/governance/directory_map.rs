@@ -7,7 +7,7 @@
 //! map that has drifted from the tree is worse than no map, because it is
 //! believed.
 
-use crate::config::Config;
+use crate::config::{Config, DirectoryMap};
 use crate::report::{Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::scan::{self, README, Scope};
@@ -15,7 +15,7 @@ use std::collections::BTreeSet;
 
 const SECTION: &str = "## Directory Map";
 
-pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
+pub fn validate(tree: &dyn Tree, config: &Config, map: &DirectoryMap, scope: &Scope) -> Report {
     let mut report = Report::new("directory-map", "directory");
 
     // A selected tree replaces the declared ones rather than adding to them,
@@ -32,8 +32,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
             }
             vec![selected.clone()]
         }
-        None => config
-            .directory_map
+        None => map
             .trees
             .iter()
             .map(|declared| declared.path.clone())

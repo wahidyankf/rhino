@@ -77,16 +77,36 @@ impl fmt::Display for ConfigError {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+impl Config {
+    /// The directories this repository excludes from every walk.
+    ///
+    /// An undeclared `scan` is not a default: it is a repository that excluded
+    /// nothing, which is a thing a repository may legitimately be. v1 requires
+    /// the section, so only a v2 document can reach the empty case.
+    pub fn excluded(&self) -> &[String] {
+        match &self.scan {
+            Some(scan) => &scan.exclude_directories,
+            None => &[],
+        }
+    }
+}
+
+/// Every section either schema may declare.
+///
+/// All optional to the decoder, because v2 requires none of them and v1
+/// requires five. Which five is a v1 rule, so v1 states it in
+/// `check_semantics` rather than in the field types -- that way one struct
+/// serves both schemas and no rule is written twice.
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
-    #[serde(rename = "governance-word-budget")]
-    pub word_budget: WordBudget,
-    #[serde(rename = "governance-directory-map")]
-    pub directory_map: DirectoryMap,
+    #[serde(rename = "governance-word-budget", default)]
+    pub word_budget: Option<WordBudget>,
+    #[serde(rename = "governance-directory-map", default)]
+    pub directory_map: Option<DirectoryMap>,
     #[serde(rename = "md-internal-link", default)]
     pub internal_link: InternalLink,
-    #[serde(rename = "md-mermaid")]
-    pub mermaid: Mermaid,
+    #[serde(rename = "md-mermaid", default)]
+    pub mermaid: Option<Mermaid>,
     /// Optional, like every section added after `v0.1`. Absent means the
     /// command that reads it refuses rather than enforcing a convention the
     /// repository never declared, which is what keeps a release additive: a
@@ -103,8 +123,8 @@ pub struct Config {
     /// Optional, on the same rule as every section added after `v0.1`.
     #[serde(rename = "md-readme-index", default)]
     pub readme_index: Option<ReadmeIndex>,
-    #[serde(rename = "harness-parity")]
-    pub harness_parity: HarnessParity,
+    #[serde(rename = "harness-parity", default)]
+    pub harness_parity: Option<HarnessParity>,
     /// Optional, on the same rule as every section added after `v0.1`.
     #[serde(rename = "convention-emoji", default)]
     pub emoji: Option<Emoji>,
@@ -124,7 +144,8 @@ pub struct Config {
     /// omitted is half of a pair.
     #[serde(rename = "model-tiers", default)]
     pub model_tiers: Option<BTreeMap<String, BTreeMap<String, Option<TierMapping>>>>,
-    pub scan: Scan,
+    #[serde(default)]
+    pub scan: Option<Scan>,
 }
 
 /// The harness profiles this schema recognizes.
@@ -710,6 +731,22 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     }
 }
 
+/// Decode the validator sections from a document, with no schema-specific rule.
+///
+/// Used by v2, which requires none of them. v1 goes through `parse_v1`, which
+/// adds the five it requires; the decoding itself is the same either way.
+pub(crate) fn decode_sections(text: &str) -> Result<Config, ConfigError> {
+    yaml_serde::from_str(text).map_err(|error| {
+        let mut message = error.to_string();
+        if !message.contains("line ")
+            && let Some(location) = error.location()
+        {
+            message = format!("{message} at line {}", location.line());
+        }
+        ConfigError::Malformed(message)
+    })
+}
+
 fn parse_v1(text: &str) -> Result<Config, ConfigError> {
     let config: Config = yaml_serde::from_str(text).map_err(|error| {
         // The parser reports `section.key: reason at line L column C`, which is
@@ -783,11 +820,42 @@ fn commented_schema(text: &str) -> Option<(String, usize)> {
     None
 }
 
+/// The five sections a v1 document may not omit.
+///
+/// Required here rather than in the field types, because the same struct also
+/// carries a v2 document, which requires none of them. The message names the
+/// section and the schema so a maintainer is told which contract they are
+/// under rather than which field a decoder wanted.
+/// A section's name and a way to ask whether the document declared it.
+type Required = (&'static str, fn(&Config) -> bool);
+
+const V1_REQUIRED: [Required; 5] = [
+    ("governance-word-budget", |c| c.word_budget.is_some()),
+    ("governance-directory-map", |c| c.directory_map.is_some()),
+    ("md-mermaid", |c| c.mermaid.is_some()),
+    ("harness-parity", |c| c.harness_parity.is_some()),
+    ("scan", |c| c.scan.is_some()),
+];
+
 /// The rules a well-typed document can still break.
 fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
+    for (section, present) in V1_REQUIRED {
+        if !present(config) {
+            return Err(ConfigError::Semantic {
+                key: section.to_string(),
+                line: 1,
+                reason: format!("is required by `{SCHEMA}`"),
+            });
+        }
+    }
+
     check_model_tiers(config, text)?;
 
-    let canonical = &config.harness_parity.canonical;
+    let harness_parity = config
+        .harness_parity
+        .as_ref()
+        .expect("a v1 document declares harness-parity");
+    let canonical = &harness_parity.canonical;
 
     // Everything a harness is reconciled *against*: the two canonical roots and
     // the capability declaration every harness has to match. Each one is
@@ -795,7 +863,7 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
     let reconciled_against = [
         ("skills-root", canonical.skills_root.is_some()),
         ("agents-root", canonical.agents_root.is_some()),
-        ("required-mcp", config.harness_parity.required_mcp.is_some()),
+        ("required-mcp", harness_parity.required_mcp.is_some()),
     ];
 
     // Canon with nowhere to reconcile it is a configuration error rather than a
@@ -806,7 +874,7 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
     // a thing a repository may not have, and requiring any of them alongside a
     // roster would be asserting one repository's arrangement as everyone's.
     // What each *does* require is the rest of its own pair, below.
-    if config.harness_parity.harnesses.is_empty() {
+    if harness_parity.harnesses.is_empty() {
         for (key, declared) in reconciled_against {
             if declared {
                 return Err(ConfigError::Semantic {
@@ -824,7 +892,7 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
     // reaches.
     let agents = canonical.agents_root.is_some();
     let skills = canonical.skills_root.is_some();
-    for harness in &config.harness_parity.harnesses {
+    for harness in &harness_parity.harnesses {
         if harness.agent_adapter.is_some() != agents {
             let reason = if agents {
                 format!(
@@ -859,8 +927,8 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
     // stand or fall together. Declared alone, either one is a rule nothing
     // enforces: a server no harness is checked against, or a file no rule
     // reads.
-    let required = config.harness_parity.required_mcp.is_some();
-    for harness in &config.harness_parity.harnesses {
+    let required = harness_parity.required_mcp.is_some();
+    for harness in &harness_parity.harnesses {
         if harness.capability.is_some() == required {
             continue;
         }
@@ -948,14 +1016,13 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
     // A translation fires on a canonical name. One that names something outside
     // the declared vocabulary can never fire, which makes it a permission rule
     // that silently grants everything.
-    let vocabulary: Vec<&str> = config
-        .harness_parity
+    let vocabulary: Vec<&str> = harness_parity
         .capabilities
         .iter()
-        .chain(&config.harness_parity.constraints)
+        .chain(&harness_parity.constraints)
         .map(String::as_str)
         .collect();
-    for harness in &config.harness_parity.harnesses {
+    for harness in &harness_parity.harnesses {
         let adapters = harness.agent_adapter.iter().chain(&harness.skill_adapter);
         for adapter in adapters {
             for translation in &adapter.translations {
@@ -1033,7 +1100,12 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
 
 /// Every scalar the configuration declares as a repository-relative path.
 fn declared_paths(config: &Config) -> Vec<(&'static str, String)> {
-    let canonical = &config.harness_parity.canonical;
+    // Only reached from the v1 path, where both sections are required.
+    let harness_parity = config
+        .harness_parity
+        .as_ref()
+        .expect("a v1 document declares harness-parity");
+    let canonical = &harness_parity.canonical;
     let mut paths: Vec<(&'static str, String)> =
         vec![("instruction", canonical.instruction.clone())];
 
@@ -1046,10 +1118,12 @@ fn declared_paths(config: &Config) -> Vec<(&'static str, String)> {
             paths.push((key, value.clone()));
         }
     }
-    for tree in &config.directory_map.trees {
-        paths.push(("path", tree.path.clone()));
+    if let Some(map) = &config.directory_map {
+        for tree in &map.trees {
+            paths.push(("path", tree.path.clone()));
+        }
     }
-    for harness in &config.harness_parity.harnesses {
+    for harness in &harness_parity.harnesses {
         if let Some(adapter) = &harness.agent_adapter {
             paths.push(("agent-adapter", adapter.path.clone()));
         }

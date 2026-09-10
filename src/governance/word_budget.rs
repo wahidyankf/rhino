@@ -6,7 +6,7 @@
 //! it read. A surface that matched nothing and a surface that matched
 //! everything both pass, and only the listing tells them apart.
 
-use crate::config::{Config, WordRule};
+use crate::config::{Config, WordBudget, WordRule};
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::Tree;
 use crate::scan::{self, Corpus, Scope};
@@ -31,8 +31,8 @@ pub fn count(text: &str, rule: WordRule) -> usize {
     }
 }
 
-pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
-    let surfaces = &config.word_budget.surfaces;
+pub fn validate(tree: &dyn Tree, config: &Config, budget: &WordBudget) -> Report {
+    let surfaces = &budget.surfaces;
     let globs = match scan::Surfaces::compile(
         "governance-word-budget.surfaces",
         surfaces.iter().map(|surface| surface.glob.as_str()),
@@ -57,7 +57,7 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
 
         report.scanned(&document.path);
 
-        let words = count(&document.text, config.word_budget.count);
+        let words = count(&document.text, budget.count);
         if words > surface.fail {
             report.found(
                 Finding::new(
@@ -79,7 +79,7 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
 /// A separate leaf from the budget check on purpose: this one answers "how
 /// long is this?" and has no policy to violate, so it cannot exit `1`. A
 /// caller scripting around it can rely on that.
-pub fn inspect(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
+pub fn inspect(tree: &dyn Tree, budget: &WordBudget, scope: &Scope) -> Report {
     let mut report = Report::new("word-count", "file");
 
     if !scope.is_narrowed() {
@@ -91,7 +91,7 @@ pub fn inspect(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
         let Some(text) = content else {
             return Report::refused("word-count", format!("{path}: cannot be read"));
         };
-        let words = count(&text, config.word_budget.count);
+        let words = count(&text, budget.count);
         total += words;
         report.inspected_one();
         report.note(format!("{path}: {words} words"));

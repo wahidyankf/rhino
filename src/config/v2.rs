@@ -18,13 +18,50 @@ use std::collections::BTreeMap;
 pub const SCHEMA: &str = "ose/repo-config/v2";
 
 /// Canonical top-level key order. The list *is* the order.
-const KEYS: [&str; 6] = [
+///
+/// The validator sections sit between the portable declarations and `gates`,
+/// and keep the names v1 gave them. Two spellings for one rule would make a
+/// repository moving between schemas rewrite policy it did not change, and
+/// would give the shared contract two places to be edited.
+const KEYS: [&str; 18] = [
     "schema",
     "visibility",
     "governance",
     "model-tiers",
+    "scan",
+    "harness-parity",
+    "metadata",
+    "governance-word-budget",
+    "governance-directory-map",
+    "md-frontmatter",
+    "md-heading-hierarchy",
+    "md-internal-link",
+    "md-mermaid",
+    "md-naming",
+    "md-readme-index",
+    "convention-emoji",
     "gates",
     "extensions",
+];
+
+/// The keys that carry a validator section, in canonical order.
+///
+/// Every one is optional. A command whose section is absent refuses rather than
+/// enforcing a rule the repository never wrote down -- the same contract v1's
+/// optional sections have carried since `v0.1`.
+pub const SECTIONS: [&str; 12] = [
+    "scan",
+    "harness-parity",
+    "metadata",
+    "governance-word-budget",
+    "governance-directory-map",
+    "md-frontmatter",
+    "md-heading-hierarchy",
+    "md-internal-link",
+    "md-mermaid",
+    "md-naming",
+    "md-readme-index",
+    "convention-emoji",
 ];
 
 /// The three keys a v2 document may never omit.
@@ -61,6 +98,13 @@ pub const LAYERS: [&str; 5] = [
 /// A read document: what a repository declared, and where it said it.
 #[derive(Debug, Default)]
 pub struct Document {
+    /// The validator sections this document declared.
+    ///
+    /// Decoded from the same text by the same reader v1 uses, so a rule has one
+    /// implementation and a repository writes its policy in one spelling
+    /// whichever schema it declares. Every section is optional here; a command
+    /// whose section is absent refuses rather than defaulting.
+    pub sections: Box<super::Config>,
     pub visibility: String,
     /// The `<layer>/<category>` values this repository declared as its own.
     ///
@@ -383,7 +427,13 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     let gates = gates(entries)?;
     public_safety(&visibility, &gates, entries)?;
 
+    // Decoded after the structural rules pass, so a document with a duplicate
+    // key or an out-of-order section is reported as that rather than as
+    // whatever the decoder made of it.
+    let sections = super::decode_sections(text)?;
+
     Ok(Document {
+        sections: Box::new(sections),
         visibility,
         local_categories,
         gates,
@@ -449,7 +499,10 @@ fn required_keys_are_present(entries: &[(String, Node)]) -> Result<(), ConfigErr
 /// generator, which is why the empty one is refused: only the omission is an
 /// answer a repository can be held to.
 fn optional_sections_carry_something(entries: &[(String, Node)]) -> Result<(), ConfigError> {
-    for key in ["governance", "model-tiers", "extensions"] {
+    for key in ["governance", "model-tiers", "extensions"]
+        .into_iter()
+        .chain(SECTIONS)
+    {
         if let Some(node) = find(entries, key)
             && node.value.is_empty()
         {
