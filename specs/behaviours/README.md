@@ -26,6 +26,9 @@ implement them the same way at three boundaries:
 
 - [cli-contract.feature](cli-contract.feature) — command tree, flags, output
   formats, and the exit codes every command shares.
+- [companion-set.feature](companion-set.feature) — the sibling directory a
+  governed document splits into, its index, and the ordinals it carries only
+  when the entrypoint declares a reading order.
 - [convention-emoji.feature](convention-emoji.feature) — the files an emoji
   code point may not appear in, and the punctuation that is not one.
 - [directory-map.feature](directory-map.feature) — README presence and
@@ -33,8 +36,14 @@ implement them the same way at three boundaries:
 - [gate-runner.feature](gate-runner.feature) — which gates a surface
   selects, the order they run in, what each child is handed, and when the
   sequence stops.
+- [governance-structure.feature](governance-structure.feature) — the canonical
+  governance layers, the categories a repository may keep in them, and the
+  directories that must hold something.
 - [harness-parity.feature](harness-parity.feature) — one canonical instruction
   body, skill bundle, and agent roster reconciled across every declared harness.
+- [instruction-spine.feature](instruction-spine.feature) — the five sections
+  every canonical instruction opens with, and the exact import that stands in
+  for it.
 - [internal-link.feature](internal-link.feature) — repository-local Markdown
   links resolve to files that exist.
 - [md-frontmatter.feature](md-frontmatter.feature) — declared front-matter

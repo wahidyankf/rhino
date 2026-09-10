@@ -638,3 +638,81 @@ Feature: Coding-harness parity
     Then the exit code is 0
     And 0 harnesses were inspected
     And harness-parity validation succeeds with 0 harnesses, 0 skill, 0 agent, and 0 reconciled capability declarations
+
+  Scenario: A mapped tier projects both of its values into every adapter
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And every harness projects a tier into "model" and "effort"
+    And the repository maps harness "claude" tier "execution" to model "claude-fast" at effort "medium"
+    And the repository maps harness "codex" tier "execution" to model "codex-fast" at effort "medium"
+    And the repository maps harness "opencode" tier "execution" to model "opencode-fast" at effort "medium"
+    When I inspect harness parity
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: An adapter that projects neither half of a mapped pair is a finding
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And every harness projects a tier into "model" and "effort"
+    And the repository maps harness "claude" tier "execution" to model "claude-fast" at effort "medium"
+    And the agent adapter for "claude" projects no tier
+    When I inspect harness parity
+    Then the only violation starts with "adapters/claude/agents/reviewer.md: unprojected-tier:"
+
+  Scenario: An adapter that projects half a mapped pair is a finding
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And every harness projects a tier into "model" and "effort"
+    And the repository maps harness "claude" tier "execution" to model "claude-fast" at effort "medium"
+    And the agent adapter for "claude" projects no effort
+    When I inspect harness parity
+    Then the only violation starts with "adapters/claude/agents/reviewer.md: unprojected-tier:"
+
+  Scenario: An adapter projecting a model the mapping does not name is a finding
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And every harness projects a tier into "model" and "effort"
+    And the repository maps harness "claude" tier "execution" to model "claude-fast" at effort "medium"
+    And the agent adapter for "claude" projects the model "claude-slow"
+    When I inspect harness parity
+    Then the only violation starts with "adapters/claude/agents/reviewer.md: tier-projection-drift:"
+
+  Scenario: An absent mapping projects nothing, which is the designed default
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And every harness projects a tier into "model" and "effort"
+    When I inspect harness parity
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: An adapter projecting a tier nothing maps is a finding
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And every harness projects a tier into "model" and "effort"
+    And the agent adapter for "claude" projects the model "claude-fast"
+    When I inspect harness parity
+    Then the only violation starts with "adapters/claude/agents/reviewer.md: unmapped-tier-projected:"
+
+  Scenario: A harness that declares no tier fields is not held to the mapping
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And the canonical agent declares the tier "execution"
+    And the repository maps harness "claude" tier "execution" to model "claude-fast" at effort "medium"
+    When I inspect harness parity
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A canonical agent declaring no tier has nothing to project
+    Given the repository declares a harness roster of "claude", "codex", and "opencode"
+    And a valid one-skill one-agent one-capability harness contract
+    And every harness projects a tier into "model" and "effort"
+    And the repository maps harness "claude" tier "execution" to model "claude-fast" at effort "medium"
+    When I inspect harness parity
+    Then the exit code is 0
+    And there are no violations

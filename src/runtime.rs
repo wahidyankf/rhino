@@ -95,6 +95,21 @@ pub trait Tree {
     /// directories and filesystem links already dropped.
     fn files(&self) -> Vec<String>;
 
+    /// Every directory in the tree, repository-relative and sorted, including
+    /// one that holds no file at any depth.
+    ///
+    /// Separate from `files` because a directory holding nothing is the one
+    /// directory a file list cannot describe, and a rule about exactly that
+    /// state has to be able to see it. Every other caller wants the directories
+    /// documents live in and derives them from the files, which is why this is
+    /// not the ordinary way to ask.
+    ///
+    /// Git tracks no empty directory, so an answer here is a fact about a
+    /// working tree -- which is the tree a pre-commit gate inspects.
+    fn directories(&self) -> Vec<String> {
+        parents(&self.files())
+    }
+
     fn exists(&self, path: &str) -> bool {
         self.read(path).is_ok() || self.is_directory(path)
     }
@@ -148,6 +163,20 @@ pub trait Tree {
     }
 }
 
+/// Every directory a list of file paths implies, sorted and without repeats.
+fn parents(files: &[String]) -> Vec<String> {
+    let mut found: BTreeSet<String> = BTreeSet::new();
+    for path in files {
+        let mut segments: Vec<&str> = path.split('/').collect();
+        segments.pop();
+        while !segments.is_empty() {
+            found.insert(segments.join("/"));
+            segments.pop();
+        }
+    }
+    found.into_iter().collect()
+}
+
 /// `""` addresses the root; everything else gains one trailing separator, so a
 /// prefix test cannot match a sibling whose name merely starts the same way.
 fn normalise_directory(path: &str) -> String {
@@ -172,6 +201,7 @@ pub struct MemoryTree {
     vanished: BTreeSet<String>,
     binary: BTreeSet<String>,
     links: BTreeSet<String>,
+    empty: BTreeSet<String>,
 }
 
 impl MemoryTree {
@@ -214,6 +244,15 @@ impl MemoryTree {
     pub fn mark_link(&mut self, path: &str) {
         self.links.insert(path.trim_start_matches('/').to_string());
     }
+
+    /// A directory the repository holds and no file lives under.
+    ///
+    /// Stated rather than derived, because a tree built from its files has no
+    /// way to hold one -- which is exactly why a rule about empty directories
+    /// would otherwise be provable only where there is a disk.
+    pub fn mark_directory(&mut self, path: &str) {
+        self.empty.insert(path.trim_matches('/').to_string());
+    }
 }
 
 impl Tree for MemoryTree {
@@ -239,6 +278,23 @@ impl Tree for MemoryTree {
             .collect()
     }
 
+    fn directories(&self) -> Vec<String> {
+        let mut found = parents(&self.files());
+        // A stated empty directory contributes itself and every directory on
+        // the way to it, because a directory holding only an empty directory
+        // holds no file either.
+        for path in &self.empty {
+            let mut segments: Vec<&str> = path.split('/').collect();
+            while !segments.is_empty() {
+                found.push(segments.join("/"));
+                segments.pop();
+            }
+        }
+        found.sort();
+        found.dedup();
+        found
+    }
+
     fn excluding(&self, _directories: &[String]) -> Box<dyn Tree> {
         // Nothing to do: the in-memory tree holds only what a scenario put in
         // it, and `scan` applies the declared exclusions to every walk.
@@ -262,6 +318,7 @@ impl Tree for MemoryTree {
         };
         Ok(Box::new(Self {
             binary: strip(&self.binary),
+            empty: strip(&self.empty),
             files: self
                 .files
                 .iter()

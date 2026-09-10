@@ -1,9 +1,16 @@
 Feature: Markdown file-naming validation
 
   A repository declares which trees carry which filename style, and what joins an
-  encoded directory prefix to a content name. RHINO holds no filename convention
-  of its own, and the section is optional: a repository that declares nothing
-  gets a refusal rather than somebody else's convention.
+  encoded directory prefix to a content name. RHINO holds no filename style of
+  its own, and the section is optional: a repository that declares nothing gets
+  a refusal rather than somebody else's convention.
+
+  One rule is not a style and is therefore not a surface's to declare. A name
+  ending in a mechanical fragment suffix says the file is half a document, and
+  every Markdown file in the repository is held to it -- inside a declared
+  surface or outside every one of them, exempted from its style or not. The
+  patterns are closed, and RHINO judges nothing beyond them: whether a name is
+  semantically suspicious is a review, not a match.
 
   Scenario: A kebab-case surface accepts a kebab-case name
     Given the repository declares the kebab-case naming surface "rules/**/*.md"
@@ -138,3 +145,73 @@ Feature: Markdown file-naming validation
     When I run the "naming" validator
     Then the exit code is 2
     And stderr contains "md-naming.exempt"
+
+  Scenario: A name ending in a numbered part is a fragment
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                        | content  |
+      | rules/file-naming-part-2.md | # Naming |
+    When I run the "naming" validator
+    Then the only violation starts with "rules/file-naming-part-2.md: is named as a fragment"
+
+  Scenario: A name ending in continued is a fragment
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                         | content  |
+      | rules/file-naming-continued.md | # Naming |
+    When I run the "naming" validator
+    Then the only violation starts with "rules/file-naming-continued.md: is named as a fragment"
+
+  Scenario: A name ending in a numbered continuation is a fragment
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                                | content  |
+      | rules/file-naming-continuation-3.md | # Naming |
+    When I run the "naming" validator
+    Then the only violation starts with "rules/file-naming-continuation-3.md: is named as a fragment"
+
+  Scenario: A fragment outside every declared surface is still a fragment
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                         | content  |
+      | guides/file-naming-part-2.md | # Naming |
+    When I run the "naming" validator
+    Then the only violation starts with "guides/file-naming-part-2.md: is named as a fragment"
+
+  Scenario: An exemption excuses a style, not a fragment
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository declares the naming exemption "rules/**"
+    And the repository contains:
+      | path                        | content  |
+      | rules/file-naming-part-2.md | # Naming |
+    When I run the "naming" validator
+    Then the only violation starts with "rules/file-naming-part-2.md: is named as a fragment"
+
+  Scenario: A multi-topic name that carries no mechanical suffix is not reported
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                                                | content   |
+      | rules/authentication-and-authorization-and-audit.md | # Several |
+    When I run the "naming" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: The fragment patterns are closed
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                           | content  |
+      | rules/file-naming-parted.md    | # Naming |
+      | rules/file-naming-part-two.md  | # Naming |
+      | rules/file-naming-continues.md | # Naming |
+    When I run the "naming" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A fragment that also breaks its declared style is reported for both
+    Given the repository declares the kebab-case naming surface "rules/**/*.md"
+    And the repository contains:
+      | path                        | content  |
+      | rules/File-Naming-part-2.md | # Naming |
+    When I run the "naming" validator
+    Then there are 2 violations
+    And the formatted violation starts with "rules/File-Naming-part-2.md: is named as a fragment"

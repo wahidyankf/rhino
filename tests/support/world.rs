@@ -221,6 +221,40 @@ pub struct Declaration {
     /// shapes worth refusing -- an empty map, a null tier, half a pair -- are
     /// exactly the ones a well-formed pair cannot express.
     pub model_tier_literal: Option<String>,
+    /// Whether the configuration is written in `ose/repo-config/v2` rather than
+    /// in the v1 schema the base fixture renders.
+    ///
+    /// A separate flag rather than a schema override, because the two schemas
+    /// share no key: a v2 document is a different file, not the same file with
+    /// a different identifier at the top.
+    pub v2: bool,
+    /// Governance categories a v2 configuration declares as local.
+    pub local_categories: Vec<String>,
+    /// The portable tier the canonical agent declares, when a scenario gives it
+    /// one. Absent is legal: an agent with no tier has nothing to project.
+    pub canonical_tier: Option<String>,
+    /// The two adapter fields a tier's model and effort are projected into,
+    /// declared by every harness at once. `None` leaves the projection
+    /// undeclared, which is what a harness that expresses no model looks like.
+    pub tier_fields: Option<(String, String)>,
+    /// Harnesses whose agent adapter projects neither half of the pair, and
+    /// those that project only the model. Two sets rather than one flag,
+    /// because the rule is that the pair travels together and a scenario has to
+    /// be able to part it.
+    pub adapters_projecting_nothing: BTreeSet<String>,
+    pub adapters_projecting_no_effort: BTreeSet<String>,
+    /// Harness to the model its adapter actually writes, when a scenario states
+    /// one the mapping does not name -- or names no mapping at all.
+    pub adapter_models: BTreeMap<String, String>,
+    /// Top-level sections the canonical instruction omits, and one it inserts
+    /// after a named spine section. Held as edits to the spine rather than as a
+    /// whole document, so a scenario states the one thing it is about.
+    pub instruction_omissions: Vec<String>,
+    pub instruction_appended: Option<String>,
+    pub instruction_inserted: Option<(String, String)>,
+    pub instruction_swapped: Option<(String, String)>,
+    pub instruction_demoted: Option<String>,
+    pub instruction_fenced: Option<String>,
 }
 
 impl Default for Declaration {
@@ -273,6 +307,19 @@ impl Default for Declaration {
             metadata_surfaces: Vec::new(),
             model_tier_pairs: Vec::new(),
             model_tier_literal: None,
+            v2: false,
+            local_categories: Vec::new(),
+            canonical_tier: None,
+            tier_fields: None,
+            adapters_projecting_nothing: BTreeSet::new(),
+            adapters_projecting_no_effort: BTreeSet::new(),
+            adapter_models: BTreeMap::new(),
+            instruction_omissions: Vec::new(),
+            instruction_appended: None,
+            instruction_inserted: None,
+            instruction_swapped: None,
+            instruction_demoted: None,
+            instruction_fenced: None,
         }
     }
 }
@@ -303,6 +350,13 @@ pub struct World<D> {
     /// Paths that are filesystem links. No tree reports them, which is the
     /// point: following one can leave the repository.
     pub links: BTreeSet<String>,
+    /// Directories the repository holds that contain no file at any depth.
+    ///
+    /// Modelled explicitly because a tree derived from its files cannot hold
+    /// one, and "a governed directory holds something" is a rule about exactly
+    /// that state. Git tracks no empty directory, so this is a fact about a
+    /// working tree -- which is the tree a pre-commit gate inspects.
+    pub empty_directories: BTreeSet<String>,
     pub remembered_digest: Option<String>,
     pub command_result: Option<CommandResult>,
     pub previous_command_result: Option<CommandResult>,
@@ -332,6 +386,7 @@ impl<D> World<D> {
             vanished: &self.vanished,
             binary: &self.binary,
             links: &self.links,
+            empty_directories: &self.empty_directories,
             stdin: self.stdin.as_deref(),
             gate_outcomes: &self.gate_outcomes,
             unlaunchable_gates: &self.unlaunchable_gates,
@@ -380,6 +435,7 @@ pub struct Repository<'a> {
     pub vanished: &'a BTreeSet<String>,
     pub binary: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
+    pub empty_directories: &'a BTreeSet<String>,
     pub stdin: Option<&'a str>,
     /// The gate children this repository is to answer with, in declaration
     /// order, and the ones that cannot be started at all.
