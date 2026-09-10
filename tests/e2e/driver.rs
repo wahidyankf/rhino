@@ -54,6 +54,10 @@ impl Driver for E2eDriver {
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             },
             mutations: differences(&before, &after),
+            // No child has been dispatched by anything yet, so there is
+            // nothing for a gate assertion to read. Filled once the runner
+            // exists and this adapter can supply its children.
+            journal: Vec::new(),
         }
     }
 }

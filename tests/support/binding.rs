@@ -348,6 +348,40 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             world.unreadable.insert(fixtures::CONFIG_PATH.to_string());
             Outcome::Passed
         }
+        // The two sentences below cut a key out of the document the scenario
+        // just wrote. Stated as a removal so the outline's rows differ by the
+        // one thing they are about, rather than repeating a whole document per
+        // row with one line missing and leaving a reader to find it.
+        "the v2 configuration omits {string}" => {
+            let key = matched.string(0).to_string();
+            edit_configuration(world, |text| {
+                let mut kept: Vec<&str> = Vec::new();
+                let mut dropping = false;
+                for line in text.lines() {
+                    let indented = line.starts_with(' ') || line.starts_with('-');
+                    if dropping && indented {
+                        continue;
+                    }
+                    dropping = false;
+                    if !indented && line.trim_end().starts_with(&format!("{key}:")) {
+                        dropping = true;
+                        continue;
+                    }
+                    kept.push(line);
+                }
+                kept.join("\n")
+            })
+        }
+        "the v2 configuration drops the surface {string}" => {
+            let surface = matched.string(0).to_string();
+            edit_configuration(world, |text| {
+                let dropped = format!("- {surface}");
+                text.lines()
+                    .filter(|line| line.trim() != dropped)
+                    .collect::<Vec<&str>>()
+                    .join("\n")
+            })
+        }
         "stderr names the missing schema declaration" => names(
             world.result(),
             &[fixtures::CONFIG_PATH, "declares no schema"],
@@ -2186,6 +2220,154 @@ Body.
             )
         }
 
+        // -- Gate dispatch -----------------------------------------------------
+        // A gate child is stated rather than shipped: the scenario says which
+        // gate answers with which code, and each adapter supplies a child that
+        // does exactly that. Stating it is what lets one sentence be a claim
+        // about three boundaries -- the unit adapter has no process to spawn,
+        // and a corpus that shipped a shell script would have been asserting
+        // about the shell at two of the three.
+        "the gate {string} exits {int}" => {
+            let code = i32::try_from(matched.integer(0)).unwrap_or(i32::MAX);
+            world
+                .gate_outcomes
+                .push((matched.string(0).to_string(), code));
+            Outcome::Passed
+        }
+        "the gate {string} cannot be launched" => {
+            world
+                .unlaunchable_gates
+                .insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "I run the gates for the {string} surface" => {
+            let arguments = gate_arguments(matched.string(0), &[]);
+            let run = world.driver.invoke(&world.repository(), &arguments);
+            world.record(run);
+            Outcome::Passed
+        }
+        "I run the gates for the {string} surface with the arguments {string}" => {
+            let forwarded: Vec<String> = matched
+                .string(1)
+                .split('|')
+                .map(|argument| argument.to_string())
+                .collect();
+            let arguments = gate_arguments(matched.string(0), &forwarded);
+            let run = world.driver.invoke(&world.repository(), &arguments);
+            world.record(run);
+            Outcome::Passed
+        }
+        "I run the gates for the {string} surface with this standard input:" => {
+            let Some(text) = step.docstring.clone() else {
+                return Outcome::Failed("the sentence promised a document".to_string());
+            };
+            world.stdin = Some(text);
+            let arguments = gate_arguments(matched.string(0), &[]);
+            let run = world.driver.invoke(&world.repository(), &arguments);
+            world.record(run);
+            Outcome::Passed
+        }
+        "the gates that ran are {string}" => {
+            let expected: Vec<&str> = matched.string(0).split('|').collect();
+            let ran = gates_that_ran(world);
+            expect(
+                ran == expected,
+                format!("the gates that ran were {ran:?}, not {expected:?}"),
+            )
+        }
+        "no gate ran" => {
+            let ran = gates_that_ran(world);
+            expect(ran.is_empty(), format!("these gates ran: {ran:?}"))
+        }
+        "the gate {string} was told the surface {string}" => {
+            gate_field(world, matched.string(0), 3, matched.string(1), "surface")
+        }
+        "the gate {string} received the argument vector {string}" => gate_field(
+            world,
+            matched.string(0),
+            2,
+            matched.string(1),
+            "argument vector",
+        ),
+        "the gate {string} read the standard input {string}" => gate_field(
+            world,
+            matched.string(0),
+            4,
+            matched.string(1),
+            "standard input",
+        ),
+        "the gate {string} ran in the repository root" => {
+            gate_field(world, matched.string(0), 5, "{root}", "working directory")
+        }
+        "no two gates overlapped" => {
+            // Every recorder writes when it starts and again when it stops, so
+            // two children that ran at once leave a start between another
+            // child's start and its stop. Asserted from the journal rather than
+            // from timing, because a timing test passes on a slow machine for
+            // reasons that have nothing to do with the runner.
+            let mut open: Vec<&str> = Vec::new();
+            let mut overlapped: Vec<String> = Vec::new();
+            let mut starts = 0usize;
+            for line in &world.journal {
+                let fields: Vec<&str> = line.split('\t').collect();
+                let (Some(event), Some(id)) = (fields.first(), fields.get(1)) else {
+                    continue;
+                };
+                match *event {
+                    "start" => {
+                        starts += 1;
+                        if let Some(running) = open.first() {
+                            overlapped.push(format!("{id} started while {running} was running"));
+                        }
+                        open.push(id);
+                    }
+                    "stop" => open.retain(|running| running != id),
+                    _ => {}
+                }
+            }
+            if starts == 0 {
+                return Outcome::Failed("no gate recorded a start".to_string());
+            }
+            expect(overlapped.is_empty(), overlapped.join("; "))
+        }
+        "stdout names the gate {string} as {string}" => {
+            let stdout = &world.result().stdout;
+            let id = matched.string(0);
+            let status = matched.string(1);
+            expect(
+                stdout
+                    .lines()
+                    .any(|line| line.contains(id) && line.contains(status)),
+                format!("stdout does not report `{id}` as `{status}`\nstdout: {stdout}"),
+            )
+        }
+        "no output repeats what a child wrote" => {
+            // The recorders write a marker no report has any business
+            // carrying, so a runner that echoed a child's stream would be
+            // caught by the marker rather than by the wording of a summary.
+            let result = world.result();
+            let leaked: Vec<&str> = [result.stdout.as_str(), result.stderr.as_str()]
+                .into_iter()
+                .filter(|stream| stream.contains(CHILD_MARKER))
+                .collect();
+            expect(
+                leaked.is_empty(),
+                format!("a child's own output reached the report: {leaked:?}"),
+            )
+        }
+        "both runs reported the same thing" => {
+            let Some(previous) = world.previous_command_result.clone() else {
+                return Outcome::Failed("only one dispatch was run".to_string());
+            };
+            if &previous != world.result() {
+                return Outcome::Failed("the two dispatches disagreed".to_string());
+            }
+            expect(
+                world.previous_journal == world.journal,
+                "the two dispatches ran different children".to_string(),
+            )
+        }
+
         other => {
             let _ = step;
             Outcome::Unimplemented(other)
@@ -2623,4 +2805,79 @@ fn manifest_version() -> String {
         .find_map(|line| line.strip_prefix("version = "))
         .map(|value| value.trim().trim_matches('"').to_string())
         .expect("the product manifest declares a version")
+}
+
+/// The marker every gate recorder writes into its own streams.
+///
+/// Held here rather than in each adapter so the sentence about a report that
+/// repeats nothing a child wrote is asserted against one string, not three.
+pub const CHILD_MARKER: &str = "<gate-child-output>";
+
+/// The invocation a surface dispatch spells.
+///
+/// `--` separates what the repository declared from what the hook was handed,
+/// so a hook argument that looks like a flag stays an argument.
+fn gate_arguments(surface: &str, forwarded: &[String]) -> Vec<String> {
+    let mut arguments: Vec<String> = ["gate", "run", "--surface", surface]
+        .iter()
+        .map(|part| (*part).to_string())
+        .collect();
+    if !forwarded.is_empty() {
+        arguments.push("--".to_string());
+        arguments.extend(forwarded.iter().cloned());
+    }
+    arguments
+}
+
+/// The gates that recorded a start, in the order they recorded it.
+fn gates_that_ran<D>(world: &World<D>) -> Vec<String> {
+    world
+        .journal
+        .iter()
+        .filter_map(|line| {
+            let mut fields = line.split('\t');
+            match (fields.next(), fields.next()) {
+                (Some("start"), Some(id)) => Some(id.to_string()),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// One field of the single start a gate recorded.
+fn gate_field<D>(world: &World<D>, id: &str, field: usize, expected: &str, name: &str) -> Outcome {
+    let starts: Vec<Vec<String>> = world
+        .gate_journal(id)
+        .into_iter()
+        .filter(|fields| fields.first().map(String::as_str) == Some("start"))
+        .collect();
+    let [start] = starts.as_slice() else {
+        return Outcome::Failed(format!(
+            "the gate `{id}` recorded {} starts, not one",
+            starts.len()
+        ));
+    };
+    let Some(actual) = start.get(field) else {
+        return Outcome::Failed(format!("the gate `{id}` recorded no {name}"));
+    };
+    expect(
+        actual == expected,
+        format!("the gate `{id}` recorded the {name} `{actual}`, not `{expected}`"),
+    )
+}
+
+/// Rewrite the configuration text a scenario wrote verbatim.
+fn edit_configuration<D>(world: &mut World<D>, edit: impl Fn(&str) -> String) -> Outcome {
+    let Some(text) = world.files.get(fixtures::CONFIG_PATH) else {
+        return Outcome::Failed("no configuration document was written first".to_string());
+    };
+    let rewritten = edit(text);
+    if &rewritten == text {
+        return Outcome::Failed("the edit changed nothing in the configuration".to_string());
+    }
+    world.files.insert(
+        fixtures::CONFIG_PATH.to_string(),
+        format!("{}\n", rewritten.trim_end()),
+    );
+    Outcome::Passed
 }

@@ -29,6 +29,14 @@ pub struct Run {
     /// Paths the repository gained, lost, or whose contents changed while the
     /// command ran, as observed at the adapter's own boundary.
     pub mutations: Vec<String>,
+    /// What the gate children recorded, in the order they ran.
+    ///
+    /// A dispatched child is the one thing an exit code cannot describe: which
+    /// gates ran, what each was handed, and whether any two overlapped are all
+    /// facts about children the runner started, and only the adapter that
+    /// supplied those children can observe them. Every entry is one recorder
+    /// line, in the shape `<event>\t<id>\t<arguments>\t<surface>\t<stdin>`.
+    pub journal: Vec<String>,
 }
 
 /// What a repository looks like to an adapter: every path it can see, and the
@@ -301,6 +309,17 @@ pub struct World<D> {
     /// Every change any invocation in this scenario made to the repository,
     /// accumulated, so a scenario that runs twice proves both runs innocent.
     pub mutations: Vec<String>,
+    /// The exit code each declared gate child answers with, in declaration
+    /// order. A scenario states this rather than shipping a script, so the same
+    /// sentence means the same thing at a boundary that cannot spawn anything.
+    pub gate_outcomes: Vec<(String, i32)>,
+    /// Gates whose child cannot be started at all, which is a different fact
+    /// from a child that started and failed.
+    pub unlaunchable_gates: BTreeSet<String>,
+    /// What the children of the most recent dispatch recorded.
+    pub journal: Vec<String>,
+    /// What the children of the dispatch before it recorded.
+    pub previous_journal: Vec<String>,
 }
 
 impl<D> World<D> {
@@ -314,6 +333,8 @@ impl<D> World<D> {
             binary: &self.binary,
             links: &self.links,
             stdin: self.stdin.as_deref(),
+            gate_outcomes: &self.gate_outcomes,
+            unlaunchable_gates: &self.unlaunchable_gates,
         }
     }
 
@@ -329,6 +350,21 @@ impl<D> World<D> {
         self.previous_command_result = self.command_result.take();
         self.command_result = Some(run.result);
         self.mutations.extend(run.mutations);
+        self.previous_journal = std::mem::take(&mut self.journal);
+        self.journal = run.journal;
+    }
+
+    /// The recorder lines one gate wrote, in order.
+    pub fn gate_journal(&self, id: &str) -> Vec<Vec<String>> {
+        self.journal
+            .iter()
+            .map(|line| {
+                line.split('\t')
+                    .map(str::to_string)
+                    .collect::<Vec<String>>()
+            })
+            .filter(|fields| fields.get(1).map(String::as_str) == Some(id))
+            .collect()
     }
 }
 
@@ -345,6 +381,10 @@ pub struct Repository<'a> {
     pub binary: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
     pub stdin: Option<&'a str>,
+    /// The gate children this repository is to answer with, in declaration
+    /// order, and the ones that cannot be started at all.
+    pub gate_outcomes: &'a [(String, i32)],
+    pub unlaunchable_gates: &'a BTreeSet<String>,
 }
 
 /// What an adapter must be able to do. Anything a scenario can do to a

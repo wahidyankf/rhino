@@ -62,6 +62,10 @@ impl Driver for UnitDriver {
                 stderr: outcome.stderr,
             },
             mutations: differences(&before, &after),
+            // No child has been dispatched by anything yet, so there is
+            // nothing for a gate assertion to read. Filled once the runner
+            // exists and this adapter can supply its children.
+            journal: Vec::new(),
         }
     }
 }

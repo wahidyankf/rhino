@@ -1175,6 +1175,224 @@ pub const BINDINGS: &[Binding] = &[
         "metadata",
         "The JSON form carries the column and the field a finding is about",
     ),
+    (
+        "gate-runner",
+        "A surface selects the gates that name it, in declaration order",
+    ),
+    (
+        "gate-runner",
+        "A gate that does not name the surface is not run",
+    ),
+    (
+        "gate-runner",
+        "Declaration order is the run order even when it is not alphabetical",
+    ),
+    (
+        "gate-runner",
+        "The sequence stops at the first gate that fails",
+    ),
+    (
+        "gate-runner",
+        "A mutation does not run after an earlier check has failed",
+    ),
+    (
+        "gate-runner",
+        "A public repository runs public-safety before anything else",
+    ),
+    (
+        "gate-runner",
+        "Each child is told exactly the surface that selected it",
+    ),
+    (
+        "gate-runner",
+        "The declared vector reaches the child unsplit and uninterpolated",
+    ),
+    (
+        "gate-runner",
+        "The hook's own arguments are forwarded after the declared vector",
+    ),
+    (
+        "gate-runner",
+        "Every selected child reads the same standard input",
+    ),
+    (
+        "gate-runner",
+        "A child runs in the repository root rather than wherever RHINO started",
+    ),
+    ("gate-runner", "Children run one at a time"),
+    (
+        "gate-runner",
+        "A gate that cannot be launched is a protocol failure, not a finding",
+    ),
+    (
+        "gate-runner",
+        "A configuration the runner cannot use is refused before any child",
+    ),
+    (
+        "gate-runner",
+        "A surface outside the closed set is an invalid invocation",
+    ),
+    ("gate-runner", "A v1 repository has no gates to dispatch"),
+    (
+        "gate-runner",
+        "A surface no gate names runs nothing and refuses nothing",
+    ),
+    (
+        "gate-runner",
+        "The report names each gate it ran and how that gate ended",
+    ),
+    ("gate-runner", "The report repeats nothing a child wrote"),
+    (
+        "gate-runner",
+        "The same dispatch twice reports the same thing",
+    ),
+    (
+        "repo-config",
+        "A v2 configuration carrying only its required keys validates",
+    ),
+    (
+        "repo-config",
+        "A v2 configuration carrying every optional section validates",
+    ),
+    (
+        "repo-config",
+        "A v1 comment and a v2 key in one document is not one document",
+    ),
+    (
+        "repo-config",
+        "A v2 document missing one of its required keys is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 document declaring an empty gates list is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 visibility outside the closed pair is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 top-level key the schema does not keep is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 top-level key out of canonical order is refused",
+    ),
+    (
+        "repo-config",
+        "An optional v2 section placed after gates is out of order",
+    ),
+    (
+        "repo-config",
+        "An optional v2 section declared with nothing in it is refused",
+    ),
+    (
+        "repo-config",
+        "An empty v2 extensions section is refused rather than ignored",
+    ),
+    (
+        "repo-config",
+        "A v2 extension payload core does not understand is still accepted",
+    ),
+    (
+        "repo-config",
+        "A v2 extension profile that is not a namespace is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 gate entry key the contract does not keep is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 gate entry whose keys are out of canonical order is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 gate kind outside the closed pair is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 gate identifier that is not lowercase-hyphen is refused",
+    ),
+    (
+        "repo-config",
+        "Two v2 gates sharing one identifier are refused",
+    ),
+    (
+        "repo-config",
+        "A v2 run written as a shell string is refused",
+    ),
+    ("repo-config", "A v2 run holding no argument is refused"),
+    (
+        "repo-config",
+        "A v2 run whose argument holds a space is an ordinary argument",
+    ),
+    ("repo-config", "A v2 gate declaring no surface is refused"),
+    (
+        "repo-config",
+        "A v2 surface outside the closed set is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 gate naming one surface twice is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 surface list out of canonical order is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 mutation mapped away from pre-commit is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 mutation confined to pre-commit is accepted",
+    ),
+    (
+        "repo-config",
+        "A v2 document leaving a Git hook surface unmanned is refused",
+    ),
+    (
+        "repo-config",
+        "A remote-free repository mans pre-push with a reject gate",
+    ),
+    (
+        "repo-config",
+        "A v2 document declaring no ci surface is complete",
+    ),
+    (
+        "repo-config",
+        "A public v2 repository that does not run public-safety first is refused",
+    ),
+    (
+        "repo-config",
+        "A public v2 repository declaring no public-safety gate is refused",
+    ),
+    (
+        "repo-config",
+        "A private v2 repository needs no public-safety gate",
+    ),
+    (
+        "repo-config",
+        "A public v2 repository running public-safety first everywhere is accepted",
+    ),
+    (
+        "repo-config",
+        "A v2 model-tier section carries the same closed contract as v1",
+    ),
+    (
+        "repo-config",
+        "A v2 local category outside governed path naming is refused",
+    ),
+    (
+        "repo-config",
+        "A v2 local category list out of sorted order is refused",
+    ),
+    ("repo-config", "A v2 local category named twice is refused"),
+    (
+        "repo-config",
+        "The v2 reader refuses a schema identifier it does not know",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete
