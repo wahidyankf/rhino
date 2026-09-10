@@ -9,6 +9,12 @@ Feature: Repository configuration contract
     When I run the "repo-config" validator
     Then the exit code is 0
 
+  Scenario: A configuration declaring none of the optional sections is complete
+    Given the repository declares a complete configuration
+    When I run the "repo-config" validator
+    Then the exit code is 0
+    And no output names an optional section
+
   Scenario: An absent configuration file is a configuration fault
     Given the repository has no configuration file
     When I run the "repo-config" validator

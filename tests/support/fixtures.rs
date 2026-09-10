@@ -70,6 +70,71 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
         "md-mermaid.text-colors".into(),
         "[\"#000000\", \"#FFFFFF\"]".into(),
     );
+    if let (Some(single), Some(jump)) =
+        (declaration.heading_single_h1, declaration.heading_max_jump)
+    {
+        lines.insert(
+            "md-heading-hierarchy.surfaces".into(),
+            format!("[{}]", declaration.heading_surfaces.join(", ")),
+        );
+        lines.insert("md-heading-hierarchy.single-h1".into(), single.to_string());
+        lines.insert(
+            "md-heading-hierarchy.max-level-jump".into(),
+            jump.to_string(),
+        );
+    }
+    if !declaration.emoji_prohibited.is_empty() {
+        lines.insert(
+            "convention-emoji.prohibited".into(),
+            format!(
+                "[{}]",
+                declaration
+                    .emoji_prohibited
+                    .iter()
+                    .map(|glob| format!("{{glob: \"{glob}\"}}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        );
+    }
+    if !declaration.readme_index_trees.is_empty() {
+        lines.insert(
+            "md-readme-index.trees".into(),
+            format!(
+                "[{}]",
+                declaration
+                    .readme_index_trees
+                    .iter()
+                    .map(|path| format!("{{path: {path}}}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        );
+    }
+    if !declaration.frontmatter_surfaces.is_empty() {
+        lines.insert(
+            "md-frontmatter.surfaces".into(),
+            format!("[{}]", declaration.frontmatter_surfaces.join(", ")),
+        );
+    }
+    if !declaration.naming_surfaces.is_empty() {
+        lines.insert(
+            "md-naming.surfaces".into(),
+            format!("[{}]", declaration.naming_surfaces.join(", ")),
+        );
+        lines.insert(
+            "md-naming.exempt".into(),
+            format!(
+                "[{}]",
+                declaration
+                    .naming_exempt
+                    .iter()
+                    .map(|glob| format!("\"{glob}\""))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        );
+    }
     lines.insert(
         "harness-parity.canonical.instruction".into(),
         harness::instruction(declaration).into(),

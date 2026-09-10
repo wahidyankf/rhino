@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 208] = [
+pub const VOCABULARY: [&str; 221] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -96,6 +96,7 @@ pub const VOCABULARY: [&str; 208] = [
     "no capability server is required",
     "no capability server is required and no harness declares a capability file",
     "no directories were inspected",
+    "no output names an optional section",
     "no harness declares a capability file",
     "no harness declares an agent adapter",
     "stderr contains {string}",
@@ -194,10 +195,22 @@ pub const VOCABULARY: [&str; 208] = [
     "the repository declares excluded scan directories:",
     "the repository declares no instruction adapter",
     "the repository declares node labels at {int} graphemes and edge labels at {int}",
+    "the repository declares the emoji-prohibited surface {string}",
     "the repository declares the accessible palette",
+    "the repository declares the front-matter surface {string} forbidding {string}",
+    "the repository declares the heading surface {string} with any number of H1s and a maximum jump of {int}",
+    "the repository declares the heading surface {string} with one H1 and a maximum jump of {int}",
+    "the repository declares the front-matter surface {string} requiring nothing",
+    "the repository declares the front-matter surface {string} requiring {string}",
+    "the repository declares the front-matter surface {string} with the ISO date key {string}",
+    "the repository declares the front-matter surface {string} with the {string} values {string}",
     "the repository declares the internal-link excluded source {string}",
+    "the repository declares the kebab-case naming surface {string}",
     "the repository declares the mapped tree {string}",
     "the repository declares the mapped trees {string} and {string}",
+    "the repository declares the naming exemption {string}",
+    "the repository declares the path-prefixed naming surface {string} separated by {string}",
+    "the repository declares the README-index tree {string}",
     "the repository declares the schema {string}",
     "the repository declares word-budget surfaces:",
     "the repository has no configuration file",

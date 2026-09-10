@@ -3,8 +3,12 @@
 //! Everything that inspects Markdown text lives here, so the answer to "is this
 //! inside a fenced example?" is given once rather than once per validator.
 
+pub mod frontmatter;
+pub mod heading_hierarchy;
 pub mod internal_link;
 pub mod mermaid;
+pub mod naming;
+pub mod readme_index;
 
 /// The lines of a document that are prose rather than a fenced example.
 ///

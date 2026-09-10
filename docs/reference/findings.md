@@ -42,6 +42,69 @@ directory.
 A section with no entries is an empty map, not a missing one — a directory
 holding nothing beside its README has a complete map.
 
+## File naming
+
+| Kind              | Means                                                           |
+| ----------------- | --------------------------------------------------------------- |
+| `invalid-md-name` | A governed file is not named in the style its surface declares. |
+
+Detail: `prefix` on a `path-prefixed` surface — the prefix the file's own
+directory encodes to, which is what its name has to begin with.
+
+An exempt file is named by no style at all, so it produces no finding and is
+not counted as inspected.
+
+## Front matter
+
+| Kind                        | Means                                                                |
+| --------------------------- | -------------------------------------------------------------------- |
+| `unterminated-frontmatter`  | A block opens with `---` and never closes.                           |
+| `missing-frontmatter-key`   | A key the surface requires is not present.                           |
+| `invalid-frontmatter-value` | A value is outside its declared set, or is not an ISO calendar date. |
+| `forbidden-frontmatter-key` | A key the surface forbids is present.                                |
+
+Detail: `value` on `invalid-frontmatter-value` — what was written, quotes
+removed.
+
+`unterminated-frontmatter` is reported instead of the keys, not alongside them:
+everything after the opener reads as front matter to the end of the file, so no
+key in it can be trusted. A missing key is reported at line 1, because an
+absence has no position of its own.
+
+## Heading hierarchy
+
+| Kind                 | Means                                                                           |
+| -------------------- | ------------------------------------------------------------------------------- |
+| `missing-h1`         | A governed file declares no level-1 heading, where the repository requires one. |
+| `multiple-h1`        | A second level-1 heading appears in a file permitted only one.                  |
+| `heading-level-jump` | A heading drops further below its predecessor than the repository allows.       |
+
+Detail: `jump` on `heading-level-jump` — how many levels were skipped.
+
+`missing-h1` is reported at line 1; `multiple-h1` at each extra heading, so a
+file with three reports two. The first heading in a document is never a jump: it
+establishes the level the rest are measured from.
+
+## README index
+
+| Kind                   | Means                                                     |
+| ---------------------- | --------------------------------------------------------- |
+| `missing-readme-index` | A directory under a declared tree carries no `README.md`. |
+
+Presence only. This kind and `missing-readme` are different rules a repository
+chooses between: the directory-map one also wants a `## Directory Map` section.
+
+## Emoji convention
+
+| Kind                       | Means                                                  |
+| -------------------------- | ------------------------------------------------------ |
+| `emoji-in-prohibited-file` | A line of a prohibited file holds an emoji code point. |
+
+Detail: `codePoint` — the first offending code point on the line, as `U+XXXX`.
+
+One finding per line rather than per code point: three emoji on one line are one
+edit. Only the prohibition is checked, never the permission.
+
 ## Internal links
 
 | Kind                               | Means                                               |

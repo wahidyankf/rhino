@@ -85,8 +85,27 @@ pub struct Config {
     pub internal_link: InternalLink,
     #[serde(rename = "md-mermaid")]
     pub mermaid: Mermaid,
+    /// Optional, like every section added after `v0.1`. Absent means the
+    /// command that reads it refuses rather than enforcing a convention the
+    /// repository never declared, which is what keeps a release additive: a
+    /// consumer that declares nothing here is unaffected by the section
+    /// existing.
+    /// Optional, on the same rule as every section added after `v0.1`.
+    #[serde(rename = "md-frontmatter", default)]
+    pub frontmatter: Option<Frontmatter>,
+    /// Optional, on the same rule as every section added after `v0.1`.
+    #[serde(rename = "md-heading-hierarchy", default)]
+    pub heading_hierarchy: Option<HeadingHierarchy>,
+    #[serde(rename = "md-naming", default)]
+    pub naming: Option<Naming>,
+    /// Optional, on the same rule as every section added after `v0.1`.
+    #[serde(rename = "md-readme-index", default)]
+    pub readme_index: Option<ReadmeIndex>,
     #[serde(rename = "harness-parity")]
     pub harness_parity: HarnessParity,
+    /// Optional, on the same rule as every section added after `v0.1`.
+    #[serde(rename = "convention-emoji", default)]
+    pub emoji: Option<Emoji>,
     pub scan: Scan,
 }
 
@@ -165,6 +184,127 @@ pub struct Mermaid {
     pub edge_colors: Vec<String>,
     #[serde(rename = "text-colors")]
     pub text_colors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Frontmatter {
+    /// Ordered, last match wins, as everywhere else surfaces are declared.
+    pub surfaces: Vec<FrontmatterSurface>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrontmatterSurface {
+    pub glob: String,
+    /// Keys that must be present. Required and may be empty, because a surface
+    /// that requires nothing and a surface whose requirements were forgotten
+    /// have to look different in the file.
+    pub require: Vec<String>,
+    /// Keys whose value must come from a declared set.
+    ///
+    /// Written `enum:` in the document, which is the word a reader of the
+    /// configuration expects and a word Rust will not spell.
+    #[serde(rename = "enum", default)]
+    pub values: BTreeMap<String, Vec<String>>,
+    /// Keys whose value must be an ISO calendar date.
+    #[serde(rename = "iso-date", default)]
+    pub iso_date: Vec<String>,
+    /// Keys that may not appear.
+    ///
+    /// This is what lets a repository keep a rule RHINO knows nothing about --
+    /// "this tree does not carry a date" -- without RHINO having to know what
+    /// the rule is for.
+    #[serde(default)]
+    pub forbid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HeadingHierarchy {
+    /// Which files are governed. Unordered in effect -- a surface here carries
+    /// no policy of its own, so nothing depends on which one matched.
+    pub surfaces: Vec<Globbed>,
+    /// Whether a governed document holds exactly one level-1 heading.
+    ///
+    /// Required rather than defaulted: a repository whose documents are
+    /// sections of a larger whole legitimately has none, and assuming either
+    /// answer would enforce a structure nobody declared.
+    #[serde(rename = "single-h1")]
+    pub single_h1: bool,
+    /// How far a heading may drop below the one before it. `1` is the strict
+    /// reading; a larger number is a repository that has decided otherwise.
+    #[serde(rename = "max-level-jump")]
+    pub max_level_jump: usize,
+}
+
+/// A declared glob and nothing else.
+///
+/// Shared by the sections whose surfaces carry no policy of their own, so that
+/// "a surface is a mapping with a `glob` key" is one statement rather than one
+/// per section that happens to agree.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Globbed {
+    pub glob: String,
+}
+
+/// Files in which an emoji code point is a finding.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Emoji {
+    pub prohibited: Vec<Globbed>,
+}
+
+/// Which trees require a README in every directory.
+///
+/// The same `Tree` as `governance-directory-map` declares, because it is the
+/// same kind of statement: a repository-relative root to walk. Two spellings of
+/// one idea would be two places for a path rule to be checked differently.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadmeIndex {
+    pub trees: Vec<Tree>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Naming {
+    /// Ordered, on the same rule as `governance-word-budget.surfaces`: where
+    /// two globs match one file, the last matching entry wins.
+    pub surfaces: Vec<NamingSurface>,
+    /// Globs no style applies to. Required and may be empty, because the
+    /// difference between "nothing is exempt" and "I forgot the exemptions" has
+    /// to stay visible in the file.
+    pub exempt: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NamingSurface {
+    pub glob: String,
+    pub style: NameStyle,
+    /// What joins an encoded directory prefix to the content name.
+    ///
+    /// Required by `path-prefixed` and refused by `kebab-case`. Optional here
+    /// rather than in the type because the two keys are siblings in the
+    /// document and `deny_unknown_fields` cannot be combined with the flattened
+    /// enum that would make the pairing unrepresentable; the pairing is checked
+    /// instead, and checked once.
+    #[serde(default)]
+    pub separator: Option<String>,
+}
+
+/// The two filename styles, each a rule about characters rather than a policy
+/// about files.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum NameStyle {
+    /// Lowercase alphanumeric runs joined by single hyphens.
+    KebabCase,
+    /// The file's own directory path, encoded, then the separator, then a
+    /// kebab-case content name.
+    PathPrefixed,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -677,6 +817,38 @@ fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
                         ),
                     });
                 }
+            }
+        }
+    }
+
+    // A separator says where an encoded prefix ends. A `path-prefixed` surface
+    // without one has no way to read a filename, and a `kebab-case` surface
+    // with one has no prefix for it to follow -- the second being the quieter
+    // fault, since a separator nothing consults reads as a rule that is in
+    // force.
+    if let Some(naming) = &config.naming {
+        for surface in &naming.surfaces {
+            let declared = surface
+                .separator
+                .as_deref()
+                .is_some_and(|separator| !separator.is_empty());
+            let reason = match (surface.style, declared) {
+                (NameStyle::PathPrefixed, false) => Some(format!(
+                    "required by the path-prefixed surface `{}`, or nothing says where its encoded prefix ends",
+                    surface.glob
+                )),
+                (NameStyle::KebabCase, true) => Some(format!(
+                    "declared on the kebab-case surface `{}`, which has no encoded prefix for a separator to follow",
+                    surface.glob
+                )),
+                _ => None,
+            };
+            if let Some(reason) = reason {
+                return Err(ConfigError::Semantic {
+                    key: "separator".to_string(),
+                    line: line_of(text, "surfaces"),
+                    reason,
+                });
             }
         }
     }

@@ -1,7 +1,12 @@
 # Command line
 
-Eight commands. Every one reads `repo-config.yml` from the repository root
+Thirteen commands. Every one reads `repo-config.yml` from the repository root
 except `version`, which reports the build.
+
+Five of them — `md naming`, `md frontmatter`, `md heading-hierarchy`,
+`md readme-index`, and `convention emoji` — read a section that is **optional**.
+A repository that has not declared the section gets exit `2` naming it, never a
+convention RHINO chose on its behalf.
 
 ```console
 $ rhino --help
@@ -14,9 +19,14 @@ Commands:
   rhino governance word-budget validate       Check every declared surface against its declared word budget.
   rhino governance directory-map validate     Check that every mapped tree's READMEs list their siblings.
   rhino harness parity validate               Reconcile the canon against every declared coding harness.
+  rhino md frontmatter validate               Check every declared surface's front matter against its declared schema.
+  rhino md heading-hierarchy validate         Check every declared surface's heading structure.
   rhino md internal-link validate             Check that every local Markdown link resolves inside the repository.
   rhino md mermaid validate                   Check Mermaid diagrams for label length and colour contrast.
+  rhino md naming validate                    Check every declared surface's filenames against its declared style.
+  rhino md readme-index validate              Check that every directory in a declared tree carries a README.
   rhino md word-count inspect                 Report a file's word count. Never reports findings.
+  rhino convention emoji validate             Check that no declared file carries an emoji code point.
   rhino version                               Report this build's release identity.
 
 Options:
@@ -37,8 +47,8 @@ Exit codes:
 ```
 
 `--help` works at every level of the path, and the help you get is scoped to
-the path you asked for: `rhino md --help` lists the three Markdown commands and
-the options those commands accept, not all eight and not every option.
+the path you asked for: `rhino md --help` lists the seven Markdown commands and
+the options those commands accept, not all thirteen and not every option.
 
 ## Commands
 
@@ -103,6 +113,39 @@ $ rhino harness parity validate
 name the repository does not declare is refused with exit `2` — narrowing is a
 smaller question, never a quieter answer to the same one.
 
+### `rhino md frontmatter validate`
+
+Checks each governed file's front matter against the schema its surface
+declares: which keys must be present, which hold a value from a closed set,
+which hold an ISO calendar date, and which may not appear at all.
+
+```console
+$ rhino md frontmatter validate
+[frontmatter] checked 34 files, no findings
+```
+
+The section is optional. Undeclared, the command exits `2` naming
+`md-frontmatter`.
+
+Accepts `--file`? No. Accepts `--directory`? No.
+
+### `rhino md heading-hierarchy validate`
+
+Checks each governed file for the number of level-1 headings the repository
+permits and for a heading dropping further below its predecessor than the
+repository allows. A `#` inside a fenced block is a comment or an example, not a
+heading.
+
+```console
+$ rhino md heading-hierarchy validate
+[heading-hierarchy] checked 34 files, no findings
+```
+
+The section is optional. Undeclared, the command exits `2` naming
+`md-heading-hierarchy`.
+
+Accepts `--file`? No. Accepts `--directory`? No.
+
 ### `rhino md internal-link validate`
 
 Checks that every local Markdown link resolves to something inside the
@@ -127,6 +170,42 @@ $ rhino md mermaid validate
 `--file <path>` inspects those paths instead of the declared surface. It is
 repeatable, and `-` reads a diagram from standard input.
 
+### `rhino md naming validate`
+
+Checks each governed file's name against the style its surface declares. Two
+styles: `kebab-case`, and `path-prefixed` — the file's own directory path,
+encoded, then the declared separator, then a kebab-case content name. The
+encoded prefix is derived from the path being walked, so a repository declares
+the separator and nothing else.
+
+```console
+$ rhino md naming validate
+[naming] checked 34 files, no findings
+[naming] scanned repo-governance/README.md
+```
+
+The section is optional. Undeclared, the command exits `2` naming `md-naming`.
+
+Accepts `--file`? No. Accepts `--directory`? No.
+
+### `rhino md readme-index validate`
+
+Checks that every directory under a declared tree carries a `README.md`.
+Presence only, and deliberately weaker than
+`governance directory-map validate`: a repository with a hundred READMEs and no
+directory-map sections can adopt this rung today and the stronger one when it
+has written them.
+
+```console
+$ rhino md readme-index validate
+[readme-index] checked 22 directories, no findings
+```
+
+The section is optional. Undeclared, the command exits `2` naming
+`md-readme-index`.
+
+Accepts `--file`? No. Accepts `--directory`? No — a declared tree is the unit.
+
 ### `rhino md word-count inspect`
 
 Reports a file's word count. It **never** reports findings, so it never exits
@@ -142,6 +221,24 @@ $ rhino md word-count inspect --file README.md
 A word is a run of letters, marks, and numbers, optionally joined by an
 apostrophe, hyphen, or underscore to another such run — so `can't-stop` counts
 as one word, not three.
+
+### `rhino convention emoji validate`
+
+Checks that no file matching a declared glob carries an emoji code point. Only
+the prohibition is checked, never the permission: whether an emoji belongs in a
+particular sentence is a judgement about meaning, and a rule that guessed would
+be worse than no rule. This is the one command that reads files a Markdown
+corpus never sees, so it walks the repository itself.
+
+```console
+$ rhino convention emoji validate
+[emoji] checked 9 files, no findings
+```
+
+The section is optional. Undeclared, the command exits `2` naming
+`convention-emoji`.
+
+Accepts `--file`? No. Accepts `--directory`? No.
 
 ### `rhino version`
 

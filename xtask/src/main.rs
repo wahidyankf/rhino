@@ -30,12 +30,15 @@ const EXCLUDED_FROM_COVERAGE: &str = r"src/(main\.rs|runtime/disk\.rs)";
 /// `repo-config validate` goes first. If the configuration is unusable every
 /// other command exits 2 for the same reason, and one clear message beats five
 /// copies of it.
-const SELF_VALIDATION: [&[&str]; 6] = [
+const SELF_VALIDATION: [&[&str]; 9] = [
     &["repo-config", "validate"],
     &["governance", "word-budget", "validate"],
     &["governance", "directory-map", "validate"],
     &["md", "internal-link", "validate"],
     &["md", "mermaid", "validate"],
+    &["md", "naming", "validate"],
+    &["md", "heading-hierarchy", "validate"],
+    &["convention", "emoji", "validate"],
     &["harness", "parity", "validate"],
 ];
 

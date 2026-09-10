@@ -800,17 +800,255 @@ pub const BINDINGS: &[Binding] = &[
         "directory-map",
         "A map entry containing JSON metacharacters survives the JSON rendering",
     ),
+    (
+        "md-naming",
+        "A kebab-case surface accepts a kebab-case name",
+    ),
+    (
+        "md-naming",
+        "A kebab-case surface refuses a name written any other way",
+    ),
+    (
+        "md-naming",
+        "A path-prefixed name encodes the directory it sits in",
+    ),
+    (
+        "md-naming",
+        "A path-prefixed name whose prefix does not encode its directory is refused",
+    ),
+    (
+        "md-naming",
+        "Each directory segment encodes by the rule its own words follow",
+    ),
+    (
+        "md-naming",
+        "A file at the surface root has no directory to encode",
+    ),
+    ("md-naming", "An exempt file is named by no style at all"),
+    (
+        "md-naming",
+        "A later surface overrides an earlier one for the same file",
+    ),
+    (
+        "md-naming",
+        "Omitting the section refuses rather than assuming a convention",
+    ),
+    (
+        "md-naming",
+        "An unusable surface glob is a configuration fault",
+    ),
+    (
+        "md-naming",
+        "A path-prefixed surface needs the separator that joins its two halves",
+    ),
+    (
+        "md-naming",
+        "A kebab-case surface has no two halves to separate",
+    ),
+    ("md-frontmatter", "A surface's requirements are met"),
+    (
+        "md-frontmatter",
+        "Front matter that opens and never closes is unusable",
+    ),
+    (
+        "md-frontmatter",
+        "A required key that is absent is a finding",
+    ),
+    (
+        "md-frontmatter",
+        "A file carrying no front matter is missing every required key",
+    ),
+    (
+        "md-frontmatter",
+        "A declared value set refuses anything outside it",
+    ),
+    (
+        "md-frontmatter",
+        "A declared value set accepts a value inside it",
+    ),
+    (
+        "md-frontmatter",
+        "A declared date key holds an ISO calendar date and nothing else",
+    ),
+    (
+        "md-frontmatter",
+        "A forbidden key is a finding wherever it appears",
+    ),
+    (
+        "md-frontmatter",
+        "A surface requiring nothing accepts a file with no front matter",
+    ),
+    (
+        "md-frontmatter",
+        "A later surface overrides an earlier one for the same file",
+    ),
+    (
+        "md-frontmatter",
+        "Files outside every declared surface carry no schema",
+    ),
+    (
+        "md-frontmatter",
+        "Omitting the section refuses rather than assuming a schema",
+    ),
+    (
+        "md-frontmatter",
+        "An unusable surface glob is a configuration fault",
+    ),
+    ("md-frontmatter", "A source that cannot be read is refused"),
+    (
+        "md-heading-hierarchy",
+        "A hierarchy that descends one level at a time passes",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A governed file with no level-1 heading is a finding",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A second level-1 heading is a finding at the line it appears on",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A heading dropping further than the declared jump is a finding",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A wider declared jump permits what a narrower one refuses",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A hash inside a fenced block is not a heading",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A hash with no space after it is not a heading",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A repository permitting any number of level-1 headings says so",
+    ),
+    (
+        "md-heading-hierarchy",
+        "The first heading establishes the level the rest are measured from",
+    ),
+    (
+        "md-heading-hierarchy",
+        "Files outside every declared surface carry no heading rules",
+    ),
+    (
+        "md-heading-hierarchy",
+        "Omitting the section refuses rather than assuming a structure",
+    ),
+    (
+        "md-heading-hierarchy",
+        "An unusable surface glob is a configuration fault",
+    ),
+    (
+        "md-readme-index",
+        "Every directory under a declared tree carries a README",
+    ),
+    ("md-readme-index", "A directory with no README is a finding"),
+    (
+        "md-readme-index",
+        "A README with no directory map is still a README",
+    ),
+    (
+        "md-readme-index",
+        "An excluded directory inside a declared tree is not inspected",
+    ),
+    (
+        "md-readme-index",
+        "Directories outside every declared tree are not inspected",
+    ),
+    ("md-readme-index", "Each declared tree is walked"),
+    (
+        "md-readme-index",
+        "A declared tree that holds nothing inspects nothing",
+    ),
+    (
+        "md-readme-index",
+        "Omitting the section refuses rather than assuming a tree",
+    ),
+    (
+        "convention-emoji",
+        "An emoji in a prohibited file is a finding at the line it sits on",
+    ),
+    (
+        "convention-emoji",
+        "The same code point in a file matching no prohibited glob is not a finding",
+    ),
+    ("convention-emoji", "Ordinary punctuation is not an emoji"),
+    (
+        "convention-emoji",
+        "Each line carrying an emoji is reported once",
+    ),
+    (
+        "convention-emoji",
+        "A prohibited file that is clean passes and is still counted",
+    ),
+    (
+        "convention-emoji",
+        "Every declared prohibited surface is walked",
+    ),
+    (
+        "convention-emoji",
+        "An excluded directory holds nothing to inspect",
+    ),
+    (
+        "convention-emoji",
+        "A prohibited file that cannot be read is refused",
+    ),
+    (
+        "convention-emoji",
+        "Omitting the section refuses rather than assuming a prohibition",
+    ),
+    (
+        "convention-emoji",
+        "An unusable prohibited glob is a configuration fault",
+    ),
+    (
+        "repo-config",
+        "A configuration declaring none of the optional sections is complete",
+    ),
+    (
+        "md-naming",
+        "Files outside every declared surface carry no style",
+    ),
+    (
+        "md-naming",
+        "An unusable exemption glob is a configuration fault",
+    ),
+    (
+        "md-heading-hierarchy",
+        "A source that cannot be read is refused",
+    ),
+    (
+        "convention-emoji",
+        "A prohibited file that holds no text is refused",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete
 /// boundary it cannot reach and the alternative proof that covers it.
-pub const EXEMPTIONS: &[Exemption] = &[Exemption {
-    feature: "harness-parity",
-    scenario: "A file that vanishes between the walk and the read is not a finding",
-    boundary: "a real directory cannot be made to drop a file between the walk and the \
+pub const EXEMPTIONS: &[Exemption] = &[
+    Exemption {
+        feature: "convention-emoji",
+        scenario: "A file that vanishes between the walk and the read is not a finding",
+        boundary: "a real directory cannot be made to drop a file between the walk and the \
                read without a second process racing the one under inspection, so the \
                outcome would be decided by the scheduler rather than by the validator",
-    alternative_proof: "the unit adapter drives the same `TreeError::NotFound` through the \
+        alternative_proof: "the unit adapter drives the same `TreeError::NotFound` through the \
                         same port the disk tree returns it on, so the validator's answer to \
                         a vanished file is asserted at the seam where the two trees agree",
-}];
+    },
+    Exemption {
+        feature: "harness-parity",
+        scenario: "A file that vanishes between the walk and the read is not a finding",
+        boundary: "a real directory cannot be made to drop a file between the walk and the \
+               read without a second process racing the one under inspection, so the \
+               outcome would be decided by the scheduler rather than by the validator",
+        alternative_proof: "the unit adapter drives the same `TreeError::NotFound` through the \
+                        same port the disk tree returns it on, so the validator's answer to \
+                        a vanished file is asserted at the seam where the two trees agree",
+    },
+];

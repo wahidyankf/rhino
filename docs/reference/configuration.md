@@ -21,9 +21,17 @@ by hyphens, so a reader can find a section from a command and back again.
 file. **Unknown keys inside a section RHINO owns are refused**, because there a
 typo is a policy that silently does nothing.
 
+Six sections are required. Five — `md-naming`, `md-frontmatter`,
+`md-heading-hierarchy`, `md-readme-index`, and `convention-emoji` — are
+**optional**, and each is marked as such below. Omitting one is not a gap to be
+filled in: the command that reads it exits `2` naming the missing section, so
+"this validator has no policy here" and "this validator has a default policy
+here" can never be confused.
+
 ## A complete file
 
-This is RHINO's own configuration, and the whole schema:
+This is RHINO's own configuration, plus the five optional sections it does not
+declare — so the block below is the whole schema rather than the whole file:
 
 ```yaml
 # schema: rhino/repo-config/v1
@@ -52,6 +60,43 @@ md-mermaid:
   fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CA9161"]
   edge-colors: ["#0173B2", "#000000"]
   text-colors: ["#000000", "#FFFFFF"]
+
+# Optional, from here to the end of this comment block.
+md-naming:
+  surfaces:
+    - glob: "docs/**/*.md"
+      style: kebab-case
+    - glob: "vault/**/*.md"
+      style: path-prefixed
+      separator: "__"
+  exempt: ["**/README.md"]
+
+md-frontmatter:
+  surfaces:
+    - glob: "docs/**/*.md"
+      require: [title, category]
+      enum:
+        category: [tutorial, how-to, reference, explanation]
+      iso-date: [last_updated]
+    - glob: "specs/**/*.md"
+      require: []
+      forbid: [updated]
+
+md-heading-hierarchy:
+  surfaces:
+    - glob: "docs/**/*.md"
+  single-h1: true
+  max-level-jump: 1
+
+md-readme-index:
+  trees:
+    - path: docs
+
+convention-emoji:
+  prohibited:
+    - glob: "**/*.json"
+    - glob: "**/*.toml"
+# Optional sections end here.
 
 harness-parity:
   canonical:
@@ -113,6 +158,65 @@ surfaces:
 Each tree takes a `path`. Every directory at or under it must carry a
 `README.md` with a `## Directory Map` section.
 
+## `md-frontmatter`
+
+**Optional.** Undeclared, `md frontmatter validate` exits `2` naming the
+section.
+
+| Key        | Required | Meaning                                  |
+| ---------- | -------- | ---------------------------------------- |
+| `surfaces` | yes      | Ordered globs. Last matching entry wins. |
+
+Each surface takes `glob` and `require`, and optionally `enum`, `iso-date`, and
+`forbid`.
+
+| Surface key | Required              | Meaning                                         |
+| ----------- | --------------------- | ----------------------------------------------- |
+| `glob`      | yes                   | Which files this schema governs.                |
+| `require`   | yes, and may be empty | Keys that must be present.                      |
+| `enum`      | no                    | Keys whose value must come from a declared set. |
+| `iso-date`  | no                    | Keys whose value must be an ISO calendar date.  |
+| `forbid`    | no                    | Keys that may not appear.                       |
+
+`forbid` is what lets a repository keep a rule RHINO knows nothing about —
+"this tree does not carry a date" — without RHINO having to know what the rule
+is for.
+
+A block that opens and never closes is reported as itself rather than as a set
+of missing keys: everything after the opener reads as front matter to the end of
+the file, so no key in it can be trusted, and naming the keys would send a
+maintainer to the wrong line.
+
+Only top-level keys are read. A key's indented sequence items and nested
+mappings belong to that key, so a nested `updated:` does not trip a rule about
+the document's own keys. `enum` and `iso-date` fire only on a key that is
+present; absence is `require`'s business, and reporting it twice would make one
+fault read as two.
+
+## `md-heading-hierarchy`
+
+**Optional.** Undeclared, `md heading-hierarchy validate` exits `2` naming the
+section.
+
+| Key              | Required | Meaning                                                    |
+| ---------------- | -------- | ---------------------------------------------------------- |
+| `surfaces`       | yes      | Globs whose heading structure is governed.                 |
+| `single-h1`      | yes      | Whether a governed file holds exactly one level-1 heading. |
+| `max-level-jump` | yes      | How far a heading may drop below the one before it.        |
+
+Each surface takes a `glob` and nothing else: this section's two rules are
+stated once for all of them, so nothing depends on which surface matched.
+
+`single-h1` has no default because a repository whose documents are sections of
+a larger whole legitimately has none. `max-level-jump: 1` is the strict reading;
+a larger number is a repository that has decided otherwise.
+
+A `#` inside a fenced block is a shell comment, a Markdown example, or a colour
+literal — not a heading. A run of hashes is a heading only when a space follows
+it, so `#hashtag` is a word. The first heading in a document establishes the
+level the rest are measured from: it cannot drop below something that is not
+there, and a document that opens deep is `single-h1`'s business or nobody's.
+
 ## `md-internal-link`
 
 | Key               | Required | Meaning                           |
@@ -140,6 +244,75 @@ _targets_ — excluding a source says "do not check the links in this file", not
 
 Limits are per segment, not per label: a `<br>` splits a label into lines a
 reader sees separately.
+
+## `md-naming`
+
+**Optional.** Undeclared, `md naming validate` exits `2` naming the section.
+
+| Key        | Required              | Meaning                                  |
+| ---------- | --------------------- | ---------------------------------------- |
+| `surfaces` | yes                   | Ordered globs. Last matching entry wins. |
+| `exempt`   | yes, and may be empty | Globs no style applies to.               |
+
+Each surface takes `glob` and `style`, plus `separator` when the style is
+`path-prefixed`.
+
+| Style           | A filename is                                                                      |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `kebab-case`    | lowercase alphanumeric runs joined by single hyphens                               |
+| `path-prefixed` | the file's own directory path, encoded, then the separator, then a kebab-case name |
+
+`separator` is required by `path-prefixed` and refused by `kebab-case`. Either
+mismatch is exit `2`: a separator nothing consults reads as a rule that is in
+force.
+
+The encoded prefix is derived from the path being walked, so a repository
+declares the separator and nothing else. Each directory level below the
+surface's root contributes one encoded segment and the levels are joined by a
+hyphen. A segment's hyphen-separated words each contribute two characters, or
+one character and an underscore when the word is a single character:
+
+| Directory below the root | Encoded prefix |
+| ------------------------ | -------------- |
+| `people`                 | `pe`           |
+| `docs/tutorials`         | `do-tu`        |
+| `f-sharp`                | `f_sh`         |
+| `2025-syariah-banking`   | `20syba`       |
+| `jobs/hijra-bank/events` | `jo-hiba-ev`   |
+
+The surface's root is the fixed leading path of its glob: everything before the
+first segment carrying a metacharacter. `vault/**/*.md` roots at `vault`, so
+`vault/people/pe__ada-lovelace.md` is correctly named and `va-pe__…` is not.
+Deriving the root from the glob rather than asking for it separately means the
+two cannot disagree: a repository that re-rooted its surface re-rooted its
+prefixes with it. A file directly at the root has no directory to encode, so it
+carries a kebab-case name and no separator.
+
+An exemption wins over every surface. A repository saying "not this file" has
+said so about all of them at once.
+
+## `md-readme-index`
+
+**Optional.** Undeclared, `md readme-index validate` exits `2` naming the
+section.
+
+| Key     | Required | Meaning                                                |
+| ------- | -------- | ------------------------------------------------------ |
+| `trees` | yes      | The trees in which every directory must hold a README. |
+
+Each tree takes a `path`, spelled exactly as `governance-directory-map` spells
+it, because it is the same kind of statement.
+
+This is deliberately weaker than `governance-directory-map`, which wants the
+README **and** a `## Directory Map` section listing every direct sibling. Both
+exist so a repository can say which rung it is on: one with a hundred READMEs
+and no map sections can adopt this today and the stronger rule when it has
+written them, instead of choosing between a hundred findings and no check at
+all.
+
+Presence, not readability. A README that is there and cannot be opened is
+present, and telling a maintainer to write a file that already exists would be
+the wrong instruction.
 
 ## `harness-parity`
 
@@ -289,6 +462,31 @@ got wrong.
 The check is **non-weakening, not equality**. An adapter may grant more than the
 canon requires; it may not grant less, and it may not grant what the canon
 denies. A capability the canon never asked for triggers nothing at all.
+
+## `convention-emoji`
+
+**Optional.** Undeclared, `convention emoji validate` exits `2` naming the
+section.
+
+| Key          | Required | Meaning                                          |
+| ------------ | -------- | ------------------------------------------------ |
+| `prohibited` | yes      | Globs in which an emoji code point is a finding. |
+
+Each entry takes a `glob`.
+
+Only the prohibition is expressible, and deliberately: whether an emoji belongs
+in a particular sentence is a judgement about meaning, and a validator that
+guessed at it would be reporting on taste. Where an emoji is forbidden — a
+configuration file, a shell script, a data document a machine reads — the
+question has one answer.
+
+This is the one section whose command reads files no Markdown corpus contains,
+so it walks the repository itself. One finding per line rather than per code
+point: three emoji on one line are one edit.
+
+The code-point blocks are narrower than "every symbol". An em dash, an arrow, a
+copyright sign, and a plus-minus sign all live just outside them, because every
+one of those appears in ordinary prose that this validator must not accuse.
 
 ## `scan`
 

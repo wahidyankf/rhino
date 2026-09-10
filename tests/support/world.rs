@@ -183,6 +183,24 @@ pub struct Declaration {
     pub capability_formats: BTreeMap<String, String>,
     pub canonical_skills_root: Option<String>,
     pub canonical_agents_root: Option<String>,
+    /// Naming surfaces, in declaration order, each rendered as the flow mapping
+    /// a repository would write. Held as text rather than as a typed surface so
+    /// a scenario can state a glob the compiler would reject, which is one of
+    /// the faults the corpus asserts on.
+    pub naming_surfaces: Vec<String>,
+    pub naming_exempt: Vec<String>,
+    /// Front-matter surfaces, in declaration order, each rendered as the flow
+    /// mapping a repository would write.
+    pub frontmatter_surfaces: Vec<String>,
+    /// Heading surfaces, and the two rules the section states once for all of
+    /// them. `None` on either rule leaves the section undeclared.
+    pub heading_surfaces: Vec<String>,
+    pub heading_single_h1: Option<bool>,
+    pub heading_max_jump: Option<usize>,
+    /// Trees a scenario declares as requiring a README in every directory.
+    pub readme_index_trees: Vec<String>,
+    /// Globs a scenario declares as files an emoji may not appear in.
+    pub emoji_prohibited: Vec<String>,
 }
 
 impl Default for Declaration {
@@ -220,6 +238,18 @@ impl Default for Declaration {
             capability_formats: BTreeMap::new(),
             canonical_skills_root: None,
             canonical_agents_root: None,
+            // Every section added after `v0.1` is optional, so the base
+            // declares none of them: a scenario that needs one says so, and
+            // every scenario that does not is a standing proof that a
+            // configuration without it is complete.
+            naming_surfaces: Vec::new(),
+            naming_exempt: Vec::new(),
+            frontmatter_surfaces: Vec::new(),
+            heading_surfaces: Vec::new(),
+            heading_single_h1: None,
+            heading_max_jump: None,
+            readme_index_trees: Vec::new(),
+            emoji_prohibited: Vec::new(),
         }
     }
 }
