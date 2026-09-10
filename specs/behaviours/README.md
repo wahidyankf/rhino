@@ -30,6 +30,9 @@ implement them the same way at three boundaries:
   code point may not appear in, and the punctuation that is not one.
 - [directory-map.feature](directory-map.feature) — README presence and
   directory-map completeness across declared trees.
+- [gate-runner.feature](gate-runner.feature) — which gates a surface
+  selects, the order they run in, what each child is handed, and when the
+  sequence stops.
 - [harness-parity.feature](harness-parity.feature) — one canonical instruction
   body, skill bundle, and agent roster reconciled across every declared harness.
 - [internal-link.feature](internal-link.feature) — repository-local Markdown
@@ -49,7 +52,7 @@ implement them the same way at three boundaries:
   discovered, parsed, and reported on.
 - [mermaid-legibility.feature](mermaid-legibility.feature) — the accessibility
   rules a diagram must satisfy once it has been parsed.
-- [repo-config.feature](repo-config.feature) — the configuration grammar, its
-  required fields, and what an unusable configuration does.
+- [repo-config.feature](repo-config.feature) — both configuration schemas,
+  their required fields, and what an unusable configuration does.
 - [word-budget.feature](word-budget.feature) — declared word surfaces, their
   limits, and word counting itself.
