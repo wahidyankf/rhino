@@ -82,6 +82,12 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check the canonical instruction spine and the exact import beside it.",
     },
     Leaf {
+        path: &["plan", "validate"],
+        category: "plan",
+        accepts: &[],
+        summary: "Check plan lifecycle, documents, companions, criteria, and delivery order.",
+    },
+    Leaf {
         path: &["governance", "word-budget", "validate"],
         category: "word-budget",
         accepts: &[],

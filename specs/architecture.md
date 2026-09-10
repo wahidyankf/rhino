@@ -79,6 +79,7 @@ graph TD
     Structure["governance structure"]
     Companion["governance companion"]
     Instructions["governance instructions"]
+    PlanMod["plan structure"]
 
     Cli --> ConfigMod
     Cli --> Link
@@ -91,6 +92,7 @@ graph TD
     Cli --> Structure
     Cli --> Companion
     Cli --> Instructions
+    Cli --> PlanMod
     ConfigMod --> Runtime
     Scan --> Runtime
     Harness --> Runtime
@@ -99,6 +101,7 @@ graph TD
     Structure --> Runtime
     Companion --> Runtime
     Instructions --> Runtime
+    PlanMod --> Runtime
     Link --> Scan
     Mermaid --> Scan
     Word --> Scan
@@ -108,7 +111,7 @@ graph TD
     classDef shared fill:#029E73,stroke:#000000,color:#000000
 
     class Cli entry
-    class Link,Mermaid,Word,Map,Harness,Metadata,Structure,Companion,Instructions check
+    class Link,Mermaid,Word,Map,Harness,Metadata,Structure,Companion,Instructions,PlanMod check
     class Gate entry
     class ConfigMod,Runtime,Scan shared
 ```
@@ -118,6 +121,8 @@ Every validator reaches the filesystem through one port trait rather than throug
 The three Markdown validators share one scan so the tree is walked once per invocation. `harness` and `directory_map` do not use it, because they read named paths and directory structure rather than Markdown content.
 
 The three governance structure modules arrived with `ose/repo-config/v2` and read the shared contract rather than a declared section, so a repository still on `v1` is refused rather than held to rules it never adopted. `structure` is the one module that asks the port for directories rather than files, because an empty governed directory is the single state a file list cannot express. `gate` dispatches declared children through the launcher port, the second port and the only place a process is spawned.
+
+`plan` is the one module whose rules this crate does not own. Their identifiers, messages, diagnostics, exit classes, and fixture corpus are frozen in a shared contract because more than one implementation validates plan structure, and a contract written after the first implementation would describe an accident rather than an agreement. The corpus is copied in byte-identically and its digest is checked before any case runs.
 
 ## Data
 

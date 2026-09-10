@@ -21,7 +21,7 @@ const PINNED_DIGEST: &str = "c0b0bd7ae4ed3eecfc6768b3f5ed513b4ab85db6338d55943db
 /// The corpus is a plan tree and nothing else. A repository declares its own
 /// configuration, so the runner writes one beside each case rather than the
 /// corpus carrying twenty-four copies of it.
-const CONFIG: &str = "schema: ose/repo-config/v2\nvisibility: private\n";
+const CONFIG: &str = "schema: ose/repo-config/v2\nvisibility: private\ngates:\n  - id: plan\n    kind: check\n    run:\n      - ./gates/plan.sh\n    surfaces:\n      - commit-msg\n      - pre-commit\n      - pre-push\n";
 
 fn corpus() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/fixtures/plan-structure")

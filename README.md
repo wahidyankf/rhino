@@ -154,6 +154,21 @@ $ rhino governance companions validate
 $ rhino governance instructions validate
 ```
 
+A fourth reads the plans tree:
+
+```console
+$ rhino plan validate
+```
+
+It holds a formal plan to the shared plan-validator contract: four lifecycle
+roots with stage-aware slugs, six documents and exactly one technical shape,
+companions numbered contiguously from 001 and indexed in reading order,
+acceptance identifiers defined once and cited only where defined, and archival
+after the substantive phases. Its diagnostics are
+`path:line:column rule field message`, its twenty rule identifiers are stable,
+and it judges nothing else: whether a plan is any good is not visible in its
+shape.
+
 They check that `repo-governance/` holds only registered categories and no empty
 governed directory, that a companion directory is named exactly after its
 entrypoint and indexed in reading order, and that `AGENTS.md` carries the five
