@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 258] = [
+pub const VOCABULARY: [&str; 267] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -35,6 +35,7 @@ pub const VOCABULARY: [&str; 258] = [
     "I run the gates for the {string} surface with the arguments {string}",
     "I run the gates for the {string} surface with this standard input:",
     "I run the {string} validator",
+    "I run the {string} validator twice",
     "I scan the declared surfaces",
     "Markdown text containing a heading marker, Hello, can't-stop, naïve, and {int}",
     "a canonical skill declares a name that is not its directory",
@@ -166,6 +167,9 @@ pub const VOCABULARY: [&str; 258] = [
     "the capability declaration for harness {string} is missing the required capability",
     "the capability declaration for harness {string} is not valid in its declared format",
     "the capability declaration for harness {string} is unreadable",
+    "the companion index at {string} lists {string}",
+    "the companion set at {string} holds {string}",
+    "the companion {string} is renamed to {string}",
     "the configuration adds the top-level section {string}",
     "the configuration adds the unknown key {string} to {string}",
     "the configuration file cannot be read",
@@ -204,6 +208,9 @@ pub const VOCABULARY: [&str; 258] = [
     "the only violation is a {int}-word limit for {string}",
     "the only violation is an invalid map entry from {string} to {string}",
     "the only violation starts with {string}",
+    "the plan at {string} also carries a directory technical shape",
+    "the plan at {string} has no {string}",
+    "the plan at {string} uses the directory technical shape",
     "the reported version is spelled as its release tag",
     "the reported version is the one the product manifest declares",
     "the repository contains Mermaid sample {string} at {string}",
@@ -247,6 +254,7 @@ pub const VOCABULARY: [&str; 258] = [
     "the repository declares the schema {string}",
     "the repository declares word-budget surfaces:",
     "the repository has no configuration file",
+    "the repository holds a conforming plan at {string}",
     "the repository holds a map entry whose target needs escaping",
     "the repository is unchanged by the inspection",
     "the repository maps harness {string} tier {string} to model {string} at effort {string}",
@@ -259,6 +267,7 @@ pub const VOCABULARY: [&str; 258] = [
     "the skill wrapper for {string} has a stale description",
     "the skill wrapper for {string} has an extra body",
     "the skill wrapper for {string} is missing",
+    "the two runs are byte-identical",
     "the v2 configuration drops the surface {string}",
     "the v2 configuration omits {string}",
     "the violations are ordinally sorted",

@@ -27,6 +27,9 @@ mod launcher;
 #[path = "../support/mermaid.rs"]
 mod mermaid;
 #[allow(dead_code)]
+#[path = "../support/plan.rs"]
+mod plan;
+#[allow(dead_code)]
 #[path = "../support/registry.rs"]
 mod registry;
 #[allow(dead_code)]
