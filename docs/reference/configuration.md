@@ -5,15 +5,37 @@ root. **The tool ships no default for any of them.** A repository that declares
 nothing gets a configuration error, never a borrowed assumption from whichever
 repository the validator grew up in.
 
-The first line declares the schema, in a comment:
+## Two schemas
+
+A build understands two, and a document declares exactly one of them.
 
 ```yaml
 # schema: rhino/repo-config/v1
 ```
 
-`rhino-cli/repo-config/v1` is accepted as a predecessor spelling. Anything else
-is refused with exit `2`, naming what was declared and what this build
-understands.
+```yaml
+schema: ose/repo-config/v2
+```
+
+They are told apart by _where_ the declaration is: v1 in a leading comment, v2
+in a leading key. No document can be read as both, and one carrying both is a
+stated fault rather than a coin toss. `rhino-cli/repo-config/v1` is accepted as
+a predecessor spelling. Anything else is refused with exit `2`, naming what was
+declared and what this build understands.
+
+They are not versions of one document. v1 describes Markdown and harness
+hygiene and serves the thirteen commands that shipped before `v0.3.0` plus
+`metadata validate`; v2 describes portable governance and its gates and serves
+the five commands `v0.3.0` adds. A command reaching for the schema it was not
+given refuses by name rather than guessing:
+
+```console
+$ rhino plan validate
+[plan] repo-config.yml: line 1: this rule is part of `ose/repo-config/v2`, and this repository declares `rhino/repo-config/v1`
+```
+
+Everything from here to [`scan`](#scan) describes v1. The v2 sections are
+[at the end](#ose-repo-config-v2).
 
 Sections are named after the command path that reads them, with spaces replaced
 by hyphens, so a reader can find a section from a command and back again.
@@ -21,16 +43,16 @@ by hyphens, so a reader can find a section from a command and back again.
 file. **Unknown keys inside a section RHINO owns are refused**, because there a
 typo is a policy that silently does nothing.
 
-Six sections are required. Five — `md-naming`, `md-frontmatter`,
-`md-heading-hierarchy`, `md-readme-index`, and `convention-emoji` — are
-**optional**, and each is marked as such below. Omitting one is not a gap to be
+Six sections are required. Seven — `md-naming`, `md-frontmatter`,
+`md-heading-hierarchy`, `md-readme-index`, `convention-emoji`, `metadata`, and
+`model-tiers` — are **optional**, and each is marked as such below. Omitting one is not a gap to be
 filled in: the command that reads it exits `2` naming the missing section, so
 "this validator has no policy here" and "this validator has a default policy
 here" can never be confused.
 
 ## A complete file
 
-This is RHINO's own configuration, plus the five optional sections it does not
+This is RHINO's own configuration, plus the optional sections it does not
 declare — so the block below is the whole schema rather than the whole file:
 
 ```yaml
@@ -488,6 +510,37 @@ The code-point blocks are narrower than "every symbol". An em dash, an arrow, a
 copyright sign, and a plus-minus sign all live just outside them, because every
 one of those appears in ordinary prose that this validator must not accuse.
 
+## `metadata`
+
+**Optional.** The surfaces whose front matter is held to a canonical schema, and
+which schema each one uses.
+
+| Key        | Required | Meaning                                        |
+| ---------- | -------- | ---------------------------------------------- |
+| `surfaces` | yes      | Ordered list; the last matching `glob` wins.   |
+| `glob`     | yes      | Which files this row selects.                  |
+| `schema`   | yes      | `governance`, `workflow`, `skill`, or `agent`. |
+
+```yaml
+metadata:
+  surfaces:
+    - glob: "repo-governance/**/*.md"
+      schema: governance
+    - glob: ".agents/agents/*.md"
+      schema: agent
+```
+
+The schema is selected by path rather than declared in the document, because the
+path already supplies every identity the schema omits. A document under two rows
+is held to the last one, the same way word budgets resolve.
+
+## `model-tiers`
+
+**Optional.** The same portable tier map v2 declares, available to v1 so the
+`agent` metadata schema can check that a tier a document names is one this
+repository declared. The tiers are a closed set: `ultra`, `plan`, `execution`,
+`fast`.
+
 ## `scan`
 
 | Key                   | Required | Meaning                                  |
@@ -496,6 +549,87 @@ one of those appears in ordinary prose that this validator must not accuse.
 
 Filesystem links are always skipped regardless of this list, because following
 one can escape the repository.
+
+## `ose/repo-config/v2`
+
+The portable governance schema. Six top-level keys, in this order, of which
+`schema`, `visibility`, and `gates` are required:
+
+```yaml
+schema: ose/repo-config/v2
+visibility: private
+governance:
+  local-categories:
+    - development/practice
+model-tiers:
+  claude:
+    ultra: { model: claude-opus, effort: high }
+gates:
+  - id: hygiene
+    kind: check
+    run:
+      - ./gates/hygiene.sh
+    surfaces:
+      - commit-msg
+      - pre-commit
+      - pre-push
+extensions:
+  acme/anything: {}
+```
+
+**Order is checked.** A document whose keys arrive out of that order is refused,
+because a schema that tolerated any order would make two repositories that
+declare the same policy look different to a reader.
+
+### `visibility`
+
+`public` or `private`. Not inferred: an offline validator cannot learn hosted
+visibility from a remote or a network call, and guessing would mean a repository
+was screened or not screened depending on how it was cloned.
+
+A `public` repository must declare a gate whose id is `public-safety`, and it
+must be first at every surface it runs at. A gate that scans for prohibited
+material second has already let something else touch the publication surface.
+
+### `governance`
+
+Optional, and keeps only `local-categories`: the categories beyond the five
+canonical layers (`conventions`, `development`, `principles`, `vision`,
+`workflows`) that this repository's governance tree may hold. Declared in
+ascending order, and each one must name a directory that exists.
+
+### `model-tiers`
+
+Optional. Maps a portable tier to a harness's model and effort, so an agent
+definition can name a tier rather than a vendor's model string. The tiers are a
+closed set — `ultra`, `plan`, `execution`, `fast` — and a mapping keyed by an
+agent name is refused: model and effort resolve by tier, never by artifact. A
+tier declared with nothing under it is a refusal, not an empty map.
+
+### `gates`
+
+The ordered registry `gate run` dispatches. Each entry keeps exactly `id`,
+`kind`, `run`, and `surfaces`, in that order.
+
+| Key        | Meaning                                                                           |
+| ---------- | --------------------------------------------------------------------------------- |
+| `id`       | The name reported when this gate runs. Unique.                                    |
+| `kind`     | `check` or `mutation`. A `mutation` may only run at `pre-commit`.                 |
+| `run`      | The argument vector, started directly. No shell, so nothing here is interpolated. |
+| `surfaces` | Where it runs: `commit-msg`, `pre-commit`, `pre-push`, `ci`, in that order.       |
+
+Every one of the three hook surfaces must be covered by at least one gate. `ci`
+is the only optional surface, which is why it is declared last.
+
+A `mutation` restricted to `pre-commit` is the whole reason `kind` exists: a
+gate that rewrites files during `pre-push` would push bytes nobody reviewed.
+
+### `extensions`
+
+Optional, and the escape hatch that keeps the rest of the schema closed. Each
+key owns a mapping and RHINO reads no meaning inside one; a key whose value is
+not a mapping is refused. Namespacing the key (`vendor/name`) is the convention
+that keeps two tools out of each other's way, not something this build checks.
 
 ## When it is wrong
 

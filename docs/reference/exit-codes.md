@@ -1,13 +1,14 @@
 # Exit codes
 
-RHINO uses three exit codes and no others. A caller reads the code without
-knowing which subcommand produced it.
+RHINO uses three exit codes, and `gate run` adds a fourth. A caller reads the
+code without knowing which subcommand produced it.
 
 | Code | Meaning                                             | What to do                                          |
 | ---- | --------------------------------------------------- | --------------------------------------------------- |
 | `0`  | Checked and clean                                   | Nothing. The run happened and found nothing.        |
 | `1`  | The repository violates its declared policy         | Read the findings on stderr and fix the repository. |
 | `2`  | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
+| `3`  | A gate child could not be started                   | Fix the gate's `run` vector. `gate run` only.       |
 
 The distinction that matters is between `1` and `2`. **Exit `1` always means
 the repository broke a rule it declared for itself.** Exit `2` means RHINO
@@ -17,6 +18,11 @@ could not be read.
 
 A gate that treats every non-zero code the same will tell a maintainer to fix a
 document when the real problem is a typo in a flag.
+
+Exit `3` draws the same line one step further out, and only `gate run` can
+produce it. A gate that ran and reported something says one thing about the
+repository; a gate that never started says nothing at all, and reporting the
+second as the first would let a broken hook read as a caught violation.
 
 ## Which situations produce which code
 
@@ -36,6 +42,11 @@ with the command category. stdout still carries the summary.
 - a `repo-config.yml` that is missing, unreadable, declares no schema, declares
   an unrecognized schema, is malformed, or is semantically inconsistent;
 - a `--file` or `--directory` that names something RHINO cannot read.
+
+`3` — `gate run` only: a child in the selected surface's sequence could not be
+started, because its `run` vector names something that is not there or is not
+executable. The gates before it in declaration order already ran; the ones after
+it did not.
 
 On exit `2` stdout is **empty**. A caller parsing stdout can rely on it holding
 a result or holding nothing, never a summary of a run that did not happen.

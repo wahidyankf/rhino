@@ -92,6 +92,49 @@ $ echo $?
 Then revert it. Do this once when you wire the gate in, and again whenever you
 change what the gate runs.
 
+## Let RHINO dispatch instead
+
+A repository on `ose/repo-config/v2` can declare the sequence once and hand the
+dispatching to `gate run`, which is a different trade rather than a better one:
+the loop above lives in a script you own, and the registry lives in the
+configuration every other tool already reads.
+
+```yaml
+schema: ose/repo-config/v2
+visibility: private
+gates:
+  - id: hygiene
+    kind: check
+    run:
+      - ./gates/hygiene.sh
+    surfaces:
+      - commit-msg
+      - pre-commit
+      - pre-push
+```
+
+```sh
+# .husky/pre-commit
+set -e
+rhino gate run --surface pre-commit -- "$@"
+```
+
+Gates run in declaration order and stop at the first failure. Each child is
+started directly, with no shell, so nothing in `run` is interpolated; it is
+told which surface selected it through `OSE_GATE_SURFACE`, and anything after
+`--` is appended to its own arguments. A `mutation` gate may only run at
+`pre-commit`, because a gate that rewrites files during `pre-push` would push
+bytes nobody reviewed.
+
+Exit `3` is the one to notice: a child that could not be started. It is not
+exit `1`, because a gate that never ran says nothing about the repository, and
+reporting the second as the first would let a broken hook read as a caught
+violation.
+
+A repository that declares `visibility: public` must declare a gate whose id is
+`public-safety`, first at every surface it runs at. Scanning for prohibited
+material second has already let something else touch the publication surface.
+
 ## What not to do
 
 **Do not swallow exit `2`.** It means nothing was checked. A gate that treats

@@ -9,6 +9,67 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.3.0] — unreleased
+
+Additive. **An existing consumer changes nothing but its pin.** The twelve
+commands that shipped before this release read `rhino/repo-config/v1` exactly as
+they did, and the six this release adds read a second schema, `ose/repo-config/v2`,
+that no existing consumer declares. A repository on v1 that runs one of the new
+commands gets exit `2` naming the schema it would need, never a governance
+convention RHINO chose on its behalf.
+
+### Added
+
+- **`ose/repo-config/v2`** — a second schema beside v1, not a replacement. Told
+  apart by where the declaration is: v1 in a leading comment, v2 in a leading
+  `schema:` key, so no document reads as both. Six keys in a checked order:
+  `schema`, `visibility`, `governance`, `model-tiers`, `gates`, `extensions`.
+  `schema`, `visibility`, and `gates` are required.
+- **`rhino gate run --surface <name>`** — runs the gates the surface selects, in
+  declaration order, stopping at the first failure. Each child is started
+  directly with no shell, is told which surface selected it through
+  `OSE_GATE_SURFACE`, and receives everything after `--` appended to its own
+  arguments. A `mutation` gate may run only at `pre-commit`. Reads `gates` in
+  `ose/repo-config/v2`.
+- **`rhino governance roots validate`** — the governance tree's layers and
+  categories, and that no governed directory is empty. Finding kinds:
+  `unknown-governance-layer`, `undeclared-governance-category`,
+  `unused-local-category`, `empty-governed-directory`.
+- **`rhino governance companions validate`** — companion sets: a suffix-free
+  directory named after its document, an index covering every live companion,
+  and contiguous ordinals when the set is ordered. Finding kinds:
+  `suffixed-companion-directory`, `missing-companion-index`,
+  `missing-indexed-companion`, `unindexed-companion-module`,
+  `non-contiguous-companion-ordinals`, `ordinal-in-unordered-set`,
+  `unordered-module-in-ordered-set`.
+- **`rhino governance instructions validate`** — the five-section `AGENTS.md`
+  spine in one order, and `CLAUDE.md` as exactly `@AGENTS.md`. An absent
+  `CLAUDE.md` is legal. Finding kinds: `missing-canonical-instruction`,
+  `missing-spine-section`, `misordered-spine-section`,
+  `interrupted-instruction-spine`, `inexact-instruction-import`.
+- **`rhino plan validate`** — plan structure under `plans/`: lifecycle root and
+  slug form, the six required documents, one technical shape, companion
+  ordinals, acceptance identifiers, and delivery order. Twenty rule identifiers
+  in five families (`PLAN-LIFECYCLE-`, `PLAN-DOCUMENT-`, `PLAN-COMPANION-`,
+  `PLAN-CRITERION-`, `PLAN-DELIVERY-`), frozen because more than one
+  implementation reports them and a consumer compares them by equality.
+  Structure only: nothing here judges whether a plan is any good.
+- **`rhino metadata validate`** — front matter against the schema its path
+  selects: `governance`, `workflow`, `skill`, or `agent`. Twenty-three finding
+  kinds, all prefixed `metadata-`. Reads the new optional `metadata` section in
+  `rhino/repo-config/v1`.
+- **`model-tiers`** — an optional section in both schemas, mapping a portable
+  tier (`ultra`, `plan`, `execution`, `fast`) to a harness's model and effort,
+  so an agent definition can name a tier rather than a vendor's model string.
+- **Exit `3`** — `gate run` only: a gate child that could not be started. Kept
+  distinct from `1` because a gate that never ran says nothing about the
+  repository, and reporting the second as the first would let a broken hook read
+  as a caught violation.
+- **A second diagnostic shape** — `path:line:column rule field message`, used by
+  the six new commands and frozen by the contract they share. The validators
+  that shipped earlier keep the shape they had: a consumer's stored output may
+  not change because a new command arrived.
+
 ## [v0.2.0] — 2026-09-10
 
 Additive. **An existing consumer changes nothing but its pin.** All five new

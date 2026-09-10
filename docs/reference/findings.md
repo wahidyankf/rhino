@@ -11,6 +11,17 @@ The `[<category>]` prefix is atomic rather than assembled from the command
 path, so `grep '\[word-budget\]'` gets that validator's output and nothing
 else, however the command was spelled on the way in.
 
+The six commands added in `v0.3.0` report a second shape, frozen by the
+contract more than one implementation validates against:
+
+```text
+[<category>] <path>:<line>:<column> <rule> <field> <message>
+```
+
+`-` stands in for a field the rule does not name, and `1:1` for a finding about
+a path rather than a line. The two shapes coexist deliberately: a consumer's
+stored output may not change because a new command arrived.
+
 Every finding carries a **kind** — a stable identifier for the rule, not prose.
 The kind is what a consumer filters on, so it is never reworded to improve a
 message. In text output the kind appears inside the message; in JSON it is the
@@ -164,6 +175,86 @@ The same holds one level down. An agent adapter carries the declared route and
 its own harness's permissions — never a copy of the canonical prompt — so
 rewriting the canon is not drift and produces no finding at all. Only the
 digest moves.
+
+## Governance roots
+
+| Kind                             | Means                                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| `unknown-governance-layer`       | A directory under the governance root is neither a canonical layer nor declared. |
+| `undeclared-governance-category` | A category exists that `governance.local-categories` does not declare.           |
+| `unused-local-category`          | A declared local category names no directory.                                    |
+| `empty-governed-directory`       | A governed directory holds nothing.                                              |
+
+The five canonical layers are `conventions`, `development`, `principles`,
+`vision`, and `workflows`. Anything else is a local category, accepted only
+where the repository declared it.
+
+## Companion sets
+
+| Kind                                | Means                                                            |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `suffixed-companion-directory`      | A companion directory's name is not exactly its document's stem. |
+| `missing-companion-index`           | The document carries no index linking its companions.            |
+| `missing-indexed-companion`         | The index links a companion that is not there.                   |
+| `unindexed-companion-module`        | A live companion is not in the index.                            |
+| `non-contiguous-companion-ordinals` | An ordered set skips or repeats an ordinal.                      |
+| `ordinal-in-unordered-set`          | A set with no reading order carries an ordinal prefix anyway.    |
+| `unordered-module-in-ordered-set`   | An ordered set holds a companion with no ordinal.                |
+
+## Instruction spine
+
+| Kind                            | Means                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `missing-canonical-instruction` | There is no `AGENTS.md`.                                                 |
+| `missing-spine-section`         | One of the five spine sections is absent.                                |
+| `misordered-spine-section`      | A spine section is written before one the order puts ahead of it.        |
+| `interrupted-instruction-spine` | A repository-specific section divides the spine instead of following it. |
+| `inexact-instruction-import`    | `CLAUDE.md` is not exactly `@AGENTS.md`.                                 |
+
+An absent `CLAUDE.md` is not a finding. A repository with no Claude surface has
+no adapter to keep honest, and inventing one would activate a harness the
+repository never declared.
+
+## Plan structure
+
+Twenty rules in five families, each identified rather than described:
+
+| Family            | Identifiers  | About                                                          |
+| ----------------- | ------------ | -------------------------------------------------------------- |
+| `PLAN-LIFECYCLE-` | `001`–`005`  | The root, the slug form, dating, and a slug in two roots.      |
+| `PLAN-DOCUMENT-`  | `001`–`003`  | The six required documents and exactly one technical shape.    |
+| `PLAN-COMPANION-` | `001`–`006`  | The `tech-docs/` set: naming, ordinals, index, and coverage.   |
+| `PLAN-CRITERION-` | `001`, `002` | Acceptance identifiers: unique in `prd.md`, referenced onward. |
+| `PLAN-DELIVERY-`  | `001`–`004`  | Numbered phases, executor labels, and archival last.           |
+
+The identifiers are frozen. A rule whose meaning changes gets a new identifier
+rather than a new definition, because more than one implementation reports
+these and a consumer compares them by equality.
+
+## Metadata
+
+Twenty-three kinds, all prefixed `metadata-`. They divide into what the front
+matter is:
+
+| Group      | Kinds                                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shape      | `metadata-frontmatter-malformed`, `metadata-frontmatter-unterminated`                                                                                        |
+| Keys       | `metadata-required-key-missing`, `metadata-unknown-key`, `metadata-duplicate-key`, `metadata-key-order`                                                      |
+| Values     | `metadata-empty-value`, `metadata-null-value`, `metadata-scalar-required`, `metadata-folded-scalar-required`                                                 |
+| Arrays     | `metadata-array-required`, `metadata-array-empty`, `metadata-array-duplicate`, `metadata-array-order`                                                        |
+| Identity   | `metadata-name-format`, `metadata-name-path-mismatch`                                                                                                        |
+| Prose      | `metadata-description-form`, `metadata-description-length`, `metadata-when-to-use-length`, `metadata-when-to-use-sentences`, `metadata-routing-not-distinct` |
+| Vocabulary | `metadata-capability-unknown`, `metadata-tier-unknown`                                                                                                       |
+
+The schema a document is held to is selected by its path, not declared in the
+document: the path already supplies every identity the schema omits.
+
+## Gates
+
+`gate run` reports no findings of its own. It reports which gate ran and
+whether it passed, and the exit code carries the verdict: `1` when a child
+reported something, `3` when a child could not be started. A child's own
+streams are never repeated.
 
 ## Not findings
 

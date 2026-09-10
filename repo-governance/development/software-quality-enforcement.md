@@ -21,6 +21,12 @@ These are enforced by tests rather than by documentation, because a documented i
 
 `#![forbid(unsafe_code)]` stays. `cargo deny check` gates advisories, licences, and duplicate sources, and a new advisory is a defect to fix rather than a rule to relax.
 
+## Prohibited Data Enforced by a Gate
+
+[Public repository data safety](../conventions/public-repository-data-safety.md) used to rest entirely on review. It now has a gate: `scripts/public-safety/` runs first on every hook surface and in CI, screening credential patterns with a scanner pinned by digest and generic private-metadata shapes with a tracked pattern set.
+
+Say what it proves and no more. It proves that no pattern it holds appeared in what it was handed, and that the scanner it used detected a credential generated moments earlier without reproducing it. It does not prove that a value is safe to publish: which values are _deliberately_ public is judgement, and the review that convention requires is not replaced.
+
 ## No Superficial Satisfaction
 
 Never make a check pass by weakening it. Deleting an assertion, widening an exclusion, marking a test ignored, catching an error to reach a return, or asserting something the code cannot fail are all the same move, and all of them leave the repository reporting a guarantee it no longer has.
