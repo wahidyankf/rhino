@@ -18,8 +18,8 @@ Feature: Markdown file-naming validation
   Scenario Outline: A kebab-case surface refuses a name written any other way
     Given the repository declares the kebab-case naming surface "rules/**/*.md"
     And the repository contains:
-      | path       | content |
-      | <path>     | # Entry |
+      | path   | content |
+      | <path> | # Entry |
     When I run the "naming" validator
     Then the only violation starts with "<path>"
     And all violations are "is not named in the declared kebab-case style"
@@ -34,10 +34,10 @@ Feature: Markdown file-naming validation
   Scenario: A path-prefixed name encodes the directory it sits in
     Given the repository declares the path-prefixed naming surface "vault/**/*.md" separated by "__"
     And the repository contains:
-      | path                                                            | content    |
-      | vault/docs/tutorials/do-tu__getting-started.md                  | # Tutorial |
-      | vault/people/pe__ada-lovelace.md                                | # Profile  |
-      | vault/jobs/hijra-bank/events/training/jo-hiba-ev-tr__workshop.md | # Event   |
+      | path                                                               | content    |
+      | vault/docs/tutorials/do-tu__getting-started.md                     | # Tutorial |
+      | vault/people/pe__ada-lovelace.md                                   | # Profile  |
+      | vault/jobs/north-branch/events/training/jo-nobr-ev-tr__workshop.md | # Event    |
     When I run the "naming" validator
     Then the exit code is 0
     And 3 files were inspected
@@ -45,7 +45,7 @@ Feature: Markdown file-naming validation
   Scenario: A path-prefixed name whose prefix does not encode its directory is refused
     Given the repository declares the path-prefixed naming surface "vault/**/*.md" separated by "__"
     And the repository contains:
-      | path                                   | content    |
+      | path                                    | content    |
       | vault/docs/tutorials/getting-started.md | # Tutorial |
     When I run the "naming" validator
     Then the only violation starts with "vault/docs/tutorials/getting-started.md"
@@ -61,17 +61,17 @@ Feature: Markdown file-naming validation
     And 1 files were inspected
 
     Examples:
-      | path                                       |
-      | vault/f-sharp/f_sh__records.md             |
-      | vault/2025-syariah-banking/20syba__notes.md |
-      | vault/level-1-beginner/le1_be__intro.md    |
-      | vault/bod-x-pe-meeting/box_peme__agenda.md |
+      | path                                      |
+      | vault/f-sharp/f_sh__records.md            |
+      | vault/2025-annual-review/20anre__notes.md |
+      | vault/level-1-beginner/le1_be__intro.md   |
+      | vault/red-x-of-green/rex_ofgr__agenda.md  |
 
   Scenario: A file at the surface root has no directory to encode
     Given the repository declares the path-prefixed naming surface "vault/**/*.md" separated by "__"
     And the repository contains:
-      | path            | content |
-      | vault/index.md  | # Index |
+      | path           | content |
+      | vault/index.md | # Index |
     When I run the "naming" validator
     Then the exit code is 0
     And 1 files were inspected
