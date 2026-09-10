@@ -1,9 +1,17 @@
 # Command line
 
-Thirteen commands. Every one reads `repo-config.yml` from the repository root
+Nineteen commands. Every one reads `repo-config.yml` from the repository root
 except `version`, which reports the build.
 
-Five of them — `md naming`, `md frontmatter`, `md heading-hierarchy`,
+Two schemas answer that read. `rhino/repo-config/v1` is declared in a leading
+comment and serves the twelve commands that shipped before `v0.3.0`;
+`ose/repo-config/v2` is declared in a leading `schema:` key and serves the six
+this release adds. A command reaches for exactly one of them and refuses by name
+when handed the other, so a repository on either schema is told which commands
+it can run rather than getting a default nobody declared. See
+[configuration](./configuration.md).
+
+Five of the v1 commands — `md naming`, `md frontmatter`, `md heading-hierarchy`,
 `md readme-index`, and `convention emoji` — read a section that is **optional**.
 A repository that has not declared the section gets exit `2` naming it, never a
 convention RHINO chose on its behalf.
@@ -16,11 +24,17 @@ Every value it enforces is declared in the repository's repo-config.yml.
 
 Commands:
   rhino repo-config validate                  Check that repo-config.yml is complete and usable.
+  rhino gate run                              Run the gates the declared surface selects, in declaration order.
+  rhino governance roots validate             Check the governance layers, their categories, and that each holds something.
+  rhino governance companions validate        Check each companion directory's name, index, and ordinals.
+  rhino governance instructions validate      Check the canonical instruction spine and the exact import beside it.
+  rhino plan validate                         Check plan lifecycle, documents, companions, criteria, and delivery order.
   rhino governance word-budget validate       Check every declared surface against its declared word budget.
   rhino governance directory-map validate     Check that every mapped tree's READMEs list their siblings.
   rhino harness parity validate               Reconcile the canon against every declared coding harness.
   rhino md frontmatter validate               Check every declared surface's front matter against its declared schema.
   rhino md heading-hierarchy validate         Check every declared surface's heading structure.
+  rhino metadata validate                     Check every declared surface against its path-selected metadata schema.
   rhino md internal-link validate             Check that every local Markdown link resolves inside the repository.
   rhino md mermaid validate                   Check Mermaid diagrams for label length and colour contrast.
   rhino md naming validate                    Check every declared surface's filenames against its declared style.
@@ -38,17 +52,20 @@ Options:
                          Repeatable; `-` reads standard input.
   --directory <path>     Inspect this directory instead of the declared trees.
   --harness <name>       Reconcile this harness instead of the whole roster.
+  --surface <name>       Which surface is dispatching: commit-msg, pre-commit,
+                         pre-push, or ci. Arguments after `--` reach every child.
   --json                 Shorthand for --output json.
 
 Exit codes:
   0  checked and clean
   1  the repository violates its declared policy
   2  the invocation, root, or configuration was unusable
+  3  a gate child could not be started
 ```
 
 `--help` works at every level of the path, and the help you get is scoped to
 the path you asked for: `rhino md --help` lists the seven Markdown commands and
-the options those commands accept, not all thirteen and not every option.
+the options those commands accept, not all nineteen and not every option.
 
 ## Commands
 
@@ -62,6 +79,131 @@ else exits `2`.
 $ rhino repo-config validate
 [repo-config] checked 1 configuration file, no findings
 ```
+
+### `rhino gate run`
+
+Runs the gates the declared surface selects, in the order `gates` declares them,
+and stops at the first failure. Each child is started directly — no shell — with
+`OSE_GATE_SURFACE` set to the surface that selected it and anything after `--`
+appended to its own argument vector. Reads `ose/repo-config/v2`. Requires
+`--surface`.
+
+```console
+$ rhino gate run --surface pre-commit
+[gate] hygiene passed
+```
+
+A child that ran and reported something exits `1`:
+
+```console
+$ rhino gate run --surface pre-commit
+[gate] hygiene failed
+[gate] hygiene reported a finding at pre-commit
+```
+
+A child that never started exits `3`, because a gate that did not run says
+nothing about the repository and reporting that as a finding would let a broken
+hook read as a caught violation:
+
+```console
+$ rhino gate run --surface pre-commit
+[gate] hygiene could not run
+rhino: gate `hygiene`: `./gates/hygiene.sh` could not be started: No such file or directory (os error 2)
+```
+
+Only the gate identifier and a sanitized status are printed. A child's own
+streams are never repeated: a gate exists to look at content that may not be
+publishable, and a runner that echoed what it found would publish it on the way
+to saying it should not be.
+
+### `rhino governance roots validate`
+
+Checks that every directory under `repo-governance/` is a canonical layer or a
+category the repository declared under `governance.local-categories`, and that
+no governed directory is empty. Reads `ose/repo-config/v2`. Finding kinds:
+`unknown-governance-layer`, `undeclared-governance-category`,
+`unused-local-category`, `empty-governed-directory`.
+
+```console
+$ rhino governance roots validate
+[governance-roots] checked 2 directories, no findings
+```
+
+### `rhino governance companions validate`
+
+Checks each companion set: a suffix-free directory named after the document it
+carries, an index in that document linking every companion, no live sibling the
+index omits, and contiguous ordinals when the set is ordered. Reads
+`ose/repo-config/v2`. Finding kinds: `suffixed-companion-directory`,
+`missing-companion-index`, `missing-indexed-companion`,
+`unindexed-companion-module`, `non-contiguous-companion-ordinals`,
+`ordinal-in-unordered-set`, `unordered-module-in-ordered-set`.
+
+```console
+$ rhino governance companions validate
+[governance-companions] checked 0 companion sets, no findings
+```
+
+### `rhino governance instructions validate`
+
+Checks that `AGENTS.md` opens with the five spine sections in one order and that
+`CLAUDE.md`, if it exists, is exactly `@AGENTS.md`. An absent `CLAUDE.md` is
+legal: a repository with no Claude surface has no adapter to keep honest. Reads
+`ose/repo-config/v2`. Finding kinds: `missing-canonical-instruction`,
+`missing-spine-section`, `misordered-spine-section`,
+`interrupted-instruction-spine`, `inexact-instruction-import`.
+
+```console
+$ rhino governance instructions validate
+[governance-instructions] checked 2 instructions, no findings
+```
+
+### `rhino plan validate`
+
+Checks the shape of every plan under `plans/`: the lifecycle root and slug form,
+the six required documents, exactly one technical shape, companion ordinals,
+acceptance identifiers declared in `prd.md` and referenced by `delivery.md`, and
+the delivery order. `plans/done/` and `plans/ideas/` are held to their lifecycle
+form and nothing else. Reads `ose/repo-config/v2`. Twenty rule identifiers, in
+five families: `PLAN-LIFECYCLE-001` to `-005`, `PLAN-DOCUMENT-001` to `-003`,
+`PLAN-COMPANION-001` to `-006`, `PLAN-CRITERION-001` and `-002`, and
+`PLAN-DELIVERY-001` to `-004`. The identifiers are frozen in a contract more
+than one implementation validates against, so a rule whose meaning changes gets
+a new identifier rather than a new definition.
+
+Structure only. Whether the writing is clear or the approach is sound is not
+visible in the shape, and a rule that guessed at it would be enforced
+confidently in cases nobody considered.
+
+```console
+$ rhino plan validate
+[plan] checked 1 plan, no findings
+```
+
+### `rhino metadata validate`
+
+Checks each declared surface's front matter against the schema its path selects:
+`governance`, `workflow`, `skill`, or `agent`. Reads `metadata` in
+`rhino/repo-config/v1`. Twenty-three finding kinds, all prefixed `metadata-`;
+[findings](./findings.md) lists them.
+
+```console
+$ rhino metadata validate
+[metadata] checked 1 file, no findings
+[metadata] scanned repo-governance/conventions/file-naming.md
+```
+
+```console
+$ rhino metadata validate
+[metadata] checked 1 file, 1 finding
+[metadata] scanned repo-governance/conventions/file-naming.md
+[metadata] repo-governance/conventions/file-naming.md:3:1 metadata-unknown-key name is not a key this artifact's schema declares; the path already supplies every identity the schema omits
+```
+
+That `path:line:column kind field message` line is the structural diagnostic
+format, and it is deliberately not the format the validators that shipped before
+`v0.3.0` use: a consumer's stored output may not change because a new command
+arrived.
 
 ### `rhino governance word-budget validate`
 
@@ -267,6 +409,7 @@ revision it is.
 | `--file <path>`         | `md mermaid validate`, `md word-count inspect` | Inspect these paths instead of the declared surface. Repeatable; `-` reads standard input. |
 | `--directory <path>`    | `governance directory-map validate`            | Inspect this directory instead of the declared trees.                                      |
 | `--harness <name>`      | `harness parity validate`                      | Reconcile this harness instead of the whole roster.                                        |
+| `--surface <name>`      | `gate run`                                     | Which surface is dispatching: `commit-msg`, `pre-commit`, `pre-push`, or `ci`. Required.   |
 | `--json`                | `version`                                      | Shorthand for `--output json`.                                                             |
 
 Two things about this table are worth stating plainly.
@@ -286,6 +429,10 @@ rhino: `--json` is not accepted by `governance word-budget validate`
 
 `--root` may appear before or after the command path. It may not leave the
 repository: a path containing `..` is refused.
+
+**`--` belongs to `gate run` alone.** Everything after it is appended to every
+child's own argument vector, which is how a hook forwards the arguments Git gave
+it. Nothing is interpreted by a shell on the way.
 
 ## Related
 
