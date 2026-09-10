@@ -7,7 +7,7 @@
 #![forbid(unsafe_code)]
 
 use rhino::Outcome;
-use rhino::runtime::DiskTree;
+use rhino::runtime::{DiskTree, ProcessLauncher};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -22,7 +22,7 @@ fn main() -> ExitCode {
             // Standard input is read only when a leaf was asked for it, so an
             // ordinary run never blocks on a terminal.
             let stdin = wants_stdin(&arguments).then(read_stdin);
-            rhino::execute_with(&tree, &arguments, stdin.as_deref())
+            rhino::execute_using(&tree, &arguments, stdin.as_deref(), &ProcessLauncher)
         }
         Err(reason) => Outcome::refused(format!("rhino: {reason}\n")),
     };
@@ -36,7 +36,15 @@ fn main() -> ExitCode {
     ExitCode::from(outcome.exit_code)
 }
 
+/// Whether this invocation reads the real standard input.
+///
+/// A `--file -` selection asks for it, and so does every gate dispatch: a hook
+/// forwards Git's own stream to its children, and a runner that read nothing
+/// would hand each child an empty one.
 fn wants_stdin(arguments: &[String]) -> bool {
+    if arguments.first().is_some_and(|first| first == "gate") {
+        return true;
+    }
     arguments
         .windows(2)
         .any(|pair| pair[0] == "--file" && pair[1] == "-")

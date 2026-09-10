@@ -13,6 +13,8 @@
 //! section* are refused, because there a typo is a policy that silently does
 //! nothing.
 
+pub mod v2;
+
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -638,14 +640,31 @@ pub struct Scan {
     pub exclude_directories: Vec<String>,
 }
 
+/// What a repository declared, whichever schema it wrote it in.
+///
+/// An enum rather than one widened struct, because the two schemas answer
+/// different questions. A v1 document says how to check a tree; a v2 document
+/// says how a repository is governed and what its gates are. Folding them
+/// together would give every validator a section that is legal to be absent for
+/// a reason it has no way to tell from an omission.
+pub enum Document {
+    V1(Box<Config>),
+    V2(Box<v2::Document>),
+}
+
 /// Parse and validate configuration text.
 ///
 /// Split from any filesystem read so the whole contract is exercisable from a
 /// string, which is what lets the behaviour corpus assert on positions and
 /// messages rather than only on exit codes.
-pub fn parse(text: &str) -> Result<Config, ConfigError> {
-    declared_schema(text)?;
+pub fn parse(text: &str) -> Result<Document, ConfigError> {
+    match declared_schema(text)? {
+        Schema::V1 => parse_v1(text).map(|config| Document::V1(Box::new(config))),
+        Schema::V2 => v2::parse(text).map(|document| Document::V2(Box::new(document))),
+    }
+}
 
+fn parse_v1(text: &str) -> Result<Config, ConfigError> {
     let config: Config = yaml_serde::from_str(text).map_err(|error| {
         // The parser reports `section.key: reason at line L column C`, which is
         // already the shape a maintainer needs. Passing it through keeps one
@@ -663,31 +682,59 @@ pub fn parse(text: &str) -> Result<Config, ConfigError> {
     Ok(config)
 }
 
-/// The schema is declared in a leading comment rather than a key, matching the
-/// consumer that already carries this file.
-fn declared_schema(text: &str) -> Result<(), ConfigError> {
+/// Which schema a document is written in.
+enum Schema {
+    V1,
+    V2,
+}
+
+/// Decide which schema a document declares, and refuse anything else.
+///
+/// v1 declares its schema in a leading comment and v2 in a leading key, so the
+/// two are read from different places and no document can be mistaken for the
+/// other. One carrying both is refused rather than resolved by precedence: a
+/// rule that picked a winner would silently enforce half of one contract.
+fn declared_schema(text: &str) -> Result<Schema, ConfigError> {
+    let commented = commented_schema(text);
+    let keyed = v2::declares(text);
+    match (commented, keyed) {
+        (Some(_), Some(_)) => Err(ConfigError::Semantic {
+            key: "schema".to_string(),
+            line: 1,
+            reason: "declares two schemas, and a document is written in one".to_string(),
+        }),
+        (Some((declared, line)), None) => {
+            if declared == SCHEMA || declared == SCHEMA_ALIAS {
+                Ok(Schema::V1)
+            } else {
+                Err(ConfigError::SchemaUnrecognized { declared, line })
+            }
+        }
+        (None, Some(declared)) => {
+            if declared == v2::SCHEMA {
+                Ok(Schema::V2)
+            } else {
+                Err(ConfigError::SchemaUnrecognized { declared, line: 1 })
+            }
+        }
+        (None, None) => Err(ConfigError::SchemaUndeclared),
+    }
+}
+
+/// The schema a v1 document declares, in the leading comment it belongs in.
+fn commented_schema(text: &str) -> Option<(String, usize)> {
     for (index, raw) in text.lines().enumerate() {
         let line = raw.trim();
         if line.is_empty() {
             continue;
         }
-        let Some(comment) = line.strip_prefix('#') else {
-            break;
-        };
+        let comment = line.strip_prefix('#')?;
         let Some((_, declared)) = comment.split_once("schema:") else {
             continue;
         };
-        let declared = declared.trim();
-        return if declared == SCHEMA || declared == SCHEMA_ALIAS {
-            Ok(())
-        } else {
-            Err(ConfigError::SchemaUnrecognized {
-                declared: declared.to_string(),
-                line: index + 1,
-            })
-        };
+        return Some((declared.trim().to_string(), index + 1));
     }
-    Err(ConfigError::SchemaUndeclared)
+    None
 }
 
 /// The rules a well-typed document can still break.
@@ -1001,11 +1048,22 @@ fn escapes_root(value: &str) -> Option<&'static str> {
 /// unmapped tier means "inherit the harness default", so a half-mapped one has
 /// no honest reading at all.
 fn check_model_tiers(config: &Config, text: &str) -> Result<(), ConfigError> {
-    const KEY: &str = "model-tiers";
     let Some(harnesses) = &config.model_tiers else {
         return Ok(());
     };
-    let line = line_of(text, KEY);
+    check_tier_map(harnesses, line_of(text, "model-tiers"))
+}
+
+/// The tier map's whole contract, held wherever the section is declared.
+///
+/// Shared by both schemas rather than reimplemented beside the second one: a
+/// tier map that meant something different depending on which schema carried it
+/// would give a generator two answers to the same question.
+pub(crate) fn check_tier_map(
+    harnesses: &BTreeMap<String, BTreeMap<String, Option<TierMapping>>>,
+    line: usize,
+) -> Result<(), ConfigError> {
+    const KEY: &str = "model-tiers";
     let refuse = |reason: String| {
         Err(ConfigError::Semantic {
             key: KEY.to_string(),
@@ -1070,7 +1128,7 @@ fn check_model_tiers(config: &Config, text: &str) -> Result<(), ConfigError> {
 }
 
 /// A closed set, written the way a sentence would read it.
-fn listed(values: &[&str]) -> String {
+pub(crate) fn listed(values: &[&str]) -> String {
     let quoted: Vec<String> = values.iter().map(|value| format!("`{value}`")).collect();
     match quoted.split_last() {
         None => String::new(),

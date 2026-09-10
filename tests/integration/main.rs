@@ -21,6 +21,9 @@ mod gherkin;
 #[path = "../support/harness.rs"]
 mod harness;
 #[allow(dead_code)]
+#[path = "../support/launcher.rs"]
+mod launcher;
+#[allow(dead_code)]
 #[path = "../support/mermaid.rs"]
 mod mermaid;
 #[allow(dead_code)]

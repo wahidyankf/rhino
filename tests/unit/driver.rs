@@ -6,6 +6,7 @@
 //! in-memory tree is the port's other implementation, not a mock of it.
 
 use crate::fixtures;
+use crate::launcher::Recorder;
 use crate::world::{self, CommandResult, Driver, Observation, Repository, Run, differences};
 use rhino::runtime::{MemoryTree, Tree};
 
@@ -46,12 +47,15 @@ impl Driver for UnitDriver {
         let arguments = world::with_root(arguments, ".", "no-such-directory");
 
         let before = observe(&tree);
-        // `execute` where there is no standard input to supply, because that
-        // is the entry point a consumer calls and a seam nothing exercised
-        // would be a seam nothing keeps working.
-        let outcome = match repository.stdin {
-            None => rhino::execute(&tree, &arguments),
-            Some(_) => rhino::execute_with(&tree, &arguments, repository.stdin),
+        // `execute` where there is nothing to supply, because that is the entry
+        // point a consumer calls and a seam nothing exercised would be a seam
+        // nothing keeps working. A declared gate child is what makes the widest
+        // entry point necessary, so it is used only when there is one.
+        let recorder = Recorder::new(repository, ".");
+        let outcome = match (repository.stdin, repository.gate_outcomes.is_empty()) {
+            (None, true) => rhino::execute(&tree, &arguments),
+            (_, true) => rhino::execute_with(&tree, &arguments, repository.stdin),
+            (_, false) => rhino::execute_using(&tree, &arguments, repository.stdin, &recorder),
         };
         let after = observe(&tree);
 
@@ -62,10 +66,7 @@ impl Driver for UnitDriver {
                 stderr: outcome.stderr,
             },
             mutations: differences(&before, &after),
-            // No child has been dispatched by anything yet, so there is
-            // nothing for a gate assertion to read. Filled once the runner
-            // exists and this adapter can supply its children.
-            journal: Vec::new(),
+            journal: recorder.journal(),
         }
     }
 }

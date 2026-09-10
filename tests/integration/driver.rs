@@ -5,6 +5,7 @@
 //! on disk shows up -- path resolution, directory walking, link skipping -- none
 //! of which the in-memory tree can be wrong about.
 
+use crate::launcher::Recorder;
 use crate::sandbox::{self, Sandbox};
 use crate::world::{self, CommandResult, Driver, Repository, Run, differences};
 use rhino::runtime::DiskTree;
@@ -25,7 +26,12 @@ impl Driver for IntegrationDriver {
         let arguments = world::with_root(arguments, &root, &format!("{root}/no-such-directory"));
 
         let before = sandbox::observe(sandbox.root());
-        let outcome = rhino::execute_with(&tree, &arguments, repository.stdin);
+        let recorder = Recorder::new(repository, &root);
+        let outcome = if repository.gate_outcomes.is_empty() {
+            rhino::execute_with(&tree, &arguments, repository.stdin)
+        } else {
+            rhino::execute_using(&tree, &arguments, repository.stdin, &recorder)
+        };
         let after = sandbox::observe(sandbox.root());
 
         Run {
@@ -35,10 +41,7 @@ impl Driver for IntegrationDriver {
                 stderr: outcome.stderr,
             },
             mutations: differences(&before, &after),
-            // No child has been dispatched by anything yet, so there is
-            // nothing for a gate assertion to read. Filled once the runner
-            // exists and this adapter can supply its children.
-            journal: Vec::new(),
+            journal: recorder.journal(),
         }
     }
 }
