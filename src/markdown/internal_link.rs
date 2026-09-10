@@ -59,7 +59,11 @@ impl Fault {
 pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
     let excluded = match scan::glob_set(
         "md-internal-link.exclude-sources",
-        &config.internal_link.exclude_sources,
+        config
+            .internal_link
+            .exclude_sources
+            .iter()
+            .map(String::as_str),
     ) {
         Ok(set) => set,
         Err(reason) => return Report::refused("internal-link", reason),

@@ -214,7 +214,10 @@ pub fn validate(tree: &dyn Tree, config: &Config, scope: &Scope) -> Report {
     // than half made.
     let prohibited = scan::glob_set(
         "harness-parity.prohibited-instruction-sources",
-        &parity.prohibited_instruction_sources,
+        parity
+            .prohibited_instruction_sources
+            .iter()
+            .map(String::as_str),
     )
     .ok();
     let wanted = readable_set(parity, prohibited.as_ref());

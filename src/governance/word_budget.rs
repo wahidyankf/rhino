@@ -33,12 +33,9 @@ pub fn count(text: &str, rule: WordRule) -> usize {
 
 pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
     let surfaces = &config.word_budget.surfaces;
-    let globs = match scan::glob_set(
+    let globs = match scan::Surfaces::compile(
         "governance-word-budget.surfaces",
-        &surfaces
-            .iter()
-            .map(|surface| surface.glob.clone())
-            .collect::<Vec<_>>(),
+        surfaces.iter().map(|surface| surface.glob.as_str()),
     ) {
         Ok(globs) => globs,
         Err(reason) => return Report::refused("word-budget", reason),
@@ -51,13 +48,8 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
     let mut report = Report::new("word-budget", "file");
 
     for document in corpus.documents() {
-        // Last match wins. Where two surfaces cover one file, the later
-        // declaration is the more specific intent -- that is how a repository
-        // says "this tree, except that one file".
         let Some(surface) = globs
-            .matches(&document.path)
-            .into_iter()
-            .max()
+            .governing(&document.path)
             .and_then(|index| surfaces.get(index))
         else {
             continue;
