@@ -4,7 +4,7 @@ Use this only after an explicit direction to execute one formal plan. Its job is
 
 ## Start
 
-1. Select one plan in `backlogs/` or `in-progress/`. Require a current `PASS` from a [plan quality gate](plan-quality-gate.md) run the user explicitly directed. Authority to execute is not authority to run that gate: with no current `PASS`, stop and say so.
+1. Select one plan in `backlog/` or `in-progress/`. Require a current `PASS` from a [plan quality gate](plan-quality-gate.md) run the user explicitly directed. Authority to execute is not authority to run that gate: with no current `PASS`, stop and say so.
 2. Enter the plan's worktree before any file or Git mutation, initializing it if new, under [the integration path](../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass its sync gate there, and read the whole incoming diff against the plan when the sync adds commits.
 3. If the plan is queued, move it to `plans/in-progress/<slug>/` with its status and both stage maps, in one change. Never copy it.
 4. Read `learnings.md` before touching anything. Mirror every unchecked executable delivery item into the [task list](../conventions/task-tracking.md), preserving wording, owner label, order, and references. Leave dormant recovery items dormant.

@@ -1,50 +1,37 @@
-# Plan Lifecycle
+# Plan Lifecycle — Local Rules
 
-A plan is a working record for proposed or delivered work. It lives in exactly one stage under [`plans/`](../../plans/README.md), and it moves through them: `ideas/`, `backlogs/`, `in-progress/`, `done/`.
+The plan contract itself is the [plans convention](plans.md) and its [modules](plans/README.md): the lifecycle folders, the six documents, the technical shape, the delivery grammar, structural validation, evidence, and archival. That document is portable on purpose and names no repository.
 
-Plans propose. [`specs/`](../../specs/README.md) is as-built truth, and execution updates every affected specification alongside the implementation under [specification maintenance](../development/specification-maintenance.md).
+This file holds the part that is RHINO's, and would not be true of another repository. Where the two touch the same subject, the convention is the rule and this file adds to it; it never contradicts it.
+
+## A Plan Proposes; `specs/` Records
+
+[`specs/`](../../specs/README.md) is the as-built description of the binary this repository builds. Where a plan and a specification disagree the specification is right, and execution updates every affected specification alongside the implementation under [specification maintenance](../development/specification-maintenance.md).
 
 ## Authorization
 
-Writing a plan into this repository requires an explicit user request. Designing an approach in conversation, or in a harness planning mode, authorizes neither the folder nor the commit. See [commit authorization](commit-authorization.md).
+Writing a plan into this repository requires an explicit user request. Designing an approach in conversation, or in a harness planning mode, authorizes neither the folder nor the commit that would carry it. See [commit authorization](commit-authorization.md).
 
 ## Scope
 
-This repository plans only work it can deliver alone. Work that spans repositories is planned where it is coordinated and arrives here as its own change with its own evidence — [rules propagation](../workflows/rules-propagation.md) explains why a rule, or a plan, that crosses a boundary must be decided again on the other side.
+This repository plans only work it can deliver alone. Work that spans repositories is planned where it is coordinated and arrives here as its own change with its own evidence — [rules propagation](../workflows/rules-propagation.md) gives the reason: something that crosses a boundary is decided again on the other side, or it arrives without the argument that justified it.
 
-## Ideas
+## Ideas Are Filed by Quadrant
 
-Store a rough two-pager at `plans/ideas/<quadrant>/<slug>.md`, choosing q1–q4 from dated evidence of urgency and importance. Search first and consolidate overlap. Exclude file-level design, Gherkin, and delivery checklists; those belong to a formal plan.
+A rough two-pager lives at `plans/ideas/<quadrant>/<slug>.md`, with q1 to q4 chosen from dated evidence of urgency and importance rather than from impression. Search the quadrants first and consolidate overlap.
 
-## Formal Plans
+The convention leaves the internal shape of the idea folder to the repository. This is the shape RHINO chose, and it is the one place the two differ.
 
-Use `plans/backlogs/<slug>/` when queued, `plans/in-progress/<slug>/` when active, and `plans/done/YYYY-MM-DD__<slug>/` when complete, all kebab-case. Every folder contains:
+## Delivery Items That Ship Code
 
-- `README.md` — status, context, scope, approach, dependencies, navigation;
-- `brd.md` — goal, roles, outcomes, non-goals, risks;
-- `prd.md` — personas, stories, Gherkin acceptance criteria, scope, risks;
-- `delivery.md` — ordered tasks, ownership, proof, checkpoints;
-- `learnings.md` — approach and transient observations; and
-- exactly one technical shape.
+A checkbox that ships code states its [red-green-refactor](../workflows/red-green-refactor.md) cycle as three checkboxes — RED, GREEN, REFACTOR — each naming the test path, the command, and the failure or pass expected. Never one checkbox, and never prose.
 
-That shape is a single `tech-docs.md`, or `tech-docs/README.md` with mapped companions. Keep one document while it stays coherent; split when distinct responsibilities each deserve their own reading order; collapse a fragment with no distinct job. Never keep both shapes, and never pre-create an empty companion. Length is a review signal, never a requirement. Follow [minimal sufficiency](../principles/minimal-sufficiency.md).
+That is stricter than the convention requires, and it is stricter because this repository is the one that implements the validators the convention is checked with. A cycle recorded as a single item cannot show that the test failed first, which is the only part of it worth recording.
 
-Split companions carry a three-digit reading-order prefix such as `001-config-schema.md`, with `README.md` first. Renumber on insertion and order every map by number. The width matches the sibling repositories, which number the ordered modules of a split governed document the same way; one workspace-wide width means a reader never has to remember which tree they are in.
+## Rule Changes Found During Execution
 
-Plans carry no word limit, but they obey [directory maps](directory-maps.md), [Mermaid](markdown-visualizations.md), and [data safety](public-repository-data-safety.md). Write for a junior. Name every affected path exactly, labelled `[E]` edited, `[N]` new, `[M]` moved, or `[D]` deleted; a directory or a glob is not a path.
+Where execution may change a repository rule, `delivery.md` carries an `[AI]` task applying [rules propagation](../workflows/rules-propagation.md) and recording its terminal result, which may be `PASS_NO_CHANGE`.
 
-PRD Gherkin accepts the plan rather than the corpus. Which of it becomes a durable scenario is decided under [plan specification changes](plan-specification-changes.md).
+## Which Gherkin Becomes Durable
 
-## Delivery Ownership
-
-Every executable checkbox carries its acceptance labels and one owner: `[AI]` for work inside available authority and tools, `[HUMAN]` only for a decision, credential, physical action, or external authority no agent has. Prefer `[AI]`; never use `[HUMAN]` to defer a settled decision or postpone discovery. Split a mixed task. Each task names its input, action, outcome, and proof. End every phase with a blocking checkpoint.
-
-A checkbox that ships code expresses its [red-green-refactor](../workflows/red-green-refactor.md) cycle as three separate RED, GREEN, and REFACTOR checkboxes, each naming the exact test path, the command, and the expected failure or pass. Never combine the cycle into one checkbox or into prose.
-
-Give every recovery task an explicit trigger and leave it dormant until it fires; at reconciliation it receives a dated, evidenced `Not triggered` disposition rather than a checkmark.
-
-When execution may change a repository rule, `delivery.md` carries an `[AI]` task applying [rules propagation](../workflows/rules-propagation.md) and recording its terminal result, which may be `PASS_NO_CHANGE`.
-
-## Transitions
-
-Move a folder, never copy it; update status and both stage indexes in the same change. Refuse an existing dated destination outright. Archive only after acceptance, verification, learnings, and conditional items are reconciled, then run the repository gate. [Plan execution](../workflows/plan-execution.md) owns the procedure.
+The Gherkin in `prd.md` accepts the plan, not the corpus. Which of it becomes a scenario under `specs/behaviours/` is decided under [plan specification changes](plan-specification-changes.md), and a plan that adds none says so rather than leaving the question open.
