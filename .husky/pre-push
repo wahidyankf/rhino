@@ -2,14 +2,17 @@
 # finding and let the push through -- the failure mode a gate cannot have.
 set -e
 
-# Public safety runs first, and this is the surface that matters: nothing has
-# left the machine yet. The whole tracked tree is screened, then the branch name
-# that is about to appear on a hosted service.
-./scripts/public-safety/public-safety.sh --surface baseline
-./scripts/public-safety/public-safety.sh --surface ref --text "$(git rev-parse --abbrev-ref HEAD)"
-
-# The quick gate is real compute, so it runs under the pinned HIPPO guard the
-# same way every other heavy task in this maintainer's repositories does.
-# HIPPO cannot guard HIPPO; RHINO has no such constraint, so it does not exempt
-# itself. Exit 75 means the host was busy: retry, never bypass.
-./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick
+# The last local moment before anything reaches the remote, which for a public
+# repository is the moment publication begins.
+#
+# Git supplies the ref updates on stdin and the dispatcher passes them through,
+# so the safety gate sees the refs and the commit messages this push would
+# publish. Git's own arguments are deliberately not forwarded: arguments after
+# `--` reach every gate on the surface, and nothing declared here takes a remote
+# name or a URL.
+#
+# The quick gate is the last entry on this surface and carries its own HIPPO
+# guard, because it is the one gate here that is real compute. HIPPO cannot
+# guard HIPPO; RHINO has no such constraint, so it does not exempt itself. Exit
+# 75 means the host was busy: retry, never bypass.
+exec cargo run --quiet --bin rhino -- gate run --surface pre-push

@@ -2,8 +2,10 @@
 #
 # The generic layer ships in public repositories. A literal row would be the
 # private identifier itself, committed, which is the thing the wrapper exists to
-# stop. The confidential layer that does hold literals lives in wkf-devbox and
-# is never copied here.
+# stop. The confidential layer that does hold literals lives in the maintainer's
+# private workstation repository and is never copied here. Naming that
+# repository in a public comment would be the same disclosure this case exists
+# to reject, one indirection removed.
 run() {
 	local out rc shapes="$CASE_TMP/shapes.txt"
 	printf 'nothing to see\n' >"$CASE_TMP/clean.txt"
