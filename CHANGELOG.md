@@ -9,7 +9,7 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [v0.3.0] — unreleased
+## [v0.3.0] — 2026-09-11
 
 Additive. **An existing consumer changes nothing but its pin.** The twelve
 commands that shipped before this release read `rhino/repo-config/v1` exactly as
