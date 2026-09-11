@@ -1,6 +1,8 @@
 ---
 name: plan-execution-checker
 description: Audits finished plan execution in fixed order and returns the terminal verdict that permits or blocks archival.
+model: opus
+effort: high
 tools: Read, Glob, Grep, Bash
 ---
 

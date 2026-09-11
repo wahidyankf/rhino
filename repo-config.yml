@@ -26,11 +26,19 @@ schema: ose/repo-config/v2
 # rather than last on one of them.
 visibility: public
 
-# One mapping, because one agent declares a tier. `plan` is the tier the plan
+# One mapping, because one tier is declared. `plan` is the tier the three plan
 # agents carry; the other three tiers are undeclared because no agent here
 # claims them, and a mapping for a tier nobody uses would be a promise nothing
 # tests. An agent whose tier has no mapping keeps the harness default, which is
-# the behaviour the adapter contract requires rather than a gap in this file.
+# the behaviour the adapter contract requires rather than a gap in this file --
+# `gherkin-implementation-reviewer` is that agent, and its adapter carries no
+# model and no effort.
+#
+# Only `claude` appears. Codex expresses no per-agent effort, so there is no
+# complete pair to project and the mapping does not reach it; OpenCode inherits
+# the invoking agent's model when one is omitted. Neither declares
+# `tier-fields` below, and an adapter with nowhere to put a mapping is not
+# given one.
 model-tiers:
   claude:
     plan:
@@ -97,6 +105,14 @@ harness-parity:
         format: front-matter
         route-field: body
         identity: { name: name, description: description }
+        # Where the tier mapping lands. Claude Code names these fields `model`
+        # and `effort`, so the projection is one-to-one here; the indirection
+        # exists for the harness that spells them differently. Without this
+        # key the mapping above is declared and reaches nothing, which is
+        # exactly the state this repository was in.
+        tier-fields:
+          model: model
+          effort: effort
         translations:
           - { when: always, field: tools, members: [Read] }
           - when: requires

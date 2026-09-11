@@ -1,6 +1,8 @@
 ---
 name: plan-maker
 description: Authors a complete formal plan from a request or groomed brief, runs both decision gates, and repairs its own draft within the declared budget.
+model: opus
+effort: high
 tools: Read, Glob, Grep, Write, Edit, Bash
 ---
 

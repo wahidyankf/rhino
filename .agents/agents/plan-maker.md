@@ -5,6 +5,7 @@ description: >-
   within the declared budget.
 when_to_use: >-
   Use when a formal plan is requested and no draft exists yet.
+tier: plan
 skills:
   - grill-me
   - plan-creating-project-plans
