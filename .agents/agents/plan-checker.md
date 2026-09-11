@@ -5,6 +5,7 @@ description: >-
   modifying anything.
 when_to_use: >-
   Use after a complete six-document draft, before execution begins.
+tier: plan
 skills:
   - plan-validating-quality
 mode: subagent

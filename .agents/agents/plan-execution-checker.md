@@ -4,6 +4,7 @@ description: >-
   Audits finished plan execution in fixed order and returns the terminal verdict that permits or blocks archival.
 when_to_use: >-
   Use once every substantive delivery item is terminal and archival is the next step.
+tier: plan
 skills:
   - plan-verifying-execution
 mode: subagent

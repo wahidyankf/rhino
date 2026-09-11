@@ -1,6 +1,8 @@
 ---
 name: plan-checker
 description: Audits a complete plan draft against the plan specification and returns findings with a terminal verdict, without modifying anything.
+model: opus
+effort: high
 tools: Read, Glob, Grep, Bash
 ---
 
