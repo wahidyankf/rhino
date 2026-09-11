@@ -16,7 +16,7 @@ RHINO is a generic repository-hygiene validator that [owns no repository's answe
 
 ## Testing
 
-- `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook.
+- `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook. [`repo-config.yml`](repo-config.yml) declares which gates run at which moment; `cargo xtask self-validate` dispatches the `ci` surface.
 - The 99% coverage floor and its two declared exclusions are [not negotiable](repo-governance/development/software-quality-enforcement.md).
 - Guard heavy local work with [`./hippo`](repo-governance/development/resource-aware-development.md): `75` retry, `73` clean up, `78` replan, never bypass.
 
@@ -24,8 +24,9 @@ RHINO is a generic repository-hygiene validator that [owns no repository's answe
 
 - [Understand, reuse, minimize, verify](repo-governance/principles/minimal-sufficiency.md). A new dependency carries [its own record](repo-governance/development/dependency-selection.md).
 - Keep `README.md`, `docs/`, and `CHANGELOG.md` true to the binary under [Diátaxis](repo-governance/conventions/documentation-architecture.md). Follow [code clarity](repo-governance/development/code-clarity.md), [English](repo-governance/conventions/language.md), [Mermaid](repo-governance/conventions/markdown-visualizations.md), [links](repo-governance/conventions/markdown-links.md), and [directory maps](repo-governance/conventions/directory-maps.md).
-- Track work in [granular items](repo-governance/conventions/task-tracking.md), preserve rules through [compaction](repo-governance/principles/governance-continuity.md), and [ask last](repo-governance/conventions/last-resort-questions.md).
-- Plans are working records under [`plans/`](plans/README.md), never architecture: the [plans convention](repo-governance/conventions/plans.md) and its [modules](repo-governance/conventions/plans/README.md), the [local additions](repo-governance/conventions/plan-lifecycle.md), [specification changes](repo-governance/conventions/plan-specification-changes.md), [execution](repo-governance/workflows/plan-execution.md), and a [gate](repo-governance/workflows/plan-quality-gate.md) an explicit request starts.
+- Track work in [granular items](repo-governance/conventions/task-tracking.md), preserve rules through [compaction](repo-governance/principles/governance-continuity.md), [ask last](repo-governance/conventions/last-resort-questions.md), and name files in [lowercase kebab-case](repo-governance/conventions/file-naming.md).
+- Plans are working records under [`plans/`](plans/README.md), never architecture: the [plans convention](repo-governance/conventions/plans.md) with its [modules](repo-governance/conventions/plans/README.md), the [local additions](repo-governance/conventions/plan-lifecycle.md), [specification changes](repo-governance/conventions/plan-specification-changes.md), and [the validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
+- Seven workflows cover that lifecycle, each [reachable](repo-governance/development/planning-capabilities.md) and indexed in [`workflows/`](repo-governance/workflows/README.md). The [quality gate](repo-governance/workflows/plan-quality-gate.md) needs an explicit request; the [execution check](repo-governance/workflows/plan-execution-check.md) blocks archival.
 
 ## Version Control
 
