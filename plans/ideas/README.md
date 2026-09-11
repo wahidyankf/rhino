@@ -8,7 +8,7 @@ Keep each idea in one kebab-case Markdown file under the quadrant its evidence s
 
 In order: an H1 title with a one-line summary and a dated provenance note; the problem and its evidence; why now; prior art with direct links and access dates; the proposed direction as a sketch; rough scope and non-goals; risks and open questions; and what success looks like with the signal that would promote it.
 
-Keep file-level design, Gherkin, and delivery checklists out. A brief that already contains them is a plan that skipped its own review. When the important unknowns are resolved, replace the brief with a formal plan folder under [`../backlogs/`](../backlogs/README.md), carrying its evidence and decisions forward.
+Keep file-level design, Gherkin, and delivery checklists out. A brief that already contains them is a plan that skipped its own review. When the important unknowns are resolved, replace the brief with a formal plan folder under [`../backlog/`](../backlog/README.md), carrying its evidence and decisions forward.
 
 ## Quadrants
 

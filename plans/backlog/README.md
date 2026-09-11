@@ -1,4 +1,4 @@
-# Backlogs
+# Backlog
 
 This stage holds complete plans that are ready to start and are not being executed. Each lives in one kebab-case folder with no date prefix; the date is added at completion, not at creation.
 
@@ -8,7 +8,7 @@ A plan here is finished as a document even though no code has moved. It explains
 
 `README.md`, `brd.md`, `prd.md`, `delivery.md`, `learnings.md`, and exactly one technical shape: a coherent `tech-docs.md`, or `tech-docs/README.md` with mapped companions when distinct responsibilities each deserve their own reading order. Never both shapes, and never a pre-created empty companion. An `evidence/` folder is added only when delivery actually produces committed evidence.
 
-The full contract is in [plan lifecycle](../../repo-governance/conventions/plan-lifecycle.md).
+The full contract is the [plans convention](../../repo-governance/conventions/plans.md) and its [modules](../../repo-governance/conventions/plans/README.md).
 
 ## Starting One
 
