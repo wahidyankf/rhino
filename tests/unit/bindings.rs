@@ -1865,6 +1865,26 @@ pub const BINDINGS: &[Binding] = &[
         "plan-structure",
         "A human executor label is one of the two permitted values",
     ),
+    (
+        "plan-structure",
+        "A checkbox item with a code-formatted label and an indented note is conforming",
+    ),
+    (
+        "plan-structure",
+        "A checkbox item carrying no executor label is a finding",
+    ),
+    (
+        "plan-structure",
+        "A code-formatted executor label outside the two permitted values is a finding",
+    ),
+    (
+        "plan-structure",
+        "Structural sections around the phases are not phases",
+    ),
+    (
+        "plan-structure",
+        "A document link inside a phase is not a checklist item",
+    ),
     ("plan-structure", "Suppression never crosses families"),
     (
         "plan-structure",

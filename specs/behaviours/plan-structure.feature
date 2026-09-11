@@ -311,6 +311,115 @@ Feature: Plan structure
     Then the exit code is 0
     And there are no violations
 
+  Scenario: A checkbox item with a code-formatted label and an indented note is conforming
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And file "plans/backlog/tidy-the-corpus/delivery.md" contains this Markdown:
+      """
+      # Delivery
+
+      ## Phase 1: Build
+
+      - [x] `[AI]` Do the thing this phase names. `[AC-01]`
+        - **Date**: 2026-01-01 · **Result**: the nested note is not an item.
+      - [ ] `[HUMAN]` Decide the other thing.
+
+      ## Plan Archival
+
+      - [AI] Move the plan folder to the done root.
+      """
+    When I run the "plan" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A checkbox item carrying no executor label is a finding
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And file "plans/backlog/tidy-the-corpus/delivery.md" contains this Markdown:
+      """
+      # Delivery
+
+      ## Phase 1: Build
+
+      - [ ] Do the thing this phase names. `[AC-01]`
+
+      ## Plan Archival
+
+      - [AI] Move the plan folder to the done root.
+      """
+    When I run the "plan" validator
+    Then the only violation starts with "plans/backlog/tidy-the-corpus/delivery.md:5:1 PLAN-DELIVERY-001 -"
+
+  Scenario: A code-formatted executor label outside the two permitted values is a finding
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And file "plans/backlog/tidy-the-corpus/delivery.md" contains this Markdown:
+      """
+      # Delivery
+
+      ## Phase 1: Build
+
+      - [x] `[ROBOT]` Do the thing this phase names. `[AC-01]`
+
+      ## Plan Archival
+
+      - [AI] Move the plan folder to the done root.
+      """
+    When I run the "plan" validator
+    Then the only violation starts with "plans/backlog/tidy-the-corpus/delivery.md:5:1 PLAN-DELIVERY-002 ROBOT"
+
+  Scenario: Structural sections around the phases are not phases
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And file "plans/backlog/tidy-the-corpus/delivery.md" contains this Markdown:
+      """
+      # Delivery
+
+      ## Execution Checkout
+
+      The fixture repository root, on its default branch.
+
+      ## Delivery Boundaries
+
+      - one unit, ending at Phase 1
+      - `[AI]` names the executor of an item below, and this sentence is not one
+
+      ## Phase 1: Build
+
+      - [AI] Do the thing this phase names. `[AC-01]`
+
+      ## Plan Archival
+
+      - [AI] Move the plan folder to the done root.
+
+      ## Related Documents
+
+      - [Plan Overview](README.md)
+      """
+    When I run the "plan" validator
+    Then the exit code is 0
+    And there are no violations
+
+  Scenario: A document link inside a phase is not a checklist item
+    Given the repository declares a v2 configuration
+    And the repository holds a conforming plan at "plans/backlog/tidy-the-corpus"
+    And file "plans/backlog/tidy-the-corpus/delivery.md" contains this Markdown:
+      """
+      # Delivery
+
+      ## Phase 1: Build
+
+      - [AI] Do the thing this phase names. `[AC-01]`
+      - [Plan Overview](README.md) states what this phase is for.
+
+      ## Plan Archival
+
+      - [AI] Move the plan folder to the done root.
+      """
+    When I run the "plan" validator
+    Then the exit code is 0
+    And there are no violations
+
   Scenario: Suppression never crosses families
     Given the repository declares a v2 configuration
     And the repository holds a conforming plan at "plans/backlog/Tidy_The_Corpus"
