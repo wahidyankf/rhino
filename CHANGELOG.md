@@ -18,13 +18,28 @@ that no existing consumer declares. A repository on v1 that runs one of the new
 commands gets exit `2` naming the schema it would need, never a governance
 convention RHINO chose on its behalf.
 
+Both schemas carry the validator sections. A repository declares one schema or
+the other -- v1 in a leading comment, v2 in a leading key -- so a repository that
+chose v2 for gate dispatch would otherwise have given up every command that
+reads a surface list. The sections keep the names and shapes v1 gave them and
+are read by the same code, so a rule keeps one implementation and a policy is
+written in one spelling either way. What differs is requiredness: v1 requires
+five sections and says so while parsing, v2 requires none and lets each command
+refuse for the section it needed.
+
 ### Added
 
 - **`ose/repo-config/v2`** — a second schema beside v1, not a replacement. Told
   apart by where the declaration is: v1 in a leading comment, v2 in a leading
-  `schema:` key, so no document reads as both. Six keys in a checked order:
-  `schema`, `visibility`, `governance`, `model-tiers`, `gates`, `extensions`.
-  `schema`, `visibility`, and `gates` are required.
+  `schema:` key, so no document reads as both. Eighteen keys in a checked order:
+  `schema`, `visibility`, `governance`, `model-tiers`, `scan`, `harness-parity`,
+  `metadata`, `governance-word-budget`, `governance-directory-map`,
+  `md-frontmatter`, `md-heading-hierarchy`, `md-internal-link`, `md-mermaid`,
+  `md-naming`, `md-readme-index`, `convention-emoji`, `gates`, `extensions`.
+  `schema`, `visibility`, and `gates` are required; every other key is optional
+  and is refused if declared with nothing in it. A v2 document that declares no
+  `scan` excludes nothing from its walks -- a repository's own answer rather
+  than a default RHINO supplied.
 - **`rhino gate run --surface <name>`** — runs the gates the surface selects, in
   declaration order, stopping at the first failure. Each child is started
   directly with no shell, is told which surface selected it through
@@ -56,8 +71,8 @@ convention RHINO chose on its behalf.
   Structure only: nothing here judges whether a plan is any good.
 - **`rhino metadata validate`** — front matter against the schema its path
   selects: `governance`, `workflow`, `skill`, or `agent`. Twenty-three finding
-  kinds, all prefixed `metadata-`. Reads the new optional `metadata` section in
-  `rhino/repo-config/v1`.
+  kinds, all prefixed `metadata-`. Reads the new optional `metadata` section,
+  which both schemas carry.
 - **`model-tiers`** — an optional section in both schemas, mapping a portable
   tier (`ultra`, `plan`, `execution`, `fast`) to a harness's model and effort,
   so an agent definition can name a tier rather than a vendor's model string.
