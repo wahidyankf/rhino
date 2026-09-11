@@ -9,6 +9,29 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.3.1] — unreleased
+
+### Fixed
+
+- **A `v2` flow collection left open at the end of its line is refused for
+  being open, not for what it swallowed.** The flow subset this schema
+  documents is written on one line, and the reader treated running out of text
+  as an ending just like the closing brace. It kept the part that fit, and
+  because the keys below sat at a deeper indentation than the mapping it was
+  reading, it stopped there: every remaining top-level key vanished from the
+  document. The refusal that followed named one of those keys as missing --
+  `line 1: gates: the schema requires it` on a file that declares `gates` --
+  which points at the wrong line, in the wrong section, for the wrong reason.
+  A collection that never closes is now reported where it opens, as
+  `is a flow collection that is not closed on the line it opens on`.
+
+  Found while migrating RHINO's own configuration. Formatters produce this
+  shape without being asked -- a flow mapping wider than the print width gets
+  wrapped -- so the file that triggers it can be one an author never hand-wrote.
+  No released consumer is affected: every `v2` configuration in use closes each
+  flow collection on the line that opens it, which is what this release makes
+  a checkable claim rather than an assumption.
+
 ## [v0.3.0] — 2026-09-11
 
 Additive. **An existing consumer changes nothing but its pin.** The twelve

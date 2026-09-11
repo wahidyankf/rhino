@@ -148,6 +148,12 @@ enum Value {
     List(Vec<Node>),
     /// A key written with nothing after it and nothing under it.
     Empty,
+    /// A flow collection that opened on its key's line and never closed there.
+    ///
+    /// Kept as a value rather than reported by the reader, because the reader
+    /// has no line number to report it with: the line belongs to the node that
+    /// holds the value, and that is one frame further out.
+    Unclosed,
 }
 
 impl Value {
@@ -179,7 +185,7 @@ impl Value {
             Value::Empty => true,
             Value::Mapping(entries) => entries.is_empty(),
             Value::List(items) => items.is_empty(),
-            Value::Scalar(_) => false,
+            Value::Scalar(_) | Value::Unclosed => false,
         }
     }
 }
@@ -306,16 +312,24 @@ fn key_of(text: &str) -> Option<(String, String)> {
 }
 
 /// A value written on the same line as its key: a flow collection or a scalar.
+///
+/// The flow subset this schema documents is written on one line, and this is
+/// the only place that decides what to do when it is not. A collection that
+/// runs off the end of its line is kept as the fault it is rather than as the
+/// part of itself that fit, because half a collection reads as a whole one:
+/// the keys that did not fit vanish, and so does every later key in the
+/// document, and what the reader then refuses is their absence.
 fn scalar(text: &str) -> Value {
     if text.starts_with('{') || text.starts_with('[') {
-        let (value, _) = flow(text.as_bytes(), 0);
-        return value;
+        let (value, _, closed) = flow(text.as_bytes(), 0);
+        return if closed { value } else { Value::Unclosed };
     }
     Value::Scalar(unquote(text))
 }
 
-/// Read one flow value, returning it and the index just past it.
-fn flow(bytes: &[u8], mut index: usize) -> (Value, usize) {
+/// Read one flow value: the value, the index just past it, and whether it
+/// closed before the text ran out.
+fn flow(bytes: &[u8], mut index: usize) -> (Value, usize, bool) {
     let (close, mapped) = match bytes.get(index) {
         Some(b'{') => (b'}', true),
         Some(b'[') => (b']', false),
@@ -327,13 +341,15 @@ fn flow(bytes: &[u8], mut index: usize) -> (Value, usize) {
             let text = String::from_utf8_lossy(&bytes[start..index])
                 .trim()
                 .to_string();
-            return (Value::Scalar(unquote(&text)), index);
+            // A bare scalar has nothing to close, so it is always closed.
+            return (Value::Scalar(unquote(&text)), index, true);
         }
     };
     index += 1;
 
     let mut entries: Vec<(String, Node)> = Vec::new();
     let mut items: Vec<Node> = Vec::new();
+    let mut closed = false;
     loop {
         while bytes
             .get(index)
@@ -341,12 +357,18 @@ fn flow(bytes: &[u8], mut index: usize) -> (Value, usize) {
         {
             index += 1;
         }
-        // A collection ends at its closing byte or at the end of the text.
-        // Treated as one fact rather than two, because a value written without
-        // its closing byte still ends where the text does.
-        if bytes.get(index).is_none_or(|byte| *byte == close) {
-            index += usize::from(index < bytes.len());
-            break;
+        // A collection ends at its closing byte or at the end of the text, and
+        // the two are not the same ending. The first is the collection the
+        // repository wrote; the second is as much of it as fit on the line,
+        // which the caller turns into a refusal rather than a value.
+        match bytes.get(index) {
+            None => break,
+            Some(byte) if *byte == close => {
+                index += 1;
+                closed = true;
+                break;
+            }
+            Some(_) => {}
         }
         if mapped {
             let start = index;
@@ -360,21 +382,24 @@ fn flow(bytes: &[u8], mut index: usize) -> (Value, usize) {
             while bytes.get(index) == Some(&b' ') {
                 index += 1;
             }
-            let (value, next) = flow(bytes, index);
+            let (value, next, _) = flow(bytes, index);
             index = next;
             entries.push((unquote(&key), Node { line: 0, value }));
         } else {
-            let (value, next) = flow(bytes, index);
+            let (value, next, _) = flow(bytes, index);
             index = next;
             items.push(Node { line: 0, value });
         }
     }
+    // A nested value that ran out of text left the index at the end, so this
+    // loop ends unclosed on the next pass. The fault is reported once, at the
+    // outermost collection, which is the one the key names.
     let value = if mapped {
         Value::Mapping(entries)
     } else {
         Value::List(items)
     };
-    (value, index)
+    (value, index, closed)
 }
 
 fn unquote(text: &str) -> String {
@@ -416,6 +441,14 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     let (root, _) = mapping(&lines, 0, 0);
     let entries = root.mapping().unwrap_or_default();
 
+    // Before any rule about which keys are present, because an unclosed flow
+    // collection is why they are not: the reader stops at the end of the line
+    // that opened it, and every key below is missing from what the rules see.
+    // Reported second, those rules would name a key the repository did write.
+    entries
+        .iter()
+        .try_for_each(|(key, node)| flow_values_are_closed(key, node))?;
+
     keys_are_known_and_ordered(entries, &KEYS, "is not a key this schema keeps")?;
     required_keys_are_present(entries)?;
     optional_sections_carry_something(entries)?;
@@ -445,6 +478,27 @@ fn refuse(key: &str, line: usize, reason: &str) -> ConfigError {
         key: key.to_string(),
         line,
         reason: reason.to_string(),
+    }
+}
+
+/// No value in the document is a flow collection that never closed.
+///
+/// A list item is reported under the key that names the list, because an item
+/// has no key of its own and the repository looks for the one it wrote.
+fn flow_values_are_closed(key: &str, node: &Node) -> Result<(), ConfigError> {
+    match &node.value {
+        Value::Unclosed => Err(refuse(
+            key,
+            node.line,
+            "is a flow collection that is not closed on the line it opens on",
+        )),
+        Value::Mapping(entries) => entries
+            .iter()
+            .try_for_each(|(name, child)| flow_values_are_closed(name, child)),
+        Value::List(items) => items
+            .iter()
+            .try_for_each(|item| flow_values_are_closed(key, item)),
+        _ => Ok(()),
     }
 }
 

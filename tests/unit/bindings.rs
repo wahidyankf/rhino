@@ -1289,6 +1289,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "repo-config",
+        "A flow collection that is never closed is refused rather than half-read",
+    ),
+    (
+        "repo-config",
         "An optional v2 section placed after gates is out of order",
     ),
     (
