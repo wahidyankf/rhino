@@ -144,9 +144,12 @@ format the validators above deliberately keep out of, so nothing a consumer
 already records changes shape.
 
 A repository may instead declare `ose/repo-config/v2`, which adds three
-structural commands and an ordered list of gates. The three read the shared
-governance contract rather than a section you write, and a repository still on
-`v1` is refused rather than held to a contract it never adopted:
+structural commands and an ordered list of gates. It carries the same validator
+sections `v1` does, under the same names, so choosing it costs you none of the
+commands above; what it adds is the gate registry and the four structural
+commands below. The three here read the shared governance contract rather than a
+section you write, and a repository still on `v1` is refused rather than held to
+a contract it never adopted:
 
 ```console
 $ rhino governance roots validate
