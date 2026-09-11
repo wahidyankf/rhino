@@ -419,14 +419,15 @@ gates:
     surfaces:
       - pre-push
 
-  # Ten validators. Nine of them were the `SELF_VALIDATION` array in
+  # Eleven validators. Nine of them were the `SELF_VALIDATION` array in
   # `xtask/src/main.rs`, unchanged in command, order and invocation -- what moved
   # is where the list lives, from a Rust constant nobody outside this repository
   # can read to the file every other repository declares its gates in.
   #
-  # One is new: `governance companions validate`, declared because the governance
-  # tree gains ordered companion sets, and a set nothing reads is a set that
-  # drifts.
+  # Two are new. `governance companions validate` is declared because the
+  # governance tree gains ordered companion sets, and a set nothing reads is a
+  # set that drifts. `plan validate` is declared last, and for the reason given
+  # beside it.
   #
   # `metadata validate`, `governance roots validate` and `governance instructions
   # validate` stay undeclared. Each would enforce a rule this repository has not
@@ -593,6 +594,32 @@ gates:
       - --
       - harness
       - parity
+      - validate
+    surfaces:
+      - pre-push
+      - ci
+
+  # The eleventh, and the one this adoption earned. The test applied above is
+  # whether the rule is written down here, and until this phase the plan rules
+  # were not: they lived in `src/plan/` and in a test suite. They now live in
+  # `repo-governance/conventions/plans.md`, its nine companion modules, and the
+  # validator contract beside them, so the gate enforces a local convention
+  # rather than the fact that a command happens to exist.
+  #
+  # A plan decays structurally without anyone editing it -- a phase renumbered,
+  # a criterion cited after its definition moved, an archival step interleaved
+  # ahead of a substantive one. None of that shows up in a diff of the commit
+  # that caused it.
+  - id: plan
+    kind: check
+    run:
+      - cargo
+      - run
+      - --quiet
+      - --bin
+      - rhino
+      - --
+      - plan
       - validate
     surfaces:
       - pre-push
