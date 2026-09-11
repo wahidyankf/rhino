@@ -69,6 +69,17 @@ refuse for the section it needed.
   `PLAN-CRITERION-`, `PLAN-DELIVERY-`), frozen because more than one
   implementation reports them and a consumer compares them by equality.
   Structure only: nothing here judges whether a plan is any good.
+
+  The delivery grammar is stated rather than inferred, because a reader that
+  guesses at it reports a plan's prose as a defect. A bullet is a checklist item
+  when it carries a task marker -- `- [ ]` or `- [x]` -- or when it opens with a
+  bare executor label, `- [AI] …`. The label may be code-formatted once a marker
+  has already made the bullet an item, so `- [x] \`[AI]\` …` is one; a quoted
+  label with no marker is a plan explaining its own notation and is not. A
+  bullet opening with a markdown link is never an item. A second-level heading
+  is a delivery phase only when it holds items, so `## Execution Checkout`,
+  `## Delivery Boundaries` and a trailing `## Related Documents` are read as the
+  structure they are rather than as unnumbered phases.
 - **`rhino metadata validate`** — front matter against the schema its path
   selects: `governance`, `workflow`, `skill`, or `agent`. Twenty-three finding
   kinds, all prefixed `metadata-`. Reads the new optional `metadata` section,

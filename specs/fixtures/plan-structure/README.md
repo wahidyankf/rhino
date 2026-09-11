@@ -1,6 +1,6 @@
 # Plan Structure Fixture Corpus
 
-Twenty-four synthetic cases: four a conforming validator accepts, twenty it rejects, one rule at a time.
+Twenty-six synthetic cases: six a conforming validator accepts, twenty it rejects, one rule at a time.
 
 Every case is invented. No path, name, or body is taken from a real repository.
 

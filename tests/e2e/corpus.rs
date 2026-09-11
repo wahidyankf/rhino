@@ -16,7 +16,7 @@ use std::process::{Command, Stdio};
 /// The corpus digest, pinned. Regenerating the corpus without announcing it to
 /// every implementation that pins this value is the silent drift the digest
 /// exists to make loud.
-const PINNED_DIGEST: &str = "c0b0bd7ae4ed3eecfc6768b3f5ed513b4ab85db6338d55943db05e24e1c1b576";
+const PINNED_DIGEST: &str = "57c2531f8d305a0b43c796a0b9498256ff1050fa703dd7a22820955fcfb2fe25";
 
 /// The corpus is a plan tree and nothing else. A repository declares its own
 /// configuration, so the runner writes one beside each case rather than the

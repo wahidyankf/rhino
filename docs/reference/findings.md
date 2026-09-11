@@ -231,6 +231,14 @@ The identifiers are frozen. A rule whose meaning changes gets a new identifier
 rather than a new definition, because more than one implementation reports
 these and a consumer compares them by equality.
 
+The delivery family turns on what counts as a checklist item, so the contract
+states it. A bullet is an item when it carries a task marker -- `- [ ]` or
+`- [x]` -- or when it opens with a bare executor label, `- [AI] ...`. The label
+may be code-formatted once a marker has already made the bullet an item; a
+quoted label with no marker is prose explaining the notation. A bullet opening
+with a markdown link is never an item, and a second-level heading is a delivery
+phase only when it holds items.
+
 ## Metadata
 
 Twenty-three kinds, all prefixed `metadata-`. They divide into what the front
