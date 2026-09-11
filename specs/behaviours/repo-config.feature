@@ -470,6 +470,42 @@ Feature: Repository configuration contract
     Then the exit code is 2
     And stderr contains "schema: is out of canonical key order"
 
+  Scenario: A flow collection that is never closed is refused rather than half-read
+    # A flow mapping written across several lines is outside the subset this
+    # reader accepts: a flow value is read from the line its key is on, and
+    # nothing else. It used to be read to the end of that line and accepted as
+    # whatever it had collected so far, which left the lines below it belonging
+    # to nobody -- and a line belonging to nobody ends every enclosing block, so
+    # the reader stopped there and reported every key below as absent. A
+    # required key went missing for a reason nowhere near where it was declared.
+    #
+    # Formatters produce this shape without being asked: a flow mapping wider
+    # than the print width is broken across lines automatically.
+    Given the configuration file is this text:
+      """
+      schema: ose/repo-config/v2
+      visibility: private
+      harness-parity:
+        canonical:
+          instruction: AGENTS.md
+          declaration:
+            grants: {
+              requires: yes
+            }
+      gates:
+        - id: hygiene
+          kind: check
+          run:
+            - ./gates/hygiene.sh
+          surfaces:
+            - commit-msg
+            - pre-commit
+            - pre-push
+      """
+    When I run the "repo-config" validator
+    Then the exit code is 2
+    And stderr contains "is not closed on the line it opens on"
+
   Scenario: An optional v2 section placed after gates is out of order
     Given the configuration file is this text:
       """
