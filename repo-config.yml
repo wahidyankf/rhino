@@ -103,6 +103,18 @@ harness-parity:
             capability: repository-read
             field: tools
             members: [Glob, Grep]
+          # An agent that authors plans needs to write them, and one that runs
+          # a gate needs a shell. Neither had a translation here, because no
+          # agent declared them; the first that did would have been generated
+          # without the tools its own definition grants.
+          - when: requires
+            capability: repository-write
+            field: tools
+            members: [Write, Edit]
+          - when: requires
+            capability: shell
+            field: tools
+            members: [Bash]
           - when: denies
             capability: repository-write
             field: tools
@@ -121,10 +133,22 @@ harness-parity:
         format: toml
         route-field: developer_instructions
         identity: { name: name, description: description }
-        # The sandbox is fixed rather than translated: Codex expresses the
-        # whole read-only boundary in one field, and a portable adapter may
-        # not pin a model.
-        fixed: { sandbox_mode: read-only }
+        # Codex expresses the whole boundary in one field, so the field is
+        # translated rather than pinned. It was pinned to `read-only` while
+        # every agent here was read-only; a value fixed for every agent claims
+        # read-only for one that writes. A portable adapter may still not pin
+        # a model, which `absent` keeps true.
+        translations:
+          - when: denies
+            capability: repository-write
+            field: sandbox_mode
+            members:
+              - read-only
+          - when: requires
+            capability: repository-write
+            field: sandbox_mode
+            members:
+              - workspace-write
         absent: [model]
     - name: opencode
       agent-adapter:
@@ -139,6 +163,15 @@ harness-parity:
             capability: repository-read
             field: permission
             entries: { glob: allow, grep: allow }
+          # The same gap the claude adapter had, in this vendor's syntax.
+          - when: requires
+            capability: repository-write
+            field: permission
+            entries: { edit: allow }
+          - when: requires
+            capability: shell
+            field: permission
+            entries: { bash: allow }
           - when: denies
             capability: repository-write
             field: permission
