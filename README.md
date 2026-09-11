@@ -248,9 +248,9 @@ Contributor rules for the maintainer and automated agents start at
 
 ## 🌙 Part of Open Sharia Enterprise
 
-RHINO is one of the five **OSE Code Repositories**, with `ose-public`,
-`ose-private`, `hippo`, and `beaver-nest`. It supplies their repository hygiene.
-The name is navigation, not coupling — see
+RHINO is one of the **OSE Code Repositories**, alongside `ose-public`, `hippo`,
+`beaver-nest`, and repositories that are not public. It supplies their
+repository hygiene. The name is navigation, not coupling — see
 [project context](./docs/README.md#project-context).
 
 RHINO has no OSE-specific values compiled into it and is designed to be used

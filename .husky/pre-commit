@@ -2,13 +2,6 @@
 # finding and let the commit through -- the failure mode a gate cannot have.
 set -e
 
-# Public safety runs first. The staged surface is what this commit adds --
-# content and names alike -- and it is screened before a formatter rewrites it.
-#
-# The tracked baseline is screened at pre-push and in CI rather than here. A
-# full-tree credential scan costs about twenty seconds; paid on every commit it
-# would buy nothing that is not already paid before anything leaves the machine,
-# and a gate that slow on the most frequent surface teaches people to skip it.
-./scripts/public-safety/public-safety.sh --surface diff
-
-npx lint-staged
+# The surface declares the order, and the order is the point: the safety gate
+# runs before the formatter, so a staged leak is refused rather than tidied.
+exec cargo run --quiet --bin rhino -- gate run --surface pre-commit

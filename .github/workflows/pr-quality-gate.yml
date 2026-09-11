@@ -142,10 +142,17 @@ jobs:
       - name: Quick gate
         run: cargo xtask test-quick
 
+      # The `ci` gate surface, dispatched from `repo-config.yml` -- the same
+      # registry the three Git hooks dispatch, which is the property AC-23 of
+      # this repository's governance asks for and the reason the list stopped
+      # living in `xtask`.
+      #
+      # It re-runs the public-safety screen that the job above already ran. That
+      # is deliberate and not a duplicate by accident: the job above is the
+      # fail-fast mirror that needs no Rust toolchain and reports first, and this
+      # one proves that what the declared surface actually dispatches is the
+      # screen rather than something that merely resembles it.
       - name: Self-validation
-        # Also the last step of the quick gate above, and named again here so a
-        # failing repository is legible in the job list without opening a log.
-        # Cheap to repeat: six read-only walks over an already-built binary.
         run: cargo xtask self-validate
 
   supply-chain:

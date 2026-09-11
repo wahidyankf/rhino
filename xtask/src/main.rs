@@ -20,28 +20,6 @@ use std::process::{Command, ExitCode};
 /// than a line count and the reason neither is in the denominator here.
 const EXCLUDED_FROM_COVERAGE: &str = r"src/(main\.rs|runtime/disk\.rs)";
 
-/// RHINO's own repository, checked by the binary this repository builds.
-///
-/// A second corpus that no one wrote: the tree changes constantly, nobody
-/// curates it as test data, and every page in it is something a maintainer
-/// actually wanted to say. That is the property the executable corpus cannot
-/// have, and the reason this runs on every push rather than once.
-///
-/// `repo-config validate` goes first. If the configuration is unusable every
-/// other command exits 2 for the same reason, and one clear message beats five
-/// copies of it.
-const SELF_VALIDATION: [&[&str]; 9] = [
-    &["repo-config", "validate"],
-    &["governance", "word-budget", "validate"],
-    &["governance", "directory-map", "validate"],
-    &["md", "internal-link", "validate"],
-    &["md", "mermaid", "validate"],
-    &["md", "naming", "validate"],
-    &["md", "heading-hierarchy", "validate"],
-    &["convention", "emoji", "validate"],
-    &["harness", "parity", "validate"],
-];
-
 fn main() -> ExitCode {
     let task = std::env::args().nth(1);
     let result = match task.as_deref() {
@@ -118,27 +96,48 @@ fn test_quick() -> Result<(), String> {
     // in the quick gate because an unbound scenario reports nothing, and
     // reporting nothing looks exactly like passing.
     run("cargo", &["test", "--test", "coverage"])?;
-    // Last, so a repository that is out of date cannot mask a product that is
-    // broken. The corpus proves the tool behaves as specified; this proves the
-    // repository still matches the policy it declared.
-    self_validate()
+    // The validators used to run here, last, so that a repository which is out of
+    // date could not mask a product that is broken. They still run last -- the
+    // `pre-push` surface declares this gate ahead of them in `repo-config.yml`,
+    // and the same ordering is written down there with the same reason. What
+    // changed is who owns the list.
+    Ok(())
 }
 
-/// Run every validator against this repository, with the binary it builds.
+/// Run this repository's own `ci` gate surface, with the binary it builds.
 ///
-/// A finding here fails the gate exactly as a failing test does: exit 1 means
+/// A second corpus that no one wrote: the tree changes constantly, nobody
+/// curates it as test data, and every page in it is something a maintainer
+/// actually wanted to say. That is the property the executable corpus cannot
+/// have, and the reason this runs on every push rather than once.
+///
+/// The list of commands used to live here, as a nine-entry array. It now lives
+/// in `repo-config.yml` under `gates`, where every consumer of this tool
+/// declares the same thing -- and where a reader can see the order and the
+/// surfaces without reading Rust. This task is the entry point, not the
+/// registry; it hands the question to the surface and reports the answer.
+///
+/// A finding fails the gate exactly as a failing test does: exit 1 means
 /// RHINO's own tree violates RHINO's own `repo-config.yml`, and exit 2 means the
 /// configuration or the invocation is unusable. Neither is a warning.
 fn self_validate() -> Result<(), String> {
     // Built once up front so a compile error is reported as a compile error
-    // rather than as the first validator failing to start.
+    // rather than as the first gate failing to start.
     run("cargo", &["build", "--quiet"])?;
-    for command in SELF_VALIDATION {
-        let mut args = vec!["run", "--quiet", "--bin", "rhino", "--"];
-        args.extend_from_slice(command);
-        run("cargo", &args)?;
-    }
-    Ok(())
+    run(
+        "cargo",
+        &[
+            "run",
+            "--quiet",
+            "--bin",
+            "rhino",
+            "--",
+            "gate",
+            "run",
+            "--surface",
+            "ci",
+        ],
+    )
 }
 
 // -- Release artifacts --------------------------------------------------------

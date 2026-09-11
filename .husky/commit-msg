@@ -2,14 +2,9 @@
 # finding and let the commit through -- the failure mode a gate cannot have.
 set -e
 
-# Public safety runs first, and a finding ends the hook before anything else
-# writes output. A commit message is outbound text: it reaches every clone and
-# every hosted view of this repository.
-#
-# The message is passed as text rather than as the file. Git hands over a path
-# inside .git, which is a local scratch file that is never published and, in a
-# worktree, is an absolute path under somebody's home directory -- screening it
-# would report the hook's own argument as a finding on every commit.
-./scripts/public-safety/public-safety.sh --surface commit --text "$(cat "$1")"
-
-npx commitlint --edit "$1"
+# What runs here, and in what order, is declared in `repo-config.yml` rather
+# than written out below. The message file is forwarded after `--`, which
+# reaches every gate on this surface: the safety screen reads it as outbound
+# text, and Commitlint reads it as a message. Both want the same file, which is
+# why forwarding is correct here and only here.
+exec cargo run --quiet --bin rhino -- gate run --surface commit-msg -- "$1"
