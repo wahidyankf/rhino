@@ -1,6 +1,6 @@
 # Plan Quality Gate
 
-Run this only when the user names this gate or unambiguously directs its semantic audit. Do not infer authorization from creating, editing, reviewing, or executing a plan, from a harness planning mode, or from another workflow. One instruction may authorize several named checkpoints; otherwise it authorizes one run.
+Entry is a complete draft whose two [decision gates](../development/planning-capabilities/003-decision-gates.md) have both finished. Run this only when the user names this gate or unambiguously directs its semantic audit. Do not infer authorization from creating, editing, reviewing, or executing a plan, from a harness planning mode, or from another workflow. One instruction may authorize several named checkpoints; otherwise it authorizes one run.
 
 Produce exactly one terminal result — `PASS` or one `BLOCKED_*` variant — for one plan's semantic readiness, at the directed pre-execution, post-material-change, or completion checkpoint. Never recurse or start another run.
 
@@ -8,7 +8,7 @@ Produce exactly one terminal result — `PASS` or one `BLOCKED_*` variant — fo
 
 Meaning, consistency, safety, executability, and proof. `PASS` means good enough for the authorized scope, its known risks, and applicable rules — not perfect or future-proof. Do not block on style, speculative hardening, or an improvement that can wait without making execution unsafe or ambiguous. Apply [minimal sufficiency](../principles/minimal-sufficiency.md).
 
-Deterministic tooling owns every machine-decidable check: links, directory maps, word budgets, Mermaid, harness parity. Do not reproduce or second-guess them by reading; run them only in verification. Where the plan _delivers_ a check, confirm `delivery.md` has an implementation and a proof task rather than simulating the future tool, which must exist and pass at completion.
+Deterministic tooling owns every machine-decidable check: the plan's own shape under [structural validation](../conventions/plans/006-structural-validation.md), plus links, directory maps, word budgets, Mermaid, and harness parity. Do not reproduce or second-guess them by reading; run them only in verification. Where the plan _delivers_ a check, confirm `delivery.md` has an implementation and a proof task rather than simulating the future tool, which must exist and pass at completion.
 
 ## Snapshot and Ledger
 
