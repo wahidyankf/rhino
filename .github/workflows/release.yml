@@ -106,6 +106,9 @@ jobs:
           name: rhino-${{ matrix.target }}
           path: dist/rhino-${{ matrix.target }}.tar.gz
           if-no-files-found: error
+          # The publish job downloads these within the same run; nothing reads
+          # them afterwards.
+          retention-days: 1
 
   publish:
     needs: build
