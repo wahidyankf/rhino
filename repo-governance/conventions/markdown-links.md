@@ -6,7 +6,7 @@ Fragments and query strings do not change the target-file check. External and pr
 
 Update every affected link in the same change as a move, rename, or deletion. A link that pointed somewhere real before the change is the change's responsibility.
 
-Sources excluded from validation are declared in [`repo-config.yml`](../../repo-config.yml) under `md-internal-link`. The list is empty by decision: this repository keeps no archived tree whose links are allowed to rot.
+Sources excluded from validation are declared in [`repo-config.yml`](../../repo-config.yml) under `md-internal-link`. One source is excluded by decision: archived plans under `plans/done/`, as link sources only. A completed plan describes the repository as it was and may name paths that have since moved; its files stay valid link targets.
 
 ## Enforcement
 
