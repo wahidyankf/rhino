@@ -1,6 +1,6 @@
 # Coding-Harness Parity Verification
 
-Use this workflow to evaluate whether Claude Code, Codex, and OpenCode currently satisfy the [coding-harness contract](../conventions/coding-harness-contract.md). It is read-only. Use the [contract change workflow](coding-harness-contract-change.md) when remediation is requested.
+Use this workflow to evaluate whether the harnesses `repo-config.yml` declares currently satisfy the [coding-harness contract](../conventions/coding-harness-contract.md). It is read-only. Use the [contract change workflow](coding-harness-contract-change.md) when remediation is requested.
 
 ## Prerequisites
 

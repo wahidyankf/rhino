@@ -1,6 +1,6 @@
 # Coding-Harness Contract Change
 
-Use this workflow whenever repository-owned rules, canonical skills, canonical agents, or their adapters are added, changed, renamed, or removed. The goal is one canonical edit with complete Claude Code, Codex, and OpenCode parity — not three independently maintained trees.
+Use this workflow whenever repository-owned rules, canonical skills, canonical agents, or their adapters are added, changed, renamed, or removed. The goal is one canonical edit with complete parity across the harnesses the [contract](../conventions/coding-harness-contract.md) declares — not independently maintained trees.
 
 ## Prerequisites
 
