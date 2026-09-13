@@ -40,7 +40,14 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 
 5. **Verify embedded identity.** Each executable's `version --json` must report the tag and the commit exactly. A mismatch means the archive was built from something other than what is being tagged.
 
-6. **Tag and push the tag.** The release workflow builds and publishes every platform archive plus `checksums.txt`.
+6. **Screen, then tag and push the tag.** The tag name, any annotation, and the notes the release workflow generates from merged pull requests are published with the release. Screen them first, and tag only on exit `0`:
+
+   ```sh
+   gh api repos/<owner>/<repo>/releases/generate-notes -f tag_name=v<version> --jq .body > local-tmp/release-notes.md
+   scripts/public-safety/public-safety.sh --surface release --text "v<version>" --file local-tmp/release-notes.md
+   ```
+
+   Pass an annotation as one more `--text`. The release workflow builds and publishes every platform archive plus `checksums.txt`.
 
 7. **Verify the published release** before telling anyone it exists: an archive per supported platform, a `checksums.txt` covering all of them, and a downloaded archive whose digest matches.
 
