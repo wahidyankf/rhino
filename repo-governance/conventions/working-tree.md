@@ -4,7 +4,7 @@ What is tracked, what is ignored, and what the validator is allowed to read are 
 
 ## Ignored
 
-Keep build output (`target/`, `dist/`), coverage output, `node_modules/`, and `local-tmp/` scratch out of history. Nothing generated is committed.
+Keep build output (`target/`, `dist/`), coverage output, `node_modules/`, and `local-tmp/` scratch out of history. Nothing generated is committed. Real environment files, `.env` and `.env.*`, are ignored too: they hold local secrets, and only a `.env.example` template is committable.
 
 `local-tmp/` is the scratch directory. Audits, reports, and working notes go there. Nothing in it is authoritative, and nothing in it is a rule.
 
