@@ -15,6 +15,7 @@ Repository-wide choices, within the [vision](../vision/README.md) and the [princ
 - [Last-resort questions](last-resort-questions.md) — exhaust independent progress before asking.
 - [Markdown links](markdown-links.md) — internal links resolve, and move with their targets.
 - [Markdown visualizations](markdown-visualizations.md) — when to draw one, and the accessible palette.
+- [No destructive Git operations](no-destructive-git-operations.md) — approval for any Git command that destroys work or history.
 - [Plan lifecycle](plan-lifecycle.md) — the local additions to the plans convention: idea quadrants, and what this repository requires beyond it.
 - [Plan specification changes](plan-specification-changes.md) — how a plan states the specification work before it starts.
 - [Plan validator contract](plan-validator-contract.md) — what every plan-structure implementation must accept, reject, and name identically.
