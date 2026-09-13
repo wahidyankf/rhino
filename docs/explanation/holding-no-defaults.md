@@ -87,9 +87,9 @@ be described, because a non-empty roster forced `required-mcp` — a claim about
 how one repository is arranged, wearing the clothes of a schema rule.
 
 RHINO has since become that third shape itself. Its roster is no longer
-empty: three harnesses, three canonical skills, one canonical agent, and no
+empty: two harnesses, nine canonical skills, four canonical agents, and no
 capability server at all -- and one of those harnesses declares a skill adapter
-while the other two do not, because they read the canonical directory natively
+while the other does not, because it reads the canonical directory natively
 and an adapter pointing at a directory a vendor never reads would reconcile
 nothing. Every one of those is a shape the schema had to permit without
 preferring.
