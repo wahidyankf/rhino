@@ -4,7 +4,7 @@ Use this convention when a formal plan changes observable behaviour, the command
 
 ## Where It Lives
 
-In an unsplit plan, a section of `tech-docs.md` owns the planned specification work. In a split set, use a mapped `tech-docs/specification-changes.md` when that work is a distinct reader's job. Either way, list every affected C4 or Gherkin file by its exact repository-relative path with one label: `[E]` edited, `[N]` new, `[M]` moved, `[D]` deleted.
+In an unsplit plan, a section of `tech-docs.md` owns the planned specification work. In a split set, use a mapped `tech-docs/NNN-specification-changes.md` when that work is a distinct reader's job. Either way, list every affected C4 or Gherkin file by its exact repository-relative path with one label: `[E]` edited, `[N]` new, `[M]` moved, `[D]` deleted.
 
 ## What Becomes a Contract
 
