@@ -10,6 +10,11 @@ lcov.info
 .env.*
 !.env.example
 
+# HIPPO's local policy is machine-specific by design: its caps state what one
+# host can spare, so a value that is safe here defers admission elsewhere. Only
+# the host-agnostic example is tracked.
+/hippo.local.json
+
 # Task worktrees live in the repository so this repository's own rules can see
 # them. Only the placeholder is tracked; a worktree never enters history.
 /worktrees/*

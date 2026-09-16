@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "*npm install*": "deny",
+      "*npm ci*": "deny",
+      "*npm exec*": "deny",
+      "*npx *": "deny",
+      "*cargo build*": "deny",
+      "*cargo test*": "deny",
+      "*cargo run*": "deny",
+      "*cargo clippy*": "deny",
+      "*cargo xtask*": "deny",
+      "*./hippo run*": "allow"
+    }
+  }
+}
