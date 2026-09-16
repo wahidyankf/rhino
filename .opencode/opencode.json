@@ -3,15 +3,24 @@
   "permission": {
     "bash": {
       "*": "allow",
-      "*npm install*": "deny",
-      "*npm ci*": "deny",
-      "*npm exec*": "deny",
-      "*npx *": "deny",
-      "*cargo build*": "deny",
-      "*cargo test*": "deny",
-      "*cargo run*": "deny",
-      "*cargo clippy*": "deny",
-      "*cargo xtask*": "deny",
+      "npm install*": "deny",
+      "rtk npm install*": "deny",
+      "npm ci*": "deny",
+      "rtk npm ci*": "deny",
+      "npm exec*": "deny",
+      "rtk npm exec*": "deny",
+      "npx *": "deny",
+      "rtk npx *": "deny",
+      "cargo build*": "deny",
+      "rtk cargo build*": "deny",
+      "cargo test*": "deny",
+      "rtk cargo test*": "deny",
+      "cargo run*": "deny",
+      "rtk cargo run*": "deny",
+      "cargo clippy*": "deny",
+      "rtk cargo clippy*": "deny",
+      "cargo xtask*": "deny",
+      "rtk cargo xtask*": "deny",
       "*./hippo run*": "allow"
     }
   }
