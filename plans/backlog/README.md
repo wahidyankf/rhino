@@ -16,4 +16,5 @@ Confirm the plan still matches current repository evidence and specifications; a
 
 ## Directory Map
 
-This stage holds no plan folder, so this README has no siblings to map.
+- [Harden RHINO validation edge cases](harden-rhino-validation-edge-cases/README.md) closes three deterministic false
+  negative or false positive boundaries in plan, harness-parity, and Mermaid validation.
