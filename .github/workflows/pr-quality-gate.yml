@@ -194,7 +194,7 @@ jobs:
           set -eu
           git fetch --no-tags origin "${BASE_REF}"
           changed=$(git diff --name-only FETCH_HEAD...HEAD -- \
-            hippo hippo.lock scripts/public-safety \
+            hippo hippo.lock hippo.identity.json hippo.local.json.example scripts/check-hippo-consumer.sh scripts/public-safety \
             '.github/workflows/pr-quality-gate.yml')
           if [ -n "${changed}" ]; then
             echo "changed=true" >> "${GITHUB_OUTPUT}"
@@ -244,7 +244,11 @@ jobs:
 
       - name: Verify the pinned bootstrap resolves and verifies
         if: steps.route.outputs.changed == 'true'
-        run: ./hippo run --class ephemeral --disk-path . -- true
+        run: ./hippo run --class ephemeral --resource-tier light --disk-path . -- true
+
+      - name: Verify the HIPPO consumer policy
+        if: steps.route.outputs.changed == 'true'
+        run: npm run check:hippo-consumer
 
   quality-gate:
     name: Quality gate

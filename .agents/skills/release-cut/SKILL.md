@@ -20,8 +20,8 @@ Run from the **primary checkout on local `main`**, never from a `worktrees/` che
 ```sh
 git fetch origin && git merge-base --is-ancestor HEAD origin/main
 git tag -l "v<version>"; git ls-remote --tags origin "v<version>"
-./hippo run --class ephemeral --disk-path . -- cargo xtask dist
-./hippo run --class ephemeral --disk-path . -- cargo xtask checksums
+./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask dist
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask checksums
 ```
 
 The ancestry check is what enforces "a release describes a commit reachable from the default branch". The tag lookups must both come back empty: if either finds the tag, **stop** and choose a new patch version.

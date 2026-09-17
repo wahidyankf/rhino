@@ -26,7 +26,7 @@ Do not infer parity from matching names or counts. Content digests, routes, nati
 ### 3. Run the deterministic proof
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
 Record the exit status, the contract digest, and the reconciled harness, skill, and agent counts. On failure, review every finding by kind, field, harness, and path rather than stopping at the summary.

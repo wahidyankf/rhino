@@ -7,7 +7,7 @@ Local `main` has no executable path to `origin/main`: the `main` ruleset refuses
 ## Requirements
 
 - Work on a branch dedicated to it, in a Git worktree under `worktrees/<name>/` at the repository root. That directory is ignored apart from its placeholder, so a worktree never enters history, and it is excluded from every scanner.
-- Initialize a new worktree from its own root, before any Git mutation or gate run, with `./hippo run --class ephemeral --disk-path . -- npm ci`. That activates its hooks; a worktree whose hooks never ran pushes unverified work.
+- Initialize a new worktree from its own root, before any Git mutation or gate run, with `./hippo run --class transactional --resource-tier standard --disk-path . -- npm ci`. That activates its hooks; a worktree whose hooks never ran pushes unverified work.
 - Sync before starting and before resuming: `git fetch origin`, then `git rebase origin/main`. Never auto-stash, discard, or auto-resolve — an unclean tree or a conflict stops the work and goes to the user. When the sync brings in commits the branch lacked, read the whole incoming diff and reconcile the current task against it before continuing. A rebase of a branch already pushed needs a force push, which follows [no destructive Git operations](no-destructive-git-operations.md).
 - Provision at most one worktree per plan or task and reuse it for every delivery unit that work produces. A second `git worktree add` for the same work is a defect. Units land serially: land one, sync from `origin/main`, branch the next in the same directory.
 - Open one pull request per [delivery boundary](pull-request-boundaries.md), as a draft, and merge only when the [merge preconditions](pull-request-merge.md) hold.

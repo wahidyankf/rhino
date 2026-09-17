@@ -44,7 +44,7 @@ In `PROPOSAL` mode, return `PASS_NO_CHANGE` when current effective meaning alrea
 In `EFFECTIVE` mode, run:
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
 Return `PASS_EFFECTIVE` only when the ledger is clear and tooling passes; otherwise emit `NEEDS_PROPAGATION`.

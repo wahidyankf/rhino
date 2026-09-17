@@ -31,7 +31,7 @@ Class members, ER attributes, requirement body fields, directives, comments, and
 ## Enforcement
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
 For a single changed file, `rhino md-mermaid --file <path>` validates only that file. The full repository still runs before push.

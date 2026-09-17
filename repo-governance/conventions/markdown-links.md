@@ -11,5 +11,5 @@ Sources excluded from validation are declared in [`repo-config.yml`](../../repo-
 ## Enforcement
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```

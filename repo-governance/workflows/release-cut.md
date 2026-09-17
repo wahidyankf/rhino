@@ -29,13 +29,13 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 3. **Build the archive for this platform.** One platform per invocation, deliberately — the release matrix builds each archive on a runner of that architecture rather than cross-compiling, so every published executable has actually started on the operating system it claims.
 
    ```sh
-   ./hippo run --class ephemeral --disk-path . -- cargo xtask dist
+   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask dist
    ```
 
 4. **Record the digests.** Only through the task; never by hand.
 
    ```sh
-   ./hippo run --class ephemeral --disk-path . -- cargo xtask checksums
+   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask checksums
    ```
 
 5. **Verify embedded identity.** Each executable's `version --json` must report the tag and the commit exactly. A mismatch means the archive was built from something other than what is being tagged.

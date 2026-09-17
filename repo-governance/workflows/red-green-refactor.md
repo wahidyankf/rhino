@@ -43,7 +43,7 @@ Colour distinguishes the three phases only; the labels carry the meaning.
 After the final cycle, run the quick gate:
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick
 ```
 
 The completed work must carry evidence of the expected red failure and the final green result. If the harness itself is broken, repair it first — an unrelated failure is not evidence that a behaviour test is valid.

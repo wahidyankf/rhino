@@ -24,8 +24,8 @@ Audit before editing. Build one finite ledger whose rows carry an ID, canonical 
 4. Verify semantically in read-only mode, reviewing only repaired meaning and its cross-document effects. Then run structural validation, which covers the frozen plan, and the gate:
 
    ```sh
-   ./hippo run --class ephemeral --disk-path . -- cargo run --quiet --bin rhino -- plan validate
-   ./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick
+   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo run --quiet --bin rhino -- plan validate
+   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick
    ```
 
 5. Return `PASS` when no row is `OPEN` or `BLOCKED`, the gate passes, no new semantic gap appeared, and the snapshot changed only through recorded repairs.

@@ -12,7 +12,7 @@ description: Take a change from a task worktree to merged on main through a pull
 ```sh
 git -C <repo> worktree add worktrees/<name> -b worktree/<name> origin/main
 cd worktrees/<name>
-./hippo run --class ephemeral --disk-path . -- npm ci
+./hippo run --class transactional --resource-tier standard --disk-path . -- npm ci
 ```
 
 `npm ci` installs the hooks. Skip it and the worktree pushes unverified work with nothing local saying so.

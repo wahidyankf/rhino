@@ -43,7 +43,7 @@ Codex reads `AGENTS.md` and `.agents/skills/` natively, so rules and skills reac
 The roster of harnesses, adapter contracts, and capability vocabulary lives in [`repo-config.yml`](../../repo-config.yml). This document states the requirement, not the roster.
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
 The parity validator is read-only, network-free, path-contained, and deterministic. It normalizes only a BOM and line endings, sorts ordinally, hashes with SHA-256, and fails on a missing, extra, stale, malformed, divergent, or semantically weaker adapter. It cannot prove that a vendor honoured what it read, so a runtime smoke check stays a separate, human act.
