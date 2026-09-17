@@ -44,7 +44,7 @@ This repository builds the validator it runs, so a shape change and its enforcem
 ### 4. Verify
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
 Review findings by kind, field, harness, and path. Matching counts are not proof.

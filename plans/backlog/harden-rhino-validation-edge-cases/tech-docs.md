@@ -56,7 +56,7 @@ reconciled-main tasks in Phases 1–3 prove it.
   remains unchanged.
 - Bindings: `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs`.
 - Support: no edit; the existing generic file fixture in `tests/support/plan.rs` accepts the synthetic Markdown input.
-- Proof: `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`, then the integration and end-to-end
+- Proof: `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`, then the integration and end-to-end
   commands in Phase 4.
 
 ### `specs/behaviours/harness-parity.feature` `[E]`
@@ -75,7 +75,7 @@ reconciled-main tasks in Phases 1–3 prove it.
 - Bindings: `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs`.
 - Support: no edit; the existing generic projection steps in `tests/support/harness.rs` select model and effort
   independently.
-- Proof: `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`, then the integration and end-to-end
+- Proof: `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`, then the integration and end-to-end
   commands in Phase 4.
 
 ### `specs/behaviours/mermaid-legibility.feature` `[E]`
@@ -101,7 +101,7 @@ reconciled-main tasks in Phases 1–3 prove it.
   every label-boundary scenario, and every other existing scenario unchanged.
 - Bindings: `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs`.
 - Support: no edit; the existing generic diagram fixture in `tests/support/mermaid.rs` accepts each source example.
-- Proof: `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`, then the integration and end-to-end
+- Proof: `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`, then the integration and end-to-end
   commands in Phase 4.
 
 ### Fixture and Architecture Disposition

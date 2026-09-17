@@ -63,11 +63,11 @@ including a pre-existing failure encountered in scope; never bypass a hook.
       is registered once on the Unit 1 branch at `origin/main`. `[AC-08]`
 - [ ] `[AI]` Export and verify `HIPPO_DEFAULT_CONFIG` with the exact commands above; acceptance: it resolves to the
       readable primary-checkout policy file before the first guarded command. `[AC-08]`
-- [ ] `[AI]` In the worktree, run `./hippo run --class ephemeral --disk-path . -- npm ci`; acceptance: dependencies
+- [ ] `[AI]` In the worktree, run `./hippo run --class transactional --resource-tier standard --disk-path . -- npm ci`; acceptance: dependencies
       install, hooks activate, and `git status --porcelain` is empty. `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick`; acceptance: the baseline quick
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: the baseline quick
       gate exits `0`. `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`; acceptance: the baseline
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: the baseline
       CI surface exits `0`. `[AC-08]`
 - [ ] `[AI]` Move `plans/backlog/harden-rhino-validation-edge-cases/` to
       `plans/in-progress/harden-rhino-validation-edge-cases/` with `git mv`; acceptance: one in-progress copy exists and
@@ -75,7 +75,7 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 - [ ] `[AI]` Update `plans/backlog/README.md` and `plans/in-progress/README.md`; acceptance: only the in-progress index
       links the active plan. `[AC-08]`
 - [ ] `[AI]` Run
-      `./hippo run --class ephemeral --disk-path . -- cargo run --quiet --bin rhino -- plan validate`; acceptance: plan
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo run --quiet --bin rhino -- plan validate`; acceptance: plan
       validation exits `0`. `[AC-08]`
 
 ### Phase 0 Gate
@@ -84,23 +84,23 @@ including a pre-existing failure encountered in scope; never bypass a hook.
       no unowned path is present. `[AC-08]`
 
 > **Pause Safety**: one clean worktree exists and the active plan validates. Safe to stop. To resume:
-> `./hippo run --class ephemeral --disk-path . -- cargo run --quiet --bin rhino -- plan validate`.
+> `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo run --quiet --bin rhino -- plan validate`.
 
 ## Phase 1: Acceptance Definition Grammar — Unit 1
 
 - [ ] `[AI]` **RED**: add both the outline-definition and cross-form duplicate scenarios to
       `specs/behaviours/plan-structure.feature`, `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and
       `tests/e2e/bindings.rs`; run
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: the outline citation is
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: the outline citation is
       reported undefined and the expected cross-form duplicate finding is absent, while prior scenarios pass.
       `[AC-01]` `[AC-02]`
 - [ ] `[AI]` **GREEN**: edit `src/plan/criteria.rs` so one declaration parser recognizes `Scenario:` and
       `Scenario Outline:` before both definition and duplicate collection; run
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: AC-01 passes and the
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: AC-01 passes and the
       cross-form duplicate emits exactly one `PLAN-CRITERION-001`. `[AC-01]` `[AC-02]`
 - [ ] `[AI]` **REFACTOR**: keep declaration recognition in one private helper in `src/plan/criteria.rs`; run
-      `./hippo run --class ephemeral --disk-path . -- cargo fmt --all --check`, then
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: formatting and all unit
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo fmt --all --check`, then
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: formatting and all unit
       scenarios pass without duplicated prefix logic. `[AC-01]` `[AC-02]`
 - [ ] `[AI]` Apply `repo-governance/workflows/rules-propagation.md` to
       `repo-governance/conventions/plan-validator-contract/002-rule-identifiers.md` and
@@ -119,9 +119,9 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
       `[AC-01]` `[AC-08]`
 - [ ] `[AI]` Run `(cd specs/fixtures/plan-structure && shasum -a 256 -c SHA256SUMS)`; acceptance: exit `0` and accepted
       case 007 produces no finding. `[AC-01]` `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick`; acceptance: exit `0`.
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: exit `0`.
       `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`; acceptance: exit `0`.
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: exit `0`.
       `[AC-08]`
 - [ ] `[AI]` Commit only Unit 1 plus active-plan progress using a Conventional Commit; acceptance: hooks pass and the
       commit contains no Unit 2 or Unit 3 path. `[AC-01]` `[AC-02]` `[AC-08]`
@@ -143,7 +143,7 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
 - [ ] `[AI]` On reconciled `main`, run
       `(cd specs/fixtures/plan-structure && shasum -a 256 -c SHA256SUMS)`; acceptance: the shared corpus checksum exits
       `0` before Unit 2 starts. `[AC-01]` `[AC-02]` `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate` on reconciled `main`;
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate` on reconciled `main`;
       acceptance: exit `0` before Unit 2 starts. `[AC-01]` `[AC-02]` `[AC-08]`
 
 > **Pause Safety**: Unit 1 is merged, its branch is terminal, and main accepts Scenario Outline criteria. Safe to stop.
@@ -157,19 +157,19 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
 - [ ] `[AI]` **RED**: edit `specs/behaviours/harness-parity.feature`, `tests/unit/bindings.rs`,
       `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs` with examples where a no-tier canonical agent's
       adapter projects only `model` or only `effort`; run
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: the new scenario fails
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: the new scenario fails
       for both examples because current validation reports no finding. `[AC-03]`
 - [ ] `[AI]` **GREEN**: edit `src/harness.rs::tier_projection` so declared tier fields are inspected before canonical
       tier absence returns; emit `tier-projection-without-canonical-tier` for either projected half and run
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: both AC-03 examples pass and
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: both AC-03 examples pass and
       existing tier diagnostics remain unchanged. `[AC-03]`
 - [ ] `[AI]` **REFACTOR**: express canonical absent, mapped, and unmapped states as one exhaustive branch structure in
-      `src/harness.rs`; run `./hippo run --class ephemeral --disk-path . -- cargo fmt --all --check`, then
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: AC-03 and AC-04 pass without
+      `src/harness.rs`; run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo fmt --all --check`, then
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: AC-03 and AC-04 pass without
       duplicate scalar reads. `[AC-03]` `[AC-04]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick`; acceptance: exit `0`.
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: exit `0`.
       `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`; acceptance: exit `0`.
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: exit `0`.
       `[AC-08]`
 - [ ] `[AI]` Commit only Unit 2 plus plan progress using a Conventional Commit; acceptance: hooks pass and no Unit 3
       path is present. `[AC-03]` `[AC-04]` `[AC-08]`
@@ -186,7 +186,7 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
 
 ### Phase 2 Gate
 
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate` on reconciled main;
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate` on reconciled main;
       acceptance: exit `0` before Unit 3 starts. `[AC-03]` `[AC-04]` `[AC-08]`
 
 > **Pause Safety**: Unit 2 is merged and no-tier canon cannot acquire adapter policy. Safe to stop. To resume:
@@ -199,26 +199,26 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
       `git rev-list --left-right --count HEAD...origin/main` prints `0 0`. `[AC-08]`
 - [ ] `[AI]` **CHARACTERIZE**: add the preservation scenario for a real out-of-class colour and overlong visible label
       to `specs/behaviours/mermaid-legibility.feature`, `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and
-      `tests/e2e/bindings.rs`; run `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance:
+      `tests/e2e/bindings.rs`; run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance:
       both existing finding kinds are observable before production code changes. `[AC-07]`
 - [ ] `[AI]` **RED**: in `specs/behaviours/mermaid-legibility.feature`, `tests/unit/bindings.rs`,
       `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs`, add metadata examples for `accTitle`, single-line
       `accDescr`, and braced `accDescr`, plus visible-label examples for decimal `&#128640;` and hexadecimal `&#x1F680;`;
       run
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: the new scenarios fail with
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: the new scenarios fail with
       the current false node-label or colour findings for every example. `[AC-05]` `[AC-06]`
 - [ ] `[AI]` **GREEN**: edit `src/markdown/mermaid.rs` to classify single-line and braced accessibility metadata and to
       ignore valid numeric entity spans during colour-token scanning; run
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: every AC-05 and AC-06
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: every AC-05 and AC-06
       example passes, AC-07 still reports both existing findings, and accessibility-presence checks still read the
       metadata. `[AC-05]` `[AC-06]` `[AC-07]`
 - [ ] `[AI]` **REFACTOR**: centralize line-role and entity-span recognition in private helpers; run
-      `./hippo run --class ephemeral --disk-path . -- cargo fmt --all --check`, then
-      `./hippo run --class ephemeral --disk-path . -- cargo test --test unit`; acceptance: all Mermaid scenarios pass
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo fmt --all --check`, then
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: all Mermaid scenarios pass
       with no duplicated state tracking. `[AC-05]` `[AC-06]` `[AC-07]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick`; acceptance: exit `0`.
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: exit `0`.
       `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`; acceptance: exit `0`.
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: exit `0`.
       `[AC-08]`
 - [ ] `[AI]` Commit only Unit 3 plus plan progress using a Conventional Commit; acceptance: hooks pass and the commit
       contains only Unit 3 plus plan-record paths. `[AC-05]` `[AC-06]` `[AC-07]` `[AC-08]`
@@ -235,25 +235,25 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
 
 ### Phase 3 Gate
 
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate` on reconciled main;
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate` on reconciled main;
       acceptance: exit `0` and all three units are independently present. `[AC-05]` `[AC-06]` `[AC-07]` `[AC-08]`
 
 > **Pause Safety**: all code units are merged and main is green. Safe to stop. To resume:
-> `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`.
+> `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`.
 
 ## Phase 4: Convergence and Execution Review
 
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo test --test integration`; acceptance: the
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test integration`; acceptance: the
       integration adapter passes every changed scenario. `[AC-01]` `[AC-02]` `[AC-03]` `[AC-04]` `[AC-05]` `[AC-06]`
       `[AC-07]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo test --test e2e`; acceptance: the end-to-end
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test e2e`; acceptance: the end-to-end
       adapter passes every changed scenario. `[AC-01]` `[AC-02]` `[AC-03]` `[AC-04]` `[AC-05]` `[AC-06]` `[AC-07]`
 - [ ] `[AI]` Run `repo-governance/workflows/gherkin-implementation-review.md` for the three changed feature files and
       store its row ledger at `local-tmp/harden-rhino-validation-edge-cases-gherkin-review.tsv`; acceptance: every
       expanded scenario has a `PASS` or justified `EXEMPT` row for unit, integration, and end-to-end. `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick`; acceptance: exit `0` on the
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: exit `0` on the
       exact final main tree. `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`; acceptance: exit `0` on the
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: exit `0` on the
       exact final main tree. `[AC-08]`
 - [ ] `[AI]` Run `repo-governance/workflows/plan-execution-check.md` against Phases 0–4 and record the verdict in this
       file; acceptance: it reports `PASS` with every AC terminal before knowledge capture. `[AC-08]`
@@ -264,7 +264,7 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
       acceptance: the execution review permits knowledge capture. `[AC-08]`
 
 > **Pause Safety**: substantive implementation is terminal and reviewable on main. Safe to stop. To resume:
-> `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`.
+> `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`.
 
 ## Phase 5: Knowledge Capture
 
@@ -292,9 +292,9 @@ SHA256SUMS | awk '{print $1}' > CORPUS-DIGEST)`; acceptance: both files describe
       date; acceptance: exactly one done copy exists and no in-progress copy remains. `[AC-08]`
 - [ ] `[AI]` Update `plans/in-progress/README.md`, `plans/done/README.md`, and every live reference; acceptance: no live
       link names the former in-progress path. `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick`; acceptance: exit `0` from the
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: exit `0` from the
       archived state. `[AC-08]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate`; acceptance: exit `0` from
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: exit `0` from
       the archived state. `[AC-08]`
 - [ ] `[AI]` Run `git diff --check`; acceptance: exit `0` from the archived state. `[AC-08]`
 - [ ] `[AI]` Commit the archival transaction using a Conventional Commit; acceptance: hooks pass and only archive/index

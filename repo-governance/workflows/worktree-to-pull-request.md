@@ -7,7 +7,7 @@ The procedure for getting a change from nothing to `main`. `main` refuses direct
 ```sh
 git -C <repo> worktree add worktrees/<name> -b worktree/<name> origin/main
 cd worktrees/<name>
-./hippo run --class ephemeral --disk-path . -- npm ci
+./hippo run --class transactional --resource-tier standard --disk-path . -- npm ci
 ```
 
 `npm ci` is what installs the hooks. A worktree that skipped it pushes unverified work, and nothing local will say so.

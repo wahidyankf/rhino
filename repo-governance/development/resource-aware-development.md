@@ -1,20 +1,24 @@
 # Resource-Aware Development
 
-Heavy local work runs under the checksum-pinned [`./hippo`](../../hippo) wrapper, which arbitrates contention on one shared workstation across every repository the maintainer runs.
+Local compute runs under the checksum-pinned [`./hippo`](../../hippo) wrapper, which arbitrates contention on one shared workstation across every repository the maintainer runs.
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask test-quick
+./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick
 ```
 
 The `pre-push` hook already does this. RHINO has no exemption from the guard and does not grant itself one.
 
+Use `light` for narrow static checks, `standard` for ordinary checks and writers, and `heavy` for complete gates, full builds, full suites, and release assets. A schema-3 waiter keeps one FIFO identity and launches its payload at most once. `hippo.identity.json` labels RHINO in live status and bounded history; `--tag checkout=worktree --tag plan=<slug>` adds privacy-safe per-run context without changing the repository source.
+
 ## Exit Codes
 
-- **`75`** — the host was busy. Retry that same invocation once the condition clears. Never bypass it, never duplicate it into a second queued attempt, and never change its class to get through.
+- **`75`** — inspect the receipt or outcome. Retry only `never-started`; pressure-shed, storage-shed, and `started-safety-stop` require payload-specific recovery. Never duplicate an attempt or bypass the guard.
 - **`73`** — insufficient storage. Clean up, then retry.
 - **`78`** — the request cannot be satisfied as configured. Replan the work rather than reshaping the invocation until it is admitted.
 
 Recovery and status commands run directly, unguarded, because a guard that blocks the tool used to diagnose the guard is a deadlock.
+
+Use `./hippo status`, `./hippo watch --source rhino`, and `./hippo history --since 30d --source rhino` from either the primary checkout or a contained `worktrees/<task>` checkout. If that worktree has no ignored `hippo.local.json`, its wrapper uses the primary checkout's copy. Every checkout uses the shared default state root; set `HIPPO_ROOT` only for isolated tests.
 
 ## Enforcement
 

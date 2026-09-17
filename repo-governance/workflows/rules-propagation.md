@@ -26,7 +26,7 @@ Freeze: the proposed rule and rationale; its intended mandatory, expected, or pe
 4. Run the gate:
 
    ```sh
-   ./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
    ```
 
 5. On success return `PASS_NO_CHANGE` when no edit was necessary, otherwise `PASS_CHANGED`. For deterministic findings this transaction caused, freeze their exact set, repair mechanically, and rerun step 4 only while the count of failing checks and reported violations strictly decreases and no new failure class appears. Because that measure is nonnegative and decreasing, recovery terminates. Return `BLOCKED_TOOLING` if progress stops, a new or unrelated failure appears, or no verdict can be obtained.

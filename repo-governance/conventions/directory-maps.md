@@ -27,7 +27,7 @@ Budget the headroom, not just the file. When a document sits near its limit, sta
 ## Enforcement
 
 ```sh
-./hippo run --class ephemeral --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
 The same command runs as the last step of `cargo xtask test-quick`, which is what the `pre-push` hook and the [pull-request quality gate](../../.github/workflows/pr-quality-gate.yml) run.

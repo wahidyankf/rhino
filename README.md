@@ -268,7 +268,7 @@ $ cargo xtask test-quick
 That is format, lint, the unit adapter with line coverage, and the static
 coverage check — the same gate the pre-push hook runs. Heavy local work runs
 under the pinned [HIPPO](https://github.com/wahidyankf/hippo) guard via
-`./hippo run --class ephemeral --disk-path . -- <command>`.
+`./hippo run --class ephemeral --resource-tier standard --disk-path . -- <command>`.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
