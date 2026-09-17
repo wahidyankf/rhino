@@ -392,6 +392,8 @@ gates:
       - run
       - --class
       - ephemeral
+      - --resource-tier
+      - heavy
       - --disk-path
       - .
       - --
