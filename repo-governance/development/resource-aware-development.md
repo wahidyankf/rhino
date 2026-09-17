@@ -12,13 +12,18 @@ Use `light` for narrow static checks, `standard` for ordinary checks and writers
 
 ## Exit Codes
 
-- **`75`** — inspect the receipt or outcome. Retry only `never-started`; pressure-shed, storage-shed, and `started-safety-stop` require payload-specific recovery. Never duplicate an attempt or bypass the guard.
+- **`75`** — retry only when a new schema-1 receipt proves `never-started`; pressure-shed, storage-shed, `started-safety-stop`, and child-owned `75` require payload-specific recovery.
+- **`76`** — never retry. Inspect `./hippo status`, drain or upgrade the incompatible peer, then retry the original command. A legacy client without distinct exit `76` can still report the mismatch as `75`, but has no qualifying receipt.
 - **`73`** — insufficient storage. Clean up, then retry.
 - **`78`** — the request cannot be satisfied as configured. Replan the work rather than reshaping the invocation until it is admitted.
+- **`1`** — diagnose malformed shared state or Hippo-owned post-launch cleanup; never classify it as capacity.
 
-Recovery and status commands run directly, unguarded, because a guard that blocks the tool used to diagnose the guard is a deadlock.
+Child codes pass through, including `75` and `76`; task-failed evidence without a new `never-started` receipt keeps them child-owned. Recovery and status commands run directly, unguarded, because a guard that blocks the tool used to diagnose the guard is a deadlock.
 
 Use `./hippo status`, `./hippo watch --source rhino`, and `./hippo history --since 30d --source rhino` from either the primary checkout or a contained `worktrees/<task>` checkout. If that worktree has no ignored `hippo.local.json`, its wrapper uses the primary checkout's copy. Every checkout uses the shared default state root; set `HIPPO_ROOT` only for isolated tests.
+Raw evidence rolls for seven days and compacted daily summaries roll for 30 days under byte caps, so the shared log cannot grow without bound.
+
+`hippo.lock` pins executable identity, not governance semantics. Before changing consumer behavior, read the Hippo repository at the commit in `hippo.lock`, especially its exit-code and recovery references, then reconcile this rule, Gherkin, and harness checks with the capabilities that commit actually provides. Never infer capability from SemVer ordering or copy a release number into the rule.
 
 ## Enforcement
 
