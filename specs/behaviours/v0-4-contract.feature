@@ -854,6 +854,62 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "exact paths"
 
+  Scenario: Grouped governance word budgets retain declared scan exclusions
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories: [generated]
+      policies:
+        governance:
+          word-budget:
+            count: letters-and-digits
+            surfaces:
+              - glob: "**/*.md"
+                fail: 3
+      """
+    And the repository contains:
+      | path                     | content                 |
+      | docs/README.md           | one two three           |
+      | generated/ignored.md     | one two three four five |
+    When I invoke the CLI with "governance|word-budget|validate"
+    Then the exit code is 0
+
+  Scenario: Grouped scan exclusions preserve Markdown validator scope
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories: [generated]
+      policies:
+        markdown:
+          internal-link:
+            exclude-sources: []
+      """
+    And the repository contains:
+      | path                 | content                 |
+      | docs/README.md       | # Documentation         |
+      | generated/ignored.md | [Missing](missing.md)   |
+    When I invoke the CLI with "md|internal-link|validate"
+    Then the exit code is 0
+
+  Scenario: Grouped governance directory maps retain their declared trees
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          directory-map:
+            trees:
+              - path: docs
+      """
+    And the repository contains:
+      | path           | content                                  |
+      | docs/README.md | # Docs\n\n## Directory Map\n\n- [Guide](guide.md) |
+      | docs/guide.md  | # Guide                                  |
+    When I invoke the CLI with "governance|directory-map|validate"
+    Then the exit code is 0
+
   Scenario: Vendor policy permits only an exact declared vocabulary exception
     Given the configuration file is this text:
       """

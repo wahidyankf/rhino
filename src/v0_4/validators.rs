@@ -9,7 +9,7 @@ use crate::report::{Detail, Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::scan::Scope;
 use crate::v0_4::config::{
-    ConventionsPolicy, GovernancePolicy, LayerPolicy, MarkdownPolicy, ReadmeIndexPolicy,
+    ConventionsPolicy, GovernancePolicy, LayerPolicy, MarkdownPolicy, ReadmeIndexPolicy, Scan,
     TraceabilityPolicy, VendorPolicy,
 };
 use sha2::{Digest, Sha256};
@@ -95,35 +95,48 @@ pub(crate) fn license(policy: Option<&ConventionsPolicy>, tree: &dyn Tree) -> Re
 /// Reuse the established portable reader through a configuration projection.
 /// The grouped model owns which section appears; the reader owns only Markdown
 /// syntax. The projection therefore supplies no repository defaults.
-pub(crate) fn frontmatter(policy: Option<&MarkdownPolicy>, tree: &dyn Tree) -> Report {
+pub(crate) fn frontmatter(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
     let Some(frontmatter) = policy.and_then(|policy| policy.frontmatter.as_ref()) else {
         return undeclared("frontmatter", "policies.markdown.frontmatter");
     };
     let config = Config {
         frontmatter: Some(frontmatter.clone()),
-        ..Config::default()
+        ..scan_projection(scan)
     };
     crate::markdown::frontmatter::validate(tree, &config, frontmatter)
 }
 
-pub(crate) fn internal_link(policy: Option<&MarkdownPolicy>, tree: &dyn Tree) -> Report {
+pub(crate) fn internal_link(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
     let Some(internal_link) = policy.and_then(|policy| policy.internal_link.as_ref()) else {
         return undeclared("internal-link", "policies.markdown.internal-link");
     };
     let config = Config {
         internal_link: internal_link.clone(),
-        ..Config::default()
+        ..scan_projection(scan)
     };
     crate::markdown::internal_link::validate(tree, &config)
 }
 
-pub(crate) fn mermaid(policy: Option<&MarkdownPolicy>, tree: &dyn Tree, scope: &Scope) -> Report {
+pub(crate) fn mermaid(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+    scope: &Scope,
+) -> Report {
     let Some(mermaid) = policy.and_then(|policy| policy.mermaid.as_ref()) else {
         return undeclared("mermaid", "policies.markdown.mermaid");
     };
     let config = Config {
         mermaid: Some(mermaid.clone()),
-        ..Config::default()
+        ..scan_projection(scan)
     };
     crate::markdown::mermaid::validate(tree, &config, mermaid, scope)
 }
@@ -133,6 +146,46 @@ pub(crate) fn readme_index(policy: Option<&MarkdownPolicy>, tree: &dyn Tree) -> 
         return undeclared("readme-index", "policies.markdown.readme-index");
     };
     readme_index_policy(policy, tree)
+}
+
+/// Reuse the established word-budget validator through a grouped projection.
+/// The grouped document supplies the policy and scan scope; the shared leaf
+/// still owns glob precedence, counting, and findings.
+pub(crate) fn word_budget(
+    policy: Option<&GovernancePolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
+    let Some(budget) = policy.and_then(|policy| policy.word_budget.as_ref()) else {
+        return undeclared("word-budget", "policies.governance.word-budget");
+    };
+    let config = scan_projection(scan);
+    crate::governance::word_budget::validate(tree, &config, budget)
+}
+
+/// Reuse the established directory-map validator through a grouped projection.
+/// The invocation scope remains a CLI concern, while policy and tree exclusion
+/// stay explicit repository data.
+pub(crate) fn directory_map(
+    policy: Option<&GovernancePolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+    scope: &Scope,
+) -> Report {
+    let Some(map) = policy.and_then(|policy| policy.directory_map.as_ref()) else {
+        return undeclared("directory-map", "policies.governance.directory-map");
+    };
+    let config = scan_projection(scan);
+    crate::governance::directory_map::validate(tree, &config, map, scope)
+}
+
+fn scan_projection(scan: Option<&Scan>) -> Config {
+    Config {
+        scan: scan.map(|scan| crate::config::Scan {
+            exclude_directories: scan.exclude_directories.clone(),
+        }),
+        ..Config::default()
+    }
 }
 
 fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
@@ -598,10 +651,10 @@ mod tests {
         );
 
         assert_eq!(outcome(license(None, &tree)).exit_code, 2);
-        assert_eq!(outcome(frontmatter(None, &tree)).exit_code, 2);
-        assert_eq!(outcome(internal_link(None, &tree)).exit_code, 2);
+        assert_eq!(outcome(frontmatter(None, None, &tree)).exit_code, 2);
+        assert_eq!(outcome(internal_link(None, None, &tree)).exit_code, 2);
         assert_eq!(
-            outcome(mermaid(None, &tree, &Scope::default())).exit_code,
+            outcome(mermaid(None, None, &tree, &Scope::default())).exit_code,
             2
         );
 
@@ -707,10 +760,16 @@ mod tests {
         );
 
         let markdown = markdown();
-        assert_eq!(outcome(frontmatter(Some(&markdown), &tree)).exit_code, 0);
-        assert_eq!(outcome(internal_link(Some(&markdown), &tree)).exit_code, 0);
         assert_eq!(
-            outcome(mermaid(Some(&markdown), &tree, &Scope::default())).exit_code,
+            outcome(frontmatter(Some(&markdown), None, &tree)).exit_code,
+            0
+        );
+        assert_eq!(
+            outcome(internal_link(Some(&markdown), None, &tree)).exit_code,
+            0
+        );
+        assert_eq!(
+            outcome(mermaid(Some(&markdown), None, &tree, &Scope::default())).exit_code,
             1
         );
     }

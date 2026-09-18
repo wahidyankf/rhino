@@ -2105,6 +2105,18 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Grouped governance word budgets retain declared scan exclusions",
+    ),
+    (
+        "v0-4-contract",
+        "Grouped scan exclusions preserve Markdown validator scope",
+    ),
+    (
+        "v0-4-contract",
+        "Grouped governance directory maps retain their declared trees",
+    ),
+    (
+        "v0-4-contract",
         "Vendor policy permits only an exact declared vocabulary exception",
     ),
     (

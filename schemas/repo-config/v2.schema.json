@@ -78,6 +78,19 @@
       },
       "type": "object"
     },
+    "DirectoryMap": {
+      "additionalProperties": false,
+      "properties": {
+        "trees": {
+          "items": {
+            "$ref": "#/$defs/Tree"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["trees"],
+      "type": "object"
+    },
     "Environment": {
       "additionalProperties": false,
       "description": "Repository-declared source/target pairs for local environment setup.\n\nValues live only in the source file; configuration names paths, never\nsecret values. A missing group refuses environment operations, while an\nexplicitly empty group permits only the zero-file validation/backup plan.",
@@ -415,6 +428,16 @@
       "additionalProperties": false,
       "description": "Repository-neutral governance policy. The names below carry no hierarchy or\norganisation vocabulary; every root, layer, category, term, artifact, and\nrelationship comes from the consuming repository.",
       "properties": {
+        "directory-map": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DirectoryMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "layers": {
           "anyOf": [
             {
@@ -439,6 +462,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/VendorPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "word-budget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordBudget"
             },
             {
               "type": "null"
@@ -884,6 +917,15 @@
     },
     "Scan": {
       "additionalProperties": false,
+      "description": "Directory names excluded from every tree walk.\n\nThe list is declared rather than inferred from ignore files: repositories\nchoose whether generated or local paths are out of a policy's scope, and\nevery grouped validator that uses the shared scanner receives the same\nanswer.",
+      "properties": {
+        "exclude-directories": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
       "type": "object"
     },
     "SchemaId": {
@@ -907,6 +949,34 @@
           "type": "array"
         }
       },
+      "type": "object"
+    },
+    "Surface": {
+      "additionalProperties": false,
+      "properties": {
+        "fail": {
+          "description": "Strictly greater than this is a finding: a file exactly at the\ndeclared count passes. RHINO holds no number of its own.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "glob": {
+          "type": "string"
+        },
+        "target": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "warn": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["glob", "fail"],
       "type": "object"
     },
     "Toolchain": {
@@ -1039,6 +1109,16 @@
       "required": ["from", "to"],
       "type": "object"
     },
+    "Tree": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": ["path"],
+      "type": "object"
+    },
     "VendorPolicy": {
       "additionalProperties": false,
       "description": "Exact vocabulary that may not appear in declared portable source roots.\n\nAn exception pairs one term with exact paths, preventing a broad exception\nfrom silently disabling another term or another part of a tree.",
@@ -1085,6 +1165,39 @@
       },
       "required": ["term"],
       "type": "object"
+    },
+    "WordBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "$ref": "#/$defs/WordRule",
+          "description": "What this repository means by a word.\n\nRequired, because the two repositories being reconciled here already\ndisagree: one counts runs of letters and digits, the other counts\nwhitespace-separated fields, and one repository's `AGENTS.md` is 749\nwords by its own rule and 905 by the other's. A tool that picked either\nwould be enforcing a budget the repository never set."
+        },
+        "surfaces": {
+          "description": "Ordered: where two globs match one file, the last matching entry wins,\nwhich is how a specific surface overrides a general tree.",
+          "items": {
+            "$ref": "#/$defs/Surface"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["count", "surfaces"],
+      "type": "object"
+    },
+    "WordRule": {
+      "description": "The two definitions of a word in use, each transcribed rather than designed.",
+      "oneOf": [
+        {
+          "const": "letters-and-digits",
+          "description": "A run of letters, marks, and digits, optionally joined to another such\nrun by an apostrophe, hyphen, or underscore. Markdown syntax and\npunctuation count for nothing; a URL counts as its several parts.",
+          "type": "string"
+        },
+        {
+          "const": "whitespace-separated",
+          "description": "Anything between two runs of whitespace. `**bold**` is one word, and so\nis a whole URL.",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

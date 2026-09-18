@@ -43,12 +43,14 @@ editor modeline. Rhino validates local bytes and never fetches that URL.
 | Legacy gate registry                          | `gates`                        | Declare closed lifecycle membership, typed inputs, argv, and environment projections; do not forward old hook arguments. |
 | Harness parity                                | `harness`                      | Define portable requirements and exactly three non-overlapping profiles, then validate before generation.                |
 | Frontmatter, links, Mermaid, README presence  | `policies.markdown`            | Opt in to each retained validator with repository-owned scope.                                                           |
+| Word budget and directory maps                | `policies.governance`          | Move `count`/`surfaces` to `word-budget` and `trees` to `directory-map`; preserve values and findings.                   |
+| Scan exclusions                               | `scan.exclude-directories`     | Preserve the declared directory names; ignore files do not silently change validator scope.                              |
 | Vendor terms, layer order, traceability       | `policies.governance`          | Declare roots, vocabulary, categories, artifacts, and relationships without organization defaults.                       |
 | License checks                                | `policies.conventions.license` | Declare paths, identifiers, digests, and exact exclusions.                                                               |
 | Environment examples, detectors, staged paths | `environment`                  | Name paths and keys, never values; review a plan before `--apply`.                                                       |
 | Tool discovery and installation               | `toolchains`                   | Declare no-shell probes and platform provision vectors; provision only with `--apply`.                                   |
 
-The older structure validators, word-budget, filename, emoji, metadata, and
+The older structure validators, filename, emoji, metadata, and legacy
 harness-parity leaves have no grouped-v2 alias. Keep them only as RC legacy
 input while you decide their local owner or remove their obsolete policy.
 
