@@ -82,7 +82,8 @@ Environment initialization and toolchain provision plan first and require
 `--apply` for a declared mutation. Environment backup and restore require a
 repository-relative `--dir`; restore additionally requires `--force` before it
 replaces an existing target. Harness adapter generation validates the complete
-three-profile projection before it replaces declared adapter roots.
+three-profile projection before it replaces declared adapter families and exact
+instruction-adapter files.
 
 ## v0.3 to v0.4 migration
 

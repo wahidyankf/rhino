@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 270] = [
+pub const VOCABULARY: [&str; 272] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -181,6 +181,7 @@ pub const VOCABULARY: [&str; 270] = [
     "the declared instruction adapter is absent",
     "the exit code is {int}",
     "the file {string} cannot be read",
+    "the file {string} still contains {string}",
     "the first stdout JSON legibility fields are {string}, {int}, and {int}",
     "the first stdout JSON violation kind is {string}",
     "the formatted violation starts with {string}",
@@ -191,6 +192,7 @@ pub const VOCABULARY: [&str; 270] = [
     "the gate {string} received the argument vector {string}",
     "the gate {string} was told the surface {string}",
     "the gates that ran are {string}",
+    "the generated adapter at {string} contains {string}",
     "the governed files are exclusively locked",
     "the harness-parity digest changed",
     "the harness-parity digest is unchanged",

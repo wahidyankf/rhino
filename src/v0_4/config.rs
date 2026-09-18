@@ -388,10 +388,43 @@ pub(crate) struct ToolchainProvision {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Harness {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) canonical: Option<Canonical>,
     #[serde(default)]
     pub(crate) requirements: Requirements,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) profiles: Vec<Profile>,
+}
+
+/// The field vocabulary the repository uses in canonical front matter. Rhino
+/// reads those declared keys; it does not assume a particular catalog writes
+/// grants as `capabilities` or `requires`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Canonical {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) agents: Option<CanonicalAgent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) skills: Option<CanonicalDocument>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CanonicalDocument {
+    pub(crate) name: String,
+    pub(crate) description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CanonicalAgent {
+    pub(crate) name: String,
+    pub(crate) description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) tier: Option<String>,
+    pub(crate) grants: String,
+    pub(crate) denials: String,
+    pub(crate) constraints: String,
 }
 
 /// One complete axis set. A profile must represent every item required on each
@@ -414,14 +447,113 @@ pub(crate) struct Requirements {
 }
 
 /// A data-declared adapter family. `id` is an opaque repository identifier;
-/// core code neither names nor branches on any particular consumer.
+/// core code neither names nor branches on any particular consumer. Each
+/// generated document declares its native path and representation rather than
+/// inheriting a broad vendor directory as a mutable root.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Profile {
     pub(crate) id: String,
-    pub(crate) root: String,
     #[serde(default)]
     pub(crate) supports: Requirements,
+    #[serde(rename = "instruction-adapter", default)]
+    pub(crate) instruction_adapter: Option<InstructionAdapter>,
+    #[serde(rename = "agent-adapter", default)]
+    pub(crate) agent_adapter: Option<Adapter>,
+    #[serde(rename = "skill-adapter", default)]
+    pub(crate) skill_adapter: Option<Adapter>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) tiers: BTreeMap<String, Tier>,
+}
+
+/// One exact root-instruction adapter. It is managed as an individual file so
+/// a route such as `CLAUDE.md` never grants ownership of the repository root.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct InstructionAdapter {
+    pub(crate) path: String,
+    pub(crate) route: String,
+}
+
+/// One native profile representation of canonical agents or skills.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Adapter {
+    /// The output pattern, with exactly one `{name}` placeholder.
+    pub(crate) path: String,
+    pub(crate) format: AdapterFormat,
+    /// `body` for front-matter prose, or the scalar field that holds a TOML
+    /// route. The format decides which spelling is representable.
+    #[serde(rename = "route-field")]
+    pub(crate) route_field: String,
+    /// The repository-owned route template, with exactly one `{path}`
+    /// placeholder for the canonical source path.
+    pub(crate) route: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) identity: BTreeMap<String, Identity>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) fixed: BTreeMap<String, String>,
+    #[serde(
+        rename = "tier-fields",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) tier_fields: Option<TierFields>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) absent: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) translations: Vec<Translation>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum AdapterFormat {
+    FrontMatter,
+    Toml,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum Identity {
+    Name,
+    Description,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TierFields {
+    pub(crate) model: String,
+    pub(crate) effort: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Tier {
+    pub(crate) model: String,
+    pub(crate) effort: String,
+}
+
+/// One capability projection into the declared native adapter format.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Translation {
+    pub(crate) when: When,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) capability: Option<String>,
+    pub(crate) field: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) members: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) entries: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum When {
+    Always,
+    Requires,
+    Denies,
+    Constrains,
 }
 
 /// The declared lifecycle gates. The model owns only portable scheduling data:

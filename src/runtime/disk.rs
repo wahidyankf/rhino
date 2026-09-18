@@ -820,9 +820,13 @@ impl AdapterStore for DiskAdapterStore {
         }
 
         let roots = super::adapter_roots(&transaction.roots)?;
-        let desired = super::adapter_files(&roots, &transaction.files)?;
+        let exact_paths = super::adapter_exact_paths(&roots, &transaction.exact_paths)?;
+        let desired = super::adapter_files(&roots, &exact_paths, &transaction.files)?;
         for managed in &roots {
             ensure_no_links(&root, managed)?;
+        }
+        for path in &exact_paths {
+            ensure_no_links(&root, path)?;
         }
 
         let ordinal = NEXT_ADAPTER_TRANSACTION.fetch_add(1, Ordering::Relaxed);
@@ -834,7 +838,7 @@ impl AdapterStore for DiskAdapterStore {
         std::fs::create_dir(&stage)
             .map_err(|error| AdapterError(format!("cannot create adapter transaction: {error}")))?;
 
-        let result = replace_adapter_families(&root, &stage, &roots, &desired);
+        let result = replace_adapter_entries(&root, &stage, &roots, &exact_paths, &desired);
         let _ = std::fs::remove_dir_all(&stage);
         result
     }
@@ -1126,10 +1130,11 @@ fn ensure_environment_path_is_safe(root: &Path, relative: &str) -> Result<(), En
     Ok(())
 }
 
-fn replace_adapter_families(
+fn replace_adapter_entries(
     root: &Path,
     stage: &Path,
     roots: &[String],
+    exact_paths: &[String],
     desired: &BTreeMap<String, String>,
 ) -> Result<(), AdapterError> {
     let staged = stage.join("desired");
@@ -1156,13 +1161,13 @@ fn replace_adapter_families(
     let backups = stage.join("backups");
     std::fs::create_dir(&backups)
         .map_err(|error| AdapterError(format!("cannot prepare adapter rollback: {error}")))?;
-    let mut moved: Vec<(PathBuf, PathBuf, bool)> = Vec::new();
+    let mut moved: Vec<(PathBuf, PathBuf, bool, ManagedAdapter)> = Vec::new();
 
     for (index, managed) in roots.iter().enumerate() {
         let target = root.join(managed);
         let staged_family = staged.join(managed);
         if !staged_family.is_dir() {
-            restore_adapter_families(&moved);
+            restore_adapter_entries(&moved);
             return Err(AdapterError(format!(
                 "adapter transaction has no generated family for `{managed}`"
             )));
@@ -1171,7 +1176,7 @@ fn replace_adapter_families(
             .parent()
             .ok_or_else(|| AdapterError("an adapter family has no parent directory".to_string()))?;
         if let Err(error) = std::fs::create_dir_all(parent) {
-            restore_adapter_families(&moved);
+            restore_adapter_entries(&moved);
             return Err(AdapterError(format!(
                 "cannot create parent for adapter family `{managed}`: {error}"
             )));
@@ -1185,21 +1190,21 @@ fn replace_adapter_families(
                 ))
             })?;
             if metadata.is_symlink() || !metadata.is_dir() {
-                restore_adapter_families(&moved);
+                restore_adapter_entries(&moved);
                 return Err(AdapterError(format!(
                     "adapter family `{managed}` is not a non-link directory"
                 )));
             }
             if let Err(error) = std::fs::rename(&target, &backup) {
-                restore_adapter_families(&moved);
+                restore_adapter_entries(&moved);
                 return Err(AdapterError(format!(
                     "cannot move current adapter family `{managed}` aside: {error}"
                 )));
             }
         }
-        moved.push((target.clone(), backup, false));
+        moved.push((target.clone(), backup, false, ManagedAdapter::Family));
         if let Err(error) = std::fs::rename(&staged_family, &target) {
-            restore_adapter_families(&moved);
+            restore_adapter_entries(&moved);
             return Err(AdapterError(format!(
                 "cannot install adapter family `{managed}`: {error}"
             )));
@@ -1209,13 +1214,77 @@ fn replace_adapter_families(
             .expect("the target was recorded before installing it");
         latest.2 = true;
     }
+
+    for (index, path) in exact_paths.iter().enumerate() {
+        let target = root.join(path);
+        let staged_file = staged.join(path);
+        if !staged_file.is_file() {
+            restore_adapter_entries(&moved);
+            return Err(AdapterError(format!(
+                "adapter transaction has no generated file for `{path}`"
+            )));
+        }
+        let parent = target.parent().ok_or_else(|| {
+            AdapterError("an exact adapter path has no parent directory".to_string())
+        })?;
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            restore_adapter_entries(&moved);
+            return Err(AdapterError(format!(
+                "cannot create parent for exact adapter `{path}`: {error}"
+            )));
+        }
+        let backup = backups.join(format!("exact-{index}"));
+        if target.exists() {
+            let metadata = std::fs::symlink_metadata(&target).map_err(|error| {
+                AdapterError(format!(
+                    "cannot inspect current exact adapter `{path}`: {error}"
+                ))
+            })?;
+            if metadata.is_symlink() || !metadata.is_file() {
+                restore_adapter_entries(&moved);
+                return Err(AdapterError(format!(
+                    "exact adapter `{path}` is not a regular non-link file"
+                )));
+            }
+            if let Err(error) = std::fs::rename(&target, &backup) {
+                restore_adapter_entries(&moved);
+                return Err(AdapterError(format!(
+                    "cannot move current exact adapter `{path}` aside: {error}"
+                )));
+            }
+        }
+        moved.push((target.clone(), backup, false, ManagedAdapter::File));
+        if let Err(error) = std::fs::rename(&staged_file, &target) {
+            restore_adapter_entries(&moved);
+            return Err(AdapterError(format!(
+                "cannot install exact adapter `{path}`: {error}"
+            )));
+        }
+        let latest = moved
+            .last_mut()
+            .expect("the exact target was recorded before installing it");
+        latest.2 = true;
+    }
     Ok(())
 }
 
-fn restore_adapter_families(moved: &[(PathBuf, PathBuf, bool)]) {
-    for (target, backup, installed) in moved.iter().rev() {
+#[derive(Clone, Copy)]
+enum ManagedAdapter {
+    Family,
+    File,
+}
+
+fn restore_adapter_entries(moved: &[(PathBuf, PathBuf, bool, ManagedAdapter)]) {
+    for (target, backup, installed, kind) in moved.iter().rev() {
         if *installed && target.exists() {
-            let _ = std::fs::remove_dir_all(target);
+            match kind {
+                ManagedAdapter::Family => {
+                    let _ = std::fs::remove_dir_all(target);
+                }
+                ManagedAdapter::File => {
+                    let _ = std::fs::remove_file(target);
+                }
+            }
         }
         if backup.exists() {
             let _ = std::fs::rename(backup, target);
