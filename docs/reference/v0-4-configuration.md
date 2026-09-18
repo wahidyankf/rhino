@@ -234,6 +234,10 @@ A mutation pairs `local: apply-index` with `ci: verify-clean`. Rhino refuses
 to run it until its index/disposable-replay boundary is available, rather than
 falling back to the mutable working tree.
 
+The index snapshot retains an unselected tracked symlink as opaque link data;
+it never resolves that target. A selected symlink is refused before the
+declared mutator starts, so a formatter cannot follow it outside the snapshot.
+
 ## Modelines
 
 Rhino's source example uses a relative modeline because its generated schema is
