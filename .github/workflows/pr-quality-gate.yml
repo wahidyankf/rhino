@@ -137,8 +137,9 @@ jobs:
         # execution, so the gate cannot run without this.
         run: cargo install --locked cargo-llvm-cov
 
-      # `cargo fmt`, `clippy`, fast unit coverage under a 99% line floor, and
-      # the static behaviour check -- the exact contract `.husky/pre-push` runs.
+      # `cargo fmt`, `clippy`, fast unit coverage under a 99% line floor, the
+      # static behaviour check, and exact grouped-schema bytes -- the contract
+      # `.husky/pre-push` runs before native release runners do.
       - name: Quick gate
         run: cargo xtask test-quick
 

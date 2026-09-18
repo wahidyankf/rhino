@@ -16,6 +16,8 @@ Two gates, distinguished by what they can afford to run, and one that runs befor
   rather than separate runs, because two runs can disagree and the number that gates must be the number the passing
   run produced
 - the static behaviour-coverage check, which executes no scenario and asserts that every scenario is bound or validly exempt
+- the exact generated grouped-schema check, so an editor artifact that drifted from its typed model fails before a
+  release matrix discovers it
 - `cargo xtask self-validate` last, so a repository that is out of date cannot mask a product that is broken
 
 Integration and end-to-end adapters never run in a hook and never in the quick gate. They run on a schedule. See [end-to-end testing](end-to-end-testing.md).
