@@ -204,7 +204,7 @@ pub struct TierMapping {
     pub effort: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct WordBudget {
     /// What this repository means by a word.
@@ -221,7 +221,7 @@ pub struct WordBudget {
 }
 
 /// The two definitions of a word in use, each transcribed rather than designed.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum WordRule {
     /// A run of letters, marks, and digits, optionally joined to another such
@@ -233,7 +233,7 @@ pub enum WordRule {
     WhitespaceSeparated,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Surface {
     pub glob: String,
@@ -246,13 +246,13 @@ pub struct Surface {
     pub target: Option<usize>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryMap {
     pub trees: Vec<Tree>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Tree {
     pub path: String,

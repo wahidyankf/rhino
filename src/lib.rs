@@ -316,6 +316,7 @@ pub fn execute_using_with_boundaries(
                     .policies
                     .as_ref()
                     .and_then(|policies| policies.markdown.as_ref()),
+                document.scan.as_ref(),
                 tree,
             )
             .render(invocation.format);
@@ -326,6 +327,7 @@ pub fn execute_using_with_boundaries(
                     .policies
                     .as_ref()
                     .and_then(|policies| policies.markdown.as_ref()),
+                document.scan.as_ref(),
                 tree,
             )
             .render(invocation.format);
@@ -342,6 +344,7 @@ pub fn execute_using_with_boundaries(
                     .policies
                     .as_ref()
                     .and_then(|policies| policies.markdown.as_ref()),
+                document.scan.as_ref(),
                 tree,
                 &scope,
             )
@@ -354,6 +357,35 @@ pub fn execute_using_with_boundaries(
                     .as_ref()
                     .and_then(|policies| policies.markdown.as_ref()),
                 tree,
+            )
+            .render(invocation.format);
+        }
+        ("word-budget", Document::V0_4(document)) => {
+            return v0_4::validators::word_budget(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.governance.as_ref()),
+                document.scan.as_ref(),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("directory-map", Document::V0_4(document)) => {
+            let scope = scan::Scope {
+                files: invocation.files.clone(),
+                directory: invocation.directory.clone(),
+                harness: invocation.harness.clone(),
+                stdin: stdin.map(str::to_string),
+            };
+            return v0_4::validators::directory_map(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.governance.as_ref()),
+                document.scan.as_ref(),
+                tree,
+                &scope,
             )
             .render(invocation.format);
         }
@@ -423,10 +455,8 @@ pub fn execute_using_with_boundaries(
         ("plan", Document::V2(_)) => {
             return plan::validate(tree).render(invocation.format);
         }
-        // The grouped v0.4 document is intentionally introduced before the
-        // commands that consume its groups. Parsing it is useful immediately:
-        // a consumer can validate the generated schema offline before moving
-        // a lifecycle or policy gate. No older command may reinterpret it.
+        // A grouped document refuses a command whose policy has no v0.4 owner.
+        // No legacy configuration section is reinterpreted as grouped data.
         (category, Document::V0_4(_)) => {
             return Report::refused(
                 category,

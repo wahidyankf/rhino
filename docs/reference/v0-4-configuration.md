@@ -29,13 +29,26 @@ error. The policy subgroups are also closed.
 `^[a-z][a-z0-9-]*$`, and its value is a mapping. Rhino preserves that mapping
 without assigning it product meaning.
 
+`scan.exclude-directories` is the optional shared list of directory names that
+the scan-based Markdown and governance leaves exclude at any depth. It is
+explicit policy, not an inference from ignored files: an ignored local artifact
+remains in scope until its repository declares otherwise.
+
 ## Portable policy groups
 
 `policies.markdown` opts into frontmatter, internal-link, Mermaid, and
 README-index validation. `policies.governance` owns vendor vocabulary, layer
-structure, and traceability declarations. `policies.conventions` owns configured
-license paths, identifiers, digests, and exact exclusions. Each group refuses an
-undeclared or invalid sub-policy instead of inheriting a repository convention.
+structure, traceability declarations, word-budget surfaces, and directory-map
+trees. `policies.conventions` owns configured license paths, identifiers,
+digests, and exact exclusions. Each group refuses an undeclared or invalid
+sub-policy instead of inheriting a repository convention.
+
+`governance word-budget validate` and `governance directory-map validate` read
+only `policies.governance.word-budget` and
+`policies.governance.directory-map`, respectively. Their `count`, ordered
+`surfaces`, `trees`, findings, and optional `scan.exclude-directories` retain
+the established leaf contracts; grouped v2 changes configuration ownership,
+not the policy a repository declared.
 
 `policies.plans` is a closed owner boundary. It carries no v0.4 command in this
 release, so an empty group is not a request to run a legacy plan validator.

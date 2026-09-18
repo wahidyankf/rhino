@@ -73,8 +73,20 @@ macro_rules! closed_group {
 }
 
 closed_group!(Repository);
-closed_group!(Scan);
 closed_group!(PlansPolicy);
+
+/// Directory names excluded from every tree walk.
+///
+/// The list is declared rather than inferred from ignore files: repositories
+/// choose whether generated or local paths are out of a policy's scope, and
+/// every grouped validator that uses the shared scanner receives the same
+/// answer.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Scan {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) exclude_directories: Vec<String>,
+}
 
 /// Markdown policy is explicitly opt-in. Each named validator refuses an
 /// omitted sub-policy rather than turning a repository's prose into an
@@ -131,6 +143,10 @@ pub(crate) struct ReadmeAnnotation {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct GovernancePolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) word_budget: Option<crate::config::WordBudget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) directory_map: Option<crate::config::DirectoryMap>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) vendor: Option<VendorPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
