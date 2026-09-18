@@ -138,6 +138,13 @@ they are never a shell string. Use `gate list` to inspect the seven surfaces
 and `gate validate` to check declaration, composition, binding, and projection
 without starting a child.
 
+The same `commit-message` input can bind `hook-message-file` at `commit-msg`
+and `explicit-range` with `range: explicit` at `pull-request`. For the latter,
+Rhino reads the non-merge commit-message text in the immutable `base..head`
+range after it has validated both commit IDs. The gate keeps its one semantic
+ID, command, and typed `message.text` projection; only its declared source
+changes by lifecycle surface.
+
 A `push-updates` range also declares its repository comparison `fallback`. A
 normal update uses the remote object as base. A new ref resolves that declared
 ref to an immutable base, while a deleted ref skips the range gate because it

@@ -502,9 +502,28 @@ Feature: Rhino v0.4 contracts
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
-      gates: {}
+      gates:
+        entries:
+          - id: conventional-commit
+            type: check
+            inputs:
+              message: { kind: commit-message }
+            command:
+              executable: ./check-conventional-commit
+              args:
+                - { input: message.text, expand: single }
+            run-on:
+              commit-msg:
+                bind:
+                  message: { source: hook-message-file }
+              pull-request:
+                bind:
+                  message: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
       """
-    When I invoke the CLI with "gate|run|--surface|commit-msg|--message-file|COMMIT_EDITMSG"
+    When I invoke the CLI with "gate|validate"
     Then the exit code is 0
 
   Scenario: Lifecycle composition is checked before a gate runs

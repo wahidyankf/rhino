@@ -1109,12 +1109,13 @@ fn source_accepts(kind: InputKind, source: InputSource) -> bool {
         (
             InputKind::Files,
             InputSource::GitIndex | InputSource::Checkout
-        ) | (InputKind::CommitMessage, InputSource::HookMessageFile)
-            | (
-                InputKind::CommitRange,
-                InputSource::PushUpdates | InputSource::ExplicitRange
-            )
-            | (InputKind::RepositoryState, InputSource::Checkout)
+        ) | (
+            InputKind::CommitMessage,
+            InputSource::HookMessageFile | InputSource::ExplicitRange
+        ) | (
+            InputKind::CommitRange,
+            InputSource::PushUpdates | InputSource::ExplicitRange
+        ) | (InputKind::RepositoryState, InputSource::Checkout)
     )
 }
 
@@ -1323,6 +1324,10 @@ mod tests {
         assert!(source_accepts(
             InputKind::CommitMessage,
             InputSource::HookMessageFile
+        ));
+        assert!(source_accepts(
+            InputKind::CommitMessage,
+            InputSource::ExplicitRange
         ));
         assert!(source_accepts(
             InputKind::CommitRange,

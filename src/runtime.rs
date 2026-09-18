@@ -299,6 +299,14 @@ pub trait Tree {
         Err("this tree has no Git ref-resolution boundary".to_string())
     }
 
+    /// Read the commit-message text for one already validated immutable range.
+    /// A pull-request gate consumes the same semantic message input as the
+    /// commit-msg hook, but receives it from the reviewed range rather than a
+    /// mutable hook file.
+    fn commit_messages(&self, _base: &str, _head: &str) -> Result<String, String> {
+        Err("this tree has no commit-message range boundary".to_string())
+    }
+
     /// Every directory in the tree, repository-relative and sorted, including
     /// one that holds no file at any depth.
     ///
@@ -408,6 +416,7 @@ pub struct MemoryTree {
     empty: BTreeSet<String>,
     indexed: Option<Vec<String>>,
     git_refs: BTreeMap<String, String>,
+    commit_messages: BTreeMap<(String, String), String>,
 }
 
 impl MemoryTree {
@@ -483,6 +492,12 @@ impl MemoryTree {
     pub fn set_git_ref(&mut self, reference: &str, commit: &str) {
         self.git_refs
             .insert(reference.to_string(), commit.to_string());
+    }
+
+    /// State the non-merge commit-message text for one immutable range.
+    pub fn set_commit_messages(&mut self, base: &str, head: &str, messages: &str) {
+        self.commit_messages
+            .insert((base.to_string(), head.to_string()), messages.to_string());
     }
 
     fn replace_adapter_files(&self, transaction: &AdapterTransaction) -> Result<(), AdapterError> {
@@ -618,6 +633,13 @@ impl Tree for MemoryTree {
             .ok_or_else(|| format!("the declared fallback ref `{reference}` does not resolve"))
     }
 
+    fn commit_messages(&self, base: &str, head: &str) -> Result<String, String> {
+        self.commit_messages
+            .get(&(base.to_string(), head.to_string()))
+            .cloned()
+            .ok_or_else(|| "this tree has no commit-message range boundary".to_string())
+    }
+
     fn directories(&self) -> Vec<String> {
         let mut found = parents(&self.files());
         // A stated empty directory contributes itself and every directory on
@@ -684,6 +706,7 @@ impl Tree for MemoryTree {
                     .collect()
             }),
             git_refs: self.git_refs.clone(),
+            commit_messages: self.commit_messages.clone(),
         }))
     }
 }
@@ -852,6 +875,7 @@ mod tests {
         let tree = ReadOnlyTree;
         assert!(tree.indexed_files().is_err());
         assert!(tree.resolve_git_ref("main").is_err());
+        assert!(tree.commit_messages("aaaaaaa", "bbbbbbb").is_err());
         assert_eq!(
             tree.excluding(&["ignored".to_string()]).files(),
             vec!["docs/guide.md".to_string()]

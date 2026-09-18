@@ -246,6 +246,29 @@ impl Tree for DiskTree {
         Ok(commit.to_string())
     }
 
+    fn commit_messages(&self, base: &str, head: &str) -> Result<String, String> {
+        let range = format!("{base}..{head}");
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args([
+                "log",
+                "--format=%B",
+                "--no-merges",
+                "--end-of-options",
+                &range,
+            ])
+            .output()
+            .map_err(|error| {
+                format!("could not read commit messages for the declared range: {error}")
+            })?;
+        if !output.status.success() {
+            return Err("Git refused the declared commit-message range".to_string());
+        }
+        String::from_utf8(output.stdout)
+            .map_err(|_| "Git returned non-UTF-8 commit-message text".to_string())
+    }
+
     /// The direct children of one directory, read from that directory alone.
     ///
     /// The port defines a child in terms of the file list, and the trait's
