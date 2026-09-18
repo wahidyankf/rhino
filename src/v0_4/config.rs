@@ -695,7 +695,14 @@ pub fn schema_bytes() -> Result<Vec<u8>, serde_json::Error> {
 fn write_schema_json(rendered: &mut String, value: &Value, depth: usize) {
     match value {
         Value::Array(values) if fits_scalar_array(values, depth) => {
-            rendered.push_str(&serde_json::to_string(values).expect("scalars serialize"));
+            rendered.push('[');
+            for (index, scalar) in values.iter().enumerate() {
+                rendered.push_str(&serde_json::to_string(scalar).expect("scalar serializes"));
+                if index + 1 != values.len() {
+                    rendered.push_str(", ");
+                }
+            }
+            rendered.push(']');
         }
         Value::Array(values) => {
             rendered.push_str("[\n");
@@ -710,6 +717,7 @@ fn write_schema_json(rendered: &mut String, value: &Value, depth: usize) {
             indent(rendered, depth);
             rendered.push(']');
         }
+        Value::Object(entries) if entries.is_empty() => rendered.push_str("{}"),
         Value::Object(entries) => {
             rendered.push_str("{\n");
             for (index, (key, item)) in entries.iter().enumerate() {
@@ -736,7 +744,7 @@ fn fits_scalar_array(values: &[Value], depth: usize) -> bool {
             Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_)
         )
     }) && serde_json::to_string(values)
-        .map(|text| depth * 2 + text.len() <= 80)
+        .map(|text| depth * 2 + text.len() + values.len().saturating_sub(1) <= 80)
         .unwrap_or(false)
 }
 
@@ -1237,6 +1245,17 @@ mod tests {
             value["properties"]["extensions"]["propertyNames"]["pattern"],
             "^[a-z][a-z0-9-]*$"
         );
+    }
+
+    #[test]
+    fn schema_scalar_arrays_use_the_repository_json_layout() {
+        let mut rendered = String::new();
+        write_schema_json(&mut rendered, &serde_json::json!(["string", "null"]), 0);
+        assert_eq!(rendered, "[\"string\", \"null\"]");
+
+        rendered.clear();
+        write_schema_json(&mut rendered, &serde_json::json!({}), 0);
+        assert_eq!(rendered, "{}");
     }
 
     #[test]
