@@ -14,8 +14,11 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 ## Size Rehearsal
 
 When a candidate exceeds a platform size ceiling, collect all four native measurements before changing any budget.
-Run the manual `Release Size Rehearsal` workflow for the candidate ref, download its one aggregate artifact, and record
-the raw executable/archive byte counts with the toolchain and commit. It invokes the same `cargo xtask dist` writer as
+Run the manual `Release Size Rehearsal` workflow for a default-branch candidate. GitHub does not expose manual dispatch
+until that workflow reaches the default branch, so for an unmerged **draft** candidate a maintainer instead applies the
+`release-size-rehearsal` label; remove and reapply it to request a fresh head. That label-triggered run checks out the
+exact reviewed PR head with the same read-only/no-secret permission. Download its one aggregate artifact and record the
+raw executable/archive byte counts with the toolchain and commit. It invokes the same `cargo xtask dist` writer as
 release but cannot publish a tag or asset. A partial matrix is evidence of nothing: do not change a ceiling until the
 aggregate names all four release targets and a review explains the material change. Then rebuild and rerun the normal
 release artifact suite; rehearsal never replaces it.

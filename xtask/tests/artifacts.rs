@@ -240,7 +240,17 @@ fn release_size_rehearsal_measures_each_native_target_without_publishing() {
 
     assert!(
         text.contains("workflow_dispatch"),
-        "size rehearsal must be manually invoked"
+        "size rehearsal must remain manually dispatchable from default branch"
+    );
+    assert!(
+        text.contains("pull_request:")
+            && text.contains("labeled")
+            && text.contains("github.event.label.name == 'release-size-rehearsal'"),
+        "a labeled draft PR must be able to request rehearsal before the workflow reaches default branch"
+    );
+    assert!(
+        text.contains("github.event.pull_request.head.sha"),
+        "PR rehearsal must assemble the exact reviewed head, not a synthetic merge commit"
     );
     assert!(
         text.contains("cargo xtask dist"),
