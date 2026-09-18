@@ -335,6 +335,25 @@ fn resolve_inputs<'a>(
                 })?;
                 ResolvedInput::CommitMessage(message)
             }
+            (InputKind::CommitMessage, InputSource::ExplicitRange) => {
+                let (Some(base), Some(head)) =
+                    (invocation.base.as_deref(), invocation.head.as_deref())
+                else {
+                    return Err(
+                        "requires both `--base` and `--head` for an explicit commit range"
+                            .to_string(),
+                    );
+                };
+                if !is_commit(base) || !is_commit(head) {
+                    return Err(
+                        "requires hexadecimal commit IDs for `--base` and `--head`".to_string()
+                    );
+                }
+                let messages = tree.commit_messages(base, head).map_err(|reason| {
+                    format!("cannot read commit messages for the explicit range: {reason}")
+                })?;
+                ResolvedInput::CommitMessage(messages)
+            }
             (InputKind::CommitRange, InputSource::ExplicitRange) => {
                 let (Some(base), Some(head)) =
                     (invocation.base.as_deref(), invocation.head.as_deref())
@@ -1321,6 +1340,7 @@ gates:
         tree.write("docs/a.md", "a");
         tree.set_indexed_files(["docs/a.md", "docs/a.md"]);
         tree.set_git_ref("refs/main", "ccccccc");
+        tree.set_commit_messages("aaaaaaa", "bbbbbbb", "feat: checked message\n\nbody");
 
         let gate = Gate {
             id: "typed".to_string(),
@@ -1405,6 +1425,60 @@ gates:
                 .unwrap_err()
                 .contains("--message-file")
         );
+        let absent_message_file = Invocation {
+            message_file: Some("missing-message.txt".to_string()),
+            ..Invocation::default()
+        };
+        assert!(
+            resolve_inputs(&gate, message.iter(), &absent_message_file, &tree, None)
+                .unwrap_err()
+                .contains("does not exist")
+        );
+
+        let explicit_message = BTreeMap::from([(
+            "message".to_string(),
+            InputBinding {
+                source: InputSource::ExplicitRange,
+                range: Some(crate::v0_4::config::RangeSelector::Explicit),
+                fallback: None,
+            },
+        )]);
+        assert!(matches!(
+            resolve_inputs(&gate, explicit_message.iter(), &invocation, &tree, None),
+            Ok(Some(values))
+                if matches!(
+                    values["message"],
+                    ResolvedInput::CommitMessage(ref message)
+                        if message == "feat: checked message\n\nbody"
+                )
+        ));
+        assert!(
+            resolve_inputs(
+                &gate,
+                explicit_message.iter(),
+                &Invocation::default(),
+                &tree,
+                None
+            )
+            .unwrap_err()
+            .contains("both `--base`")
+        );
+        let absent_range_messages = Invocation {
+            base: Some("ccccccc".to_string()),
+            head: Some("ddddddd".to_string()),
+            ..Invocation::default()
+        };
+        assert!(
+            resolve_inputs(
+                &gate,
+                explicit_message.iter(),
+                &absent_range_messages,
+                &tree,
+                None
+            )
+            .unwrap_err()
+            .contains("cannot read commit messages")
+        );
 
         let explicit = BTreeMap::from([(
             "range".to_string(),
@@ -1430,6 +1504,11 @@ gates:
         };
         assert!(
             resolve_inputs(&gate, explicit.iter(), &invalid_commit, &tree, None)
+                .unwrap_err()
+                .contains("hexadecimal")
+        );
+        assert!(
+            resolve_inputs(&gate, explicit_message.iter(), &invalid_commit, &tree, None)
                 .unwrap_err()
                 .contains("hexadecimal")
         );

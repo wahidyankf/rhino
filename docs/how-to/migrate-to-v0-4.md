@@ -66,6 +66,13 @@ An omitted group makes its leaf refuse with exit `2`; that is evidence of an
 undeclared policy, not a clean result. For operations, review the plan first
 and pass `--apply` only at the explicit mutation boundary.
 
+For one semantic gate that checks Conventional Commit messages, retain one
+`commit-message` input and one command. Bind it to `hook-message-file` at
+`commit-msg`, then to `explicit-range` with `range: explicit` at
+`pull-request`; Rhino reads the reviewed non-merge messages from the immutable
+`base..head` range for the replay. Do not create a second PR-only command or
+pass a mutable hook-file path to pull-request CI.
+
 ## 5. Finish before stable
 
 Commit the grouped configuration, its immutable version/checksum pin, and
