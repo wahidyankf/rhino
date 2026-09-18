@@ -56,31 +56,97 @@ release, so an empty group is not a request to run a legacy plan validator.
 ## Canonical adapter profiles
 
 `harness` declares the portable requirements and exactly three opaque profiles.
-Each profile owns one non-overlapping adapter root and explicitly lists the
-capabilities, grants, denials, constraints, routes, and identities it can
-represent. Canonical source remains `AGENTS.md` and `.agents/{agents,skills}`;
-the generated roots contain only routes, a catalog, and provenance.
+Each profile explicitly lists the capabilities, grants, denials, constraints,
+routes, and identities it can represent. The canonical field vocabulary and
+each native adapter representation are also declared, so Rhino does not assume
+a harness's path, format, front-matter keys, or route syntax. Canonical source
+remains `AGENTS.md`, `.agents/agents/*.md`, and
+`.agents/skills/*/SKILL.md`.
+
+An agent or skill adapter has one `{name}` output placeholder, a native
+`front-matter` or `toml` format, an identity mapping, optional fixed fields,
+capability translations, and an exact route containing one `{path}`
+placeholder. An `instruction-adapter` is an individual managed file, rather
+than ownership of its parent directory. The transaction replaces only the
+directory families derived from agent and skill paths plus those exact
+instruction-adapter files; unrelated siblings remain outside its authority.
 
 ```yaml
 harness:
+  canonical:
+    agents:
+      name: name
+      description: description
+      grants: requires
+      denials: denies
+      constraints: constraints
+    skills: { name: name, description: description }
   requirements:
     capabilities: [read]
+    grants: [files-read]
+    routes: [canonical-import]
+    identities: [reviewer]
   profiles:
     - id: alpha
-      root: adapters/alpha
-      supports: { capabilities: [read] }
+      supports:
+        {
+          capabilities: [read],
+          grants: [files-read],
+          routes: [canonical-import],
+          identities: [reviewer],
+        }
+      instruction-adapter: { path: CLAUDE.md, route: "@{path}" }
+      agent-adapter:
+        path: adapters/alpha/agents/{name}.md
+        format: front-matter
+        route-field: body
+        route: "Read {path} completely."
+        identity: { name: name, description: description }
+      skill-adapter:
+        path: adapters/alpha/skills/{name}/SKILL.md
+        format: front-matter
+        route-field: body
+        route: "Read {path} completely."
+        identity: { name: name, description: description }
     - id: beta
-      root: adapters/beta
-      supports: { capabilities: [read] }
+      supports:
+        {
+          capabilities: [read],
+          grants: [files-read],
+          routes: [canonical-import],
+          identities: [reviewer],
+        }
+      agent-adapter:
+        {
+          path: "adapters/beta/agents/{name}.toml",
+          format: toml,
+          route-field: developer_instructions,
+          route: "Read {path} completely.",
+          identity: { name: name, description: description },
+        }
     - id: gamma
-      root: adapters/gamma
-      supports: { capabilities: [read] }
+      supports:
+        {
+          capabilities: [read],
+          grants: [files-read],
+          routes: [canonical-import],
+          identities: [reviewer],
+        }
+      agent-adapter:
+        {
+          path: "adapters/gamma/agents/{name}.md",
+          format: front-matter,
+          route-field: body,
+          route: "Read {path} completely.",
+          fixed: { mode: subagent },
+        }
 ```
 
 `harness adapters validate` is read-only. `harness adapters generate` first
-validates the entire projection, then replaces only the declared roots as one
-recoverable transaction. A missing profile capability or another unsupported
-requirement refuses before any write.
+validates and renders the entire projection, then replaces only its declared
+families and exact files as one recoverable transaction. An unrepresentable
+requirement, malformed source metadata, invalid native representation, or
+conflicting output refuses before any write.
 
 ## Environment files and toolchains
 

@@ -2006,6 +2006,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Typed harness profiles render native agent and skill adapters",
+    ),
+    (
+        "v0-4-contract",
         "Environment backup starts with an explicit destination plan",
     ),
     (

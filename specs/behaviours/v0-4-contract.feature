@@ -560,6 +560,17 @@ Feature: Rhino v0.4 contracts
       """
       schema: rhino/repo-config/v2
       harness:
+        canonical:
+          agents:
+            name: name
+            description: description
+            tier: tier
+            grants: capabilities
+            denials: denies
+            constraints: constraints
+          skills:
+            name: name
+            description: description
         requirements:
           capabilities: [read]
           grants: [files-read]
@@ -569,7 +580,6 @@ Feature: Rhino v0.4 contracts
           identities: [reviewer]
         profiles:
           - id: alpha
-            root: adapters/alpha
             supports:
               capabilities: [read]
               grants: [files-read]
@@ -577,8 +587,9 @@ Feature: Rhino v0.4 contracts
               constraints: [offline]
               routes: [canonical-import]
               identities: [reviewer]
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+            skill-adapter: {path: "adapters/alpha/skills/{name}/SKILL.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
           - id: beta
-            root: adapters/beta
             supports:
               capabilities: [read]
               grants: [files-read]
@@ -586,8 +597,9 @@ Feature: Rhino v0.4 contracts
               constraints: [offline]
               routes: [canonical-import]
               identities: [reviewer]
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+            skill-adapter: {path: "adapters/beta/skills/{name}/SKILL.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
           - id: gamma
-            root: adapters/gamma
             supports:
               capabilities: [read]
               grants: [files-read]
@@ -595,12 +607,14 @@ Feature: Rhino v0.4 contracts
               constraints: [offline]
               routes: [canonical-import]
               identities: [reviewer]
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+            skill-adapter: {path: "adapters/gamma/skills/{name}/SKILL.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
       """
     And the repository contains:
       | path                           | content               |
       | AGENTS.md                      | Canonical instruction |
-      | .agents/agents/reviewer.md     | Canonical agent       |
-      | .agents/skills/review/SKILL.md | Canonical skill       |
+      | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/skills/review/SKILL.md | ---\nname: review\ndescription: Review skill\n---\nCanonical skill    |
     When I invoke the CLI with "harness|adapters|generate"
     Then the exit code is 0
     And the last adapter generation changes the repository
@@ -609,23 +623,109 @@ Feature: Rhino v0.4 contracts
     And the last adapter generation makes no repository change
     And the two runs are byte-identical
 
+  Scenario: Typed harness profiles render native agent and skill adapters
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+          skills: {name: name, description: description}
+        requirements:
+          capabilities: [read]
+          grants: [files-read]
+          denials: [network]
+          constraints: [offline]
+          routes: [canonical-import]
+          identities: [reviewer]
+        profiles:
+          - id: alpha
+            supports:
+              capabilities: [read]
+              grants: [files-read]
+              denials: [network]
+              constraints: [offline]
+              routes: [canonical-import]
+              identities: [reviewer]
+            instruction-adapter:
+              path: CLAUDE.md
+              route: "@{path}"
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name, description: description}
+            skill-adapter:
+              path: adapters/alpha/skills/{name}/SKILL.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name, description: description}
+          - id: beta
+            supports:
+              capabilities: [read]
+              grants: [files-read]
+              denials: [network]
+              constraints: [offline]
+              routes: [canonical-import]
+              identities: [reviewer]
+            agent-adapter:
+              path: adapters/beta/agents/{name}.toml
+              format: toml
+              route-field: developer_instructions
+              route: Read {path} completely.
+              identity: {name: name, description: description}
+          - id: gamma
+            supports:
+              capabilities: [read]
+              grants: [files-read]
+              denials: [network]
+              constraints: [offline]
+              routes: [canonical-import]
+              identities: [reviewer]
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {description: description}
+              fixed: {mode: subagent}
+      """
+    And the repository contains:
+      | path                           | content                                           |
+      | AGENTS.md                      | Canonical instruction                             |
+      | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/skills/review/SKILL.md | ---\nname: review\ndescription: Review skill\n---\nCanonical skill    |
+      | adapters/gamma/opencode.json   | user-owned                                        |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "name: reviewer"
+    And the generated adapter at "adapters/beta/agents/reviewer.toml" contains "developer_instructions ="
+    And the generated adapter at "adapters/gamma/agents/reviewer.md" contains "mode: subagent"
+    And the generated adapter at "adapters/alpha/skills/review/SKILL.md" contains "name: review"
+    And the generated adapter at "CLAUDE.md" contains "@AGENTS.md"
+    And the file "adapters/gamma/opencode.json" still contains "user-owned"
+
   Scenario: An unrepresentable canonical requirement refuses before adapter generation
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
       harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
         requirements:
           capabilities: [write]
         profiles:
           - id: alpha
-            root: adapters/alpha
             supports: {capabilities: [write]}
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
           - id: beta
-            root: adapters/beta
             supports: {capabilities: []}
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
           - id: gamma
-            root: adapters/gamma
             supports: {capabilities: [write]}
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
       """
     And the repository contains:
       | path                         | content               |

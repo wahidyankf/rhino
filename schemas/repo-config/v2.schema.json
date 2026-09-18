@@ -1,5 +1,66 @@
 {
   "$defs": {
+    "Adapter": {
+      "additionalProperties": false,
+      "description": "One native profile representation of canonical agents or skills.",
+      "properties": {
+        "absent": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fixed": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "format": {
+          "$ref": "#/$defs/AdapterFormat"
+        },
+        "identity": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Identity"
+          },
+          "type": "object"
+        },
+        "path": {
+          "description": "The output pattern, with exactly one `{name}` placeholder.",
+          "type": "string"
+        },
+        "route": {
+          "description": "The repository-owned route template, with exactly one `{path}`\nplaceholder for the canonical source path.",
+          "type": "string"
+        },
+        "route-field": {
+          "description": "`body` for front-matter prose, or the scalar field that holds a TOML\nroute. The format decides which spelling is representable.",
+          "type": "string"
+        },
+        "tier-fields": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TierFields"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "translations": {
+          "items": {
+            "$ref": "#/$defs/Translation"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["path", "format", "route-field", "route"],
+      "type": "object"
+    },
+    "AdapterFormat": {
+      "enum": ["front-matter", "toml"],
+      "type": "string"
+    },
     "Argument": {
       "additionalProperties": false,
       "description": "Exactly one literal or resolved input reaches one argv position.",
@@ -41,6 +102,71 @@
           "type": "string"
         }
       ]
+    },
+    "Canonical": {
+      "additionalProperties": false,
+      "description": "The field vocabulary the repository uses in canonical front matter. Rhino\nreads those declared keys; it does not assume a particular catalog writes\ngrants as `capabilities` or `requires`.",
+      "properties": {
+        "agents": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalAgent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skills": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalDocument"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CanonicalAgent": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "type": "string"
+        },
+        "denials": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "grants": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tier": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["name", "description", "grants", "denials", "constraints"],
+      "type": "object"
+    },
+    "CanonicalDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description"],
+      "type": "object"
     },
     "CiMutation": {
       "enum": ["verify-clean"],
@@ -485,6 +611,16 @@
       "additionalProperties": false,
       "description": "Canonical requirements and the adapter profiles that must preserve them.\n\nThe canonical bodies themselves are deliberately not duplicated here: they\nremain the repository's root instruction and `.agents` trees. This group\nstates only the portable meaning each profile must be able to carry.",
       "properties": {
+        "canonical": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Canonical"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "profiles": {
           "items": {
             "$ref": "#/$defs/Profile"
@@ -497,6 +633,10 @@
         }
       },
       "type": "object"
+    },
+    "Identity": {
+      "enum": ["name", "description"],
+      "type": "string"
     },
     "InputBinding": {
       "additionalProperties": false,
@@ -536,6 +676,20 @@
         "checkout"
       ],
       "type": "string"
+    },
+    "InstructionAdapter": {
+      "additionalProperties": false,
+      "description": "One exact root-instruction adapter. It is managed as an individual file so\na route such as `CLAUDE.md` never grants ownership of the repository root.",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "required": ["path", "route"],
+      "type": "object"
     },
     "InternalLink": {
       "additionalProperties": false,
@@ -785,20 +939,56 @@
     },
     "Profile": {
       "additionalProperties": false,
-      "description": "A data-declared adapter family. `id` is an opaque repository identifier;\ncore code neither names nor branches on any particular consumer.",
+      "description": "A data-declared adapter family. `id` is an opaque repository identifier;\ncore code neither names nor branches on any particular consumer. Each\ngenerated document declares its native path and representation rather than\ninheriting a broad vendor directory as a mutable root.",
       "properties": {
+        "agent-adapter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Adapter"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "id": {
           "type": "string"
         },
-        "root": {
-          "type": "string"
+        "instruction-adapter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InstructionAdapter"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "skill-adapter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Adapter"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "supports": {
           "$ref": "#/$defs/Requirements",
           "default": {}
+        },
+        "tiers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Tier"
+          },
+          "type": "object"
         }
       },
-      "required": ["id", "root"],
+      "required": ["id"],
       "type": "object"
     },
     "PullRequestComposition": {
@@ -979,6 +1169,32 @@
       "required": ["glob", "fail"],
       "type": "object"
     },
+    "Tier": {
+      "additionalProperties": false,
+      "properties": {
+        "effort": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": ["model", "effort"],
+      "type": "object"
+    },
+    "TierFields": {
+      "additionalProperties": false,
+      "properties": {
+        "effort": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": ["model", "effort"],
+      "type": "object"
+    },
     "Toolchain": {
       "additionalProperties": false,
       "properties": {
@@ -1109,6 +1325,35 @@
       "required": ["from", "to"],
       "type": "object"
     },
+    "Translation": {
+      "additionalProperties": false,
+      "description": "One capability projection into the declared native adapter format.",
+      "properties": {
+        "capability": {
+          "type": ["string", "null"]
+        },
+        "entries": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "field": {
+          "type": "string"
+        },
+        "members": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "when": {
+          "$ref": "#/$defs/When"
+        }
+      },
+      "required": ["when", "field"],
+      "type": "object"
+    },
     "Tree": {
       "additionalProperties": false,
       "properties": {
@@ -1165,6 +1410,10 @@
       },
       "required": ["term"],
       "type": "object"
+    },
+    "When": {
+      "enum": ["always", "requires", "denies", "constrains"],
+      "type": "string"
     },
     "WordBudget": {
       "additionalProperties": false,

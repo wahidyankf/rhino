@@ -4,7 +4,8 @@ RHINO tree validators open files and print. They write nothing, spawn nothing,
 and connect to nothing. Explicit operations are separate: `gate run` starts
 only a declared child argv, toolchain commands start declared typed argv without
 a shell or reported output, and adapter generation replaces only declared
-adapter roots after planning every output in memory. These are enforced as
+adapter families and exact instruction-adapter files after planning every output
+in memory. These are enforced as
 tests, not incidental properties of the current implementation.
 
 ## The four boundaries
@@ -13,7 +14,7 @@ tests, not incidental properties of the current implementation.
 a report, not a lock file. A hygiene tool that writes into the tree it is
 judging can change the answer it is about to give, and can turn a read-only
 checkout into a failure. An explicit adapter transaction has a different port:
-it rejects paths outside declared adapter roots and is never reachable from a
+it rejects paths outside declared adapter families or exact files and is never reachable from a
 validator.
 
 **A tree validator spawns no child process.** No `git`, no formatter, no shell.

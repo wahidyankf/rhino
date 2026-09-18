@@ -2392,6 +2392,30 @@ Body.
                 world.last_mutations
             ),
         ),
+        "the generated adapter at {string} contains {string}" => {
+            let path = matched.string(0);
+            let expected = matched.string(1);
+            match world.files.get(path) {
+                Some(contents) => expect(
+                    contents.contains(expected),
+                    format!(
+                        "generated adapter `{path}` does not contain `{expected}`\ncontents: {contents}"
+                    ),
+                ),
+                None => Outcome::Failed(format!("no generated adapter exists at `{path}`")),
+            }
+        }
+        "the file {string} still contains {string}" => {
+            let path = matched.string(0);
+            let expected = matched.string(1);
+            match world.files.get(path) {
+                Some(contents) => expect(
+                    contents.contains(expected),
+                    format!("file `{path}` does not retain `{expected}`\ncontents: {contents}"),
+                ),
+                None => Outcome::Failed(format!("file `{path}` was removed")),
+            }
+        }
         "the harness-parity digest changed" => {
             let Some(remembered) = world.remembered_digest.clone() else {
                 return Outcome::Failed("no digest was remembered".to_string());
