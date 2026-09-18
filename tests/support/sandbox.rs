@@ -233,6 +233,41 @@ pub fn observe(root: &Path) -> Observation {
     found
 }
 
+/// The exact readable files after a deliberate adapter transaction. Ordinary
+/// observations use debug byte forms so they can describe binary fixtures;
+/// rebuilding a sandbox must retain the original text instead.
+pub fn text_files(root: &Path) -> std::collections::BTreeMap<String, String> {
+    fn collect(
+        root: &Path,
+        directory: &Path,
+        found: &mut std::collections::BTreeMap<String, String>,
+    ) {
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.is_symlink() {
+                continue;
+            }
+            if metadata.is_dir() {
+                collect(root, &path, found);
+            } else if let (Ok(relative), Ok(contents)) =
+                (path.strip_prefix(root), std::fs::read_to_string(&path))
+            {
+                found.insert(relative.to_string_lossy().replace('\\', "/"), contents);
+            }
+        }
+    }
+
+    let mut found = std::collections::BTreeMap::new();
+    collect(root, root, &mut found);
+    found
+}
+
 fn walk(root: &Path, directory: &Path, found: &mut Observation) {
     let Ok(entries) = std::fs::read_dir(directory) else {
         return;

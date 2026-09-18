@@ -31,11 +31,173 @@ mod integration_bindings;
 mod unit_bindings;
 
 use gherkin::Corpus;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 fn declared() -> BTreeSet<(String, String)> {
     Corpus::canonical().keys().into_iter().collect()
+}
+
+#[test]
+fn the_v0_4_acceptance_manifest_maps_every_surviving_capability() {
+    const MANIFEST: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/specs/fixtures/v0-4/acceptance-manifest.tsv"
+    );
+    const HEADER: &str =
+        "capability_id\tfixture_ids\tacceptance_criteria\ttarget_owner\tdelivery_phase";
+    const EXPECTED_ID_DIGEST: &str =
+        "c0bd1041e34cbd92e1b67bc5f6f698a9b6d435af69bafaff86e201188336a33c";
+
+    let text = std::fs::read_to_string(MANIFEST).expect("the v0.4 acceptance manifest is readable");
+    let mut lines = text.lines();
+    assert_eq!(
+        lines.next(),
+        Some(HEADER),
+        "the manifest header is the declared contract"
+    );
+
+    let mut ids = BTreeSet::new();
+    let mut fixtures = BTreeSet::new();
+    let mut phase_counts = BTreeMap::<&str, usize>::new();
+
+    for (offset, line) in lines.enumerate() {
+        let fields: Vec<&str> = line.split('\t').collect();
+        assert_eq!(
+            fields.len(),
+            5,
+            "manifest line {} has five fields",
+            offset + 2
+        );
+        let [id, fixture_ids, criteria, owner, phase] =
+            <[&str; 5]>::try_from(fields).expect("five checked fields convert to an array");
+
+        assert!(ids.insert(id), "duplicate capability id {id}");
+        assert!(
+            criteria
+                .split(';')
+                .all(|criterion| criterion.starts_with("AC-")),
+            "{id} names a stable AC"
+        );
+        for fixture in fixture_ids.split(';') {
+            assert!(!fixture.is_empty(), "{id} has no blank fixture id");
+            assert!(
+                fixtures.insert(fixture),
+                "fixture {fixture} is mapped more than once"
+            );
+        }
+        assert!(
+            matches!(
+                (owner, phase),
+                ("rhino-v0.4", "2")
+                    | ("wkf-knowledge-butler", "15")
+                    | ("ose-private+ose-public:pre-commit-lockfile-sync", "1")
+            ),
+            "{id} has an unowned delivery phase"
+        );
+        *phase_counts.entry(phase).or_default() += 1;
+    }
+
+    assert_eq!(ids.len(), 61, "every non-Delete capability must be mapped");
+    assert_eq!(
+        phase_counts.get("2"),
+        Some(&52),
+        "Rhino-owned capabilities belong to Phase 2"
+    );
+    assert_eq!(
+        phase_counts.get("15"),
+        Some(&8),
+        "Butler-local capabilities remain Phase 15-owned"
+    );
+    assert_eq!(
+        phase_counts.get("1"),
+        Some(&1),
+        "the localized lockfile capability remains independently owned"
+    );
+
+    let digest = Sha256::digest(format!(
+        "{}\n",
+        ids.into_iter().collect::<Vec<_>>().join("\n")
+    ));
+    let actual = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    assert_eq!(
+        actual, EXPECTED_ID_DIGEST,
+        "an unmapped, substituted, or added capability changes the locked survivor set"
+    );
+}
+
+#[test]
+fn the_v0_4_red_fixture_groups_cover_the_declared_adversarial_inputs() {
+    const FIXTURES: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/specs/fixtures/v0-4/phase-2-red-fixtures.json"
+    );
+    let value: Value = serde_json::from_str(
+        &std::fs::read_to_string(FIXTURES).expect("the v0.4 RED fixtures are readable"),
+    )
+    .expect("the v0.4 RED fixtures are JSON");
+    assert_eq!(value["schemaVersion"], 1, "fixture schema is versioned");
+
+    let groups = value["groups"]
+        .as_array()
+        .expect("fixture groups are an array");
+    let mut ids = BTreeSet::new();
+    let mut names = BTreeSet::new();
+    for group in groups {
+        let name = group["name"].as_str().expect("group has a name");
+        assert!(names.insert(name), "fixture group {name} is unique");
+        assert!(
+            group["acceptanceCriteria"]
+                .as_array()
+                .expect("group names acceptance criteria")
+                .iter()
+                .all(|criterion| criterion
+                    .as_str()
+                    .is_some_and(|text| text.starts_with("AC-"))),
+            "{name} names stable acceptance criteria"
+        );
+        for case in group["cases"].as_array().expect("group has cases") {
+            let id = case["id"].as_str().expect("case has a stable id");
+            assert!(ids.insert(id), "fixture case {id} is unique");
+        }
+    }
+
+    assert_eq!(
+        names,
+        BTreeSet::from([
+            "external-nx",
+            "gate-inputs",
+            "gate-snapshots",
+            "harness-and-operations"
+        ])
+    );
+    assert_eq!(
+        ids.len(),
+        15,
+        "each declared Phase 2 adversarial case is present"
+    );
+    for required in [
+        "FX-V04-GATE-FILES-LITERAL",
+        "FX-V04-GATE-MESSAGE-HOOK-FILE",
+        "FX-V04-GATE-RANGE-EXPLICIT",
+        "FX-V04-GATE-STATE-CHECKOUT",
+        "FX-V04-SNAPSHOT-PARTIAL-STAGING",
+        "FX-V04-SNAPSHOT-PR-REPLAY-DIFF",
+        "FX-V04-NX-RANGE-DELETED-REF",
+        "FX-V04-HARNESS-LOSS-REFUSAL",
+        "FX-V04-ENV-BACKUP-NO-FOLLOW",
+        "FX-V04-TOOLCHAIN-APPLY-ORDER",
+    ] {
+        assert!(
+            ids.contains(required),
+            "required Phase 2 fixture {required} is mapped"
+        );
+    }
 }
 
 #[test]
@@ -407,6 +569,7 @@ fn the_quick_gate_and_the_hooks_run_no_slow_adapter() {
     // The positive control: an absence proves nothing unless the same reading
     // can find what is certainly there.
     for expected in [
+        "\"--lib\"",
         "\"unit\"",
         "\"coverage\"",
         "\"--fail-under-lines\"",

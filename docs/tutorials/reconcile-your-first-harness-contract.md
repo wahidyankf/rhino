@@ -1,5 +1,9 @@
 # Reconcile your first harness contract
 
+> **Legacy RC tutorial.** This page documents predecessor harness parity as
+> migration input. Grouped v2 uses exactly three adapter profiles; start with
+> [the migration guide](../how-to/migrate-to-v0-4.md) before adopting stable.
+
 About fifteen minutes, and it assumes you have finished [validate your first
 repository](validate-your-first-repository.md). By the end you will have one
 canonical instruction body, one canonical skill, one canonical agent, a harness

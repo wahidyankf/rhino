@@ -45,7 +45,11 @@ The path in the finding is `-`, because that is what you named. This is the
 fastest way to check a diagram while you are writing it — no file, no commit,
 same rules.
 
-## One directory tree
+## One legacy directory tree
+
+`governance directory-map validate` is a predecessor leaf available only while
+an RC repository still uses its legacy configuration. Grouped v2 has no alias
+for it; migrate the policy to its named owner instead of relying on this scope.
 
 `--directory` replaces the declared trees for directory-map validation:
 
@@ -62,7 +66,11 @@ $ rhino governance directory-map validate --directory README.md
 [directory-map] README.md is not a directory in this repository
 ```
 
-## One coding harness
+## One legacy coding harness
+
+`harness parity validate` is a predecessor leaf. Grouped-v2 adapter validation
+always checks the declared three-profile projection as one transaction and
+refuses an inherited `--harness` selector.
 
 ```sh
 rhino harness parity validate --harness claude
@@ -81,8 +89,8 @@ $ rhino harness parity validate --harness nope
 command path:
 
 ```sh
-rhino --root ../other-repo governance word-budget validate
-rhino governance word-budget validate --root ../other-repo
+rhino --root ../other-repo md internal-link validate
+rhino md internal-link validate --root ../other-repo
 ```
 
 The selected root brings its own `repo-config.yml`, its own surfaces, and its

@@ -1,5 +1,10 @@
 # Validate your first repository
 
+> **Legacy RC tutorial.** This page documents the predecessor configuration as
+> migration input. New repositories must start with grouped
+> `rhino/repo-config/v2`; use [the v0.4 tutorial](./validate-your-first-v0-4-repository.md)
+> or [the migration guide](../how-to/migrate-to-v0-4.md).
+
 About ten minutes. By the end you will have a repository RHINO checks, a
 configuration you wrote yourself, and a finding you caused on purpose and then
 fixed.

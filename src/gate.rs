@@ -10,6 +10,7 @@
 use crate::Outcome;
 use crate::config::v2::{Document, SURFACES};
 use crate::runtime::{Launch, Launcher};
+use std::collections::BTreeMap;
 
 /// Exit `3`: a child that could not be started, or a broken protocol.
 ///
@@ -40,6 +41,7 @@ pub fn dispatch(
     }
 
     let mut report = String::new();
+    let environment = BTreeMap::new();
     for gate in document.gates.iter().filter(|gate| gate.runs_at(surface)) {
         let mut arguments = gate.run.clone();
         arguments.extend_from_slice(forwarded);
@@ -49,6 +51,7 @@ pub fn dispatch(
             directory: root,
             surface,
             stdin,
+            environment: &environment,
         });
 
         match launched {

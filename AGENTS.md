@@ -1,23 +1,23 @@
-# RHINO Contributor Rules
+# RHINO Rules
 
 RHINO is a repository-hygiene validator that [owns no repository's answers](repo-governance/vision/README.md). Every rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
 
 ## The Product
 
-- Ship no default a repository could decide differently, and name no repository, harness, or organization in `src/`; the [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
-- Exit codes, `version --json`, commands, flags, and configuration keys are [a public contract](repo-governance/development/public-contract.md): adding is free, moving is a major version.
-- Read-only, network-free, process-free, path-contained, `#![forbid(unsafe_code)]` — [enforced by tests](repo-governance/development/software-quality-enforcement.md), not documentation.
+- Ship no repository-specific default, repository, harness, or organization name in `src/`; the [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
+- Exit codes, `version --json`, commands, flags, and configuration keys are [a public contract](repo-governance/development/public-contract.md); moving is major-version work.
+- Tree validators are read-only, network-free, process-free, and path-contained. Declared gate children, toolchain probes/provision, and adapter generation use separate narrow boundaries. `#![forbid(unsafe_code)]` and those boundaries are [enforced by tests](repo-governance/development/software-quality-enforcement.md), not documentation.
 
 ## Specifications
 
 - `specs/` is canonical. Assess [behaviours and architecture](repo-governance/development/specification-maintenance.md) before every change; record a verified no-op over churn.
 - Gherkin first, prove the [red for the stated reason](repo-governance/development/test-driven-development.md), then implement. Write scenarios and bindings under [BDD](repo-governance/development/behaviour-driven-development.md); keep [the C4 model](repo-governance/development/architecture-specifications.md) true.
-- Every scenario binds at the unit adapter, with no unit exemption. Changed Gherkin gets [the review](repo-governance/workflows/gherkin-implementation-review.md).
+- Every scenario binds at unit adapter without exemption; [review changed Gherkin](repo-governance/workflows/gherkin-implementation-review.md).
 
 ## Testing
 
 - `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook. [`repo-config.yml`](repo-config.yml) declares which gates run at which moment; `cargo xtask self-validate` dispatches the `ci` surface.
-- The 99% coverage floor and its two declared exclusions are [not negotiable](repo-governance/development/software-quality-enforcement.md).
+- The 99% coverage floor and two declared exclusions are [not negotiable](repo-governance/development/software-quality-enforcement.md).
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md): `75` inspect its receipt, `73` clean up, `78` replan, never bypass.
 
 ## Change Discipline
@@ -31,10 +31,10 @@ RHINO is a repository-hygiene validator that [owns no repository's answers](repo
 ## Version Control
 
 - `main` refuses direct pushes. Work only at `{repository location}/worktrees/<name>/`, never a sibling `*-worktrees/` path, and integrate by [pull request](repo-governance/workflows/worktree-to-pull-request.md) under [the integration path](repo-governance/conventions/integration-path.md), one [delivery unit](repo-governance/conventions/pull-request-boundaries.md) each, with an accurate [body](repo-governance/conventions/pull-request-body.md) and [merge preconditions](repo-governance/conventions/pull-request-merge.md).
-- Make [thematic commits](repo-governance/conventions/thematic-commits.md) when [authorized](repo-governance/conventions/commit-authorization.md). Never commit prohibited [data](repo-governance/conventions/public-repository-data-safety.md); [public safety](scripts/public-safety/README.md) gates every surface first and has no bypass, and still cannot judge what is deliberately public. Fix [hook failures](repo-governance/conventions/push-hook-verification.md) at the cause. Keep [the working tree](repo-governance/conventions/working-tree.md) clean and [poll GitHub](repo-governance/conventions/github-polling.md) every three minutes.
+- Make [thematic commits](repo-governance/conventions/thematic-commits.md) when [authorized](repo-governance/conventions/commit-authorization.md). Never commit prohibited [data](repo-governance/conventions/public-repository-data-safety.md); [public safety](scripts/public-safety/README.md) gates every surface first and has no bypass, and still cannot judge what is deliberately public. Fix [hook failures](repo-governance/conventions/push-hook-verification.md) at the cause. Keep [working tree](repo-governance/conventions/working-tree.md) clean and [poll GitHub](repo-governance/conventions/github-polling.md) every three minutes.
 - Cut releases only through [the release workflow](repo-governance/workflows/release-cut.md); never replace a tag.
 
 ## Harnesses
 
 - Claude Code, Codex, and OpenCode reach the same rules under [the contract](repo-governance/conventions/coding-harness-contract.md); [change](repo-governance/workflows/coding-harness-contract-change.md) and [verify](repo-governance/workflows/coding-harness-parity-verification.md) it through its workflows.
-- A [rule](repo-governance/conventions/rules.md) change runs [propagation](repo-governance/workflows/rules-propagation.md) automatically; [the quality gate](repo-governance/workflows/rules-quality-gate.md) and [grooming](repo-governance/workflows/rules-grooming.md) need an explicit request.
+- [Rule](repo-governance/conventions/rules.md) changes automatically run [propagation](repo-governance/workflows/rules-propagation.md); [quality gate](repo-governance/workflows/rules-quality-gate.md) and [grooming](repo-governance/workflows/rules-grooming.md) need explicit request.

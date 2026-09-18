@@ -14,7 +14,7 @@ the archive for your platform and the checksum, then verify **before**
 extracting:
 
 ```sh
-VERSION=v0.1.1
+VERSION=REPLACE_WITH_QUALIFIED_TAG
 TARGET=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 BASE=https://github.com/wahidyankf/rhino/releases/download/$VERSION
 
@@ -40,7 +40,6 @@ Confirm the build is the one you pinned:
 
 ```console
 $ rhino version
-v0.1.1
 ```
 
 `rhino version --json` reports the same version alongside the forty-character
@@ -53,8 +52,9 @@ outside a repository reports forty zeros rather than lying about it.
 
 ## Build from source instead
 
-RHINO is a single Rust binary with no build-time code generation beyond the
-embedded commit.
+RHINO is a single Rust binary. Its checked-in configuration schema derives from
+the typed model and is verified separately; a release archive never fetches it
+while running.
 
 ```sh
 git clone https://github.com/wahidyankf/rhino

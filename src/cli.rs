@@ -31,10 +31,22 @@ pub enum Accepts {
     File,
     /// One directory to inspect instead of the declared trees.
     Directory,
+    /// An explicit repository-relative destination for a backup plan.
+    BackupDirectory,
+    /// Authorize a declared mutation after its default plan has been reviewed.
+    Apply,
+    /// Replace an existing target after the operation has planned its backup.
+    Force,
     /// One harness to reconcile instead of the whole roster.
     Harness,
     /// The one surface a gate dispatch is selected by.
     Surface,
+    /// The exact path Git handed to the commit-msg hook.
+    MessageFile,
+    /// Read Git's pre-push update records from standard input.
+    PushUpdatesStdin,
+    /// The explicit immutable base/head range for a pull-request run.
+    Range,
     /// `version --json`, which predates `--output` and is kept because a
     /// release script already reads it.
     Json,
@@ -58,10 +70,33 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check that repo-config.yml is complete and usable.",
     },
     Leaf {
+        path: &["repo-config", "migrate"],
+        category: "repo-config-migration",
+        accepts: &[],
+        summary: "Print the RC-only reviewed migration plan for a legacy configuration.",
+    },
+    Leaf {
         path: &["gate", "run"],
         category: "gate",
-        accepts: &[Accepts::Surface],
+        accepts: &[
+            Accepts::Surface,
+            Accepts::MessageFile,
+            Accepts::PushUpdatesStdin,
+            Accepts::Range,
+        ],
         summary: "Run the gates the declared surface selects, in declaration order.",
+    },
+    Leaf {
+        path: &["gate", "list"],
+        category: "gate-list",
+        accepts: &[],
+        summary: "List the declared v0.4 lifecycle gates for each closed surface.",
+    },
+    Leaf {
+        path: &["gate", "validate"],
+        category: "gate-validate",
+        accepts: &[],
+        summary: "Validate v0.4 lifecycle membership and pull-request composition.",
     },
     Leaf {
         path: &["governance", "roots", "validate"],
@@ -80,6 +115,24 @@ pub const LEAVES: &[Leaf] = &[
         category: "governance-instructions",
         accepts: &[],
         summary: "Check the canonical instruction spine and the exact import beside it.",
+    },
+    Leaf {
+        path: &["governance", "vendor", "validate"],
+        category: "vendor",
+        accepts: &[],
+        summary: "Check declared roots for declared vendor terms and exact exceptions.",
+    },
+    Leaf {
+        path: &["governance", "layers", "validate"],
+        category: "layers",
+        accepts: &[],
+        summary: "Check the declared governance layer and category structure.",
+    },
+    Leaf {
+        path: &["governance", "traceability", "validate"],
+        category: "traceability",
+        accepts: &[],
+        summary: "Check declared artifacts and their declared local links.",
     },
     Leaf {
         path: &["plan", "validate"],
@@ -104,6 +157,54 @@ pub const LEAVES: &[Leaf] = &[
         category: "harness-parity",
         accepts: &[Accepts::Harness],
         summary: "Reconcile the canon against every declared coding harness.",
+    },
+    Leaf {
+        path: &["harness", "adapters", "validate"],
+        category: "harness-adapters-validate",
+        accepts: &[],
+        summary: "Validate canonical harness adapters without writing them.",
+    },
+    Leaf {
+        path: &["harness", "adapters", "generate"],
+        category: "harness-adapters-generate",
+        accepts: &[],
+        summary: "Generate canonical harness adapters in one declared transaction.",
+    },
+    Leaf {
+        path: &["env", "backup"],
+        category: "environment-backup",
+        accepts: &[Accepts::BackupDirectory],
+        summary: "Plan a declared environment backup into an explicit destination.",
+    },
+    Leaf {
+        path: &["env", "validate"],
+        category: "environment-validate",
+        accepts: &[],
+        summary: "Validate declared environment policy without reporting values.",
+    },
+    Leaf {
+        path: &["env", "init"],
+        category: "environment-init",
+        accepts: &[Accepts::Apply],
+        summary: "Initialize declared environment targets only with explicit authorization.",
+    },
+    Leaf {
+        path: &["env", "restore"],
+        category: "environment-restore",
+        accepts: &[Accepts::BackupDirectory, Accepts::Force],
+        summary: "Restore declared environment targets from an explicit backup directory.",
+    },
+    Leaf {
+        path: &["toolchain", "validate"],
+        category: "toolchain-validate",
+        accepts: &[],
+        summary: "Probe declared toolchains without installing or reporting their output.",
+    },
+    Leaf {
+        path: &["toolchain", "provision"],
+        category: "toolchain-provision",
+        accepts: &[Accepts::Apply],
+        summary: "Provision declared toolchains only with explicit authorization.",
     },
     Leaf {
         path: &["md", "frontmatter", "validate"],
@@ -160,6 +261,12 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check that no declared file carries an emoji code point.",
     },
     Leaf {
+        path: &["convention", "license", "validate"],
+        category: "license",
+        accepts: &[],
+        summary: "Check configured license paths, identifiers, and digests.",
+    },
+    Leaf {
         path: &["version"],
         category: "version",
         accepts: &[Accepts::Json],
@@ -175,8 +282,15 @@ pub struct Invocation {
     pub format: Format,
     pub files: Vec<String>,
     pub directory: Option<String>,
+    pub backup_directory: Option<String>,
     pub harness: Option<String>,
     pub surface: Option<String>,
+    pub message_file: Option<String>,
+    pub push_updates_stdin: bool,
+    pub base: Option<String>,
+    pub head: Option<String>,
+    pub apply: bool,
+    pub force: bool,
     /// Everything after `--`: the hook's own arguments, forwarded unmodified.
     pub forwarded: Vec<String>,
 }
@@ -208,8 +322,15 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     let mut format: Option<String> = None;
     let mut files: Vec<String> = Vec::new();
     let mut directory: Option<String> = None;
+    let mut backup_directory: Option<String> = None;
     let mut harness: Option<String> = None;
     let mut surface: Option<String> = None;
+    let mut message_file: Option<String> = None;
+    let mut push_updates_stdin = false;
+    let mut base: Option<String> = None;
+    let mut head: Option<String> = None;
+    let mut apply = false;
+    let mut force = false;
     let mut forwarded: Vec<String> = Vec::new();
     let mut json_flag = false;
 
@@ -233,8 +354,15 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
             "--root" => value("--root", &mut root, &mut rest)?,
             "--output" => value("--output", &mut format, &mut rest)?,
             "--directory" => value("--directory", &mut directory, &mut rest)?,
+            "--dir" => value("--dir", &mut backup_directory, &mut rest)?,
             "--harness" => value("--harness", &mut harness, &mut rest)?,
             "--surface" => value("--surface", &mut surface, &mut rest)?,
+            "--message-file" => value("--message-file", &mut message_file, &mut rest)?,
+            "--push-updates-stdin" => push_updates_stdin = true,
+            "--base" => value("--base", &mut base, &mut rest)?,
+            "--head" => value("--head", &mut head, &mut rest)?,
+            "--apply" => apply = true,
+            "--force" => force = true,
             // Everything past this point belongs to the child, not to RHINO. A
             // hook argument that happens to start with a hyphen is payload, and
             // a parser that read it as a flag would refuse the invocation Git
@@ -292,9 +420,31 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     for (given, flag, name) in [
         (!files.is_empty(), Accepts::File, "--file"),
         (directory.is_some(), Accepts::Directory, "--directory"),
+        (
+            backup_directory.is_some(),
+            Accepts::BackupDirectory,
+            "--dir",
+        ),
         (harness.is_some(), Accepts::Harness, "--harness"),
         (surface.is_some(), Accepts::Surface, "--surface"),
+        (
+            message_file.is_some(),
+            Accepts::MessageFile,
+            "--message-file",
+        ),
+        (
+            push_updates_stdin,
+            Accepts::PushUpdatesStdin,
+            "--push-updates-stdin",
+        ),
+        (
+            base.is_some() || head.is_some(),
+            Accepts::Range,
+            "--base/--head",
+        ),
         (json_flag, Accepts::Json, "--json"),
+        (apply, Accepts::Apply, "--apply"),
+        (force, Accepts::Force, "--force"),
     ] {
         if given && !accepted.contains(&flag) {
             return Err(Refusal(format!(
@@ -331,6 +481,29 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
             "`--json` and `--output text` ask for different things".to_string(),
         ));
     }
+    if base.is_some() != head.is_some() {
+        return Err(Refusal(
+            "`--base` and `--head` must be supplied together".to_string(),
+        ));
+    }
+    if leaf.category == "gate" {
+        let selected = surface.as_deref();
+        if message_file.is_some() && selected != Some("commit-msg") {
+            return Err(Refusal(
+                "`--message-file` is accepted only with `--surface commit-msg`".to_string(),
+            ));
+        }
+        if push_updates_stdin && selected != Some("pre-push") {
+            return Err(Refusal(
+                "`--push-updates-stdin` is accepted only with `--surface pre-push`".to_string(),
+            ));
+        }
+        if base.is_some() && selected != Some("pull-request") {
+            return Err(Refusal(
+                "`--base` and `--head` are accepted only with `--surface pull-request`".to_string(),
+            ));
+        }
+    }
 
     Ok(Parsed::Run(Box::new(Invocation {
         category: leaf.category,
@@ -339,8 +512,15 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         format: if json_flag { Format::Json } else { format },
         files,
         directory,
+        backup_directory,
         harness,
         surface,
+        message_file,
+        push_updates_stdin,
+        base,
+        head,
+        apply,
+        force,
         forwarded,
     })))
 }
@@ -403,11 +583,29 @@ fn help_for(segments: &[&str]) -> Option<String> {
             Accepts::Directory => {
                 "  --directory <path>     Inspect this directory instead of the declared trees.\n"
             }
+            Accepts::BackupDirectory => {
+                "  --dir <path>           Explicit repository-relative backup destination.\n"
+            }
+            Accepts::Apply => {
+                "  --apply                Authorize this declared mutation.\n"
+            }
+            Accepts::Force => {
+                "  --force                Replace an existing target after backup planning.\n"
+            }
             Accepts::Harness => {
                 "  --harness <name>       Reconcile this harness instead of the whole roster.\n"
             }
             Accepts::Surface => {
-                "  --surface <name>       Which surface is dispatching: commit-msg, pre-commit,\n                         pre-push, or ci. Arguments after `--` reach every child.\n"
+                "  --surface <name>       Which closed lifecycle surface is dispatching.\n"
+            }
+            Accepts::MessageFile => {
+                "  --message-file <path>  Exact commit-msg hook path, read only for that surface.\n"
+            }
+            Accepts::PushUpdatesStdin => {
+                "  --push-updates-stdin   Read Git pre-push update records from standard input.\n"
+            }
+            Accepts::Range => {
+                "  --base <sha> --head <sha>\n                         Explicit immutable pull-request range.\n"
             }
             Accepts::Json => "  --json                 Shorthand for --output json.\n",
         });
@@ -436,4 +634,75 @@ fn not_repository_relative(value: &str) -> Option<&'static str> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn arguments(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    #[test]
+    fn gate_flag_contract_refuses_cross_surface_and_incomplete_range_combinations() {
+        for invocation in [
+            &[
+                "gate",
+                "run",
+                "--surface",
+                "pull-request",
+                "--base",
+                "abcdef1",
+            ][..],
+            &[
+                "gate",
+                "run",
+                "--surface",
+                "pre-commit",
+                "--message-file",
+                "message",
+            ],
+            &[
+                "gate",
+                "run",
+                "--surface",
+                "pre-commit",
+                "--push-updates-stdin",
+            ],
+            &[
+                "gate",
+                "run",
+                "--surface",
+                "pre-commit",
+                "--base",
+                "abcdef1",
+                "--head",
+                "abcdef2",
+            ],
+        ] {
+            assert!(
+                parse(&arguments(invocation)).is_err(),
+                "{}",
+                invocation.join(" ")
+            );
+        }
+    }
+
+    #[test]
+    fn grouped_adapter_leaves_refuse_the_inherited_harness_selector() {
+        for leaf in ["validate", "generate"] {
+            let result = parse(&arguments(&[
+                "harness",
+                "adapters",
+                leaf,
+                "--harness",
+                "alpha",
+            ]));
+            let Err(refusal) = result else {
+                panic!("grouped adapters do not select one profile");
+            };
+            assert!(refusal.0.contains("--harness"));
+        }
+    }
 }

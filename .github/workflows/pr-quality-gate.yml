@@ -133,12 +133,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Coverage tooling
-        # The quick gate measures unit coverage in the same execution that runs
-        # the unit adapter, so the gate cannot run without this.
+        # The quick gate measures the fast library suite and unit adapter in one
+        # execution, so the gate cannot run without this.
         run: cargo install --locked cargo-llvm-cov
 
-      # `cargo fmt`, `clippy`, the unit adapter under a 99% line floor, and the
-      # static behaviour check -- the exact contract `.husky/pre-push` runs.
+      # `cargo fmt`, `clippy`, fast unit coverage under a 99% line floor, and
+      # the static behaviour check -- the exact contract `.husky/pre-push` runs.
       - name: Quick gate
         run: cargo xtask test-quick
 

@@ -15,7 +15,7 @@ Nothing else is a candidate.
 ## Refused Permanently
 
 - Rewriting prose to save words, or weakening any audience qualifier, scope boundary, exception, or pass condition.
-- Trimming a safety guardrail: data safety, commit and push authorization, HIPPO exit-code handling, the product's read-only and network-free invariants, the coverage floor, release immutability.
+- Trimming a safety guardrail: data safety, commit and push authorization, HIPPO exit-code handling, validator read-only/network-free constraints and operation boundaries, the coverage floor, release immutability.
 - Removing or hollowing a document naming a convention, principle, development standard, or workflow without per-item authorization naming that document.
 - Raising a word budget, in any class, for any reason.
 - Deleting a rule to make room.

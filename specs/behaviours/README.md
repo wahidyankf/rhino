@@ -66,5 +66,7 @@ implement them the same way at three boundaries:
   formal plan is held to.
 - [repo-config.feature](repo-config.feature) — both configuration schemas,
   their required fields, and what an unusable configuration does.
+- [v0-4-contract.feature](v0-4-contract.feature) — grouped configuration,
+  schema, modeline, migration, and future delivery contracts.
 - [word-budget.feature](word-budget.feature) — declared word surfaces, their
   limits, and word counting itself.

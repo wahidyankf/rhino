@@ -1,11 +1,10 @@
 //! The boundary policies, enforced rather than documented.
 //!
-//! RHINO claims to be a Unix tool: it reads a repository, writes a report, and
-//! does nothing else. Four of those claims -- no network, no child process, no
-//! write to the inspected tree, no path leaving the root -- are the reason a
-//! maintainer is willing to run it over a tree they care about on every push.
-//! A claim that lives only in prose is one a later change can quietly retract,
-//! so each is a test here.
+//! Validator commands read a repository and write only a report. Their no
+//! network, child process, write, and escaping-path claims are the reason a
+//! maintainer can run them on every push. Declared gates and adapter generation
+//! have separate scope proofs. A claim that lives only in prose is one a later
+//! change can quietly retract, so each is a test here.
 //!
 //! Two of them are absences, and an absence cannot be observed by running the
 //! tool: no run proves the *next* run opens no socket. Those two are checked
@@ -15,8 +14,19 @@
 use crate::harness;
 use crate::sandbox::{self, Sandbox};
 use crate::world::{World, differences};
-use rhino::runtime::{DiskTree, Tree};
+use rhino::ExecutionBoundaries;
+use rhino::runtime::{
+    DiskEnvironmentStore, DiskMutationRunner, DiskToolchainRunner, DiskTree, EnvironmentFile,
+    EnvironmentRestoreFile, EnvironmentRestoreTransaction, EnvironmentStore,
+    EnvironmentTransaction, MutationLaunch, MutationRunner, NoAdapterStore, NoEnvironmentStore,
+    NoLauncher, NoMutationRunner, NoToolchainRunner, ToolchainLaunch, ToolchainRunner, Tree,
+};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static NEXT_INDEX_FIXTURE: AtomicUsize = AtomicUsize::new(0);
 
 /// Every command path the tool answers, as a caller would type it.
 const LEAVES: &[&[&str]] = &[
@@ -32,6 +42,334 @@ const LEAVES: &[&[&str]] = &[
 
 fn crate_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+struct IndexFixture {
+    root: PathBuf,
+}
+
+impl IndexFixture {
+    fn new() -> Self {
+        let ordinal = NEXT_INDEX_FIXTURE.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "rhino-index-fixture-{}-{ordinal}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root).expect("the index fixture root is new");
+        Self { root }
+    }
+
+    fn git(&self, arguments: &[&str]) {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args(arguments)
+            .output()
+            .expect("Git starts for the isolated index fixture");
+        assert!(
+            output.status.success(),
+            "Git fixture command {arguments:?} failed with {}",
+            output.status.code().unwrap_or(2)
+        );
+    }
+
+    fn git_stdout(&self, arguments: &[&str]) -> Vec<u8> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args(arguments)
+            .output()
+            .expect("Git starts for the isolated index fixture");
+        assert!(
+            output.status.success(),
+            "Git fixture command {arguments:?} failed with {}",
+            output.status.code().unwrap_or(2)
+        );
+        output.stdout
+    }
+}
+
+impl Drop for IndexFixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+#[test]
+fn disk_tree_reads_only_staged_paths_from_the_git_index() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/staged.md"), "before\n")
+        .expect("the staged fixture file is written");
+    std::fs::write(fixture.root.join("notes/unstaged.md"), "before\n")
+        .expect("the unstaged fixture file is written");
+    fixture.git(&["add", "--", "notes/staged.md", "notes/unstaged.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "index bytes\n")
+        .expect("the staged file changes before staging");
+    fixture.git(&["add", "--", "notes/staged.md"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "unstaged bytes\n")
+        .expect("the staged file receives unrelated working-tree bytes");
+    std::fs::write(
+        fixture.root.join("notes/unstaged.md"),
+        "working tree only\n",
+    )
+    .expect("the unstaged file changes outside the index");
+
+    let tree = DiskTree::new(&fixture.root).expect("the Git fixture is a tree");
+
+    assert_eq!(
+        tree.indexed_files()
+            .expect("the real Git index is readable"),
+        vec!["notes/staged.md"]
+    );
+}
+
+#[test]
+fn disk_mutation_updates_only_the_selected_index_blob() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/staged.md"), "before\n")
+        .expect("the staged fixture file is written");
+    let formatter = fixture.root.join("formatter.sh");
+    std::fs::write(
+        &formatter,
+        "#!/bin/sh\nprintf 'formatted\\n' > notes/staged.md\n",
+    )
+    .expect("the isolated formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the isolated formatter is executable");
+    fixture.git(&["add", "--", "notes/staged.md", "formatter.sh"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "selected bytes\n")
+        .expect("the selected index bytes are written");
+    fixture.git(&["add", "--", "notes/staged.md"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "unstaged bytes\n")
+        .expect("the unrelated working-tree bytes are written");
+
+    let selected = vec!["notes/staged.md".to_string()];
+    let root = fixture.root.to_string_lossy().into_owned();
+    let result = match DiskMutationRunner.apply_index(MutationLaunch {
+        arguments: &["./formatter.sh".to_string()],
+        directory: &root,
+        environment: &BTreeMap::new(),
+        selected_paths: &selected,
+        revision: None,
+    }) {
+        Ok(result) => result,
+        Err(_) => panic!("the isolated index mutation succeeds"),
+    };
+
+    assert_eq!(result.code, 0);
+    assert_eq!(result.changes, vec!["notes/staged.md"]);
+    assert_eq!(result.divergences, vec!["notes/staged.md"]);
+    assert_eq!(
+        fixture.git_stdout(&["show", ":notes/staged.md"]),
+        b"formatted\n"
+    );
+    assert_eq!(
+        std::fs::read(fixture.root.join("notes/staged.md")).expect("working bytes remain readable"),
+        b"unstaged bytes\n"
+    );
+}
+
+#[test]
+fn disk_mutation_replay_reports_a_disposable_candidate_diff() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/candidate.md"), "before\n")
+        .expect("the candidate fixture file is written");
+    let formatter = fixture.root.join("formatter.sh");
+    std::fs::write(
+        &formatter,
+        "#!/bin/sh\nprintf 'formatted\\n' > notes/candidate.md\n",
+    )
+    .expect("the isolated formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the isolated formatter is executable");
+    fixture.git(&["add", "--", "notes/candidate.md", "formatter.sh"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    let revision = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("Git returns a UTF-8 commit ID")
+        .trim()
+        .to_string();
+    let root = fixture.root.to_string_lossy().into_owned();
+
+    let result = match DiskMutationRunner.verify_clean(MutationLaunch {
+        arguments: &["./formatter.sh".to_string()],
+        directory: &root,
+        environment: &BTreeMap::new(),
+        selected_paths: &[],
+        revision: Some(&revision),
+    }) {
+        Ok(result) => result,
+        Err(_) => panic!("the disposable candidate replay completes"),
+    };
+
+    assert_eq!(result.code, 1);
+    assert_eq!(result.changes, vec!["notes/candidate.md"]);
+    assert!(result.divergences.is_empty());
+    assert_eq!(
+        std::fs::read(fixture.root.join("notes/candidate.md"))
+            .expect("the original checkout remains readable"),
+        b"before\n"
+    );
+}
+
+#[test]
+fn disk_environment_store_creates_synthetic_targets_once_and_refuses_symlink_routes() {
+    use std::os::unix::fs::symlink;
+
+    let fixture = IndexFixture::new();
+    let root = fixture.root.to_string_lossy().into_owned();
+    let transaction = EnvironmentTransaction {
+        files: vec![EnvironmentFile {
+            path: ".env.fixture".to_string(),
+            contents: "SYNTHETIC=value\n".to_string(),
+        }],
+    };
+
+    DiskEnvironmentStore
+        .create(&root, &transaction)
+        .expect("a new declared target is installed");
+    assert_eq!(
+        std::fs::read(fixture.root.join(".env.fixture")).expect("the target is readable"),
+        b"SYNTHETIC=value\n"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        assert_eq!(
+            std::fs::metadata(fixture.root.join(".env.fixture"))
+                .expect("the target metadata is readable")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600,
+            "declared local environment files stay private despite a permissive umask"
+        );
+    }
+    assert!(DiskEnvironmentStore.create(&root, &transaction).is_err());
+
+    symlink(".", fixture.root.join("linked")).expect("the synthetic link exists");
+    let linked = EnvironmentTransaction {
+        files: vec![EnvironmentFile {
+            path: "linked/.env.fixture".to_string(),
+            contents: "SYNTHETIC=value\n".to_string(),
+        }],
+    };
+    let error = DiskEnvironmentStore
+        .create(&root, &linked)
+        .expect_err("a target beneath a link is refused");
+    assert!(error.0.contains("symbolic link"));
+
+    let partial = EnvironmentTransaction {
+        files: vec![
+            EnvironmentFile {
+                path: "a-first/.env.fixture".to_string(),
+                contents: "SYNTHETIC=value\n".to_string(),
+            },
+            EnvironmentFile {
+                path: "z-linked/.env.fixture".to_string(),
+                contents: "SYNTHETIC=value\n".to_string(),
+            },
+        ],
+    };
+    symlink(".", fixture.root.join("z-linked")).expect("the second synthetic link exists");
+    assert!(DiskEnvironmentStore.create(&root, &partial).is_err());
+    assert!(
+        !fixture.root.join("a-first/.env.fixture").exists(),
+        "the store validates every target before it stages or installs one"
+    );
+
+    let restore = EnvironmentRestoreTransaction {
+        files: vec![EnvironmentRestoreFile {
+            path: ".env.fixture".to_string(),
+            contents: "SYNTHETIC=restored\n".to_string(),
+            replace: true,
+        }],
+    };
+    DiskEnvironmentStore
+        .restore(&root, &restore)
+        .expect("a declared replacement keeps the old file private until install");
+    assert_eq!(
+        std::fs::read(fixture.root.join(".env.fixture")).expect("the restored target is readable"),
+        b"SYNTHETIC=restored\n"
+    );
+}
+
+#[test]
+fn environment_staging_guard_reads_the_real_index_without_reading_unstaged_bytes() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    std::fs::write(
+        fixture.root.join("repo-config.yml"),
+        "schema: rhino/repo-config/v2\nenvironment:\n  staged:\n    forbidden: [\".env*\"]\n    allowed: [\".env.example\"]\n",
+    )
+    .expect("the synthetic policy is written");
+    std::fs::write(fixture.root.join(".env.fixture"), "SYNTHETIC=staged\n")
+        .expect("the synthetic staged target is written");
+    std::fs::write(fixture.root.join(".env.unstaged"), "SYNTHETIC=unstaged\n")
+        .expect("the synthetic unstaged target is written");
+    fixture.git(&["add", "--", "repo-config.yml", ".env.fixture"]);
+    std::fs::write(
+        fixture.root.join(".env.fixture"),
+        "SYNTHETIC=unstaged-replacement\n",
+    )
+    .expect("the staged path is changed only in the working tree");
+
+    let tree = DiskTree::new(&fixture.root).expect("the fixture is a tree");
+    let outcome = rhino::execute_using_with_boundaries(
+        &tree,
+        &["env".to_string(), "validate".to_string()],
+        None,
+        ExecutionBoundaries {
+            launcher: &NoLauncher,
+            mutations: &NoMutationRunner,
+            adapters: &NoAdapterStore,
+            environments: &NoEnvironmentStore,
+            toolchains: &NoToolchainRunner,
+        },
+    );
+
+    assert_eq!(outcome.exit_code, 1);
+    assert!(
+        outcome
+            .stderr
+            .contains(".env.fixture: staged-environment-file")
+    );
+    assert!(!outcome.stderr.contains(".env.unstaged"));
+    assert!(!outcome.stderr.contains("SYNTHETIC"));
+}
+
+#[cfg(unix)]
+#[test]
+fn disk_toolchain_runner_cancels_a_timed_out_child_without_output() {
+    let arguments = vec!["2".to_string()];
+    let error = DiskToolchainRunner
+        .run(ToolchainLaunch {
+            executable: "sleep",
+            arguments: &arguments,
+            timeout_seconds: Some(1),
+        })
+        .expect_err("the isolated synthetic child exceeds its declared timeout");
+
+    assert!(error.0.contains("exceeded its timeout"));
+    assert!(!error.0.contains("SYNTHETIC"));
 }
 
 /// Every `.rs` file under `src/`, with its repository-relative path.
@@ -188,14 +526,15 @@ fn the_launcher_is_reached_only_by_gate_dispatch() {
     // dispatcher that hands it along, and the gate runner that uses it -- and
     // nowhere else. A validator that named it could start a process without
     // ever writing `Command`.
-    const ALLOWED: [&str; 5] = [
+    const ALLOWED: [&str; 6] = [
         "src/runtime.rs",
         LAUNCHER,
         "src/lib.rs",
         "src/main.rs",
         "src/gate.rs",
+        "src/v0_4/gates.rs",
     ];
-    let found: Vec<String> = mentions(&["Launcher", "Launch {"])
+    let found: Vec<String> = mentions(&["Launcher", " Launch {"])
         .into_iter()
         .filter(|finding| {
             !ALLOWED
@@ -206,6 +545,34 @@ fn the_launcher_is_reached_only_by_gate_dispatch() {
     assert!(
         found.is_empty(),
         "a module outside the gate dispatch reaches the launcher:\n{}",
+        found.join("\n")
+    );
+}
+
+#[test]
+fn the_toolchain_runner_is_reached_only_by_declared_toolchain_operations() {
+    // Toolchain probing and provisioning are deliberately not gate dispatch:
+    // they have their own typed, no-shell port. Keeping the port's references
+    // to these five modules prevents an ordinary validator from acquiring a
+    // host-process capability merely by naming the trait.
+    const ALLOWED: [&str; 5] = [
+        "src/runtime.rs",
+        LAUNCHER,
+        "src/lib.rs",
+        "src/main.rs",
+        "src/v0_4/operations.rs",
+    ];
+    let found: Vec<String> = mentions(&["ToolchainRunner", "ToolchainLaunch {"])
+        .into_iter()
+        .filter(|finding| {
+            !ALLOWED
+                .iter()
+                .any(|allowed| finding.starts_with(&format!("{allowed}:")))
+        })
+        .collect();
+    assert!(
+        found.is_empty(),
+        "a module outside declared toolchain operations reaches the runner:\n{}",
         found.join("\n")
     );
 }
@@ -229,7 +596,7 @@ fn the_tool_contains_no_unsafe_code() {
 }
 
 #[test]
-fn no_leaf_writes_to_the_repository_it_inspects() {
+fn validators_do_not_write_to_the_repository_they_inspect() {
     // The corpus proves this per scenario, for the leaves its scenarios name.
     // This proves it for *every* leaf, over a tree that is writable and that
     // each of them has something to say about -- including the leaves whose

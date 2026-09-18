@@ -1,5 +1,11 @@
 # Findings
 
+This page preserves the predecessor finding catalog while v0.4 is in its
+release-candidate migration window. Grouped-v2 leaves are command-specific and
+their current contract is [the command reference](./cli.md) plus the executable
+v0.4 corpus. Do not treat a legacy finding kind as an alias for a grouped-v2
+result.
+
 A finding is one violation of one declared rule. Findings go to stderr, one per
 line, sorted, in a fixed shape:
 

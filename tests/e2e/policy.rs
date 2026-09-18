@@ -25,7 +25,7 @@ const LEAVES: &[&[&str]] = &[
 ];
 
 #[test]
-fn no_leaf_writes_to_the_repository_it_inspects() {
+fn validators_do_not_write_to_the_repository_they_inspect() {
     let mut world: World<()> = World::default();
     world.files.insert(
         "rules/README.md".to_string(),

@@ -9,7 +9,17 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 - The commit to release is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, reconciled after the last merge by the [integration path](../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
-- The quick gate passes on that exact commit.
+- The quick gate and `cargo xtask schema --check` pass on that exact commit.
+
+## Size Rehearsal
+
+When a candidate exceeds a platform size ceiling, collect all four native measurements before changing any budget.
+Run the manual `Release Size Rehearsal` workflow for the candidate ref, download its one aggregate artifact, and record
+the raw executable/archive byte counts with the toolchain and commit. It invokes the same `cargo xtask dist` writer as
+release but cannot publish a tag or asset. A partial matrix is evidence of nothing: do not change a ceiling until the
+aggregate names all four release targets and a review explains the material change. Then rebuild and rerun the normal
+release artifact suite; rehearsal never replaces it.
+
 - `CHANGELOG.md` describes this version, and `README.md` and `docs/` are true to the binary being built.
 
 ## Procedure
@@ -26,13 +36,13 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
    git tag -l "v<version>" && git ls-remote --tags origin "v<version>"
    ```
 
-3. **Build the archive for this platform.** One platform per invocation, deliberately — the release matrix builds each archive on a runner of that architecture rather than cross-compiling, so every published executable has actually started on the operating system it claims.
+3. **Build this platform's archive and stage the grouped schema.** One platform per invocation, deliberately — the release matrix builds each archive on a runner of that architecture rather than cross-compiling, so every published executable has actually started on the operating system it claims. `cargo xtask dist` stages the checked-in v2 schema only after proving it matches the typed model.
 
    ```sh
    ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask dist
    ```
 
-4. **Record the digests.** Only through the task; never by hand.
+4. **Record the digests.** Only through the task; never by hand. The manifest covers every archive and the staged v2 schema.
 
    ```sh
    ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask checksums
@@ -47,9 +57,11 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
    scripts/public-safety/public-safety.sh --surface release --text "v<version>" --file local-tmp/release-notes.md
    ```
 
-   Pass an annotation as one more `--text`. The release workflow builds and publishes every platform archive plus `checksums.txt`.
+   Pass an annotation as one more `--text`. The release workflow builds and publishes every platform archive, the
+   grouped v2 schema, and `checksums.txt`.
 
-7. **Verify the published release** before telling anyone it exists: an archive per supported platform, a `checksums.txt` covering all of them, and a downloaded archive whose digest matches.
+7. **Verify the published release** before telling anyone it exists: an archive per supported platform, the grouped
+   v2 schema, a `checksums.txt` covering every release asset, and downloaded archive/schema bytes whose digests match.
 
 ## If Something Is Wrong
 

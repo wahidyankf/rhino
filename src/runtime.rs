@@ -9,8 +9,12 @@
 
 pub mod disk;
 
-pub use disk::{DiskTree, ProcessLauncher};
+pub use disk::{
+    DiskAdapterStore, DiskEnvironmentStore, DiskMutationRunner, DiskToolchainRunner, DiskTree,
+    ProcessLauncher,
+};
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +51,10 @@ pub struct Launch<'a> {
     pub surface: &'a str,
     /// The hook's own standard input, forwarded unmodified.
     pub stdin: Option<&'a str>,
+    /// Declared gate projections only. Values are already resolved from typed
+    /// inputs; the launcher never parses a template or reconstructs a shell
+    /// assignment.
+    pub environment: &'a BTreeMap<String, String>,
 }
 
 /// How a child ended.
@@ -60,6 +68,188 @@ pub struct Launched {
 
 /// Why a child never ran.
 pub struct LaunchError(pub String);
+
+/// A declared mutation command isolated from the ordinary child launcher.
+/// The runner owns the snapshot and write boundary; the gate dispatcher owns
+/// only typed projection, result classification, and ordering.
+pub struct MutationLaunch<'a> {
+    pub arguments: &'a [String],
+    pub directory: &'a str,
+    pub environment: &'a BTreeMap<String, String>,
+    /// Repository-relative paths selected from the actual Git index. The
+    /// mutation runner must never infer a wider write set from the working
+    /// tree or from the child command.
+    pub selected_paths: &'a [String],
+    /// Candidate commit used only by a disposable pull-request replay.
+    pub revision: Option<&'a str>,
+}
+
+/// Sanitized mutation outcome. Changed paths are repository-relative names;
+/// content and child streams stay inside the snapshot boundary.
+pub struct Mutated {
+    pub code: i32,
+    pub changes: Vec<String>,
+    pub divergences: Vec<String>,
+}
+
+pub struct MutationError(pub String);
+
+/// One generated adapter file, held in memory until every profile has been
+/// discovered and validated. The bytes never come from an adapter directory:
+/// generation is a projection of canonical sources only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdapterFile {
+    pub path: String,
+    pub contents: String,
+}
+
+/// The complete replacement of every declared adapter family. `roots` is the
+/// exclusive managed scope; a store must reject any desired file outside it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdapterTransaction {
+    pub roots: Vec<String>,
+    pub files: Vec<AdapterFile>,
+}
+
+pub struct AdapterError(pub String);
+
+/// One private local environment file, fully materialized before its target is
+/// opened. The transaction never carries a value outside this narrow boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnvironmentFile {
+    pub path: String,
+    pub contents: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnvironmentTransaction {
+    pub files: Vec<EnvironmentFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnvironmentRestoreFile {
+    pub path: String,
+    pub contents: String,
+    pub replace: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnvironmentRestoreTransaction {
+    pub files: Vec<EnvironmentRestoreFile>,
+}
+
+#[derive(Debug)]
+pub struct EnvironmentError(pub String);
+
+/// A declared executable and argv vector. Unlike a gate launch it carries no
+/// hook surface or inherited environment, so a toolchain operation cannot be
+/// mistaken for lifecycle dispatch.
+pub struct ToolchainLaunch<'a> {
+    pub executable: &'a str,
+    pub arguments: &'a [String],
+    /// A configured upper bound for one child; `None` leaves no time limit.
+    pub timeout_seconds: Option<u64>,
+}
+
+#[derive(Debug)]
+pub struct ToolchainResult {
+    pub code: i32,
+    /// Captured only for the declared version parser; operation output never
+    /// includes these bytes.
+    pub stdout: String,
+}
+
+pub struct ToolchainError(pub String);
+
+/// The narrow write port used only by canonical adapter generation.
+///
+/// A caller supplies all desired bytes before asking the store to replace any
+/// family. This makes semantic loss a pre-write failure and keeps validation
+/// read-only even when it compares the same desired projection.
+pub trait AdapterStore {
+    fn replace(&self, root: &str, transaction: &AdapterTransaction) -> Result<(), AdapterError>;
+}
+
+/// The separate no-overwrite write boundary for declared local environment
+/// targets. It is never held by a validator or a dry-run planner.
+pub trait EnvironmentStore {
+    fn create(
+        &self,
+        root: &str,
+        transaction: &EnvironmentTransaction,
+    ) -> Result<(), EnvironmentError>;
+    fn restore(
+        &self,
+        root: &str,
+        transaction: &EnvironmentRestoreTransaction,
+    ) -> Result<(), EnvironmentError>;
+}
+
+/// The only capability that starts a declared toolchain probe or provision
+/// vector. The runner never receives a shell string or tool output to report.
+pub trait ToolchainRunner {
+    fn run(&self, launch: ToolchainLaunch<'_>) -> Result<ToolchainResult, ToolchainError>;
+}
+
+pub struct NoAdapterStore;
+
+pub struct NoEnvironmentStore;
+
+pub struct NoToolchainRunner;
+
+impl AdapterStore for NoAdapterStore {
+    fn replace(&self, _: &str, _: &AdapterTransaction) -> Result<(), AdapterError> {
+        Err(AdapterError(
+            "this entry point has no canonical-adapter write boundary".to_string(),
+        ))
+    }
+}
+
+impl EnvironmentStore for NoEnvironmentStore {
+    fn create(&self, _: &str, _: &EnvironmentTransaction) -> Result<(), EnvironmentError> {
+        Err(EnvironmentError(
+            "this entry point has no environment write boundary".to_string(),
+        ))
+    }
+
+    fn restore(&self, _: &str, _: &EnvironmentRestoreTransaction) -> Result<(), EnvironmentError> {
+        Err(EnvironmentError(
+            "this entry point has no environment write boundary".to_string(),
+        ))
+    }
+}
+
+impl ToolchainRunner for NoToolchainRunner {
+    fn run(&self, _: ToolchainLaunch<'_>) -> Result<ToolchainResult, ToolchainError> {
+        Err(ToolchainError(
+            "this entry point has no toolchain process boundary".to_string(),
+        ))
+    }
+}
+
+/// The only capability that may turn a declared mutation contract into a
+/// write. Read-only callers receive [`NoMutationRunner`] and therefore fail
+/// closed instead of quietly falling back to the mutable working tree.
+pub trait MutationRunner {
+    fn apply_index(&self, launch: MutationLaunch<'_>) -> Result<Mutated, MutationError>;
+    fn verify_clean(&self, launch: MutationLaunch<'_>) -> Result<Mutated, MutationError>;
+}
+
+pub struct NoMutationRunner;
+
+impl MutationRunner for NoMutationRunner {
+    fn apply_index(&self, _: MutationLaunch<'_>) -> Result<Mutated, MutationError> {
+        Err(MutationError(
+            "this entry point has no index mutation boundary".to_string(),
+        ))
+    }
+
+    fn verify_clean(&self, _: MutationLaunch<'_>) -> Result<Mutated, MutationError> {
+        Err(MutationError(
+            "this entry point has no disposable pull-request replay boundary".to_string(),
+        ))
+    }
+}
 
 /// The one place RHINO starts a process.
 ///
@@ -94,6 +284,20 @@ pub trait Tree {
     /// Every file in the tree, repository-relative and sorted, with excluded
     /// directories and filesystem links already dropped.
     fn files(&self) -> Vec<String>;
+
+    /// The staged paths selected by the Git index, never by a mutable working
+    /// tree. A tree with no Git snapshot capability must refuse the request;
+    /// returning `files()` here would quietly widen a mutation boundary.
+    fn indexed_files(&self) -> Result<Vec<String>, String> {
+        Err("this tree has no Git index snapshot boundary".to_string())
+    }
+
+    /// Resolve a repository-declared comparison ref to one immutable commit.
+    /// The source is a capability rather than a string convention: a caller
+    /// with no Git boundary cannot manufacture a base for a newly pushed ref.
+    fn resolve_git_ref(&self, _reference: &str) -> Result<String, String> {
+        Err("this tree has no Git ref-resolution boundary".to_string())
+    }
 
     /// Every directory in the tree, repository-relative and sorted, including
     /// one that holds no file at any depth.
@@ -196,17 +400,19 @@ fn normalise_directory(path: &str) -> String {
 /// `&dyn Tree`, no write is reachable.
 #[derive(Debug, Default, Clone)]
 pub struct MemoryTree {
-    files: BTreeMap<String, String>,
+    files: RefCell<BTreeMap<String, String>>,
     unreadable: BTreeSet<String>,
     vanished: BTreeSet<String>,
     binary: BTreeSet<String>,
     links: BTreeSet<String>,
     empty: BTreeSet<String>,
+    indexed: Option<Vec<String>>,
+    git_refs: BTreeMap<String, String>,
 }
 
 impl MemoryTree {
-    pub fn write(&mut self, path: &str, content: &str) {
-        self.files.insert(
+    pub fn write(&self, path: &str, content: &str) {
+        self.files.borrow_mut().insert(
             path.trim_start_matches('/').to_string(),
             content.to_string(),
         );
@@ -253,6 +459,122 @@ impl MemoryTree {
     pub fn mark_directory(&mut self, path: &str) {
         self.empty.insert(path.trim_matches('/').to_string());
     }
+
+    /// State a synthetic index explicitly. Tests use it to prove that dispatch
+    /// passes only the index selection into a mutation port, rather than
+    /// treating every visible file as staged.
+    pub fn set_indexed_files<I, S>(&mut self, paths: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut paths: Vec<String> = paths
+            .into_iter()
+            .map(|path| path.as_ref().trim_start_matches('/').to_string())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        self.indexed = Some(paths);
+    }
+
+    /// State a synthetic resolved Git ref for a boundary test. The value is a
+    /// commit ID already resolved by the fixture, not a fallback inferred from
+    /// visible repository files.
+    pub fn set_git_ref(&mut self, reference: &str, commit: &str) {
+        self.git_refs
+            .insert(reference.to_string(), commit.to_string());
+    }
+
+    fn replace_adapter_files(&self, transaction: &AdapterTransaction) -> Result<(), AdapterError> {
+        let roots = adapter_roots(&transaction.roots)?;
+        let files = adapter_files(&roots, &transaction.files)?;
+        let mut current = self.files.borrow_mut();
+        current.retain(|path, _| !roots.iter().any(|root| under_root(path, root)));
+        current.extend(files);
+        Ok(())
+    }
+}
+
+/// The in-memory implementation keeps the unit boundary able to prove both a
+/// first generated write and a no-op regeneration without touching a disk.
+pub struct MemoryAdapterStore<'a> {
+    tree: &'a MemoryTree,
+}
+
+impl<'a> MemoryAdapterStore<'a> {
+    pub fn new(tree: &'a MemoryTree) -> Self {
+        Self { tree }
+    }
+}
+
+impl AdapterStore for MemoryAdapterStore<'_> {
+    fn replace(&self, _: &str, transaction: &AdapterTransaction) -> Result<(), AdapterError> {
+        self.tree.replace_adapter_files(transaction)
+    }
+}
+
+/// The in-memory counterpart used only by the unit boundary to prove that a
+/// planned initialization changes exactly its declared synthetic targets.
+pub struct MemoryEnvironmentStore<'a> {
+    tree: &'a MemoryTree,
+}
+
+impl<'a> MemoryEnvironmentStore<'a> {
+    pub fn new(tree: &'a MemoryTree) -> Self {
+        Self { tree }
+    }
+}
+
+impl EnvironmentStore for MemoryEnvironmentStore<'_> {
+    fn create(
+        &self,
+        _: &str,
+        transaction: &EnvironmentTransaction,
+    ) -> Result<(), EnvironmentError> {
+        let mut current = self.tree.files.borrow_mut();
+        for file in &transaction.files {
+            let Some(path) = normal_adapter_path(&file.path) else {
+                return Err(EnvironmentError(format!(
+                    "invalid environment target `{}`",
+                    file.path
+                )));
+            };
+            if current.contains_key(&path) {
+                return Err(EnvironmentError(format!(
+                    "environment target `{path}` already exists"
+                )));
+            }
+        }
+        for file in &transaction.files {
+            current.insert(file.path.clone(), file.contents.clone());
+        }
+        Ok(())
+    }
+
+    fn restore(
+        &self,
+        _: &str,
+        transaction: &EnvironmentRestoreTransaction,
+    ) -> Result<(), EnvironmentError> {
+        let mut current = self.tree.files.borrow_mut();
+        for file in &transaction.files {
+            let Some(path) = normal_adapter_path(&file.path) else {
+                return Err(EnvironmentError(format!(
+                    "invalid environment target `{}`",
+                    file.path
+                )));
+            };
+            if current.contains_key(&path) && !file.replace {
+                return Err(EnvironmentError(format!(
+                    "environment target `{path}` already exists"
+                )));
+            }
+        }
+        for file in &transaction.files {
+            current.insert(file.path.clone(), file.contents.clone());
+        }
+        Ok(())
+    }
 }
 
 impl Tree for MemoryTree {
@@ -267,15 +589,33 @@ impl Tree for MemoryTree {
         if self.vanished.contains(path) {
             return Err(TreeError::NotFound);
         }
-        self.files.get(path).cloned().ok_or(TreeError::NotFound)
+        self.files
+            .borrow()
+            .get(path)
+            .cloned()
+            .ok_or(TreeError::NotFound)
     }
 
     fn files(&self) -> Vec<String> {
         self.files
+            .borrow()
             .keys()
             .filter(|path| !self.links.contains(*path))
             .cloned()
             .collect()
+    }
+
+    fn indexed_files(&self) -> Result<Vec<String>, String> {
+        self.indexed
+            .clone()
+            .ok_or_else(|| "this tree has no Git index snapshot boundary".to_string())
+    }
+
+    fn resolve_git_ref(&self, reference: &str) -> Result<String, String> {
+        self.git_refs
+            .get(reference)
+            .cloned()
+            .ok_or_else(|| format!("the declared fallback ref `{reference}` does not resolve"))
     }
 
     fn directories(&self) -> Vec<String> {
@@ -308,7 +648,12 @@ impl Tree for MemoryTree {
         }
         // A root naming nothing is refused rather than silently inspected as an
         // empty repository, which would report every tree clean.
-        if !self.files.keys().any(|held| held.starts_with(&prefix)) {
+        if !self
+            .files
+            .borrow()
+            .keys()
+            .any(|held| held.starts_with(&prefix))
+        {
             return Err(format!("{path} is not a directory"));
         }
         let strip = |set: &BTreeSet<String>| -> BTreeSet<String> {
@@ -319,17 +664,299 @@ impl Tree for MemoryTree {
         Ok(Box::new(Self {
             binary: strip(&self.binary),
             empty: strip(&self.empty),
-            files: self
-                .files
-                .iter()
-                .filter_map(|(held, content)| {
-                    held.strip_prefix(&prefix)
-                        .map(|rest| (rest.to_string(), content.clone()))
-                })
-                .collect(),
+            files: RefCell::new(
+                self.files
+                    .borrow()
+                    .iter()
+                    .filter_map(|(held, content)| {
+                        held.strip_prefix(&prefix)
+                            .map(|rest| (rest.to_string(), content.clone()))
+                    })
+                    .collect(),
+            ),
             unreadable: strip(&self.unreadable),
             vanished: strip(&self.vanished),
             links: strip(&self.links),
+            indexed: self.indexed.as_ref().map(|paths| {
+                paths
+                    .iter()
+                    .filter_map(|held| held.strip_prefix(&prefix).map(str::to_string))
+                    .collect()
+            }),
+            git_refs: self.git_refs.clone(),
         }))
+    }
+}
+
+pub(crate) fn adapter_roots(roots: &[String]) -> Result<Vec<String>, AdapterError> {
+    let mut normalized: Vec<String> = roots
+        .iter()
+        .map(|root| {
+            normal_adapter_path(root)
+                .ok_or_else(|| AdapterError(format!("invalid adapter root `{root}`")))
+        })
+        .collect::<Result<_, _>>()?;
+    normalized.sort();
+    normalized.dedup();
+    if normalized.len() != roots.len()
+        || normalized
+            .windows(2)
+            .any(|pair| under_root(&pair[1], &pair[0]))
+    {
+        return Err(AdapterError(
+            "adapter roots must be distinct, non-overlapping repository paths".to_string(),
+        ));
+    }
+    Ok(normalized)
+}
+
+pub(crate) fn adapter_files(
+    roots: &[String],
+    files: &[AdapterFile],
+) -> Result<BTreeMap<String, String>, AdapterError> {
+    let mut desired = BTreeMap::new();
+    for file in files {
+        let Some(path) = normal_adapter_path(&file.path) else {
+            return Err(AdapterError(format!(
+                "invalid generated adapter path `{}`",
+                file.path
+            )));
+        };
+        if !roots.iter().any(|root| under_root(&path, root)) {
+            return Err(AdapterError(format!(
+                "generated adapter path `{path}` is outside every declared adapter root"
+            )));
+        }
+        if desired
+            .insert(path.clone(), file.contents.clone())
+            .is_some()
+        {
+            return Err(AdapterError(format!(
+                "duplicate generated adapter path `{path}`"
+            )));
+        }
+    }
+    Ok(desired)
+}
+
+pub(crate) fn normal_adapter_path(path: &str) -> Option<String> {
+    let trimmed = path.trim_matches('/');
+    if trimmed.is_empty()
+        || trimmed.split('/').any(|segment| {
+            segment.is_empty() || segment == "." || segment == ".." || segment.contains('\\')
+        })
+    {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+pub(crate) fn under_root(path: &str, root: &str) -> bool {
+    path == root
+        || path
+            .strip_prefix(root)
+            .is_some_and(|remainder| remainder.starts_with('/'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Clone)]
+    struct ReadOnlyTree;
+
+    impl Tree for ReadOnlyTree {
+        fn read(&self, _: &str) -> Result<String, TreeError> {
+            Err(TreeError::NotFound)
+        }
+
+        fn files(&self) -> Vec<String> {
+            vec!["docs/guide.md".to_string()]
+        }
+
+        fn excluding(&self, _: &[String]) -> Box<dyn Tree> {
+            Box::new(self.clone())
+        }
+
+        fn rooted_at(&self, _: &str) -> Result<Box<dyn Tree>, String> {
+            Ok(Box::new(self.clone()))
+        }
+    }
+
+    #[test]
+    fn no_capability_ports_and_default_tree_behavior_fail_closed() {
+        let arguments = vec!["tool".to_string()];
+        let environment = BTreeMap::new();
+        let adapters = AdapterTransaction {
+            roots: vec!["adapters/test".to_string()],
+            files: Vec::new(),
+        };
+        let environment_transaction = EnvironmentTransaction { files: Vec::new() };
+        let restore_transaction = EnvironmentRestoreTransaction { files: Vec::new() };
+
+        assert!(NoAdapterStore.replace(".", &adapters).is_err());
+        assert!(
+            NoEnvironmentStore
+                .create(".", &environment_transaction)
+                .is_err()
+        );
+        assert!(
+            NoEnvironmentStore
+                .restore(".", &restore_transaction)
+                .is_err()
+        );
+        assert!(
+            NoToolchainRunner
+                .run(ToolchainLaunch {
+                    executable: "tool",
+                    arguments: &arguments,
+                    timeout_seconds: None,
+                })
+                .is_err()
+        );
+        assert!(
+            NoMutationRunner
+                .apply_index(MutationLaunch {
+                    arguments: &arguments,
+                    directory: ".",
+                    environment: &environment,
+                    selected_paths: &[],
+                    revision: None,
+                })
+                .is_err()
+        );
+        assert!(
+            NoMutationRunner
+                .verify_clean(MutationLaunch {
+                    arguments: &arguments,
+                    directory: ".",
+                    environment: &environment,
+                    selected_paths: &[],
+                    revision: Some("revision"),
+                })
+                .is_err()
+        );
+        assert!(
+            NoLauncher
+                .launch(Launch {
+                    arguments: &arguments,
+                    directory: ".",
+                    surface: "local",
+                    stdin: None,
+                    environment: &environment,
+                })
+                .is_err()
+        );
+
+        let tree = ReadOnlyTree;
+        assert!(tree.indexed_files().is_err());
+        assert!(tree.resolve_git_ref("main").is_err());
+        assert_eq!(
+            tree.excluding(&["ignored".to_string()]).files(),
+            vec!["docs/guide.md".to_string()]
+        );
+        assert_eq!(
+            tree.rooted_at("docs").unwrap().files(),
+            vec!["docs/guide.md".to_string()]
+        );
+        assert_eq!(tree.directories(), vec!["docs".to_string()]);
+        assert_eq!(tree.children("docs"), vec!["docs/guide.md".to_string()]);
+        assert!(tree.is_directory("docs"));
+        assert!(!tree.exists("absent"));
+    }
+
+    #[test]
+    fn memory_environment_store_refuses_invalid_or_conflicting_transactions() {
+        let tree = MemoryTree::default();
+        let store = MemoryEnvironmentStore::new(&tree);
+        let invalid = EnvironmentTransaction {
+            files: vec![EnvironmentFile {
+                path: "../outside".to_string(),
+                contents: "synthetic".to_string(),
+            }],
+        };
+        assert!(store.create(".", &invalid).is_err());
+
+        let declared = EnvironmentTransaction {
+            files: vec![EnvironmentFile {
+                path: ".env.fixture".to_string(),
+                contents: "synthetic".to_string(),
+            }],
+        };
+        assert!(store.create(".", &declared).is_ok());
+        assert!(store.create(".", &declared).is_err());
+
+        let invalid_restore = EnvironmentRestoreTransaction {
+            files: vec![EnvironmentRestoreFile {
+                path: "../outside".to_string(),
+                contents: "synthetic".to_string(),
+                replace: true,
+            }],
+        };
+        assert!(store.restore(".", &invalid_restore).is_err());
+        let conflict = EnvironmentRestoreTransaction {
+            files: vec![EnvironmentRestoreFile {
+                path: ".env.fixture".to_string(),
+                contents: "replaced".to_string(),
+                replace: false,
+            }],
+        };
+        assert!(store.restore(".", &conflict).is_err());
+        let replacement = EnvironmentRestoreTransaction {
+            files: vec![EnvironmentRestoreFile {
+                replace: true,
+                ..conflict.files[0].clone()
+            }],
+        };
+        assert!(store.restore(".", &replacement).is_ok());
+        assert_eq!(tree.read(".env.fixture").unwrap(), "replaced");
+    }
+
+    #[test]
+    fn memory_tree_rerooting_and_adapter_transactions_preserve_declared_boundaries() {
+        let mut tree = MemoryTree::default();
+        tree.write("nested/guide.md", "synthetic\n");
+        tree.set_indexed_files(["nested/guide.md"]);
+        let rerooted = tree.rooted_at("nested").unwrap();
+        assert_eq!(rerooted.read("guide.md").unwrap(), "synthetic\n");
+        assert_eq!(
+            rerooted.indexed_files().unwrap(),
+            vec!["guide.md".to_string()]
+        );
+
+        assert!(adapter_roots(&["adapters".to_string(), "adapters/nested".to_string()]).is_err());
+        assert!(
+            adapter_files(
+                &["adapters".to_string()],
+                &[AdapterFile {
+                    path: "../outside".to_string(),
+                    contents: "synthetic".to_string(),
+                }],
+            )
+            .is_err()
+        );
+        assert!(
+            adapter_files(
+                &["adapters".to_string()],
+                &[AdapterFile {
+                    path: "other/file.md".to_string(),
+                    contents: "synthetic".to_string(),
+                }],
+            )
+            .is_err()
+        );
+        let repeated = AdapterFile {
+            path: "adapters/file.md".to_string(),
+            contents: "synthetic".to_string(),
+        };
+        assert!(adapter_files(&["adapters".to_string()], &[repeated.clone(), repeated]).is_err());
+        assert_eq!(
+            normal_adapter_path("/adapters/file.md/"),
+            Some("adapters/file.md".to_string())
+        );
+        assert_eq!(normal_adapter_path("adapters/../file.md"), None);
+        assert!(under_root("adapters/file.md", "adapters"));
+        assert!(!under_root("adapter/file.md", "adapters"));
     }
 }

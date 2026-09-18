@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 267] = [
+pub const VOCABULARY: [&str; 270] = [
     "I add a canonical skill supporting resource",
     "I add a file outside the canon",
     "I count the words in {string}",
@@ -118,6 +118,7 @@ pub const VOCABULARY: [&str; 267] = [
     "stderr names the unrecognized schema",
     "stdout JSON has a {string} and a {int}-character hexadecimal {string}",
     "stdout JSON property {string} is {int}",
+    "stdout contains {string}",
     "stdout does not name the command {string}",
     "stdout escapes the quote, backslash, tab, and control character",
     "stdout is empty",
@@ -201,6 +202,8 @@ pub const VOCABULARY: [&str; 267] = [
     "the instruction omits the section {string}",
     "the instruction shows {string} inside a fenced example",
     "the instruction swaps {string} with {string}",
+    "the last adapter generation changes the repository",
+    "the last adapter generation makes no repository change",
     "the only violation is a Mermaid accessibility issue at {string}",
     "the only violation is a missing README at {string}",
     "the only violation is a missing directory map at {string}",

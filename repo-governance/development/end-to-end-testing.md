@@ -7,7 +7,7 @@ End-to-end here means the process contract and nothing else: arguments in, exit 
 - The exit code, under the [public contract](public-contract.md).
 - Standard output, including a documented machine-readable format.
 - Standard error.
-- The state of the temporary tree afterwards — which, for a read-only product, means proving it is unchanged.
+- The state of the temporary tree afterwards — unchanged for validators, and exactly the declared transaction result for an explicit mutator.
 
 ## What It May Not Do
 
