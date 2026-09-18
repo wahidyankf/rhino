@@ -39,11 +39,11 @@ The following leaves remain readable only with a predecessor configuration
 during the release candidate. They are not v0.4 aliases and do not accept a
 grouped v2 configuration:
 
-| Area                    | Legacy leaves                                                                                                                                                                                            |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Governance structure    | `governance roots validate`, `governance companions validate`, `governance instructions validate`, `plan validate`                                                                                       |
-| Earlier validators      | `governance word-budget validate`, `governance directory-map validate`, `md heading-hierarchy validate`, `metadata validate`, `md naming validate`, `md word-count inspect`, `convention emoji validate` |
-| Earlier harness surface | `harness parity validate`                                                                                                                                                                                |
+| Area                    | Legacy leaves                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Governance structure    | `governance roots validate`, `governance companions validate`, `governance instructions validate`, `plan validate` |
+| Earlier validators      | `md word-count inspect`                                                                                            |
+| Earlier harness surface | `harness parity validate`                                                                                          |
 
 Migrate the policy deliberately before stable. The stable release removes the
 legacy reader rather than forwarding any of these leaves to a new surface.

@@ -163,7 +163,7 @@ pub const HARNESS_PROFILES: [&str; 3] = ["claude", "codex", "opencode"];
 /// vendor renaming its lineup.
 pub const TIERS: [&str; 4] = ["ultra", "plan", "execution", "fast"];
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Metadata {
     /// Ordered, on the same rule as `governance-word-budget.surfaces`: where
@@ -173,7 +173,7 @@ pub struct Metadata {
     pub surfaces: Vec<MetadataSurface>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MetadataSurface {
     pub glob: String,
@@ -181,7 +181,7 @@ pub struct MetadataSurface {
 }
 
 /// The four canonical artifact families.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum MetadataSchema {
     Governance,
@@ -338,7 +338,7 @@ pub struct FrontmatterSurface {
     pub forbid: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HeadingHierarchy {
     /// Which files are governed. Unordered in effect -- a surface here carries
@@ -362,14 +362,14 @@ pub struct HeadingHierarchy {
 /// Shared by the sections whose surfaces carry no policy of their own, so that
 /// "a surface is a mapping with a `glob` key" is one statement rather than one
 /// per section that happens to agree.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Globbed {
     pub glob: String,
 }
 
 /// Files in which an emoji code point is a finding.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Emoji {
     pub prohibited: Vec<Globbed>,
@@ -386,7 +386,7 @@ pub struct ReadmeIndex {
     pub trees: Vec<Tree>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Naming {
     /// Ordered, on the same rule as `governance-word-budget.surfaces`: where
@@ -398,7 +398,7 @@ pub struct Naming {
     pub exempt: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NamingSurface {
     pub glob: String,
@@ -416,7 +416,7 @@ pub struct NamingSurface {
 
 /// The two filename styles, each a rule about characters rather than a policy
 /// about files.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum NameStyle {
     /// Lowercase alphanumeric runs joined by single hyphens.

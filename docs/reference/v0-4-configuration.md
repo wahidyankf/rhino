@@ -36,12 +36,13 @@ remains in scope until its repository declares otherwise.
 
 ## Portable policy groups
 
-`policies.markdown` opts into frontmatter, internal-link, Mermaid, and
-README-index validation. `policies.governance` owns vendor vocabulary, layer
-structure, traceability declarations, word-budget surfaces, and directory-map
-trees. `policies.conventions` owns configured license paths, identifiers,
-digests, and exact exclusions. Each group refuses an undeclared or invalid
-sub-policy instead of inheriting a repository convention.
+`policies.markdown` opts into frontmatter, heading hierarchy, internal-link,
+metadata, Mermaid, filename, and README-index validation.
+`policies.governance` owns vendor vocabulary, layer structure, traceability
+declarations, word-budget surfaces, and directory-map trees.
+`policies.conventions` owns configured license paths, identifiers, digests,
+exact exclusions, and emoji-prohibited file surfaces. Each group refuses an
+undeclared or invalid sub-policy instead of inheriting a repository convention.
 
 `governance word-budget validate` and `governance directory-map validate` read
 only `policies.governance.word-budget` and
@@ -49,6 +50,11 @@ only `policies.governance.word-budget` and
 `surfaces`, `trees`, findings, and optional `scan.exclude-directories` retain
 the established leaf contracts; grouped v2 changes configuration ownership,
 not the policy a repository declared.
+
+`md heading-hierarchy validate`, `md naming validate`, and `metadata validate`
+read their respective `policies.markdown` sub-policies. `convention emoji
+validate` reads `policies.conventions.emoji`. These grouped projections retain
+the existing scanner, findings, and no-default behavior.
 
 `policies.plans` is a closed owner boundary. It carries no v0.4 command in this
 release, so an empty group is not a request to run a legacy plan validator.

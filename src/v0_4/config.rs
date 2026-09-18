@@ -97,11 +97,17 @@ pub struct MarkdownPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) frontmatter: Option<crate::config::Frontmatter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) heading_hierarchy: Option<crate::config::HeadingHierarchy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) internal_link: Option<crate::config::InternalLink>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) metadata: Option<crate::config::Metadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) mermaid: Option<crate::config::Mermaid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) readme_index: Option<ReadmeIndexPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) naming: Option<crate::config::Naming>,
 }
 
 /// A declared README tree and the limited index facts its repository owns.
@@ -223,6 +229,8 @@ pub(crate) struct TraceabilityRelationship {
 pub struct ConventionsPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) license: Option<LicensePolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) emoji: Option<crate::config::Emoji>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
