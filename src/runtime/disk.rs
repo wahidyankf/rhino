@@ -666,19 +666,51 @@ fn run_mutator(snapshot: &Path, launch: &MutationLaunch<'_>) -> Result<i32, Muta
     let Some((program, arguments)) = launch.arguments.split_first() else {
         return Err(MutationError("the gate declares no command".to_string()));
     };
-    let output = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(arguments)
         .current_dir(snapshot)
         .envs(launch.environment)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    if let Some(path) = mutator_path(Path::new(launch.directory), launch.environment)? {
+        command.env("PATH", path);
+    }
+    let output = command
         .output()
         .map_err(|error| MutationError(format!("`{program}` could not be started: {error}")))?;
     output
         .status
         .code()
         .ok_or_else(|| MutationError(format!("`{program}` was ended by a signal")))
+}
+
+/// A snapshot child runs from a different directory, but a caller's relative
+/// PATH segments are defined from the repository where the gate was invoked.
+/// Normalize that meaning before changing the child directory without exposing
+/// any environment value in a result or diagnostic.
+fn mutator_path(
+    root: &Path,
+    environment: &BTreeMap<String, String>,
+) -> Result<Option<std::ffi::OsString>, MutationError> {
+    let path = environment
+        .get("PATH")
+        .map(std::ffi::OsString::from)
+        .or_else(|| std::env::var_os("PATH"));
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let normalized = std::env::split_paths(&path).map(|entry| {
+        if entry.is_relative() {
+            root.join(entry)
+        } else {
+            entry
+        }
+    });
+    std::env::join_paths(normalized)
+        .map(Some)
+        .map_err(|_| MutationError("the mutator PATH cannot be represented safely".to_string()))
 }
 
 fn git(root: &Path, arguments: &[&str]) -> Result<std::process::Output, MutationError> {
