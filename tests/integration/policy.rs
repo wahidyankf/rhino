@@ -182,6 +182,67 @@ fn disk_mutation_updates_only_the_selected_index_blob() {
 }
 
 #[test]
+fn disk_mutation_resolves_a_relative_path_from_the_original_root_for_index_snapshot() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/staged.md"), "before\n")
+        .expect("the staged fixture file is written");
+    fixture.git(&["add", "--", "notes/staged.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "selected bytes\n")
+        .expect("the selected index bytes are written");
+    fixture.git(&["add", "--", "notes/staged.md"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "unstaged bytes\n")
+        .expect("the unrelated working-tree bytes are written");
+    std::fs::create_dir(fixture.root.join("tool-bin"))
+        .expect("the untracked tool directory is written");
+    let formatter = fixture.root.join("tool-bin/formatter");
+    std::fs::write(
+        &formatter,
+        "#!/bin/sh\nprintf 'formatted\\n' > notes/staged.md\n",
+    )
+    .expect("the untracked formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the untracked formatter is executable");
+
+    let selected = vec!["notes/staged.md".to_string()];
+    let root = fixture.root.to_string_lossy().into_owned();
+    let mut environment = BTreeMap::new();
+    environment.insert("PATH".to_string(), "tool-bin".to_string());
+    let result = DiskMutationRunner.apply_index(MutationLaunch {
+        arguments: &["formatter".to_string()],
+        directory: &root,
+        environment: &environment,
+        selected_paths: &selected,
+        revision: None,
+    });
+
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => panic!(
+            "the relative formatter resolves from the original root: {}",
+            error.0
+        ),
+    };
+    assert_eq!(result.code, 0);
+    assert_eq!(result.changes, vec!["notes/staged.md"]);
+    assert_eq!(result.divergences, vec!["notes/staged.md"]);
+    assert_eq!(
+        fixture.git_stdout(&["show", ":notes/staged.md"]),
+        b"formatted\n"
+    );
+    assert_eq!(
+        std::fs::read(fixture.root.join("notes/staged.md")).expect("working bytes remain readable"),
+        b"unstaged bytes\n"
+    );
+}
+
+#[test]
 fn disk_mutation_keeps_an_unselected_tracked_symlink_as_link_data() {
     use std::os::unix::fs::{PermissionsExt, symlink};
 
@@ -321,6 +382,62 @@ fn disk_mutation_replay_reports_a_disposable_candidate_diff() {
         Err(_) => panic!("the disposable candidate replay completes"),
     };
 
+    assert_eq!(result.code, 1);
+    assert_eq!(result.changes, vec!["notes/candidate.md"]);
+    assert!(result.divergences.is_empty());
+    assert_eq!(
+        std::fs::read(fixture.root.join("notes/candidate.md"))
+            .expect("the original checkout remains readable"),
+        b"before\n"
+    );
+}
+
+#[test]
+fn disk_mutation_replay_resolves_a_relative_path_from_the_original_root() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/candidate.md"), "before\n")
+        .expect("the candidate fixture file is written");
+    fixture.git(&["add", "--", "notes/candidate.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::create_dir(fixture.root.join("tool-bin"))
+        .expect("the untracked tool directory is written");
+    let formatter = fixture.root.join("tool-bin/formatter");
+    std::fs::write(
+        &formatter,
+        "#!/bin/sh\nprintf 'formatted\\n' > notes/candidate.md\n",
+    )
+    .expect("the untracked formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the untracked formatter is executable");
+
+    let revision = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("Git returns a UTF-8 commit ID")
+        .trim()
+        .to_string();
+    let root = fixture.root.to_string_lossy().into_owned();
+    let mut environment = BTreeMap::new();
+    environment.insert("PATH".to_string(), "tool-bin".to_string());
+    let result = DiskMutationRunner.verify_clean(MutationLaunch {
+        arguments: &["formatter".to_string()],
+        directory: &root,
+        environment: &environment,
+        selected_paths: &[],
+        revision: Some(&revision),
+    });
+
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => panic!(
+            "the relative formatter resolves from the original root: {}",
+            error.0
+        ),
+    };
     assert_eq!(result.code, 1);
     assert_eq!(result.changes, vec!["notes/candidate.md"]);
     assert!(result.divergences.is_empty());

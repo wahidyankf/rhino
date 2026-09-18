@@ -238,6 +238,12 @@ The index snapshot retains an unselected tracked symlink as opaque link data;
 it never resolves that target. A selected symlink is refused before the
 declared mutator starts, so a formatter cannot follow it outside the snapshot.
 
+A mutation child runs from its disposable boundary, but a relative `PATH`
+segment keeps the meaning it had for the calling repository. Rhino resolves
+that segment from the original repository root before the child starts; an
+absolute segment remains unchanged. A consumer therefore declares a portable
+tool name without embedding its machine-local installation path.
+
 ## Modelines
 
 Rhino's source example uses a relative modeline because its generated schema is
