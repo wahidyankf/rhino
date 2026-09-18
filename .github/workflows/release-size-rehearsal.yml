@@ -1,0 +1,95 @@
+# A candidate can need four native size measurements before it is safe to
+# change a release budget. This workflow produces only those measurements; it
+# has no tag trigger, publication permission, or release action.
+name: Release Size Rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-size-rehearsal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Assemble the native candidate artifact
+        run: cargo xtask dist
+
+      - name: Record executable and archive byte counts
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -eu
+          archive="dist/rhino-${TARGET}.tar.gz"
+          directory="dist/rehearsal-${TARGET}"
+          mkdir -p "${directory}"
+          tar -xzf "${archive}" -C "${directory}"
+          executable_bytes=$(wc -c < "${directory}/rhino" | tr -d '[:space:]')
+          archive_bytes=$(wc -c < "${archive}" | tr -d '[:space:]')
+          printf '{\n  "target": "%s",\n  "executable_bytes": %s,\n  "archive_bytes": %s\n}\n' \
+            "${TARGET}" "${executable_bytes}" "${archive_bytes}" > release-size.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-size-${{ matrix.target }}
+          path: release-size.json
+          if-no-files-found: error
+          retention-days: 14
+
+  collect:
+    needs: measure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: metrics
+          pattern: release-size-*
+
+      - name: Verify and collect the four measurements
+        run: |
+          set -eu
+          count=$(find metrics -name release-size.json -type f | wc -l | tr -d '[:space:]')
+          test "${count}" = 4
+          for target in \
+            aarch64-apple-darwin \
+            x86_64-apple-darwin \
+            x86_64-unknown-linux-gnu \
+            aarch64-unknown-linux-gnu; do
+            grep -R -F "\"target\": \"${target}\"" metrics >/dev/null
+          done
+          printf '{\n  "schemaVersion": 1,\n  "workflow": "release-size-rehearsal",\n  "metrics": [\n' > release-size-rehearsal.json
+          find metrics -name release-size.json -type f -print | sort | while IFS= read -r metric; do
+            cat "${metric}"
+          done | sed '$!s/$/,/' >> release-size-rehearsal.json
+          printf '  ]\n}\n' >> release-size-rehearsal.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-size-rehearsal
+          path: release-size-rehearsal.json
+          if-no-files-found: error
+          retention-days: 14

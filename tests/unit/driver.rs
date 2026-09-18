@@ -7,8 +7,14 @@
 
 use crate::fixtures;
 use crate::launcher::Recorder;
-use crate::world::{self, CommandResult, Driver, Observation, Repository, Run, differences};
-use rhino::runtime::{MemoryTree, Tree};
+use crate::world::{
+    self, CommandResult, Driver, Observation, Repository, Run, differences, readable_files,
+};
+use rhino::ExecutionBoundaries;
+use rhino::runtime::{
+    MemoryAdapterStore, MemoryEnvironmentStore, MemoryTree, NoLauncher, NoMutationRunner,
+    NoToolchainRunner, Tree,
+};
 
 #[derive(Default)]
 pub struct UnitDriver;
@@ -50,16 +56,27 @@ impl Driver for UnitDriver {
         let arguments = world::with_root(arguments, ".", "no-such-directory");
 
         let before = observe(&tree);
-        // `execute` where there is nothing to supply, because that is the entry
-        // point a consumer calls and a seam nothing exercised would be a seam
-        // nothing keeps working. A declared gate child is what makes the widest
-        // entry point necessary, so it is used only when there is one.
+        // Adapter generation receives its own in-memory transaction boundary;
+        // ordinary validation still receives no gate mutation capability.
         let recorder = Recorder::new(repository, ".");
-        let outcome = match (repository.stdin, repository.gate_outcomes.is_empty()) {
-            (None, true) => rhino::execute(&tree, &arguments),
-            (_, true) => rhino::execute_with(&tree, &arguments, repository.stdin),
-            (_, false) => rhino::execute_using(&tree, &arguments, repository.stdin, &recorder),
+        let adapters = MemoryAdapterStore::new(&tree);
+        let environments = MemoryEnvironmentStore::new(&tree);
+        let launcher = match repository.gate_outcomes.is_empty() {
+            true => &NoLauncher as &dyn rhino::runtime::Launcher,
+            false => &recorder as &dyn rhino::runtime::Launcher,
         };
+        let outcome = rhino::execute_using_with_boundaries(
+            &tree,
+            &arguments,
+            repository.stdin,
+            ExecutionBoundaries {
+                launcher,
+                mutations: &NoMutationRunner,
+                adapters: &adapters,
+                environments: &environments,
+                toolchains: &NoToolchainRunner,
+            },
+        );
         let after = observe(&tree);
 
         Run {
@@ -69,6 +86,12 @@ impl Driver for UnitDriver {
                 stderr: outcome.stderr,
             },
             mutations: differences(&before, &after),
+            files_after: readable_files(&after),
+            persist_state: arguments.starts_with(&[
+                "harness".to_string(),
+                "adapters".to_string(),
+                "generate".to_string(),
+            ]),
             journal: recorder.journal(),
         }
     }

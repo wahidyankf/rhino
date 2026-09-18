@@ -1,13 +1,18 @@
 # JSON output
 
+The legacy report envelope below remains readable during the v0.4 release
+candidate. Grouped-v2 operations may emit a command-specific status document;
+callers must validate the selected leaf's contract rather than assuming every
+command emits the legacy `violations` array.
+
 Every command accepts `--output json` and writes **one object on one line**.
 Line-delimited rather than pretty-printed, so the output pipes through `grep`
 and `jq` alike and so "every stdout line is a result" stays true whatever the
 command reports.
 
 ```console
-$ rhino governance word-budget validate --output json
-{"schemaVersion":1,"command":"word-budget","exitCode":0,"subject":"file","inspected":2,"scanned":["AGENTS.md","README.md"],"notes":[],"violations":[]}
+$ rhino md internal-link validate --output json
+{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"file","inspected":2,"scanned":["docs/README.md"],"notes":[],"violations":[]}
 ```
 
 A run with findings, shown wrapped for reading — the real output is one line:
@@ -41,7 +46,7 @@ A run with findings, shown wrapped for reading — the real output is one line:
 }
 ```
 
-## Fields
+## Legacy report-envelope fields
 
 | Field           | Type             | Meaning                                                                          |
 | --------------- | ---------------- | -------------------------------------------------------------------------------- |
@@ -85,13 +90,13 @@ JSON, stderr stays empty on exit `0` and `1`.
 one repository produce byte-identical output and a diff between two
 repositories is a diff about the repositories.
 
-## Using it
+## Using the legacy report envelope
 
 Count violations by kind across every validator:
 
 ```sh
-for cmd in "governance word-budget validate" "governance directory-map validate" \
-           "md internal-link validate" "md mermaid validate" "harness parity validate"; do
+for cmd in "repo-config validate" "md internal-link validate" \
+           "md mermaid validate"; do
   rhino $cmd --output json
 done | jq -r '.violations[].kind' | sort | uniq -c | sort -rn
 ```
@@ -99,7 +104,7 @@ done | jq -r '.violations[].kind' | sort | uniq -c | sort -rn
 List the files a validator actually read:
 
 ```sh
-rhino governance word-budget validate --output json | jq -r '.scanned[]'
+rhino md internal-link validate --output json | jq -r '.scanned[]'
 ```
 
 ## Related

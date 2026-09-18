@@ -44,6 +44,8 @@ const PLATFORMS: [(&str, u64); 4] = [
     ("x86_64-unknown-linux-gnu", 2_621_440),
 ];
 
+const SCHEMA_ASSET: &str = "rhino-repo-config-v2.schema.json";
+
 /// The version the product's own manifest declares, spelled as a release tag.
 ///
 /// Cargo's manifest cannot carry the `v`; the executable adds it so that what
@@ -190,6 +192,72 @@ fn every_archive_matches_its_recorded_checksum() {
         assert!(
             dist().join(name).exists(),
             "checksums.txt records {name}, which is not in dist/"
+        );
+    }
+}
+
+#[test]
+fn grouped_schema_is_an_immutable_checksum_asset() {
+    let released = dist().join(SCHEMA_ASSET);
+    assert!(
+        released.exists(),
+        "dist/ does not contain {SCHEMA_ASSET}; run `cargo xtask dist`"
+    );
+    let source = repository_root().join("schemas/repo-config/v2.schema.json");
+    assert_eq!(
+        std::fs::read(&released).expect("the staged schema is readable"),
+        std::fs::read(&source).expect("the checked-in schema is readable"),
+        "the release schema must be the checked-in schema"
+    );
+    let checksums = read_checksums();
+    assert_eq!(
+        checksums.get(SCHEMA_ASSET),
+        Some(&sha256(&released)),
+        "checksums.txt must cover the grouped schema"
+    );
+}
+
+#[test]
+fn release_workflow_publishes_the_checksummed_grouped_schema() {
+    let workflow = repository_root().join(".github/workflows/release.yml");
+    let text = std::fs::read_to_string(&workflow)
+        .unwrap_or_else(|error| panic!("{}: {error}", workflow.display()));
+    assert!(
+        text.contains("cargo xtask checksums"),
+        "release workflow must create the artifact manifest"
+    );
+    assert!(
+        text.contains(&format!("dist/{SCHEMA_ASSET}")),
+        "release workflow must attach the grouped schema asset"
+    );
+}
+
+#[test]
+fn release_size_rehearsal_measures_each_native_target_without_publishing() {
+    let workflow = repository_root().join(".github/workflows/release-size-rehearsal.yml");
+    let text = std::fs::read_to_string(&workflow)
+        .unwrap_or_else(|error| panic!("{}: {error}", workflow.display()));
+
+    assert!(
+        text.contains("workflow_dispatch"),
+        "size rehearsal must be manually invoked"
+    );
+    assert!(
+        text.contains("cargo xtask dist"),
+        "size rehearsal must assemble the same native artifact as release"
+    );
+    assert!(
+        text.contains("executable_bytes") && text.contains("archive_bytes"),
+        "size rehearsal must record both executable and archive measurements"
+    );
+    assert!(
+        !text.contains("gh release create") && !text.contains("contents: write"),
+        "size rehearsal must not publish or receive publication permission"
+    );
+    for (platform, _) in PLATFORMS {
+        assert!(
+            text.contains(platform),
+            "size rehearsal omits release target {platform}"
         );
     }
 }

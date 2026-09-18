@@ -12,7 +12,9 @@ Two gates, distinguished by what they can afford to run, and one that runs befor
 
 - `cargo fmt --all --check`
 - `cargo clippy --all-targets --all-features -- -D warnings`
-- the unit adapter under the line-coverage floor, measured in the same execution rather than a second one, because two runs can disagree and the number that gates must be the number the passing run produced
+- the fast library unit suite and in-memory unit adapter under the line-coverage floor, measured in one execution
+  rather than separate runs, because two runs can disagree and the number that gates must be the number the passing
+  run produced
 - the static behaviour-coverage check, which executes no scenario and asserts that every scenario is bound or validly exempt
 - `cargo xtask self-validate` last, so a repository that is out of date cannot mask a product that is broken
 

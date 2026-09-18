@@ -1,6 +1,6 @@
 [package]
 name = "rhino"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Repository Hygiene & INtegration Orchestrator — a configuration-driven repository-hygiene validator"
@@ -24,6 +24,7 @@ path = "src/lib.rs"
 [dependencies]
 globset = "0.4"
 regex = "1"
+schemars = "=1.2.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
@@ -32,6 +33,7 @@ unicode-segmentation = "1"
 yaml_serde = "0.10"
 
 [dev-dependencies]
+jsonschema = { version = "=0.56.0", default-features = false }
 
 [[test]]
 name = "unit"

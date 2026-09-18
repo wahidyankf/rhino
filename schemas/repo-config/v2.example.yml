@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=./v2.schema.json
+schema: rhino/repo-config/v2
+repository: {}
+scan: {}
+harness: {}
+policies:
+  markdown: {}
+  governance: {}
+  conventions: {}
+  plans: {}
+environment: {}
+toolchains: {}
+gates: {}
+extensions: {}

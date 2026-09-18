@@ -128,10 +128,11 @@ jobs:
           pattern: rhino-*
           merge-multiple: true
 
-      - name: Record one digest for every archive
+      - name: Record one digest for every release asset
         # The same writer `dist` uses, rather than a second one spelled in
         # shell: one digest file produced by one implementation, however many
-        # runners contributed to it.
+        # runners contributed to it. The task also stages the checked-in grouped
+        # schema after proving it still matches the typed model.
         run: cargo xtask checksums
 
       - name: Unpack the host archive
@@ -160,10 +161,11 @@ jobs:
             *-*) marking=--prerelease ;;
             *) marking= ;;
           esac
-          # Only the archives and the digest file. `dist/` also holds the
-          # executable unpacked above, which is not a release asset.
+          # Only the four archives, grouped schema, and digest file. `dist/`
+          # also holds the executable unpacked above, which is not a release
+          # asset.
           gh release create "$GITHUB_REF_NAME" \
-            dist/rhino-*.tar.gz dist/checksums.txt \
+            dist/rhino-*.tar.gz dist/rhino-repo-config-v2.schema.json dist/checksums.txt \
             --verify-tag \
             --generate-notes \
             --title "$GITHUB_REF_NAME" \

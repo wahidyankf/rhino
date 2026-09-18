@@ -8,7 +8,11 @@
 use crate::launcher::Recorder;
 use crate::sandbox::{self, Sandbox};
 use crate::world::{self, CommandResult, Driver, Repository, Run, differences};
-use rhino::runtime::DiskTree;
+use rhino::ExecutionBoundaries;
+use rhino::runtime::{
+    DiskAdapterStore, DiskEnvironmentStore, DiskTree, NoLauncher, NoMutationRunner,
+    NoToolchainRunner,
+};
 
 #[derive(Default)]
 pub struct IntegrationDriver;
@@ -27,11 +31,22 @@ impl Driver for IntegrationDriver {
 
         let before = sandbox::observe(sandbox.root());
         let recorder = Recorder::new(repository, &root);
-        let outcome = if repository.gate_outcomes.is_empty() {
-            rhino::execute_with(&tree, &arguments, repository.stdin)
-        } else {
-            rhino::execute_using(&tree, &arguments, repository.stdin, &recorder)
+        let launcher = match repository.gate_outcomes.is_empty() {
+            true => &NoLauncher as &dyn rhino::runtime::Launcher,
+            false => &recorder as &dyn rhino::runtime::Launcher,
         };
+        let outcome = rhino::execute_using_with_boundaries(
+            &tree,
+            &arguments,
+            repository.stdin,
+            ExecutionBoundaries {
+                launcher,
+                mutations: &NoMutationRunner,
+                adapters: &DiskAdapterStore,
+                environments: &DiskEnvironmentStore,
+                toolchains: &NoToolchainRunner,
+            },
+        );
         let after = sandbox::observe(sandbox.root());
 
         Run {
@@ -41,6 +56,12 @@ impl Driver for IntegrationDriver {
                 stderr: outcome.stderr,
             },
             mutations: differences(&before, &after),
+            files_after: sandbox::text_files(sandbox.root()),
+            persist_state: arguments.starts_with(&[
+                "harness".to_string(),
+                "adapters".to_string(),
+                "generate".to_string(),
+            ]),
             journal: recorder.journal(),
         }
     }

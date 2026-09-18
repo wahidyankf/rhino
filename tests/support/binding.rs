@@ -603,6 +603,14 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 format!("stderr does not contain `{needle}`\nstderr: {stderr}"),
             )
         }
+        "stdout contains {string}" => {
+            let needle = matched.string(0);
+            let stdout = &world.result().stdout;
+            expect(
+                stdout.contains(needle),
+                format!("stdout does not contain `{needle}`\nstdout: {stdout}"),
+            )
+        }
         "file {string} vanishes between the walk and the read" => {
             world.vanished.insert(matched.string(0).to_string());
             Outcome::Passed
@@ -2373,6 +2381,17 @@ Body.
                 ),
             )
         }
+        "the last adapter generation changes the repository" => expect(
+            !world.last_mutations.is_empty(),
+            "the adapter generation reported success without changing the repository".to_string(),
+        ),
+        "the last adapter generation makes no repository change" => expect(
+            world.last_mutations.is_empty(),
+            format!(
+                "the repeat adapter generation changed the repository: {:?}",
+                world.last_mutations
+            ),
+        ),
         "the harness-parity digest changed" => {
             let Some(remembered) = world.remembered_digest.clone() else {
                 return Outcome::Failed("no digest was remembered".to_string());

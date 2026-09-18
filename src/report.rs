@@ -434,3 +434,42 @@ fn plural(subject: &str, count: usize) -> String {
         format!("{subject}s")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_reports_sort_findings_and_escape_every_control_character() {
+        let mut report = Report::new("synthetic", "file");
+        report
+            .scanned("z.md")
+            .scanned("a.md")
+            .found(Finding::new(
+                "late",
+                "z.md",
+                "line\nreturn\r tab\t quote\" slash\\",
+            ))
+            .found(Finding::new("early", "a.md", "control\u{0001}"));
+
+        let outcome = report.render(Format::Json);
+
+        assert_eq!(outcome.exit_code, 1);
+        assert!(outcome.stdout.contains("\\n"));
+        assert!(outcome.stdout.contains("\\r"));
+        assert!(outcome.stdout.contains("\\t"));
+        assert!(outcome.stdout.contains("\\\""));
+        assert!(outcome.stdout.contains("\\\\"));
+        assert!(outcome.stdout.contains("\\u0001"));
+        assert!(outcome.stdout.find("a.md").unwrap() < outcome.stdout.find("z.md").unwrap());
+    }
+
+    #[test]
+    fn refused_reports_never_claim_to_have_scanned_a_repository() {
+        let outcome = Report::refused("synthetic", "not declared").render(Format::Json);
+
+        assert_eq!(outcome.exit_code, 2);
+        assert!(outcome.stdout.is_empty());
+        assert_eq!(outcome.stderr, "[synthetic] not declared\n");
+    }
+}

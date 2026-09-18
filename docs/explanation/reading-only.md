@@ -1,18 +1,26 @@
-# Why RHINO only reads
+# Why RHINO validation only reads
 
-RHINO opens files and prints. It writes nothing, spawns nothing, and connects
-to nothing. These are not incidental properties of the current implementation —
-they are enforced as tests, and a change that broke one would fail the build.
+RHINO tree validators open files and print. They write nothing, spawn nothing,
+and connect to nothing. Explicit operations are separate: `gate run` starts
+only a declared child argv, toolchain commands start declared typed argv without
+a shell or reported output, and adapter generation replaces only declared
+adapter roots after planning every output in memory. These are enforced as
+tests, not incidental properties of the current implementation.
 
 ## The four boundaries
 
-**It writes nothing to the repository it inspects.** Not a cache, not a report,
-not a lock file. A hygiene tool that writes into the tree it is judging can
-change the answer it is about to give, and can turn a read-only checkout into a
-failure.
+**A validator writes nothing to the repository it inspects.** Not a cache, not
+a report, not a lock file. A hygiene tool that writes into the tree it is
+judging can change the answer it is about to give, and can turn a read-only
+checkout into a failure. An explicit adapter transaction has a different port:
+it rejects paths outside declared adapter roots and is never reachable from a
+validator.
 
-**It spawns no child process.** No `git`, no formatter, no shell. Everything
-RHINO reports, it derived from bytes it read itself.
+**A tree validator spawns no child process.** No `git`, no formatter, no shell.
+Everything it reports, it derived from bytes it read itself. `gate run` and the
+toolchain commands are separate declared operations: each starts typed argv at
+a narrow port and never interprets a shell command. Toolchain probes and
+provision never report child output; provision stops at its first failure.
 
 **It opens no socket, including loopback.** There is no telemetry, no version
 check, no remote policy fetch. This is stricter than the layer rule it sits
@@ -51,9 +59,11 @@ about files the repository does not contain.
 
 ## What this buys you
 
-You can run RHINO against a repository you do not trust, in a sandbox with no
-network, on a read-only mount, in a hook that runs before every push, without
-thinking about any of it. The cost of running it is a directory walk.
+You can run a RHINO validator against a repository you do not trust, in a
+sandbox with no network, on a read-only mount, in a hook that runs before every
+push, without thinking about any of it. The cost of validation is a directory
+walk. An operation names and proves its narrower authority before it changes
+anything.
 
 It also means the answer is reproducible. Two runs over one repository produce
 byte-identical output — findings and scanned paths are sorted — so a diff

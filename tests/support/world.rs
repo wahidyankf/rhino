@@ -29,6 +29,15 @@ pub struct Run {
     /// Paths the repository gained, lost, or whose contents changed while the
     /// command ran, as observed at the adapter's own boundary.
     pub mutations: Vec<String>,
+    /// The complete readable repository state after the invocation. A second
+    /// `When` in one scenario starts from this state, which lets a generated
+    /// transaction prove an actual no-op instead of exercising two fresh
+    /// sandboxes that merely happen to produce the same output.
+    pub files_after: BTreeMap<String, String>,
+    /// Only an explicit generated-adapter transaction carries its resulting
+    /// tree into the next scenario action. Existing validator scenarios model
+    /// independent inspections of their declared fixture.
+    pub persist_state: bool,
     /// What the gate children recorded, in the order they ran.
     ///
     /// A dispatched child is the one thing an exit code cannot describe: which
@@ -84,6 +93,25 @@ pub fn differences(before: &Observation, after: &Observation) -> Vec<String> {
     }
     found.sort();
     found
+}
+
+/// Keep only repository files with independently observed text content. The
+/// current-working-directory sentinel belongs to the test process, and binary
+/// or unreadable fixtures are restored separately from the world's declared
+/// boundary state.
+pub fn readable_files(observation: &Observation) -> BTreeMap<String, String> {
+    observation
+        .iter()
+        .filter_map(|(path, contents)| {
+            (!path.starts_with("<cwd>/"))
+                .then(|| {
+                    contents
+                        .as_ref()
+                        .map(|contents| (path.clone(), contents.clone()))
+                })
+                .flatten()
+        })
+        .collect()
 }
 
 /// The declaration a scenario builds up before anything runs.
@@ -363,6 +391,9 @@ pub struct World<D> {
     /// Every change any invocation in this scenario made to the repository,
     /// accumulated, so a scenario that runs twice proves both runs innocent.
     pub mutations: Vec<String>,
+    /// The paths changed by the most recent invocation alone. Generation has
+    /// a deliberate first write and an equally deliberate second no-op.
+    pub last_mutations: Vec<String>,
     /// The exit code each declared gate child answers with, in declaration
     /// order. A scenario states this rather than shipping a script, so the same
     /// sentence means the same thing at a boundary that cannot spawn anything.
@@ -404,7 +435,11 @@ impl<D> World<D> {
     pub fn record(&mut self, run: Run) {
         self.previous_command_result = self.command_result.take();
         self.command_result = Some(run.result);
+        self.last_mutations = run.mutations.clone();
         self.mutations.extend(run.mutations);
+        if run.persist_state {
+            self.files = run.files_after;
+        }
         self.previous_journal = std::mem::take(&mut self.journal);
         self.journal = run.journal;
     }

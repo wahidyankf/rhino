@@ -7,9 +7,9 @@ declares.
 
 ## Start here
 
-New to RHINO? [Validate your first
-repository](./tutorials/validate-your-first-repository.md) takes about ten
-minutes and ends with a finding you caused on purpose and then fixed.
+New to RHINO? [Validate your first v0.4
+repository](./tutorials/validate-your-first-v0-4-repository.md) starts with a
+grouped policy and ends with a finding you caused on purpose and then fixed.
 
 Already know what you want to do? Jump to the [how-to guides](./how-to/README.md).
 
@@ -32,8 +32,8 @@ another section probably has the right one.
 
 ## The short version
 
-- **What it is** — a standalone Rust CLI. No daemon, no network access, no
-  subprocesses, and nothing written to the repository it inspects.
+- **What it is** — a standalone Rust CLI. No daemon or network access; tree
+  validation spawns no subprocess and writes nothing to the repository it inspects.
 - **What it does** — reads your `repo-config.yml`, walks the repository, and
   reports every place the tree disagrees with what you declared.
 - **How you use it** — `rhino <domain> <validator> validate`, in a gate or by

@@ -20,7 +20,7 @@ the real problem is a typo in a flag.
 #!/bin/sh
 set -eu
 
-rhino governance word-budget validate
+rhino md internal-link validate
 status=$?
 
 case $status in
@@ -54,11 +54,9 @@ all, then report the most serious outcome:
 worst=0
 for command in \
   "repo-config validate" \
-  "governance word-budget validate" \
-  "governance directory-map validate" \
   "md internal-link validate" \
   "md mermaid validate" \
-  "harness parity validate"
+  "harness adapters validate"
 do
   status=0
   # shellcheck disable=SC2086

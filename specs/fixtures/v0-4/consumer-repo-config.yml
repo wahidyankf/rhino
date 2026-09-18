@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/wahidyankf/rhino/v0.4.0/schemas/repo-config/v2.schema.json
+schema: rhino/repo-config/v2
+repository: {}
+extensions:
+  consumer-tools:
+    mode: strict

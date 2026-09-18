@@ -4,13 +4,15 @@ Lessons that get you to a working result by doing the work. Each one builds a
 repository from nothing, so nothing is hidden behind a fixture you did not
 write.
 
-Work through them in order. Every command shown is one you run, and every output
-shown is what that command actually prints.
+The grouped-v2 tutorial is the current starting point. The two predecessor
+tutorials remain RC migration material only; they do not describe the stable
+v0.4 surface.
 
 ## Directory Map
 
-- [Validate your first repository](./validate-your-first-repository.md) — about ten minutes: write a configuration, run every validator, cause a finding, fix it, and see the three exit codes apart.
-- [Reconcile your first harness contract](./reconcile-your-first-harness-contract.md) — about fifteen minutes: one canonical instruction, skill, and agent, a harness that reaches all three, and two kinds of drift told apart.
+- [Validate your first v0.4 repository](./validate-your-first-v0-4-repository.md) — declare a grouped policy, validate it, cause a finding, and read its exit code.
+- [Validate your first repository (legacy RC)](./validate-your-first-repository.md) — predecessor configuration material for a reviewed migration.
+- [Reconcile your first harness contract (legacy RC)](./reconcile-your-first-harness-contract.md) — predecessor harness-parity material; grouped v2 uses adapter profiles.
 
 ## Next steps
 

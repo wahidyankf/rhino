@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "groups": [
+    {
+      "name": "gate-inputs",
+      "acceptanceCriteria": ["AC-08D"],
+      "cases": [
+        {
+          "id": "FX-V04-GATE-FILES-LITERAL",
+          "kind": "files",
+          "source": "git-index",
+          "argv": ["--file", "notes/with space.md", "--file", "--looks-like-option", "--file", "naïve-$HOME;$(literal).md"],
+          "environment": {}
+        },
+        {
+          "id": "FX-V04-GATE-MESSAGE-HOOK-FILE",
+          "kind": "commit-message",
+          "source": "hook-message-file",
+          "argv": ["--message-file", "COMMIT_EDITMSG"],
+          "environment": {}
+        },
+        {
+          "id": "FX-V04-GATE-RANGE-EXPLICIT",
+          "kind": "commit-range",
+          "source": "explicit-range",
+          "argv": ["--base", "aaaaaaaa", "--head", "bbbbbbbb"],
+          "environment": {"NX_BASE": "aaaaaaaa", "NX_HEAD": "bbbbbbbb"}
+        },
+        {
+          "id": "FX-V04-GATE-STATE-CHECKOUT",
+          "kind": "repository-state",
+          "source": "checkout",
+          "argv": ["--state", "checkout"],
+          "environment": {}
+        }
+      ]
+    },
+    {
+      "name": "gate-snapshots",
+      "acceptanceCriteria": ["AC-08E"],
+      "cases": [
+        {
+          "id": "FX-V04-SNAPSHOT-PARTIAL-STAGING",
+          "surface": "pre-commit",
+          "state": "partially-staged file with unrelated unstaged bytes",
+          "expected": "apply-index changes only selected blobs"
+        },
+        {
+          "id": "FX-V04-SNAPSHOT-PUSH-NEW-REF",
+          "surface": "pre-push",
+          "state": "new ref with declared fallback range",
+          "expected": "resolved base and head are explicit"
+        },
+        {
+          "id": "FX-V04-SNAPSHOT-PUSH-DELETE-REF",
+          "surface": "pre-push",
+          "state": "deleted ref without head",
+          "expected": "range gate is skipped without a synthetic head"
+        },
+        {
+          "id": "FX-V04-SNAPSHOT-PR-REPLAY-CLEAN",
+          "surface": "pull-request",
+          "state": "disposable candidate snapshot with zero diff",
+          "expected": "replay completes without CI mutation"
+        },
+        {
+          "id": "FX-V04-SNAPSHOT-PR-REPLAY-DIFF",
+          "surface": "pull-request",
+          "state": "disposable candidate snapshot with diff",
+          "expected": "replay fails and reports only relative changed paths"
+        }
+      ]
+    },
+    {
+      "name": "external-nx",
+      "acceptanceCriteria": ["AC-08F"],
+      "cases": [
+        {
+          "id": "FX-V04-NX-RANGE-NORMAL",
+          "range": {"base": "aaaaaaaa", "head": "bbbbbbbb"},
+          "argv": ["npm", "exec", "--", "nx", "affected", "-t", "test:quick"],
+          "environment": {"NX_BASE": "aaaaaaaa", "NX_HEAD": "bbbbbbbb"}
+        },
+        {
+          "id": "FX-V04-NX-RANGE-NEW-REF",
+          "range": {"base": "fallback", "head": "bbbbbbbb"},
+          "argv": ["npm", "exec", "--", "nx", "affected", "-t", "test:quick"],
+          "environment": {"NX_BASE": "fallback", "NX_HEAD": "bbbbbbbb"}
+        },
+        {
+          "id": "FX-V04-NX-RANGE-DELETED-REF",
+          "range": {"base": "aaaaaaaa", "head": null},
+          "argv": [],
+          "environment": {}
+        }
+      ]
+    },
+    {
+      "name": "harness-and-operations",
+      "acceptanceCriteria": ["AC-09", "AC-12", "AC-15"],
+      "cases": [
+        {
+          "id": "FX-V04-HARNESS-LOSS-REFUSAL",
+          "state": "a profile cannot represent one canonical capability",
+          "expected": "refuse before any adapter write"
+        },
+        {
+          "id": "FX-V04-ENV-BACKUP-NO-FOLLOW",
+          "state": "synthetic source and explicit private destination",
+          "expected": "no-follow atomic plan with no value output"
+        },
+        {
+          "id": "FX-V04-TOOLCHAIN-APPLY-ORDER",
+          "state": "first provision fails after an explicit apply request",
+          "expected": "later provisions do not run"
+        }
+      ]
+    }
+  ]
+}

@@ -46,4 +46,4 @@ The roster of harnesses, adapter contracts, and capability vocabulary lives in [
 ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
 ```
 
-The parity validator is read-only, network-free, path-contained, and deterministic. It normalizes only a BOM and line endings, sorts ordinally, hashes with SHA-256, and fails on a missing, extra, stale, malformed, divergent, or semantically weaker adapter. It cannot prove that a vendor honoured what it read, so a runtime smoke check stays a separate, human act.
+`harness adapters validate` is read-only, network-free, path-contained, and deterministic. It normalizes only a BOM and line endings, sorts ordinally, hashes with SHA-256, and fails on a missing, extra, stale, malformed, divergent, or semantically weaker adapter. `harness adapters generate` first validates the complete projection in memory, then atomically replaces only declared adapter roots with catalog and provenance in the same transaction. It cannot prove that a vendor honoured what it read, so a runtime smoke check stays a separate, human act.

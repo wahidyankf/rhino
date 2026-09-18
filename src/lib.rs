@@ -4,8 +4,9 @@
 //! the consuming repository's `repo-config.yml`; this crate ships no default for
 //! any of them, and no repository, tree, harness, or limit is named in `src/`.
 //!
-//! The product is read-only, network-free, and process-free. Those are not
-//! conventions to be remembered: they are held by tests under `tests/`.
+//! Validators are read-only, network-free, and process-free. Declared gate
+//! dispatch and adapter generation receive separate explicit boundaries; tests
+//! hold both the validator invariants and the operation scopes.
 #![forbid(unsafe_code)]
 
 pub mod cli;
@@ -20,10 +21,14 @@ pub mod plan;
 pub mod report;
 pub mod runtime;
 pub mod scan;
+mod v0_4;
 
 use config::{ConfigError, Document};
 use report::Report;
-use runtime::{Launcher, NoLauncher, Tree, TreeError};
+use runtime::{
+    AdapterStore, EnvironmentStore, Launcher, MutationRunner, NoAdapterStore, NoEnvironmentStore,
+    NoLauncher, NoMutationRunner, NoToolchainRunner, ToolchainRunner, Tree, TreeError,
+};
 
 /// Everything an invocation produces, and all the process contract exposes.
 ///
@@ -35,6 +40,17 @@ pub struct Outcome {
     pub exit_code: u8,
     pub stdout: String,
     pub stderr: String,
+}
+
+/// The explicit capabilities an invocation may receive. Grouping them keeps the
+/// public execution seam legible without merging their authority: callers must
+/// still name a concrete implementation for every separate boundary.
+pub struct ExecutionBoundaries<'a> {
+    pub launcher: &'a dyn Launcher,
+    pub mutations: &'a dyn MutationRunner,
+    pub adapters: &'a dyn AdapterStore,
+    pub environments: &'a dyn EnvironmentStore,
+    pub toolchains: &'a dyn ToolchainRunner,
 }
 
 impl Outcome {
@@ -89,6 +105,49 @@ pub fn execute_using(
     stdin: Option<&str>,
     launcher: &dyn Launcher,
 ) -> Outcome {
+    execute_using_with_mutations(tree, arguments, stdin, launcher, &NoMutationRunner)
+}
+
+/// As [`execute_using`], with the one explicit mutation boundary available to
+/// a process entry point that is authorized to update an index or create a
+/// disposable pull-request replay.
+pub fn execute_using_with_mutations(
+    tree: &dyn Tree,
+    arguments: &[String],
+    stdin: Option<&str>,
+    launcher: &dyn Launcher,
+    mutations: &dyn MutationRunner,
+) -> Outcome {
+    execute_using_with_boundaries(
+        tree,
+        arguments,
+        stdin,
+        ExecutionBoundaries {
+            launcher,
+            mutations,
+            adapters: &NoAdapterStore,
+            environments: &NoEnvironmentStore,
+            toolchains: &NoToolchainRunner,
+        },
+    )
+}
+
+/// As [`execute_using_with_mutations`], with the separately-scoped adapter
+/// transaction port. Gate mutations and generated adapter replacement have
+/// different ownership and must never share an implicit write capability.
+pub fn execute_using_with_boundaries(
+    tree: &dyn Tree,
+    arguments: &[String],
+    stdin: Option<&str>,
+    boundaries: ExecutionBoundaries<'_>,
+) -> Outcome {
+    let ExecutionBoundaries {
+        launcher,
+        mutations,
+        adapters,
+        environments,
+        toolchains,
+    } = boundaries;
     let invocation = match cli::parse(arguments) {
         Ok(cli::Parsed::Help(cli::Help(text))) => return Outcome::clean(text),
         Ok(cli::Parsed::Run(invocation)) => *invocation,
@@ -136,6 +195,206 @@ pub fn execute_using(
             report.inspected(1);
             return report.render(invocation.format);
         }
+        ("repo-config-migration", document) => {
+            return match v0_4::config::migration_disposition(&document) {
+                v0_4::config::MigrationDisposition::Legacy { schema } => {
+                    let plan = match invocation.format {
+                        cli::Format::Text => format!(
+                            "[repo-config-migration] reviewed migration plan for `{schema}`\n\
+[repo-config-migration] write `{}` with its immutable modeline\n\
+[repo-config-migration] compare effective policy before adoption\n\
+[repo-config-migration] validate the local bytes offline\n\
+[repo-config-migration] warning: this RC-only reader is deleted before {}\n",
+                            v0_4::config::SCHEMA,
+                            v0_4::config::LEGACY_REMOVAL_BOUNDARY,
+                        ),
+                        cli::Format::Json => format!(
+                            "{{\"schemaVersion\":1,\"command\":\"repo-config-migration\",\"legacySchema\":\"{schema}\",\"status\":\"migration-required\",\"removalBoundary\":\"{}\"}}\n",
+                            v0_4::config::LEGACY_REMOVAL_BOUNDARY,
+                        ),
+                    };
+                    Outcome::clean(plan)
+                }
+                v0_4::config::MigrationDisposition::Grouped => {
+                    Outcome::refused("rhino: `rhino/repo-config/v2` does not require migration\n")
+                }
+            };
+        }
+        ("gate-list", Document::V0_4(document)) => {
+            return v0_4::gates::list(document.gates.as_ref(), invocation.format);
+        }
+        ("gate-validate", Document::V0_4(_)) => {
+            return v0_4::gates::validate(invocation.format);
+        }
+        ("gate", Document::V0_4(document)) => {
+            return v0_4::gates::run(
+                document.gates.as_ref(),
+                &invocation,
+                tree,
+                stdin,
+                launcher,
+                mutations,
+            );
+        }
+        ("harness-adapters-validate", Document::V0_4(document)) => {
+            return v0_4::harnesses::validate(document.harness.as_ref(), tree, invocation.format);
+        }
+        ("harness-adapters-generate", Document::V0_4(document)) => {
+            return v0_4::harnesses::generate(
+                document.harness.as_ref(),
+                tree,
+                adapters,
+                invocation.format,
+            );
+        }
+        ("environment-backup", Document::V0_4(document)) => {
+            return v0_4::operations::backup(
+                document.environment.as_ref(),
+                tree,
+                &tree.root(),
+                invocation.backup_directory.as_deref(),
+                environments,
+                invocation.format,
+            );
+        }
+        ("environment-validate", Document::V0_4(document)) => {
+            return v0_4::operations::validate(
+                document.environment.as_ref(),
+                tree,
+                invocation.format,
+            );
+        }
+        ("environment-init", Document::V0_4(document)) => {
+            return v0_4::operations::init(
+                document.environment.as_ref(),
+                tree,
+                &tree.root(),
+                invocation.apply,
+                environments,
+                invocation.format,
+            );
+        }
+        ("environment-restore", Document::V0_4(document)) => {
+            return v0_4::operations::restore(
+                document.environment.as_ref(),
+                tree,
+                &tree.root(),
+                invocation.backup_directory.as_deref(),
+                invocation.force,
+                environments,
+                invocation.format,
+            );
+        }
+        ("toolchain-validate", Document::V0_4(document)) => {
+            return v0_4::operations::validate_toolchains(
+                document.toolchains.as_ref(),
+                toolchains,
+                invocation.format,
+            );
+        }
+        ("toolchain-provision", Document::V0_4(document)) => {
+            return v0_4::operations::provision(
+                document.toolchains.as_ref(),
+                invocation.apply,
+                toolchains,
+                invocation.format,
+            );
+        }
+        ("license", Document::V0_4(document)) => {
+            return v0_4::validators::license(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.conventions.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("frontmatter", Document::V0_4(document)) => {
+            return v0_4::validators::frontmatter(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("internal-link", Document::V0_4(document)) => {
+            return v0_4::validators::internal_link(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("mermaid", Document::V0_4(document)) => {
+            let scope = scan::Scope {
+                files: invocation.files.clone(),
+                directory: invocation.directory.clone(),
+                harness: invocation.harness.clone(),
+                stdin: stdin.map(str::to_string),
+            };
+            return v0_4::validators::mermaid(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                tree,
+                &scope,
+            )
+            .render(invocation.format);
+        }
+        ("readme-index", Document::V0_4(document)) => {
+            return v0_4::validators::readme_index(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("vendor", Document::V0_4(document)) => {
+            return v0_4::validators::vendor(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.governance.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("layers", Document::V0_4(document)) => {
+            return v0_4::validators::layers(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.governance.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("traceability", Document::V0_4(document)) => {
+            return v0_4::validators::traceability(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.governance.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        // RC compatibility is intentionally non-mutating. A legacy document
+        // has no grouped profile declaration, so it cannot authorize adapter
+        // replacement; migration remains the only preparation path.
+        ("harness-adapters-validate" | "harness-adapters-generate", Document::V1(_)) => {
+            return Outcome::clean(
+                "[harness-adapters] legacy configuration has no grouped adapter profile; no adapter bytes were written\n",
+            );
+        }
         ("gate", Document::V2(document)) => {
             let surface = invocation.surface.clone().unwrap_or_default();
             return gate::dispatch(
@@ -163,6 +422,17 @@ pub fn execute_using(
         }
         ("plan", Document::V2(_)) => {
             return plan::validate(tree).render(invocation.format);
+        }
+        // The grouped v0.4 document is intentionally introduced before the
+        // commands that consume its groups. Parsing it is useful immediately:
+        // a consumer can validate the generated schema offline before moving
+        // a lifecycle or policy gate. No older command may reinterpret it.
+        (category, Document::V0_4(_)) => {
+            return Report::refused(
+                category,
+                "the grouped v0.4 configuration declares no command in this release",
+            )
+            .render(invocation.format);
         }
         ("gate", Document::V1(_)) => {
             return Report::refused(
@@ -233,9 +503,23 @@ pub fn execute_using(
             Some(section) => convention::emoji::validate(tree, &config, section),
             None => undeclared("emoji", "convention-emoji"),
         },
-        "harness-parity" => match &config.harness_parity {
+        "harness-parity" | "harness-adapters-validate" => match &config.harness_parity {
             Some(section) => harness::validate(tree, &config, section, &scope),
             None => undeclared("harness-parity", "harness-parity"),
+        },
+        "harness-adapters-generate" => match &config.harness_parity {
+            Some(section) => {
+                let report = harness::validate(tree, &config, section, &scope);
+                let outcome = report.render(invocation.format);
+                return if outcome.exit_code == 0 {
+                    Outcome::clean(
+                        "[harness-adapters] generation plan is clean; no adapter bytes were written\n",
+                    )
+                } else {
+                    outcome
+                };
+            }
+            None => undeclared("harness-adapters", "harness-parity"),
         },
         "frontmatter" => match &config.frontmatter {
             Some(section) => markdown::frontmatter::validate(tree, &config, section),
@@ -314,4 +598,118 @@ fn load(tree: &dyn Tree) -> Result<Document, ConfigError> {
         TreeError::NotText => ConfigError::Unreadable("holds no text".to_string()),
     })?;
     config::parse(&text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::{MemoryTree, NoLauncher, NoMutationRunner};
+
+    fn arguments(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    fn grouped_tree() -> MemoryTree {
+        let tree = MemoryTree::default();
+        tree.write(config::PATH, "schema: rhino/repo-config/v2\n");
+        tree
+    }
+
+    #[test]
+    fn public_execution_seams_preserve_the_same_version_result() {
+        let tree = MemoryTree::default();
+        let version_arguments = arguments(&["version"]);
+
+        assert_eq!(execute(&tree, &version_arguments).exit_code, 0);
+        assert_eq!(
+            execute_with(&tree, &version_arguments, Some("unused")).exit_code,
+            0
+        );
+        assert_eq!(
+            execute_using(&tree, &version_arguments, None, &NoLauncher).exit_code,
+            0
+        );
+        assert_eq!(
+            execute_using_with_mutations(
+                &tree,
+                &version_arguments,
+                None,
+                &NoLauncher,
+                &NoMutationRunner,
+            )
+            .exit_code,
+            0
+        );
+        let json = execute(&tree, &arguments(&["version", "--json"]));
+        assert_eq!(json.exit_code, 0);
+        assert!(json.stdout.contains("schemaVersion"));
+    }
+
+    #[test]
+    fn grouped_dispatch_reaches_every_declared_owner_without_implicit_policy() {
+        let tree = grouped_tree();
+        for command in [
+            &["gate", "list"][..],
+            &["gate", "validate"],
+            &["gate", "run", "--surface", "pre-commit"],
+            &["harness", "adapters", "validate"],
+            &["harness", "adapters", "generate"],
+            &["env", "backup", "--dir", "backups"],
+            &["env", "validate"],
+            &["env", "init"],
+            &["env", "restore", "--dir", "backups"],
+            &["toolchain", "validate"],
+            &["toolchain", "provision"],
+            &["convention", "license", "validate"],
+            &["md", "frontmatter", "validate"],
+            &["md", "internal-link", "validate"],
+            &["md", "mermaid", "validate"],
+            &["md", "readme-index", "validate"],
+            &["governance", "vendor", "validate"],
+            &["governance", "layers", "validate"],
+            &["governance", "traceability", "validate"],
+            &["md", "heading-hierarchy", "validate"],
+        ] {
+            let outcome = execute(&tree, &arguments(command));
+            assert!(
+                matches!(outcome.exit_code, 0 | 2),
+                "{} returned {}: {}",
+                command.join(" "),
+                outcome.exit_code,
+                outcome.stderr
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_v2_optional_sections_refuse_without_implicit_policy_or_adapter_write() {
+        let tree = MemoryTree::default();
+        tree.write(
+            config::PATH,
+            "schema: ose/repo-config/v2\nvisibility: private\ngates:\n  - id: plan\n    kind: check\n    run: [./gates/plan.sh]\n    surfaces: [commit-msg, pre-commit, pre-push]\n",
+        );
+        for command in [
+            &["md", "word-count", "inspect"][..],
+            &["governance", "directory-map", "validate"],
+            &["harness", "parity", "validate"],
+            &["harness", "adapters", "generate"],
+            &["md", "mermaid", "validate"],
+        ] {
+            assert_eq!(execute(&tree, &arguments(command)).exit_code, 2);
+        }
+        let migration = execute(&tree, &arguments(&["repo-config", "migrate"]));
+        assert_eq!(migration.exit_code, 0, "{}", migration.stderr);
+        assert!(migration.stdout.contains("reviewed migration plan"));
+    }
+
+    #[test]
+    fn load_refuses_nontext_configuration_before_any_policy_can_run() {
+        let mut tree = MemoryTree::default();
+        tree.mark_binary(config::PATH);
+
+        let outcome = execute(&tree, &arguments(&["repo-config", "validate"]));
+
+        assert_eq!(outcome.exit_code, 2);
+        assert!(outcome.stderr.contains("holds no text"));
+    }
 }

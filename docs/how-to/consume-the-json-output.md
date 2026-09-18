@@ -7,8 +7,8 @@ the text.
 ## One line, one object
 
 ```console
-$ rhino governance word-budget validate --output json
-{"schemaVersion":1,"command":"word-budget","exitCode":0,"subject":"file","inspected":2,"scanned":["AGENTS.md","README.md"],"notes":[],"violations":[]}
+$ rhino md internal-link validate --output json
+{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"file","inspected":2,"scanned":["docs/README.md"],"notes":[],"violations":[]}
 ```
 
 Line-delimited on purpose: concatenating several runs gives a stream `jq` can
@@ -28,11 +28,9 @@ rhino md mermaid validate --output json \
 
 ```sh
 for command in \
-  "governance word-budget validate" \
-  "governance directory-map validate" \
+  "repo-config validate" \
   "md internal-link validate" \
-  "md mermaid validate" \
-  "harness parity validate"
+  "md mermaid validate"
 do
   # shellcheck disable=SC2086
   rhino $command --output json
@@ -59,9 +57,9 @@ nothing reports zero findings and exits `0`, which looks identical to a clean
 repository:
 
 ```sh
-rhino governance word-budget validate --output json \
+rhino md internal-link validate --output json \
   | jq -e '.inspected > 0' > /dev/null \
-  || echo "the word-budget surface matched nothing" >&2
+  || echo "the internal-link surface matched nothing" >&2
 ```
 
 `inspected` and `scanned` exist for exactly this. A surface that matched

@@ -1,153 +1,73 @@
 # How to wire RHINO into your gates
 
-You want RHINO's answer before a change lands, not after. Three places are
-worth wiring, and they are not interchangeable.
+Use grouped v2 to declare a lifecycle once, validate it before dispatch, and
+give every child an explicit typed input and argv projection. A hook or CI job
+calls one RHINO surface; it does not duplicate the registry or append a command
+after `--`.
 
-## Where each check belongs
+## 1. Declare the lifecycle
 
-| Place         | Runs            | Why                                                              |
-| ------------- | --------------- | ---------------------------------------------------------------- |
-| Local command | every validator | The one a maintainer runs on purpose while working.              |
-| Push hook     | every validator | Fast enough to sit in front of a push, and catches it before CI. |
-| CI            | every validator | The answer of record, on a machine nobody configured by hand.    |
+`gates` owns closed lifecycle membership: `pre-commit`, `commit-msg`,
+`pre-push`, `pull-request`, `main`, `scheduled`, and `manual`. Each entry has a
+semantic ID, typed inputs, a direct executable-and-argv command, and declared
+`run-on` bindings. Pull-request composition is explicitly `exact` or
+`at-least`; an at-least-only gate needs its own reason.
 
-RHINO reads files and writes nothing, spawns no process, and opens no socket,
-so it is cheap enough to run in all three.
+Start with `gate validate` while writing the declaration:
 
-## One script, three callers
+```console
+$ rhino gate validate
+```
 
-Put the loop in one place so the three cannot drift apart.
+The command refuses an incomplete lifecycle before any child process starts.
+Use `gate list` to inspect the resolved membership for each surface.
+
+## 2. Call one surface from each caller
 
 ```sh
 #!/bin/sh
-# scripts/hygiene.sh
-set -u
-
-worst=0
-for command in \
-  "repo-config validate" \
-  "governance word-budget validate" \
-  "governance directory-map validate" \
-  "md internal-link validate" \
-  "md mermaid validate" \
-  "harness parity validate"
-do
-  status=0
-  # shellcheck disable=SC2086
-  rhino $command || status=$?
-  case "$status:$worst" in
-    2:*) worst=2 ;;
-    1:0) worst=1 ;;
-  esac
-done
-exit "$worst"
+# .husky/pre-commit or .git/hooks/pre-commit
+set -eu
+rhino gate run --surface pre-commit
 ```
 
-`repo-config validate` goes first. If the configuration is unusable every other
-command exits `2` for the same reason, and one clear message beats five copies.
+The declared gate receives only the inputs its configuration binds. Do not add
+`-- "$@"`: v0.4 rejects arguments after `--` so a hook cannot replace a typed
+command with unreviewed argv.
 
-## The push hook
+A pull-request caller supplies its immutable range only when the declared
+surface binds that input:
 
 ```sh
-#!/bin/sh
-# .husky/pre-push  (or .git/hooks/pre-push)
-./scripts/hygiene.sh
+rhino gate run --surface pull-request --base "$BASE_SHA" --head "$HEAD_SHA"
 ```
 
-Do not add a bypass flag to the hook. A hook that can be skipped by a flag
-someone remembers under pressure is a hook that is skipped exactly when it
-matters.
+For `commit-msg`, pass the exact hook path with `--message-file`. For
+`pre-push`, pass update records only with `--push-updates-stdin`. The command
+refuses the wrong surface/input combination with exit `2`.
 
-## CI
+## 3. Keep mutations explicit
 
-```yaml
-- name: Repository hygiene
-  run: ./scripts/hygiene.sh
-```
+A mutation pairs local `apply-index` behavior with CI `verify-clean` behavior.
+RHINO refuses to substitute the mutable working tree for the declared index or
+disposable replay boundary. Environment initialization, adapter generation, and
+toolchain provision likewise require their own reviewed plan and explicit
+`--apply` authorization.
 
-Pin the binary the same way you pin any other tool. See
-[how to install a pinned release](./install-a-pinned-release.md).
+## 4. Handle results at the caller
 
-## Prove the gate can fail
+| Exit code | Caller action                                                  |
+| --------- | -------------------------------------------------------------- |
+| `0`       | Continue; the selected surface completed cleanly.              |
+| `1`       | Stop; a declared child reported a repository finding.          |
+| `2`       | Stop; fix the invocation, configuration, or declared boundary. |
+| `3`       | Stop; a declared gate child could not start.                   |
 
-A gate nobody has seen fail is a gate nobody knows works. Break something on a
-scratch branch and watch it go red:
-
-```console
-$ printf '\n[nowhere](does-not-exist.md)\n' >> README.md
-$ rhino md internal-link validate
-[internal-link] checked 5 links, 1 finding
-[internal-link] README.md:5: `does-not-exist.md` does not exist
-```
-
-Then run the script itself and check what it returns, because that — not the
-single command — is what your hook and your CI job actually see:
-
-```console
-$ ./scripts/hygiene.sh > /dev/null 2>&1
-$ echo $?
-1
-```
-
-Then revert it. Do this once when you wire the gate in, and again whenever you
-change what the gate runs.
-
-## Let RHINO dispatch instead
-
-A repository on `ose/repo-config/v2` can declare the sequence once and hand the
-dispatching to `gate run`, which is a different trade rather than a better one:
-the loop above lives in a script you own, and the registry lives in the
-configuration every other tool already reads.
-
-```yaml
-schema: ose/repo-config/v2
-visibility: private
-gates:
-  - id: hygiene
-    kind: check
-    run:
-      - ./gates/hygiene.sh
-    surfaces:
-      - commit-msg
-      - pre-commit
-      - pre-push
-```
-
-```sh
-# .husky/pre-commit
-set -e
-rhino gate run --surface pre-commit -- "$@"
-```
-
-Gates run in declaration order and stop at the first failure. Each child is
-started directly, with no shell, so nothing in `run` is interpolated; it is
-told which surface selected it through `OSE_GATE_SURFACE`, and anything after
-`--` is appended to its own arguments. A `mutation` gate may only run at
-`pre-commit`, because a gate that rewrites files during `pre-push` would push
-bytes nobody reviewed.
-
-Exit `3` is the one to notice: a child that could not be started. It is not
-exit `1`, because a gate that never ran says nothing about the repository, and
-reporting the second as the first would let a broken hook read as a caught
-violation.
-
-A repository that declares `visibility: public` must declare a gate whose id is
-`public-safety`, first at every surface it runs at. Scanning for prohibited
-material second has already let something else touch the publication surface.
-
-## What not to do
-
-**Do not swallow exit `2`.** It means nothing was checked. A gate that treats
-it as a pass is a gate that goes quiet exactly when the configuration breaks.
-
-**Do not run only the validators that are currently clean.** A validator
-excluded because it is noisy today is a rule the repository has stopped
-declaring.
-
-**Do not parse the text output.** Use `--output json` and filter on `kind`.
+RHINO prints only a gate identifier and sanitized status. It never repeats a
+child stream that could contain material unsafe to publish.
 
 ## Related
 
-- [How to respond to an exit code](./respond-to-exit-codes.md)
-- [How to consume the JSON output](./consume-the-json-output.md)
-- [Exit codes](../reference/exit-codes.md)
+- [Grouped v2 Configuration](../reference/v0-4-configuration.md)
+- [Command line](../reference/cli.md)
+- [How to respond to exit codes](./respond-to-exit-codes.md)

@@ -54,6 +54,12 @@ impl Driver for E2eDriver {
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             },
             mutations: differences(&before, &after),
+            files_after: sandbox::text_files(sandbox.root()),
+            persist_state: arguments.starts_with(&[
+                "harness".to_string(),
+                "adapters".to_string(),
+                "generate".to_string(),
+            ]),
             // Read from the sandbox rather than from the runner: these are
             // records real children wrote, at the one boundary where a child
             // is a process.

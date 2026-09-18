@@ -10,3 +10,4 @@ publish = false
 # runner happens to carry -- and so the verification suite, which does shell
 # out, checks it against an implementation that is not this one.
 sha2 = "0.11"
+rhino = { path = ".." }

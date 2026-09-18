@@ -15,7 +15,9 @@
 
 pub mod v2;
 
-use serde::Deserialize;
+use crate::v0_4;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -256,7 +258,7 @@ pub struct Tree {
     pub path: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InternalLink {
     /// Globs excluded as link *sources*. Files under them stay valid targets.
@@ -264,7 +266,7 @@ pub struct InternalLink {
     pub exclude_sources: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Mermaid {
     /// The one authoring rule this repository applies to conceptual diagrams.
@@ -293,7 +295,7 @@ pub struct Mermaid {
 /// Closed, and closed on purpose: the contract's whole argument is that a
 /// repository having both is the state in which a reader cannot predict what
 /// they will get and no tool can check either rule.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum AuthoringRule {
     /// Mermaid, carrying both an accessible title and an accessible
@@ -303,14 +305,14 @@ pub enum AuthoringRule {
     PlainText,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Frontmatter {
     /// Ordered, last match wins, as everywhere else surfaces are declared.
     pub surfaces: Vec<FrontmatterSurface>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FrontmatterSurface {
     pub glob: String,
@@ -717,6 +719,7 @@ pub struct Scan {
 pub enum Document {
     V1(Box<Config>),
     V2(Box<v2::Document>),
+    V0_4(Box<v0_4::config::Document>),
 }
 
 /// Parse and validate configuration text.
@@ -728,7 +731,18 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     match declared_schema(text)? {
         Schema::V1 => parse_v1(text).map(|config| Document::V1(Box::new(config))),
         Schema::V2 => v2::parse(text).map(|document| Document::V2(Box::new(document))),
+        Schema::V0_4 => {
+            v0_4::config::parse(text).map(|document| Document::V0_4(Box::new(document)))
+        }
     }
+}
+
+/// Generate the grouped-v2 JSON Schema from the same model that parses it.
+///
+/// Kept beside configuration selection so the build tool does not need a
+/// second model, parser, or schema-specific dependency path.
+pub fn v0_4_schema_bytes() -> Result<Vec<u8>, serde_json::Error> {
+    v0_4::config::schema_bytes()
 }
 
 /// Decode the validator sections from a document, with no schema-specific rule.
@@ -769,6 +783,7 @@ fn parse_v1(text: &str) -> Result<Config, ConfigError> {
 enum Schema {
     V1,
     V2,
+    V0_4,
 }
 
 /// Decide which schema a document declares, and refuse anything else.
@@ -796,6 +811,8 @@ fn declared_schema(text: &str) -> Result<Schema, ConfigError> {
         (None, Some(declared)) => {
             if declared == v2::SCHEMA {
                 Ok(Schema::V2)
+            } else if declared == v0_4::config::SCHEMA {
+                Ok(Schema::V0_4)
             } else {
                 Err(ConfigError::SchemaUnrecognized { declared, line: 1 })
             }
@@ -1261,4 +1278,50 @@ fn line_of(text: &str, key: &str) -> usize {
     text.lines()
         .position(|line| line.trim_start().starts_with(&format!("{key}:")))
         .map_or(1, |index| index + 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grouped_schema_bytes_and_decoder_refusals_are_available_without_a_tree() {
+        let schema = v0_4_schema_bytes().expect("the closed grouped schema serializes");
+        assert!(schema.ends_with(b"\n"));
+        assert!(
+            schema
+                .windows(b"rhino/repo-config/v2".len())
+                .any(|window| window == b"rhino/repo-config/v2")
+        );
+        assert!(decode_sections("unknown: [").is_err());
+        assert!(parse("schema: rhino/repo-config/v2\n").is_ok());
+        let legacy = parse(
+            "schema: ose/repo-config/v2\nvisibility: private\ngates:\n  - id: plan\n    kind: check\n    run: [./gates/plan.sh]\n    surfaces: [commit-msg, pre-commit, pre-push]\n",
+        )
+        .expect("the synthetic legacy document is structurally valid");
+        match crate::v0_4::config::migration_disposition(&legacy) {
+            crate::v0_4::config::MigrationDisposition::Legacy { schema } => {
+                assert_eq!(schema, v2::SCHEMA);
+            }
+            crate::v0_4::config::MigrationDisposition::Grouped => {
+                panic!("legacy input must remain a review-only disposition");
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_schema_helpers_preserve_missing_and_listed_contracts() {
+        assert_eq!(commented_schema("\n# note\nkey: value\n"), None);
+        assert_eq!(
+            commented_schema("\n# schema: rhino/repo-config/v1\nkey: value\n"),
+            Some(("rhino/repo-config/v1".to_string(), 2))
+        );
+        assert!(matches!(
+            check_semantics(&Config::default(), ""),
+            Err(ConfigError::Semantic { .. })
+        ));
+        assert_eq!(listed(&[]), "");
+        assert_eq!(listed(&["one"]), "`one`");
+        assert_eq!(listed(&["one", "two"]), "`one`, and `two`");
+    }
 }

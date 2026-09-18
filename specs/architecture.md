@@ -4,13 +4,14 @@ The as-built C4 model for the RHINO command-line validator. Behaviour lives in [
 
 ## Scope
 
-RHINO reads one repository's Markdown, instruction files, and harness adapters, compares them against that repository's declared policy, and reports findings. It is a single short-lived process with no state between runs.
+RHINO validates one repository's Markdown, instruction files, and harness adapters against declared policy. Explicit gate, toolchain, and adapter commands use separately injected process or transaction ports; ordinary tree validation remains a single short-lived, read-only process.
 
-Three constraints shape every box below, and none of them is a convention that could be relaxed later:
+Four constraints shape every box below, and none of them is a convention that could be relaxed later:
 
-- **Read-only.** RHINO opens no file for writing inside the inspected tree.
+- **Read-only validation.** A validator opens no file for writing inside the inspected tree.
 - **Network-free.** RHINO opens no socket, including loopback. External URLs found in Markdown are recognized and skipped, never fetched.
-- **Process-free.** RHINO spawns no child process. Everything it reports, it read itself.
+- **Bounded process launch.** `gate run` and toolchain operations start only declared argv through separate ports.
+- **Bounded adapter mutation.** Only generation receives an adapter-store port; it replaces declared roots only after a complete lossless plan exists.
 
 ## System Context
 
@@ -46,17 +47,20 @@ graph TD
     Library["rhino library crate"]
     Config["repo-config.yml"]
     Files["Repository files"]
+    Child["Declared child argv"]
 
     Binary -->|parses arguments| Library
     Library -->|reads declared policy| Config
-    Library -->|reads through one port| Files
+    Library -->|validator reads| Files
+    Library -->|adapter transaction| Files
+    Library -->|declared argv only| Child
     Library -->|findings| Binary
 
     classDef unit fill:#0173B2,stroke:#000000,color:#FFFFFF
     classDef data fill:#CA9161,stroke:#000000,color:#000000
 
     class Binary,Library unit
-    class Config,Files data
+    class Config,Files,Child data
 ```
 
 The split between the binary and the library is not stylistic. Rust links integration tests under `tests/` against a crate's library target only, so a binary-only crate would have forced the behaviour corpus into `#[cfg(test)]` modules inside `src/` — which is exactly the boundary the specification standard forbids. The library holds every decision; the binary holds argument parsing, output writing, and the exit code.
@@ -74,6 +78,8 @@ graph TD
     Word["word_budget"]
     Map["directory_map"]
     Harness["harness"]
+    Adapter["v0_4 harness adapters"]
+    Operations["v0_4 operations"]
     Metadata["metadata"]
     Gate["gate — dispatch"]
     Structure["governance structure"]
@@ -87,6 +93,8 @@ graph TD
     Cli --> Word
     Cli --> Map
     Cli --> Harness
+    Cli --> Adapter
+    Cli --> Operations
     Cli --> Metadata
     Cli --> Gate
     Cli --> Structure
@@ -96,6 +104,8 @@ graph TD
     ConfigMod --> Runtime
     Scan --> Runtime
     Harness --> Runtime
+    Adapter --> Runtime
+    Operations --> Runtime
     Map --> Runtime
     Metadata --> Scan
     Structure --> Runtime
@@ -120,7 +130,7 @@ Every validator reaches the filesystem through one port trait rather than throug
 
 The three Markdown validators share one scan so the tree is walked once per invocation. `harness` and `directory_map` do not use it, because they read named paths and directory structure rather than Markdown content.
 
-The three governance structure modules arrived with `ose/repo-config/v2` and read the shared contract rather than a declared section, so a repository still on `v1` is refused rather than held to rules it never adopted. `structure` is the one module that asks the port for directories rather than files, because an empty governed directory is the single state a file list cannot express. `gate` dispatches declared children through the launcher port, the second port and the only place a process is spawned.
+The three governance structure modules arrived with `ose/repo-config/v2` and read the shared contract rather than a declared section, so a repository still on `v1` is refused rather than held to rules it never adopted. `structure` is the one module that asks the port for directories rather than files, because an empty governed directory is the single state a file list cannot express. `gate` dispatches declared children through the launcher port. `v0_4::operations` owns environment transactions and the separate toolchain runner port; it starts only declared typed argv, without a shell or reported child output.
 
 `plan` is the one module whose rules this crate does not own. Their identifiers, messages, diagnostics, exit classes, and fixture corpus are frozen in a shared contract because more than one implementation validates plan structure, and a contract written after the first implementation would describe an accident rather than an agreement. The corpus is copied in byte-identically and its digest is checked before any case runs.
 
@@ -136,6 +146,7 @@ RHINO owns no persistent store. Its inputs are the declared configuration and th
 | --------------- | -------------------------------------------------------- | ---------------------------------------------------- |
 | Process         | The `rhino` executable's argument and exit-code contract | Observed by the E2E adapter, which sees nothing else |
 | Filesystem      | The port trait in `runtime`                              | Substituted wholesale by the unit adapter            |
+| Host process    | Launcher and toolchain-runner ports in `runtime`         | Declared typed argv only; no shell or output report  |
 | Repository root | Every resolved path                                      | Paths that escape the root are refused, not clamped  |
 | Trust           | The inspected tree is untrusted input                    | Linear-time matching only; no backtracking engine    |
 

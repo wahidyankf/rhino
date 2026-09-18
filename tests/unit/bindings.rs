@@ -1930,6 +1930,245 @@ pub const BINDINGS: &[Binding] = &[
         "plan-structure",
         "A companion set with no index reports its modules rather than the index",
     ),
+    ("v0-4-contract", "A grouped v0.4 configuration is accepted"),
+    ("v0-4-contract", "An unknown grouped-core key is refused"),
+    (
+        "v0-4-contract",
+        "An extension owner outside the portable namespace is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A legacy configuration emits an RC-only reviewed migration plan",
+    ),
+    (
+        "v0-4-contract",
+        "A grouped configuration does not require migration",
+    ),
+    (
+        "v0-4-contract",
+        "Lifecycle identities are listed declaratively",
+    ),
+    (
+        "v0-4-contract",
+        "Each declared lifecycle membership uses one closed surface",
+    ),
+    (
+        "v0-4-contract",
+        "A legacy ci lifecycle membership is refused",
+    ),
+    (
+        "v0-4-contract",
+        "Pull-request exact composition includes every local gate",
+    ),
+    (
+        "v0-4-contract",
+        "Pull-request at-least extras name their direct reason",
+    ),
+    (
+        "v0-4-contract",
+        "Pull-request at-least extras retain their direct reason",
+    ),
+    (
+        "v0-4-contract",
+        "Duplicate semantic lifecycle IDs are refused",
+    ),
+    (
+        "v0-4-contract",
+        "Generic gate inputs are validated before dispatch",
+    ),
+    ("v0-4-contract", "Tool-named input selectors are refused"),
+    (
+        "v0-4-contract",
+        "Typed argv and environment projections name resolved range fields",
+    ),
+    (
+        "v0-4-contract",
+        "A pre-push range declares its new-ref fallback",
+    ),
+    (
+        "v0-4-contract",
+        "Unresolved typed input projections are refused",
+    ),
+    (
+        "v0-4-contract",
+        "Typed bindings reject a source for the wrong input kind",
+    ),
+    (
+        "v0-4-contract",
+        "Surface membership cannot replace a declared command",
+    ),
+    (
+        "v0-4-contract",
+        "A mutation gate declares paired local and pull-request behavior",
+    ),
+    (
+        "v0-4-contract",
+        "A mutation gate cannot omit its pull-request replay contract",
+    ),
+    (
+        "v0-4-contract",
+        "A mutation refuses a mutable-working-tree fallback",
+    ),
+    (
+        "v0-4-contract",
+        "Harness adapters have one canonical lifecycle",
+    ),
+    (
+        "v0-4-contract",
+        "Environment backup starts with an explicit destination plan",
+    ),
+    (
+        "v0-4-contract",
+        "Environment backup refuses a destination outside its repository",
+    ),
+    (
+        "v0-4-contract",
+        "Text and JSON gate listings share a result envelope",
+    ),
+    ("v0-4-contract", "Retired gate aliases are unknown"),
+    ("v0-4-contract", "Retired gate audit alias is unknown"),
+    (
+        "v0-4-contract",
+        "Conventional Commit input follows the commit-message lifecycle",
+    ),
+    (
+        "v0-4-contract",
+        "Lifecycle composition is checked before a gate runs",
+    ),
+    (
+        "v0-4-contract",
+        "Pull-request replay receives an explicit immutable range",
+    ),
+    (
+        "v0-4-contract",
+        "Canonical harness adapters generate as one transaction",
+    ),
+    (
+        "v0-4-contract",
+        "Grouped harness adapters refuse an inherited profile selector",
+    ),
+    (
+        "v0-4-contract",
+        "Canonical adapters generate once and then become a deterministic no-op",
+    ),
+    (
+        "v0-4-contract",
+        "An unrepresentable canonical requirement refuses before adapter generation",
+    ),
+    (
+        "v0-4-contract",
+        "Toolchain provisioning requires an explicit apply contract",
+    ),
+    (
+        "v0-4-contract",
+        "Toolchain provisioning plans before an explicit mutation",
+    ),
+    (
+        "v0-4-contract",
+        "Toolchain validation reports a required unavailable probe without output bytes",
+    ),
+    (
+        "v0-4-contract",
+        "Curated environment detection accepts a declared Rust key",
+    ),
+    (
+        "v0-4-contract",
+        "Curated environment detection redacts unsupported dynamic access",
+    ),
+    (
+        "v0-4-contract",
+        "Environment validation reports an explicitly empty policy clean",
+    ),
+    (
+        "v0-4-contract",
+        "Environment initialization refuses a policy with no targets",
+    ),
+    (
+        "v0-4-contract",
+        "License policy is repository-configured rather than OSE-defined",
+    ),
+    (
+        "v0-4-contract",
+        "License policy reports only its configured identifier mismatch",
+    ),
+    (
+        "v0-4-contract",
+        "License policy reports a configured digest mismatch",
+    ),
+    (
+        "v0-4-contract",
+        "README index requires only declared direct-child links and annotations",
+    ),
+    (
+        "v0-4-contract",
+        "README index reports an omitted declared direct child",
+    ),
+    (
+        "v0-4-contract",
+        "README index excludes only a declared direct-child subtree",
+    ),
+    (
+        "v0-4-contract",
+        "README index refuses an escaping exclusion",
+    ),
+    (
+        "v0-4-contract",
+        "Vendor policy permits only an exact declared vocabulary exception",
+    ),
+    (
+        "v0-4-contract",
+        "Vendor policy reports an undeclared forbidden term",
+    ),
+    (
+        "v0-4-contract",
+        "Vendor policy refuses an escaping exception path",
+    ),
+    (
+        "v0-4-contract",
+        "Layer policy validates only the declared layer order and categories",
+    ),
+    (
+        "v0-4-contract",
+        "Layer policy reports a missing declared category",
+    ),
+    ("v0-4-contract", "Layer policy reports an undeclared layer"),
+    ("v0-4-contract", "Layer policy refuses an escaping category"),
+    (
+        "v0-4-contract",
+        "Traceability policy validates a declared artifact relationship",
+    ),
+    (
+        "v0-4-contract",
+        "Traceability policy reports an omitted declared relationship",
+    ),
+    (
+        "v0-4-contract",
+        "Traceability policy reports a missing declared artifact",
+    ),
+    (
+        "v0-4-contract",
+        "Frontmatter policy accepts a declared required key",
+    ),
+    (
+        "v0-4-contract",
+        "Frontmatter policy reports an absent declared key",
+    ),
+    (
+        "v0-4-contract",
+        "Internal-link policy accepts a declared local target",
+    ),
+    (
+        "v0-4-contract",
+        "Internal-link policy reports a missing local target",
+    ),
+    (
+        "v0-4-contract",
+        "Mermaid policy accepts a declared plain-text repository with no diagrams",
+    ),
+    (
+        "v0-4-contract",
+        "Mermaid policy reports a diagram forbidden by its authoring rule",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

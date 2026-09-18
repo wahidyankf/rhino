@@ -9,7 +9,33 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [v0.3.1] — unreleased
+## [v0.4.0] — unreleased
+
+Breaking. **New and migrated repositories use the closed grouped
+`rhino/repo-config/v2` contract.** This release candidate retains predecessor
+schema readers only to print a reviewed migration plan; stable removes them
+rather than forwarding old keys or commands through aliases.
+
+### Added
+
+- **Grouped v2 configuration and schema** — one typed model owns closed core
+  groups, portable extensions, the checked-in Draft 2020-12 schema, and local
+  offline validation. Markdown, governance, convention, lifecycle, harness,
+  environment, and toolchain policy is explicit and repository-neutral.
+- **Explicit operation boundaries** — typed lifecycle gates, three-profile
+  adapter validation/generation, environment transactions, and toolchain
+  provision plan their work before a separately declared mutation boundary.
+- **Immutable schema release asset** — every release checksum manifest covers
+  the four native archives and the grouped v2 schema. The release workflow
+  publishes that exact checked-in schema only after it matches the typed model.
+
+### Changed
+
+- **RC migration is deliberate.** `repo-config migrate` prints a reviewed plan
+  and never rewrites configuration. Grouped v2 does not accept predecessor
+  leaves as aliases, and the inherited adapter `--harness` selector is refused
+  because grouped adapters validate their declared profile projection as one
+  transaction.
 
 ### Fixed
 

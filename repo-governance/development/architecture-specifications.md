@@ -12,7 +12,7 @@
 
 ## What Belongs Here
 
-Contexts, containers, components, and the direction of dependency between them. The read-only, network-free, process-free, path-contained boundary of the product belongs here as structure, and in [software quality enforcement](software-quality-enforcement.md) as the rule tests enforce.
+Contexts, containers, components, and the direction of dependency between them. The validator's read-only, network-free, process-free, path-contained boundary and each explicit operation boundary belong here as structure, and in [software quality enforcement](software-quality-enforcement.md) as the rule tests enforce.
 
 ## What Does Not
 

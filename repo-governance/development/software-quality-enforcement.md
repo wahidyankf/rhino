@@ -10,12 +10,21 @@ The floor is a floor. Lowering it, widening an exclusion, or excluding a module 
 
 ## Product Invariants Enforced by Tests
 
-The product is read-only, network-free, process-free, and path-contained:
+Tree-validation commands are read-only, network-free, process-free, and path-contained:
 
 - it opens no socket, including loopback;
-- it spawns no child process;
-- it writes nothing into the tree it inspects; and
+- they spawn no child process;
+- they write nothing into the tree they inspect; and
 - it follows no path outside the declared root.
+
+`gate run` may start only a declared argv child through its launcher boundary.
+`toolchain validate` and `toolchain provision` may start only declared typed
+argv through their separate runner boundary; probes never install or report
+output, and provision stops at its first failed child. `harness adapters`
+`generate` may replace only declared adapter roots through its adapter-store
+boundary, after the complete desired projection has passed loss validation in
+memory. Each rejects a missing boundary; none may fall back to the validator's
+ordinary read port. No product command opens a socket.
 
 These are enforced by tests rather than by documentation, because a documented invariant is an intention. The no-loopback rule is stricter than the integration layer's own boundary, which permits an owned socket — deliberately, because a validator a maintainer hesitates to point at an unfamiliar tree is a validator that does not get run.
 
