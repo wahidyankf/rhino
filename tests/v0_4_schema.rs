@@ -9,6 +9,7 @@ use serde_json::Value;
 
 const PRODUCER: &str = include_str!("../schemas/repo-config/v2.example.yml");
 const CONSUMER: &str = include_str!("../specs/fixtures/v0-4/consumer-repo-config.yml");
+const CHECKED_IN_SCHEMA: &[u8] = include_bytes!("../schemas/repo-config/v2.schema.json");
 
 fn schema() -> Value {
     serde_json::from_slice(&rhino::config::v0_4_schema_bytes().expect("schema serializes"))
@@ -17,6 +18,16 @@ fn schema() -> Value {
 
 fn yaml(text: &str) -> Value {
     yaml_serde::from_str(text).expect("fixture is YAML")
+}
+
+#[test]
+fn checked_in_schema_is_exactly_the_typed_model() {
+    let generated = rhino::config::v0_4_schema_bytes().expect("schema serializes");
+    assert_eq!(
+        CHECKED_IN_SCHEMA,
+        generated.as_slice(),
+        "run `cargo xtask schema` to regenerate the editor artifact"
+    );
 }
 
 #[test]
