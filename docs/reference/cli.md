@@ -7,17 +7,18 @@ invent a policy or route an old command through a replacement.
 
 ## Grouped v0.4 leaves
 
-| Area             | Commands                                                                                                  |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |
-| Configuration    | `repo-config validate`, `repo-config migrate`                                                             |
-| Lifecycle gates  | `gate list`, `gate validate`, `gate run --surface <name>`                                                 |
-| Harness adapters | `harness adapters validate`, `harness adapters generate`                                                  |
-| Environment      | `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`       |
-| Toolchains       | `toolchain validate`, `toolchain provision --apply`                                                       |
-| Markdown         | `md frontmatter validate`, `md internal-link validate`, `md mermaid validate`, `md readme-index validate` |
-| Governance       | `governance vendor validate`, `governance layers validate`, `governance traceability validate`            |
-| Conventions      | `convention license validate`                                                                             |
-| Build identity   | `version`, `version --json`                                                                               |
+| Area             | Commands                                                                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Configuration    | `repo-config validate`, `repo-config migrate`                                                                                                                          |
+| Lifecycle gates  | `gate list`, `gate validate`, `gate run --surface <name>`                                                                                                              |
+| Harness adapters | `harness adapters validate`, `harness adapters generate`                                                                                                               |
+| Environment      | `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`                                                                    |
+| Toolchains       | `toolchain validate`, `toolchain provision --apply`                                                                                                                    |
+| Markdown         | `md frontmatter validate`, `md heading-hierarchy validate`, `md internal-link validate`, `md mermaid validate`, `md naming validate`, `md readme-index validate`       |
+| Metadata         | `metadata validate`                                                                                                                                                    |
+| Governance       | `governance word-budget validate`, `governance directory-map validate`, `governance vendor validate`, `governance layers validate`, `governance traceability validate` |
+| Conventions      | `convention emoji validate`, `convention license validate`                                                                                                             |
+| Build identity   | `version`, `version --json`                                                                                                                                            |
 
 `repo-config migrate` reads a predecessor configuration only during the release
 candidate and prints a reviewed plan. It never rewrites a configuration. A
