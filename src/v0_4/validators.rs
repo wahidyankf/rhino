@@ -110,6 +110,22 @@ pub(crate) fn frontmatter(
     crate::markdown::frontmatter::validate(tree, &config, frontmatter)
 }
 
+/// Project the declared heading policy into the established syntax reader.
+pub(crate) fn heading_hierarchy(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
+    let Some(headings) = policy.and_then(|policy| policy.heading_hierarchy.as_ref()) else {
+        return undeclared("heading-hierarchy", "policies.markdown.heading-hierarchy");
+    };
+    let config = Config {
+        heading_hierarchy: Some(headings.clone()),
+        ..scan_projection(scan)
+    };
+    crate::markdown::heading_hierarchy::validate(tree, &config, headings)
+}
+
 pub(crate) fn internal_link(
     policy: Option<&MarkdownPolicy>,
     scan: Option<&Scan>,
@@ -123,6 +139,22 @@ pub(crate) fn internal_link(
         ..scan_projection(scan)
     };
     crate::markdown::internal_link::validate(tree, &config)
+}
+
+/// Project the repository-owned metadata surface into its established reader.
+pub(crate) fn metadata(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
+    let Some(metadata) = policy.and_then(|policy| policy.metadata.as_ref()) else {
+        return undeclared("metadata", "policies.markdown.metadata");
+    };
+    let config = Config {
+        metadata: Some(metadata.clone()),
+        ..scan_projection(scan)
+    };
+    crate::metadata::validate(tree, &config, metadata)
 }
 
 pub(crate) fn mermaid(
@@ -146,6 +178,38 @@ pub(crate) fn readme_index(policy: Option<&MarkdownPolicy>, tree: &dyn Tree) -> 
         return undeclared("readme-index", "policies.markdown.readme-index");
     };
     readme_index_policy(policy, tree)
+}
+
+/// Project the declared file-name surface into the established name reader.
+pub(crate) fn naming(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
+    let Some(naming) = policy.and_then(|policy| policy.naming.as_ref()) else {
+        return undeclared("naming", "policies.markdown.naming");
+    };
+    let config = Config {
+        naming: Some(naming.clone()),
+        ..scan_projection(scan)
+    };
+    crate::markdown::naming::validate(tree, &config, naming)
+}
+
+/// Project the declared machine-readable-file policy into the emoji reader.
+pub(crate) fn emoji(
+    policy: Option<&ConventionsPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
+    let Some(emoji) = policy.and_then(|policy| policy.emoji.as_ref()) else {
+        return undeclared("emoji", "policies.conventions.emoji");
+    };
+    let config = Config {
+        emoji: Some(emoji.clone()),
+        ..scan_projection(scan)
+    };
+    crate::convention::emoji::validate(tree, &config, emoji)
 }
 
 /// Reuse the established word-budget validator through a grouped projection.
@@ -659,6 +723,7 @@ mod tests {
         );
 
         let clean = ConventionsPolicy {
+            emoji: None,
             license: Some(LicensePolicy {
                 paths: vec![LicensePath {
                     path: "LICENSE".to_string(),
@@ -672,12 +737,14 @@ mod tests {
 
         let invalid_policies = [
             ConventionsPolicy {
+                emoji: None,
                 license: Some(LicensePolicy {
                     paths: Vec::new(),
                     exclusions: vec!["../outside".to_string()],
                 }),
             },
             ConventionsPolicy {
+                emoji: None,
                 license: Some(LicensePolicy {
                     paths: vec![LicensePath {
                         path: "/LICENSE".to_string(),
@@ -688,6 +755,7 @@ mod tests {
                 }),
             },
             ConventionsPolicy {
+                emoji: None,
                 license: Some(LicensePolicy {
                     paths: vec![
                         LicensePath {
@@ -705,6 +773,7 @@ mod tests {
                 }),
             },
             ConventionsPolicy {
+                emoji: None,
                 license: Some(LicensePolicy {
                     paths: vec![LicensePath {
                         path: "LICENSE".to_string(),
@@ -720,6 +789,7 @@ mod tests {
         }
 
         let findings = ConventionsPolicy {
+            emoji: None,
             license: Some(LicensePolicy {
                 paths: vec![
                     LicensePath {
@@ -1017,6 +1087,7 @@ mod tests {
         unreadable_license.write("LICENSE", "synthetic\n");
         unreadable_license.mark_unreadable("LICENSE");
         let license_policy = ConventionsPolicy {
+            emoji: None,
             license: Some(LicensePolicy {
                 paths: vec![LicensePath {
                     path: "LICENSE".to_string(),

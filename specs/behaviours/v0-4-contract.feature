@@ -25,6 +25,58 @@ Feature: Rhino v0.4 contracts
     When I run the "repo-config" validator
     Then the exit code is 0
 
+  Scenario: A grouped configuration retains each live documentation validator
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          heading-hierarchy:
+            surfaces:
+              - glob: "docs/**/*.md"
+            single-h1: true
+            max-level-jump: 1
+          naming:
+            surfaces:
+              - glob: "docs/**/*.md"
+                style: kebab-case
+            exempt: []
+          metadata:
+            surfaces:
+              - glob: ".agents/agents/*.md"
+                schema: agent
+        conventions:
+          emoji:
+            prohibited:
+              - glob: "**/*.json"
+      """
+    When I run the "heading-hierarchy" validator
+    Then the exit code is 0
+    When I run the "naming" validator
+    Then the exit code is 0
+    When I run the "metadata" validator
+    Then the exit code is 0
+    When I run the "emoji" validator
+    Then the exit code is 0
+
+  Scenario: An omitted grouped documentation policy refuses at its owner
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      """
+    When I run the "heading-hierarchy" validator
+    Then the exit code is 2
+    And stderr contains "policies.markdown.heading-hierarchy"
+    When I run the "naming" validator
+    Then the exit code is 2
+    And stderr contains "policies.markdown.naming"
+    When I run the "metadata" validator
+    Then the exit code is 2
+    And stderr contains "policies.markdown.metadata"
+    When I run the "emoji" validator
+    Then the exit code is 2
+    And stderr contains "policies.conventions.emoji"
+
   Scenario: An unknown grouped-core key is refused
     Given the configuration file is this text:
       """

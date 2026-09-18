@@ -191,6 +191,16 @@
       "additionalProperties": false,
       "description": "Configured license placement and content checks. A path can require exact\nidentifiers, a SHA-256 digest, or both; omitted checks are never supplied\nby RHINO. Exclusions are exact repository-relative paths.",
       "properties": {
+        "emoji": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Emoji"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "license": {
           "anyOf": [
             {
@@ -215,6 +225,20 @@
         }
       },
       "required": ["trees"],
+      "type": "object"
+    },
+    "Emoji": {
+      "additionalProperties": false,
+      "description": "Files in which an emoji code point is a finding.",
+      "properties": {
+        "prohibited": {
+          "items": {
+            "$ref": "#/$defs/Globbed"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["prohibited"],
       "type": "object"
     },
     "Environment": {
@@ -550,6 +574,17 @@
       },
       "type": "object"
     },
+    "Globbed": {
+      "additionalProperties": false,
+      "description": "A declared glob and nothing else.\n\nShared by the sections whose surfaces carry no policy of their own, so that\n\"a surface is a mapping with a `glob` key\" is one statement rather than one\nper section that happens to agree.",
+      "properties": {
+        "glob": {
+          "type": "string"
+        }
+      },
+      "required": ["glob"],
+      "type": "object"
+    },
     "GovernancePolicy": {
       "additionalProperties": false,
       "description": "Repository-neutral governance policy. The names below carry no hierarchy or\norganisation vocabulary; every root, layer, category, term, artifact, and\nrelationship comes from the consuming repository.",
@@ -632,6 +667,30 @@
           "default": {}
         }
       },
+      "type": "object"
+    },
+    "HeadingHierarchy": {
+      "additionalProperties": false,
+      "properties": {
+        "max-level-jump": {
+          "description": "How far a heading may drop below the one before it. `1` is the strict\nreading; a larger number is a repository that has decided otherwise.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "single-h1": {
+          "description": "Whether a governed document holds exactly one level-1 heading.\n\nRequired rather than defaulted: a repository whose documents are\nsections of a larger whole legitimately has none, and assuming either\nanswer would enforce a structure nobody declared.",
+          "type": "boolean"
+        },
+        "surfaces": {
+          "description": "Which files are governed. Unordered in effect -- a surface here carries\nno policy of its own, so nothing depends on which one matched.",
+          "items": {
+            "$ref": "#/$defs/Globbed"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["surfaces", "single-h1", "max-level-jump"],
       "type": "object"
     },
     "Identity": {
@@ -786,6 +845,16 @@
             }
           ]
         },
+        "heading-hierarchy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HeadingHierarchy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "internal-link": {
           "anyOf": [
             {
@@ -800,6 +869,26 @@
           "anyOf": [
             {
               "$ref": "#/$defs/Mermaid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Metadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "naming": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Naming"
             },
             {
               "type": "null"
@@ -872,6 +961,38 @@
       ],
       "type": "object"
     },
+    "Metadata": {
+      "additionalProperties": false,
+      "properties": {
+        "surfaces": {
+          "description": "Ordered, on the same rule as `governance-word-budget.surfaces`: where\ntwo globs match one file, the last matching entry wins. That is how a\nworkflow subtree carries a different schema from the governance tree it\nsits inside.",
+          "items": {
+            "$ref": "#/$defs/MetadataSurface"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["surfaces"],
+      "type": "object"
+    },
+    "MetadataSchema": {
+      "description": "The four canonical artifact families.",
+      "enum": ["governance", "workflow", "skill", "agent"],
+      "type": "string"
+    },
+    "MetadataSurface": {
+      "additionalProperties": false,
+      "properties": {
+        "glob": {
+          "type": "string"
+        },
+        "schema": {
+          "$ref": "#/$defs/MetadataSchema"
+        }
+      },
+      "required": ["glob", "schema"],
+      "type": "object"
+    },
     "MutationContract": {
       "additionalProperties": false,
       "description": "A mutation has one local index operation and one disposable PR replay.\nPairing them in the declaration prevents a formatter from becoming a local\nconvenience command that has never faced its pull-request safety proof.",
@@ -884,6 +1005,60 @@
         }
       },
       "required": ["local", "ci"],
+      "type": "object"
+    },
+    "NameStyle": {
+      "description": "The two filename styles, each a rule about characters rather than a policy\nabout files.",
+      "oneOf": [
+        {
+          "const": "kebab-case",
+          "description": "Lowercase alphanumeric runs joined by single hyphens.",
+          "type": "string"
+        },
+        {
+          "const": "path-prefixed",
+          "description": "The file's own directory path, encoded, then the separator, then a\nkebab-case content name.",
+          "type": "string"
+        }
+      ]
+    },
+    "Naming": {
+      "additionalProperties": false,
+      "properties": {
+        "exempt": {
+          "description": "Globs no style applies to. Required and may be empty, because the\ndifference between \"nothing is exempt\" and \"I forgot the exemptions\" has\nto stay visible in the file.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "surfaces": {
+          "description": "Ordered, on the same rule as `governance-word-budget.surfaces`: where\ntwo globs match one file, the last matching entry wins.",
+          "items": {
+            "$ref": "#/$defs/NamingSurface"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["surfaces", "exempt"],
+      "type": "object"
+    },
+    "NamingSurface": {
+      "additionalProperties": false,
+      "properties": {
+        "glob": {
+          "type": "string"
+        },
+        "separator": {
+          "default": null,
+          "description": "What joins an encoded directory prefix to the content name.\n\nRequired by `path-prefixed` and refused by `kebab-case`. Optional here\nrather than in the type because the two keys are siblings in the\ndocument and `deny_unknown_fields` cannot be combined with the flattened\nenum that would make the pairing unrepresentable; the pairing is checked\ninstead, and checked once.",
+          "type": ["string", "null"]
+        },
+        "style": {
+          "$ref": "#/$defs/NameStyle"
+        }
+      },
+      "required": ["glob", "style"],
       "type": "object"
     },
     "PlansPolicy": {

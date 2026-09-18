@@ -310,6 +310,17 @@ pub fn execute_using_with_boundaries(
             )
             .render(invocation.format);
         }
+        ("emoji", Document::V0_4(document)) => {
+            return v0_4::validators::emoji(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.conventions.as_ref()),
+                document.scan.as_ref(),
+                tree,
+            )
+            .render(invocation.format);
+        }
         ("frontmatter", Document::V0_4(document)) => {
             return v0_4::validators::frontmatter(
                 document
@@ -321,8 +332,30 @@ pub fn execute_using_with_boundaries(
             )
             .render(invocation.format);
         }
+        ("heading-hierarchy", Document::V0_4(document)) => {
+            return v0_4::validators::heading_hierarchy(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                document.scan.as_ref(),
+                tree,
+            )
+            .render(invocation.format);
+        }
         ("internal-link", Document::V0_4(document)) => {
             return v0_4::validators::internal_link(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                document.scan.as_ref(),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("metadata", Document::V0_4(document)) => {
+            return v0_4::validators::metadata(
                 document
                     .policies
                     .as_ref()
@@ -356,6 +389,17 @@ pub fn execute_using_with_boundaries(
                     .policies
                     .as_ref()
                     .and_then(|policies| policies.markdown.as_ref()),
+                tree,
+            )
+            .render(invocation.format);
+        }
+        ("naming", Document::V0_4(document)) => {
+            return v0_4::validators::naming(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.markdown.as_ref()),
+                document.scan.as_ref(),
                 tree,
             )
             .render(invocation.format);
@@ -698,6 +742,7 @@ mod tests {
             &["governance", "vendor", "validate"],
             &["governance", "layers", "validate"],
             &["governance", "traceability", "validate"],
+            &["md", "word-count", "inspect"],
             &["md", "heading-hierarchy", "validate"],
         ] {
             let outcome = execute(&tree, &arguments(command));

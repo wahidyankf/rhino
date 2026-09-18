@@ -1931,6 +1931,14 @@ pub const BINDINGS: &[Binding] = &[
         "A companion set with no index reports its modules rather than the index",
     ),
     ("v0-4-contract", "A grouped v0.4 configuration is accepted"),
+    (
+        "v0-4-contract",
+        "A grouped configuration retains each live documentation validator",
+    ),
+    (
+        "v0-4-contract",
+        "An omitted grouped documentation policy refuses at its owner",
+    ),
     ("v0-4-contract", "An unknown grouped-core key is refused"),
     (
         "v0-4-contract",
