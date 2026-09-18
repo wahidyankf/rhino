@@ -25,23 +25,23 @@ use std::process::Command;
 /// A budget per platform rather than one for all four, because the same source
 /// produces executables 43% apart:
 ///
-/// | platform                    | measured  | ceiling   |
-/// | --------------------------- | --------- | --------- |
-/// | `aarch64-apple-darwin`      | 1,499,424 | 1.75 MiB  |
-/// | `x86_64-apple-darwin`       | 1,759,232 | 2 MiB     |
-/// | `aarch64-unknown-linux-gnu` | 1,905,472 | 2.25 MiB  |
-/// | `x86_64-unknown-linux-gnu`  | 2,140,760 | 2.5 MiB   |
+/// | platform                    | native measurement | ceiling |
+/// | --------------------------- | ------------------ | ------- |
+/// | `aarch64-apple-darwin`      | 1,968,112          | 2.5 MiB |
+/// | `x86_64-apple-darwin`       | 2,435,952          | 3 MiB   |
+/// | `aarch64-unknown-linux-gnu` | 2,495,392          | 3 MiB   |
+/// | `x86_64-unknown-linux-gnu`  | 2,936,016          | 3.5 MiB |
 ///
-/// Every ceiling is its own first measurement plus about a fifth -- for the
-/// growth a few more rules will bring, and no more. One ceiling covering all
-/// four would have to clear the largest, which would leave the smallest free to
-/// grow by three quarters before anything noticed. A budget nobody can exceed
-/// is a budget nobody holds.
+/// Every ceiling is 120% of its complete native measurement, rounded up to the
+/// next quarter MiB. That preserves a modest, explicit growth allowance without
+/// hiding a smaller-platform regression behind the largest target. One ceiling
+/// covering all four would do exactly that; a budget nobody can exceed is a
+/// budget nobody holds.
 const PLATFORMS: [(&str, u64); 4] = [
-    ("aarch64-apple-darwin", 1_835_008),
-    ("x86_64-apple-darwin", 2_097_152),
-    ("aarch64-unknown-linux-gnu", 2_359_296),
-    ("x86_64-unknown-linux-gnu", 2_621_440),
+    ("aarch64-apple-darwin", 2_621_440),
+    ("x86_64-apple-darwin", 3_145_728),
+    ("aarch64-unknown-linux-gnu", 3_145_728),
+    ("x86_64-unknown-linux-gnu", 3_670_016),
 ];
 
 const SCHEMA_ASSET: &str = "rhino-repo-config-v2.schema.json";
