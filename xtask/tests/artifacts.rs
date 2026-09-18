@@ -261,6 +261,13 @@ fn release_size_rehearsal_measures_each_native_target_without_publishing() {
         "size rehearsal must record both executable and archive measurements"
     );
     assert!(
+        text.contains("jq -e -s")
+            && text.contains("schemaVersion: 1")
+            && text.contains("metrics: .")
+            && !text.contains("sed '$!s/$/,'"),
+        "size rehearsal must create one valid JSON aggregate structurally, not splice JSON lines"
+    );
+    assert!(
         !text.contains("gh release create") && !text.contains("contents: write"),
         "size rehearsal must not publish or receive publication permission"
     );

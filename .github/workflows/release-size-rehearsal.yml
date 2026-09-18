@@ -88,20 +88,22 @@ jobs:
       - name: Verify and collect the four measurements
         run: |
           set -eu
-          count=$(find metrics -name release-size.json -type f | wc -l | tr -d '[:space:]')
-          test "${count}" = 4
-          for target in \
-            aarch64-apple-darwin \
-            x86_64-apple-darwin \
-            x86_64-unknown-linux-gnu \
-            aarch64-unknown-linux-gnu; do
-            grep -R -F "\"target\": \"${target}\"" metrics >/dev/null
-          done
-          printf '{\n  "schemaVersion": 1,\n  "workflow": "release-size-rehearsal",\n  "metrics": [\n' > release-size-rehearsal.json
-          find metrics -name release-size.json -type f -print | sort | while IFS= read -r metric; do
-            cat "${metric}"
-          done | sed '$!s/$/,/' >> release-size-rehearsal.json
-          printf '  ]\n}\n' >> release-size-rehearsal.json
+          mapfile -t metric_files < <(find metrics -name release-size.json -type f -print | sort)
+          test "${#metric_files[@]}" = 4
+          jq -e -s '
+            if length != 4 then error("expected four measurements")
+            elif (map(.target) | sort) != [
+              "aarch64-apple-darwin",
+              "aarch64-unknown-linux-gnu",
+              "x86_64-apple-darwin",
+              "x86_64-unknown-linux-gnu"
+            ] then error("release target set differs from the native matrix")
+            elif any(.[]; (.target | type) != "string" or
+                 (.executable_bytes | type) != "number" or
+                 (.archive_bytes | type) != "number") then error("malformed measurement")
+            else {schemaVersion: 1, workflow: "release-size-rehearsal", metrics: .}
+            end
+          ' "${metric_files[@]}" > release-size-rehearsal.json
 
       - uses: actions/upload-artifact@v4
         with:
