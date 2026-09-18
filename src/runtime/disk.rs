@@ -402,6 +402,7 @@ impl MutationRunner for DiskMutationRunner {
         let snapshot = SnapshotDirectory::new("index")?;
         let prefix = format!("--prefix={}/", snapshot.root.display());
         git(root, &["checkout-index", &prefix, "-a"])?;
+        ensure_selected_paths_are_not_symlinks(&snapshot.root, launch.selected_paths)?;
         let before = snapshot.files()?;
         let code = run_mutator(&snapshot.root, &launch)?;
         if code != 0 {
@@ -582,9 +583,11 @@ fn collect_snapshot_files(
         let metadata = std::fs::symlink_metadata(&path)
             .map_err(|error| MutationError(format!("could not inspect snapshot: {error}")))?;
         if metadata.is_symlink() {
-            return Err(MutationError(
-                "snapshot contains a link that leaves its boundary".to_string(),
-            ));
+            // Git materializes a tracked symlink as a link in the disposable
+            // snapshot. It stays opaque here: resolving it could inspect or
+            // write outside the repository, while an unselected link cannot
+            // participate in the regular-file mutation delta.
+            continue;
         }
         if metadata.is_dir() {
             collect_snapshot_files(root, &path, files)?;
@@ -606,6 +609,30 @@ fn collect_snapshot_files(
             ))
         })?;
         files.insert(relative, fingerprint);
+    }
+    Ok(())
+}
+
+fn ensure_selected_paths_are_not_symlinks(
+    snapshot: &Path,
+    selected_paths: &[String],
+) -> Result<(), MutationError> {
+    for selected in selected_paths {
+        let path = snapshot.join(selected);
+        match std::fs::symlink_metadata(&path) {
+            Ok(metadata) if metadata.is_symlink() => {
+                return Err(MutationError(format!(
+                    "selected index path is a symbolic link `{selected}`"
+                )));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(MutationError(format!(
+                    "could not inspect selected index path `{selected}`: {error}"
+                )));
+            }
+        }
     }
     Ok(())
 }

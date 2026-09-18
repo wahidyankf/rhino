@@ -182,6 +182,108 @@ fn disk_mutation_updates_only_the_selected_index_blob() {
 }
 
 #[test]
+fn disk_mutation_keeps_an_unselected_tracked_symlink_as_link_data() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/staged.md"), "before\n")
+        .expect("the staged fixture file is written");
+    symlink("/dev/null", fixture.root.join("outside-link"))
+        .expect("the tracked external-target symlink is written");
+    let formatter = fixture.root.join("formatter.sh");
+    std::fs::write(
+        &formatter,
+        "#!/bin/sh\nprintf 'formatted\\n' > notes/staged.md\n",
+    )
+    .expect("the isolated formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the isolated formatter is executable");
+    fixture.git(&[
+        "add",
+        "--",
+        "notes/staged.md",
+        "outside-link",
+        "formatter.sh",
+    ]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "selected bytes\n")
+        .expect("the selected index bytes are written");
+    fixture.git(&["add", "--", "notes/staged.md"]);
+    std::fs::write(fixture.root.join("notes/staged.md"), "unstaged bytes\n")
+        .expect("the unrelated working-tree bytes are written");
+
+    let selected = vec!["notes/staged.md".to_string()];
+    let root = fixture.root.to_string_lossy().into_owned();
+    let result = match DiskMutationRunner.apply_index(MutationLaunch {
+        arguments: &["./formatter.sh".to_string()],
+        directory: &root,
+        environment: &BTreeMap::new(),
+        selected_paths: &selected,
+        revision: None,
+    }) {
+        Ok(result) => result,
+        Err(_) => panic!("the selected regular file ignores the unselected link"),
+    };
+
+    assert_eq!(result.code, 0);
+    assert_eq!(result.changes, vec!["notes/staged.md"]);
+    assert_eq!(result.divergences, vec!["notes/staged.md"]);
+    assert_eq!(
+        fixture.git_stdout(&["show", ":notes/staged.md"]),
+        b"formatted\n"
+    );
+    assert_eq!(
+        std::fs::read(fixture.root.join("notes/staged.md")).expect("working bytes remain readable"),
+        b"unstaged bytes\n"
+    );
+    assert_eq!(
+        std::fs::read_link(fixture.root.join("outside-link")).expect("the link remains unread"),
+        std::path::PathBuf::from("/dev/null")
+    );
+}
+
+#[test]
+fn disk_mutation_refuses_a_selected_symlink_before_starting_the_mutator() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    symlink("/dev/null", fixture.root.join("outside-link"))
+        .expect("the original symlink is written");
+    let formatter = fixture.root.join("formatter.sh");
+    std::fs::write(&formatter, "#!/bin/sh\nexit 0\n").expect("the isolated formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the isolated formatter is executable");
+    fixture.git(&["add", "--", "outside-link", "formatter.sh"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::remove_file(fixture.root.join("outside-link")).expect("the old link is removed");
+    symlink("/dev/zero", fixture.root.join("outside-link"))
+        .expect("the selected symlink changes before staging");
+    fixture.git(&["add", "--", "outside-link"]);
+
+    let selected = vec!["outside-link".to_string()];
+    let root = fixture.root.to_string_lossy().into_owned();
+    let error = match DiskMutationRunner.apply_index(MutationLaunch {
+        arguments: &["./formatter.sh".to_string()],
+        directory: &root,
+        environment: &BTreeMap::new(),
+        selected_paths: &selected,
+        revision: None,
+    }) {
+        Ok(_) => panic!("a selected symlink is refused before the mutator can resolve it"),
+        Err(error) => error,
+    };
+
+    assert!(error.0.contains("selected index path is a symbolic link"));
+}
+
+#[test]
 fn disk_mutation_replay_reports_a_disposable_candidate_diff() {
     use std::os::unix::fs::PermissionsExt;
 
