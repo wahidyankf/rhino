@@ -283,6 +283,13 @@ impl Launcher for NoLauncher {
 pub trait Tree {
     fn read(&self, path: &str) -> Result<String, TreeError>;
 
+    /// Read one declared mutation source without following a filesystem link.
+    /// The default preserves the in-memory behavior; disk-backed trees tighten
+    /// this boundary before a caller can copy any source bytes.
+    fn read_no_follow(&self, path: &str) -> Result<String, TreeError> {
+        self.read(path)
+    }
+
     /// Every file in the tree, repository-relative and sorted, with excluded
     /// directories and filesystem links already dropped.
     fn files(&self) -> Vec<String>;
@@ -660,6 +667,14 @@ impl Tree for MemoryTree {
             .ok_or(TreeError::NotFound)
     }
 
+    fn read_no_follow(&self, path: &str) -> Result<String, TreeError> {
+        let path = path.trim_start_matches('/');
+        if self.links.contains(path) {
+            return Err(TreeError::Unreadable(format!("{path} is a symbolic link")));
+        }
+        self.read(path)
+    }
+
     fn files(&self) -> Vec<String> {
         self.files
             .borrow()
@@ -997,6 +1012,10 @@ mod tests {
         assert!(tree.resolve_git_ref("main").is_err());
         assert!(tree.commit_messages("aaaaaaa", "bbbbbbb").is_err());
         assert!(tree.hook_message_file("COMMIT_EDITMSG").is_err());
+        assert!(matches!(
+            tree.read_no_follow("docs/guide.md"),
+            Err(TreeError::NotFound)
+        ));
         assert_eq!(
             tree.excluding(&["ignored".to_string()]).files(),
             vec!["docs/guide.md".to_string()]
@@ -1176,6 +1195,15 @@ mod tests {
             tree.read("docs/binary.md"),
             Err(TreeError::NotText)
         ));
+        assert!(matches!(
+            tree.read_no_follow("docs/link.md"),
+            Err(TreeError::Unreadable(reason)) if reason.contains("symbolic link")
+        ));
+        assert_eq!(
+            tree.read_no_follow("docs/guide.md")
+                .expect("ordinary file stays readable"),
+            "guide"
+        );
         assert!(!tree.files().contains(&"docs/link.md".to_string()));
         assert!(tree.directories().contains(&"empty/nested".to_string()));
         assert!(

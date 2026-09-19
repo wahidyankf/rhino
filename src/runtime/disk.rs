@@ -180,6 +180,32 @@ impl Tree for DiskTree {
         }
     }
 
+    fn read_no_follow(&self, path: &str) -> Result<String, TreeError> {
+        let Some(resolved) = self.resolve(path) else {
+            return Err(TreeError::Unreadable(format!(
+                "{path} leaves the repository root"
+            )));
+        };
+        let metadata = std::fs::symlink_metadata(&resolved).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                TreeError::NotFound
+            } else {
+                TreeError::Unreadable(error.to_string())
+            }
+        })?;
+        if metadata.is_symlink() {
+            return Err(TreeError::Unreadable(format!("{path} is a symbolic link")));
+        }
+        match std::fs::read_to_string(&resolved) {
+            Ok(text) => Ok(text),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err(TreeError::NotFound),
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+                Err(TreeError::NotText)
+            }
+            Err(error) => Err(TreeError::Unreadable(error.to_string())),
+        }
+    }
+
     fn files(&self) -> Vec<String> {
         let mut found = Vec::new();
         self.walk(&self.root, &mut found);

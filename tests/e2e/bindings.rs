@@ -203,6 +203,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Environment initialization refuses a symbolic-link source before writing",
+    ),
+    (
+        "v0-4-contract",
         "License policy is repository-configured rather than OSE-defined",
     ),
     (

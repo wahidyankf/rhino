@@ -1066,6 +1066,20 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "declares no example targets"
 
+  Scenario: Environment initialization refuses a symbolic-link source before writing
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: .env.generated
+      """
+    And the repository contains a symbolic link at ".env.example"
+    When I invoke the CLI with "env|init|--apply"
+    Then the exit code is 2
+    And stderr contains "environment example `.env.example` is unreadable"
+
   Scenario: License policy is repository-configured rather than OSE-defined
     Given the configuration file is this text:
       """

@@ -19,6 +19,7 @@ use rhino::runtime::{
     EnvironmentRestoreFile, EnvironmentRestoreTransaction, EnvironmentStore,
     EnvironmentTransaction, MutationLaunch, MutationRunner, NoAdapterStore, NoEnvironmentStore,
     NoLauncher, NoMutationRunner, NoToolchainRunner, ToolchainLaunch, ToolchainRunner, Tree,
+    TreeError,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -678,6 +679,23 @@ fn disk_environment_store_creates_synthetic_targets_once_and_refuses_symlink_rou
         std::fs::read(fixture.root.join(".env.fixture")).expect("the restored target is readable"),
         b"SYNTHETIC=restored\n"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn disk_tree_refuses_a_no_follow_read_of_a_declared_source_symlink() {
+    use std::os::unix::fs::symlink;
+
+    let fixture = IndexFixture::new();
+    symlink("/dev/null", fixture.root.join(".env.example"))
+        .expect("the synthetic source link exists");
+    let tree = DiskTree::new(&fixture.root).expect("the fixture root is a tree");
+
+    match tree.read_no_follow(".env.example") {
+        Err(TreeError::Unreadable(reason)) => assert!(reason.contains("symbolic link")),
+        Ok(_) => panic!("a declared source symlink must not be read"),
+        Err(other) => panic!("expected source-symlink refusal, got {other:?}"),
+    }
 }
 
 #[test]

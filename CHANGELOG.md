@@ -9,7 +9,15 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [v0.4.0] — unreleased
+## [v0.4.1] — unreleased
+
+### Fixed
+
+- **Environment initialization refuses symbolic-link sources before opening or writing.** A declared example source
+  is now read through a no-follow boundary. `env init --apply` returns an invocation refusal and leaves declared
+  targets absent when that source is a link.
+
+## [v0.4.0] — 2026-09-20
 
 Breaking. **New and migrated repositories use the closed grouped
 `rhino/repo-config/v2` contract.** Stable rejects predecessor schemas and has
