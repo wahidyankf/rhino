@@ -279,7 +279,9 @@ fn detector_accesses(language: EnvironmentLanguage, source: &str) -> (BTreeSet<S
         EnvironmentLanguage::FSharp => {
             quoted_calls(source, &["Environment.GetEnvironmentVariable("])
         }
-        EnvironmentLanguage::Go => quoted_calls(source, &["os.Getenv(", "os.LookupEnv("]),
+        EnvironmentLanguage::Go => {
+            quoted_calls(source, &["os.Getenv(", "os.LookupEnv(", "os.LookupEnv,"])
+        }
         EnvironmentLanguage::Terraform => quoted_calls(source, &["get_env(", "env("]),
         EnvironmentLanguage::Ansible => ansible_accesses(source),
     }
@@ -332,6 +334,14 @@ fn typescript_accesses(source: &str) -> (BTreeSet<String>, bool) {
             remainder = &after[key_len(after)..];
         }
     }
+    keys.extend(source.lines().filter_map(|line| {
+        let key = line.trim_start().split_once(':')?.0.trim_end();
+        (key.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+            && key
+                .bytes()
+                .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_'))
+        .then(|| key.to_string())
+    }));
     (keys, dynamic)
 }
 

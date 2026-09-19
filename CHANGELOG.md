@@ -39,6 +39,13 @@ rather than forwarding old keys or commands through aliases.
 
 ### Fixed
 
+- **Environment detection now recognizes declared TypeScript schema properties
+  and injected Go lookups.** An exact TypeScript detector path can declare an
+  all-uppercase schema key without a redundant `process.env` read. An exact Go
+  detector path recognizes the normal `gofmt` composition-root form
+  `os.LookupEnv, "KEY"`; a nonliteral injected key remains an
+  `unsupported-dynamic-access` finding. Both forms stay confined to the
+  repository files the consumer declares.
 - **A `v2` flow collection left open at the end of its line is refused for
   being open, not for what it swallowed.** The flow subset this schema
   documents is written on one line, and the reader treated running out of text

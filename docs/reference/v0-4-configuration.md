@@ -199,6 +199,11 @@ Each detector path is exact. The curated languages are Rust, TypeScript, F#,
 Go, Terraform, and Ansible. Detected reads must name a contracted key, and each
 contracted key must be read. A suppression requires one exact rule, source path,
 key, reason, owner, and ISO expiry; it cannot suppress a whole detector class.
+For a declared TypeScript path, Rhino recognizes `process.env.KEY`, quoted
+bracket access, and all-uppercase line-leading schema properties. For a
+declared Go path, it recognizes direct reads plus the injected
+`os.LookupEnv, "KEY"` composition-root form. Both forms remain local to the
+declared files; Rhino neither discovers directories nor assumes a framework.
 
 `toolchains.entries` declares a probe executable/argv, optional output parser
 and exact version, required status, optional positive `timeout-seconds`, and
