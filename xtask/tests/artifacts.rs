@@ -230,6 +230,11 @@ fn release_workflow_publishes_the_checksummed_grouped_schema() {
         text.contains(&format!("dist/{SCHEMA_ASSET}")),
         "release workflow must attach the grouped schema asset"
     );
+    assert!(
+        text.contains("$GITHUB_REF_NAME\" == \"v0.4.0\"")
+            && text.contains("release_notes+=(--notes-start-tag v0.3.0)"),
+        "the v0.4.0 stable release notes must start at v0.3.0, not its final RC"
+    );
 }
 
 #[test]
