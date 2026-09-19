@@ -228,6 +228,12 @@ they are never a shell string. Use `gate list` to inspect the seven surfaces
 and `gate validate` to check declaration, composition, binding, and projection
 without starting a child.
 
+A `files` input binds `git-index` for a local mutation or `explicit-range` with
+`range: explicit` for a pull-request replay. The latter resolves only changed
+repository-relative paths from the immutable `base..head` pair; it never turns
+the complete checkout into a formatter argument list. `checkout` remains for a
+check that intentionally reads every visible path or repository-state.
+
 The same `commit-message` input can bind `hook-message-file` at `commit-msg`
 and `explicit-range` with `range: explicit` at `pull-request`. For the latter,
 Rhino reads the non-merge commit-message text in the immutable `base..head`

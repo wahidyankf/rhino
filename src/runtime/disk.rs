@@ -217,6 +217,43 @@ impl Tree for DiskTree {
         Ok(paths)
     }
 
+    fn changed_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
+        let range = format!("{base}..{head}");
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args([
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                "--end-of-options",
+                &range,
+            ])
+            .output()
+            .map_err(|error| {
+                format!("could not read changed files for the declared range: {error}")
+            })?;
+        if !output.status.success() {
+            return Err("Git refused the declared changed-file range".to_string());
+        }
+        let mut paths = Vec::new();
+        for bytes in output.stdout.split(|byte| *byte == 0) {
+            if bytes.is_empty() {
+                continue;
+            }
+            let path = std::str::from_utf8(bytes)
+                .map_err(|_| "Git returned a non-UTF-8 changed path".to_string())?;
+            if !is_repository_path(path) {
+                return Err(format!("Git returned an escaping changed path `{path}`"));
+            }
+            paths.push(path.to_string());
+        }
+        paths.sort();
+        paths.dedup();
+        Ok(paths)
+    }
+
     fn resolve_git_ref(&self, reference: &str) -> Result<String, String> {
         if reference.is_empty()
             || reference.starts_with('-')

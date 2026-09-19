@@ -39,6 +39,11 @@ rather than forwarding old keys or commands through aliases.
 
 ### Fixed
 
+- **Pull-request file gates receive their immutable changed-file selection.** A
+  `files` input may bind `explicit-range` on `pull-request`, resolving only the
+  repository-relative paths changed between the supplied immutable commits.
+  Mutation children no longer receive every path in a large checkout merely
+  because the pull-request surface selected them.
 - **Environment detection now recognizes declared TypeScript schema properties
   and injected Go lookups.** An exact TypeScript detector path can declare an
   all-uppercase schema key without a redundant `process.env` read. An exact Go

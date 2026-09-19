@@ -294,6 +294,13 @@ pub trait Tree {
         Err("this tree has no Git index snapshot boundary".to_string())
     }
 
+    /// The paths changed between two already validated immutable commits. A
+    /// pull-request mutation receives only that reviewed selection, never the
+    /// complete checkout or a mutable working-tree approximation.
+    fn changed_files(&self, _base: &str, _head: &str) -> Result<Vec<String>, String> {
+        Err("this tree has no changed-file range boundary".to_string())
+    }
+
     /// Resolve a repository-declared comparison ref to one immutable commit.
     /// The source is a capability rather than a string convention: a caller
     /// with no Git boundary cannot manufacture a base for a newly pushed ref.
@@ -417,6 +424,7 @@ pub struct MemoryTree {
     links: BTreeSet<String>,
     empty: BTreeSet<String>,
     indexed: Option<Vec<String>>,
+    changed_files: BTreeMap<(String, String), Vec<String>>,
     git_refs: BTreeMap<String, String>,
     commit_messages: BTreeMap<(String, String), String>,
 }
@@ -486,6 +494,24 @@ impl MemoryTree {
         paths.sort();
         paths.dedup();
         self.indexed = Some(paths);
+    }
+
+    /// State the exact path selection for one immutable commit range. This is
+    /// distinct from the index because a pull-request replay must never widen
+    /// its formatter input to the snapshot's complete file inventory.
+    pub fn set_changed_files<I, S>(&mut self, base: &str, head: &str, paths: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut paths: Vec<String> = paths
+            .into_iter()
+            .map(|path| path.as_ref().trim_start_matches('/').to_string())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        self.changed_files
+            .insert((base.to_string(), head.to_string()), paths);
     }
 
     /// State a synthetic resolved Git ref for a boundary test. The value is a
@@ -631,6 +657,13 @@ impl Tree for MemoryTree {
             .ok_or_else(|| "this tree has no Git index snapshot boundary".to_string())
     }
 
+    fn changed_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
+        self.changed_files
+            .get(&(base.to_string(), head.to_string()))
+            .cloned()
+            .ok_or_else(|| "this tree has no changed-file range boundary".to_string())
+    }
+
     fn resolve_git_ref(&self, reference: &str) -> Result<String, String> {
         self.git_refs
             .get(reference)
@@ -710,6 +743,19 @@ impl Tree for MemoryTree {
                     .filter_map(|held| held.strip_prefix(&prefix).map(str::to_string))
                     .collect()
             }),
+            changed_files: self
+                .changed_files
+                .iter()
+                .map(|((base, head), paths)| {
+                    (
+                        (base.clone(), head.clone()),
+                        paths
+                            .iter()
+                            .filter_map(|held| held.strip_prefix(&prefix).map(str::to_string))
+                            .collect(),
+                    )
+                })
+                .collect(),
             git_refs: self.git_refs.clone(),
             commit_messages: self.commit_messages.clone(),
         }))
@@ -914,6 +960,7 @@ mod tests {
 
         let tree = ReadOnlyTree;
         assert!(tree.indexed_files().is_err());
+        assert!(tree.changed_files("aaaaaaa", "bbbbbbb").is_err());
         assert!(tree.resolve_git_ref("main").is_err());
         assert!(tree.commit_messages("aaaaaaa", "bbbbbbb").is_err());
         assert_eq!(
@@ -982,10 +1029,19 @@ mod tests {
         let mut tree = MemoryTree::default();
         tree.write("nested/guide.md", "synthetic\n");
         tree.set_indexed_files(["nested/guide.md"]);
+        tree.set_changed_files(
+            "aaaaaaa",
+            "bbbbbbbb",
+            ["nested/guide.md", "outside/ignored.md"],
+        );
         let rerooted = tree.rooted_at("nested").unwrap();
         assert_eq!(rerooted.read("guide.md").unwrap(), "synthetic\n");
         assert_eq!(
             rerooted.indexed_files().unwrap(),
+            vec!["guide.md".to_string()]
+        );
+        assert_eq!(
+            rerooted.changed_files("aaaaaaa", "bbbbbbbb").unwrap(),
             vec!["guide.md".to_string()]
         );
 
