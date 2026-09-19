@@ -161,12 +161,19 @@ jobs:
             *-*) marking=--prerelease ;;
             *) marking= ;;
           esac
+          release_notes=(--generate-notes)
+          # v0.4.0 follows the rehearsal tags, but it is the next stable
+          # release after v0.3.0. Keep its published comparison anchored to
+          # the prior stable release rather than to an RC.
+          if [[ "$GITHUB_REF_NAME" == "v0.4.0" ]]; then
+            release_notes+=(--notes-start-tag v0.3.0)
+          fi
           # Only the four archives, grouped schema, and digest file. `dist/`
           # also holds the executable unpacked above, which is not a release
           # asset.
           gh release create "$GITHUB_REF_NAME" \
             dist/rhino-*.tar.gz dist/rhino-repo-config-v2.schema.json dist/checksums.txt \
             --verify-tag \
-            --generate-notes \
+            "${release_notes[@]}" \
             --title "$GITHUB_REF_NAME" \
             $marking
