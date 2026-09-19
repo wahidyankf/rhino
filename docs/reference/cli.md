@@ -63,7 +63,7 @@ legacy reader rather than forwarding any of these leaves to a new surface.
 | `--force`                            | `env restore`                                  | Authorize replacement after a recoverable backup plan.          |
 | `--harness <name>`                   | `harness parity validate`                      | Select one predecessor harness during the RC migration window.  |
 | `--surface <name>`                   | `gate run`                                     | Select one closed lifecycle surface.                            |
-| `--message-file <path>`              | `gate run` at `commit-msg`                     | Supply the exact hook message path.                             |
+| `--message-file <path>`              | `gate run` at `commit-msg`                     | Pass Git's current `COMMIT_EDITMSG` hook path only.             |
 | `--push-updates-stdin`               | `gate run` at `pre-push`                       | Read Git update records from standard input.                    |
 | `--base <sha> --head <sha>`          | `gate run` at `pull-request`                   | Supply the immutable pull-request range.                        |
 | `--json`                             | `version`                                      | Shorthand for `--output json`.                                  |

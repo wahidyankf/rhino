@@ -606,6 +606,35 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|validate"
     Then the exit code is 0
 
+  Scenario: Hook message input is exclusive to Git's hook boundary
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: conventional-commit
+            type: check
+            inputs:
+              message: { kind: commit-message }
+            command:
+              executable: ./check-conventional-commit
+              args:
+                - { input: message.text, expand: single }
+            run-on:
+              commit-msg:
+                bind:
+                  message: { source: hook-message-file }
+              pull-request:
+                bind:
+                  message: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    When I invoke the CLI with "gate|run|--surface|commit-msg|--message-file|message.txt"
+    Then the exit code is 2
+    And stderr contains "Git hook message-file boundary"
+
   Scenario: Lifecycle composition is checked before a gate runs
     Given the configuration file is this text:
       """

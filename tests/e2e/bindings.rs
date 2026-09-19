@@ -2041,6 +2041,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Hook message input is exclusive to Git's hook boundary",
+    ),
+    (
+        "v0-4-contract",
         "Lifecycle composition is checked before a gate runs",
     ),
     (

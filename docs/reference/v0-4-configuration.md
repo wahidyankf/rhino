@@ -239,7 +239,10 @@ and `explicit-range` with `range: explicit` at `pull-request`. For the latter,
 Rhino reads the non-merge commit-message text in the immutable `base..head`
 range after it has validated both commit IDs. The gate keeps its one semantic
 ID, command, and typed `message.text` projection; only its declared source
-changes by lifecycle surface.
+changes by lifecycle surface. At `commit-msg`, Rhino asks Git for the current
+worktree's canonical `COMMIT_EDITMSG` path and reads only that file. This also
+supports linked worktrees without widening the repository file reader to an
+arbitrary external path.
 
 A `push-updates` range also declares its repository comparison `fallback`. A
 normal update uses the remote object as base. A new ref resolves that declared
