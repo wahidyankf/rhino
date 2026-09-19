@@ -14,3 +14,5 @@ from.
   containers, components, data, and the boundaries each adapter observes.
 - [behaviours/](behaviours/README.md) — the Gherkin corpus, one feature file per
   validator plus the shared CLI contract.
+- [fixtures/](fixtures/README.md) — retained grouped-v2 consumer and rejection
+  fixtures that make the stable corpus executable.
