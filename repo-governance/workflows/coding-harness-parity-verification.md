@@ -21,7 +21,7 @@ Confirm the intended sources and adapters before interpreting the gate:
 - every `.agents/skills/<name>/` bundle and its adapter on each harness that has a native skill surface; and
 - every `.agents/agents/<name>.md` and its one adapter per harness.
 
-Do not infer parity from matching names or counts. Content digests, routes, native permissions, denials, and constraints are authoritative.
+Do not infer parity from matching names or counts. Content digests and routes are authoritative; native permissions, denials, and constraints are authoritative wherever the documented adapter format declares them.
 
 ### 3. Run the deterministic proof
 

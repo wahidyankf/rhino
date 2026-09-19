@@ -8,7 +8,6 @@ pub mod heading_hierarchy;
 pub mod internal_link;
 pub mod mermaid;
 pub mod naming;
-pub mod readme_index;
 
 /// The lines of a document that are prose rather than a fenced example.
 ///
@@ -168,4 +167,36 @@ pub fn fenced_blocks(text: &str) -> Vec<Fenced<'_>> {
     }
 
     blocks
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prose_and_fence_readers_respect_matching_fence_characters_and_lengths() {
+        let text =
+            "prose\n````md\n# example\n```\nstill example\n````\n~~~txt\nignored\n~~~\nfinal";
+        assert_eq!(prose_lines(text), vec![(1, "prose"), (10, "final")]);
+        assert!(!ends_inside_a_fence(text));
+        assert!(ends_inside_a_fence("```\nnever closed"));
+        let blocks = fenced_blocks(text);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].info, "md");
+        assert_eq!(blocks[0].lines[0], (3, "# example"));
+        assert_eq!(blocks[1].info, "txt");
+    }
+
+    #[test]
+    fn inline_spans_and_sibling_links_keep_only_real_prose_targets() {
+        assert_eq!(
+            without_code_spans("before `ignored [link](x)` after [kept](y)"),
+            "before  after [kept](y)"
+        );
+        assert_eq!(without_code_spans("unclosed ` span"), "unclosed ` span");
+        let links = sibling_links(
+            "[guide](guide.md) [fragment](guide.md#part) [outside](dir/a.md) [url](https://x)\n```\n[ignored](ignored.md)\n```\n[duplicate](guide.md)",
+        );
+        assert_eq!(links.get("guide.md"), Some(&1));
+    }
 }

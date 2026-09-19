@@ -148,13 +148,10 @@ fn collect(directory: &Path, into: &mut Vec<PathBuf>) {
 
 /// Split a table row on unescaped pipes and unescape each cell.
 ///
-/// The escape matters: the CLI-contract corpus writes an argument vector as
-/// `governance\|word-budget\|validate` inside a one-column table, so a splitter
-/// that treated `\|` as a separator would hand the step `governance\` and throw
-/// the rest away. That failure is quiet -- several such rows assert exit 2, and
-/// a truncated command exits 2 as well, so they would have gone green while
-/// invoking nothing the scenario names.
-fn split_row(line: &str) -> Vec<String> {
+/// The escape matters: a command vector may contain literal pipes inside one
+/// cell. A splitter that treats `\|` as a separator truncates the invocation
+/// while leaving an unrelated exit-code assertion apparently green.
+pub(crate) fn split_row(line: &str) -> Vec<String> {
     let trimmed = line.trim();
     let inner = trimmed
         .strip_prefix('|')
@@ -191,7 +188,7 @@ const DOCSTRING_FENCE: &str = "\"\"\"";
 
 const STEP_KEYWORDS: [&str; 5] = ["Given ", "When ", "Then ", "And ", "But "];
 
-fn parse(feature: &str, text: &str) -> Vec<Scenario> {
+pub(crate) fn parse(feature: &str, text: &str) -> Vec<Scenario> {
     let mut scenarios: Vec<Scenario> = Vec::new();
     // Background steps belong to every scenario in the file. Four features
     // declare their policy there -- the mapped tree, the harness roster, the

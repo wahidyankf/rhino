@@ -189,3 +189,93 @@ fn resolve(tree: &dyn Tree, source: &str, target: &str) -> Option<Fault> {
         Some(Fault::Missing)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::runtime::MemoryTree;
+
+    #[test]
+    fn parser_keeps_document_links_but_skips_images_examples_fragments_and_urls() {
+        let destinations = destinations(
+            "[inline](guide.md \"title\") ![image](image.png) ` [quoted](no.md) `\n[label]: refs/target.md\n```md\n[fenced](nope.md)\n```",
+        );
+        assert_eq!(
+            destinations,
+            vec![
+                (1, "guide.md".to_string()),
+                (2, "refs/target.md".to_string())
+            ]
+        );
+        assert_eq!(local("#here"), None);
+        assert_eq!(local("https://example.com"), None);
+        assert_eq!(local("guide.md?x=1#part"), Some("guide.md".to_string()));
+        assert!(has_scheme("git+ssh://example.com"));
+        assert!(has_scheme("folder:name.md"));
+    }
+
+    #[test]
+    fn resolver_distinguishes_missing_malformed_and_outside_targets() {
+        let tree = MemoryTree::default();
+        tree.write("docs/guide.md", "# guide");
+        assert!(resolve(&tree, "docs/readme.md", "guide.md").is_none());
+        assert!(matches!(
+            resolve(&tree, "docs/readme.md", "\0"),
+            Some(Fault::Malformed)
+        ));
+        assert!(matches!(
+            resolve(&tree, "docs/readme.md", "/tmp/file"),
+            Some(Fault::Outside)
+        ));
+        assert!(matches!(
+            resolve(&tree, "readme.md", "../outside"),
+            Some(Fault::Outside)
+        ));
+        assert!(matches!(
+            resolve(&tree, "docs/readme.md", "missing.md"),
+            Some(Fault::Missing)
+        ));
+        assert!(resolve(&tree, "docs/readme.md", "").is_none());
+        assert_eq!(Fault::Malformed.kind(), "internal-link-malformed");
+        assert!(Fault::Outside.message("../outside").contains("outside"));
+    }
+
+    #[test]
+    fn validator_reports_all_local_faults_and_respects_excluded_sources() {
+        let tree = MemoryTree::default();
+        tree.write(
+            "docs/readme.md",
+            "[good](guide.md) [missing](missing.md) [outside](../../outside) [bad](\0)",
+        );
+        tree.write("docs/guide.md", "# guide");
+        tree.write("generated/a.md", "[ignored](missing.md)");
+        let configured = Config {
+            internal_link: crate::config::InternalLink {
+                exclude_sources: vec!["generated/**".to_string()],
+            },
+            ..Config::default()
+        };
+        let result = validate(&tree, &configured).render(Format::Text);
+        assert_eq!(result.exit_code, 1);
+        for expected in [
+            "does not exist",
+            "outside the repository",
+            "not a usable path",
+        ] {
+            assert!(
+                result.stderr.contains(expected),
+                "{expected}: {}",
+                result.stderr
+            );
+        }
+
+        let invalid = Config {
+            internal_link: crate::config::InternalLink {
+                exclude_sources: vec!["[".to_string()],
+            },
+            ..Config::default()
+        };
+        assert_eq!(validate(&tree, &invalid).render(Format::Text).exit_code, 2);
+    }
+}

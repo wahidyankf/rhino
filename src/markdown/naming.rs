@@ -108,7 +108,8 @@ fn inspect(path: &str, surface: &NamingSurface, root: &str) -> Option<Finding> {
         NameStyle::KebabCase => (!is_kebab_case(name))
             .then(|| Finding::new(KIND, path, "is not named in the declared kebab-case style")),
         NameStyle::PathPrefixed => {
-            // Total for any configuration that parsed: `config::check_semantics`
+            // Total for every grouped configuration that reaches this shared
+            // syntax validator: the policy projection supplies the section.
             // refuses a path-prefixed surface declaring no separator, so a
             // surface that reaches here has one.
             let separator = surface
@@ -206,4 +207,99 @@ fn literal_root(glob: &str) -> String {
         segments.push(segment);
     }
     segments.join("/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::runtime::MemoryTree;
+
+    fn surface(glob: &str, style: NameStyle, separator: Option<&str>) -> NamingSurface {
+        NamingSurface {
+            glob: glob.to_string(),
+            style,
+            separator: separator.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn name_and_path_encoding_helpers_cover_boundaries() {
+        assert!(is_kebab_case("alpha-2"));
+        assert!(!is_kebab_case("Alpha_2"));
+        assert!(fragment("docs/guide-part-2.md").is_some());
+        assert!(fragment("docs/guide-continuation-3.md").is_some());
+        assert!(fragment("docs/guide-continued.md").is_some());
+        assert!(fragment("docs/guide-part-two.md").is_none());
+        assert_eq!(encode_word("f"), "f_");
+        assert_eq!(encode_word("Sharp"), "sh");
+        assert_eq!(encode_segment("f-sharp"), "f_sh");
+        assert_eq!(encoded_prefix("docs/f-sharp/guides", "docs"), "f_sh-gu");
+        assert_eq!(literal_root("docs/guides/**/*.md"), "docs/guides");
+        assert_eq!(literal_root("**/*.md"), "");
+    }
+
+    #[test]
+    fn validator_applies_last_surface_exemptions_fragments_and_path_prefixes() {
+        let tree = MemoryTree::default();
+        tree.write("docs/Bad_Name.md", "# file");
+        tree.write("docs/exempt-name.md", "# file");
+        tree.write("docs/guide-part-2.md", "# fragment");
+        tree.write("areas/f-sharp/guides/f_sh-gu--topic.md", "# valid");
+        tree.write("areas/f-sharp/guides/wrong--Topic.md", "# invalid");
+        let naming = Naming {
+            surfaces: vec![
+                surface("docs/**/*.md", NameStyle::KebabCase, None),
+                surface("areas/**/*.md", NameStyle::PathPrefixed, Some("--")),
+            ],
+            exempt: vec!["docs/exempt-name.md".to_string()],
+        };
+        let result = validate(&tree, &Config::default(), &naming).render(Format::Text);
+        assert_eq!(result.exit_code, 1);
+        assert!(result.stderr.contains("Bad_Name.md"));
+        assert!(result.stderr.contains("guide-part-2.md"));
+        assert!(result.stderr.contains("wrong--Topic.md"));
+        assert!(!result.stderr.contains("exempt-name.md"));
+
+        let malformed = Naming {
+            surfaces: vec![surface("[", NameStyle::KebabCase, None)],
+            exempt: Vec::new(),
+        };
+        assert_eq!(
+            validate(&tree, &Config::default(), &malformed)
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+        let bad_exemption = Naming {
+            surfaces: vec![surface("docs/**/*.md", NameStyle::KebabCase, None)],
+            exempt: vec!["[".to_string()],
+        };
+        assert_eq!(
+            validate(&tree, &Config::default(), &bad_exemption)
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+    }
+
+    #[test]
+    fn individual_surface_checks_keep_root_files_and_prefix_findings_distinct() {
+        assert!(
+            inspect(
+                "docs/guide.md",
+                &surface("docs/**/*.md", NameStyle::PathPrefixed, Some("--")),
+                "docs",
+            )
+            .is_none()
+        );
+        assert!(
+            inspect(
+                "docs/f-sharp/wrong.md",
+                &surface("docs/**/*.md", NameStyle::PathPrefixed, Some("--")),
+                "docs",
+            )
+            .is_some()
+        );
+    }
 }

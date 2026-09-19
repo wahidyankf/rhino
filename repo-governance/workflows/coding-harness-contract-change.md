@@ -23,9 +23,9 @@ The adapter path, route field, and translation table for each harness are declar
 
 An adapter carries native identity, mode, and permission metadata plus the fixed route to the canonical file — and nothing else. Never copy the canonical body into an adapter, never append an instruction, never pin a provider model, and never omit a restriction.
 
-Translate canonical capabilities and denials into that harness's **strongest** native control. Where a harness expresses a denial only as an absence, the absence must be complete: a tool left unlisted because it seemed unlikely is a granted capability.
+Translate canonical capabilities and denials into that harness's **strongest documented** native control. Where a harness expresses a denial only as an absence, the absence must be complete: a tool left unlisted because it seemed unlikely is a granted capability. Where the documented adapter schema has no control for a canonical boundary, route the complete canonical source, state that native-enforcement limit in the contract, and do not list that boundary as a native profile requirement.
 
-If a semantic capability has no validated mapping, extend the convention and the `harness-parity` declarations before claiming parity. A mapping the validator cannot express is a change to the validator, not a parity claim.
+If a semantic capability has a documented native mapping the validator cannot express, extend the convention and the `harness-parity` declarations before claiming parity. A mapping the validator cannot express is a change to the validator, not a parity claim.
 
 A rename or removal renames or removes every matching adapter and leaves no stale file.
 

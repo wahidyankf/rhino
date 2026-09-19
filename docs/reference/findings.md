@@ -1,10 +1,8 @@
 # Findings
 
-This page preserves the predecessor finding catalog while v0.4 is in its
-release-candidate migration window. Grouped-v2 leaves are command-specific and
-their current contract is [the command reference](./cli.md) plus the executable
-v0.4 corpus. Do not treat a legacy finding kind as an alias for a grouped-v2
-result.
+This page records the stable finding kinds for grouped-v2 validation leaves.
+Command-specific operation status is defined by [the command reference](./cli.md)
+and the executable v0.4 corpus.
 
 A finding is one violation of one declared rule. Findings go to stderr, one per
 line, sorted, in a fixed shape:
@@ -151,100 +149,6 @@ separately, because two short lines are legible where one long line is not.
 appears. And every colour a `classDef` sets must be drawn from the palette
 declared for its role — `fill-colors`, `edge-colors`, or `text-colors`.
 
-## Harness parity
-
-Reconciling the canon against a declared harness.
-
-| Kind                            | Means                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `missing-instruction`           | The declared canonical instruction body is not there.                                            |
-| `missing-instruction-adapter`   | The declared adapter is not there.                                                               |
-| `invalid-instruction-adapter`   | An adapter contains something other than the import of the canon.                                |
-| `unexpected-instruction-source` | A second always-on instruction source competes with the canon.                                   |
-| `invalid-skill`                 | A canonical skill has no usable declaration.                                                     |
-| `invalid-agent`                 | A canonical agent has no usable declaration.                                                     |
-| `unknown-capability`            | An agent names a capability or constraint outside the declared vocabulary.                       |
-| `missing-skill-adapter`         | A harness has no wrapper for a canonical skill.                                                  |
-| `skill-content-divergence`      | A wrapper's description, route, or declaration has drifted from the skill.                       |
-| `unexpected-skill-adapter`      | A harness holds a wrapper no canonical skill asked for.                                          |
-| `missing-agent-adapter`         | A harness has no adapter for a canonical agent.                                                  |
-| `unexpected-agent-adapter`      | A harness carries an adapter for an agent the canon does not hold.                               |
-| `agent-semantic-divergence`     | An adapter's identity, fixed fields, or permissions do not answer the canon.                     |
-| `agent-prompt-divergence`       | An adapter does not carry the canonical route.                                                   |
-| `divergent-capability`          | A harness's capability declaration is absent, unreadable, or does not match the required server. |
-
-An adapter exists to route to the canon and to do nothing else. That is why
-`invalid-instruction-adapter` is not configurable: anything beyond the import is
-a second instruction source wearing the adapter's name.
-
-The same holds one level down. An agent adapter carries the declared route and
-its own harness's permissions — never a copy of the canonical prompt — so
-rewriting the canon is not drift and produces no finding at all. Only the
-digest moves.
-
-## Governance roots
-
-| Kind                             | Means                                                                            |
-| -------------------------------- | -------------------------------------------------------------------------------- |
-| `unknown-governance-layer`       | A directory under the governance root is neither a canonical layer nor declared. |
-| `undeclared-governance-category` | A category exists that `governance.local-categories` does not declare.           |
-| `unused-local-category`          | A declared local category names no directory.                                    |
-| `empty-governed-directory`       | A governed directory holds nothing.                                              |
-
-The five canonical layers are `conventions`, `development`, `principles`,
-`vision`, and `workflows`. Anything else is a local category, accepted only
-where the repository declared it.
-
-## Companion sets
-
-| Kind                                | Means                                                            |
-| ----------------------------------- | ---------------------------------------------------------------- |
-| `suffixed-companion-directory`      | A companion directory's name is not exactly its document's stem. |
-| `missing-companion-index`           | The document carries no index linking its companions.            |
-| `missing-indexed-companion`         | The index links a companion that is not there.                   |
-| `unindexed-companion-module`        | A live companion is not in the index.                            |
-| `non-contiguous-companion-ordinals` | An ordered set skips or repeats an ordinal.                      |
-| `ordinal-in-unordered-set`          | A set with no reading order carries an ordinal prefix anyway.    |
-| `unordered-module-in-ordered-set`   | An ordered set holds a companion with no ordinal.                |
-
-## Instruction spine
-
-| Kind                            | Means                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------ |
-| `missing-canonical-instruction` | There is no `AGENTS.md`.                                                 |
-| `missing-spine-section`         | One of the five spine sections is absent.                                |
-| `misordered-spine-section`      | A spine section is written before one the order puts ahead of it.        |
-| `interrupted-instruction-spine` | A repository-specific section divides the spine instead of following it. |
-| `inexact-instruction-import`    | `CLAUDE.md` is not exactly `@AGENTS.md`.                                 |
-
-An absent `CLAUDE.md` is not a finding. A repository with no Claude surface has
-no adapter to keep honest, and inventing one would activate a harness the
-repository never declared.
-
-## Plan structure
-
-Twenty rules in five families, each identified rather than described:
-
-| Family            | Identifiers  | About                                                          |
-| ----------------- | ------------ | -------------------------------------------------------------- |
-| `PLAN-LIFECYCLE-` | `001`–`005`  | The root, the slug form, dating, and a slug in two roots.      |
-| `PLAN-DOCUMENT-`  | `001`–`003`  | The six required documents and exactly one technical shape.    |
-| `PLAN-COMPANION-` | `001`–`006`  | The `tech-docs/` set: naming, ordinals, index, and coverage.   |
-| `PLAN-CRITERION-` | `001`, `002` | Acceptance identifiers: unique in `prd.md`, referenced onward. |
-| `PLAN-DELIVERY-`  | `001`–`004`  | Numbered phases, executor labels, and archival last.           |
-
-The identifiers are frozen. A rule whose meaning changes gets a new identifier
-rather than a new definition, because more than one implementation reports
-these and a consumer compares them by equality.
-
-The delivery family turns on what counts as a checklist item, so the contract
-states it. A bullet is an item when it carries a task marker -- `- [ ]` or
-`- [x]` -- or when it opens with a bare executor label, `- [AI] ...`. The label
-may be code-formatted once a marker has already made the bullet an item; a
-quoted label with no marker is prose explaining the notation. A bullet opening
-with a markdown link is never an item, and a second-level heading is a delivery
-phase only when it holds items.
-
 ## Metadata
 
 Twenty-three kinds, all prefixed `metadata-`. They divide into what the front
@@ -282,22 +186,6 @@ Some situations look like findings and are not.
   outside every declared root, glob, and document kind is one no rule is about,
   and refusing the run over it would make a repository's build directory able
   to stop its documentation from being checked.
-- **A file that opens and holds no text.** An image or an archive is not an
-  instruction, a skill, an agent, or a capability declaration. Only `harness
-parity validate` meets one, because it is the only walk that reads files that
-  are not Markdown: a prohibited glob names a path whatever its kind.
-- **A non-Markdown file containing the canonical import.** Source, fixtures,
-  and data are not always-on instructions to any harness — the code that
-  implements this check has to contain the route to look for it. Files
-  prohibited by _name_ are still reported whatever their kind.
-- **A `README.md` in a canonical root or a harness's adapter directory.** It is
-  an index of what lives there, not a declaration of anything.
-- **An adapter granting more than the canon requires.** The contract is
-  non-weakening, not equality. A harness's own defaults are not the canon's
-  business; granting _less_, or granting what the canon denies, is.
-- **A fenced example or code span quoting the import.** A page documenting the
-  adapter is not one. A document that ends inside an unclosed fence gets no
-  such benefit.
 - **A fenced block whose diagram declaration RHINO cannot parse.** Reporting on
   syntax the tool does not understand would be reporting on its own ignorance.
 - **A surface, tree, or roster that matched nothing.** Zero is a real answer.

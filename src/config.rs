@@ -13,20 +13,11 @@
 //! section* are refused, because there a typo is a policy that silently does
 //! nothing.
 
-pub mod v2;
-
 use crate::v0_4;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
-
-/// The schema this build understands, and the predecessor spelling it accepts.
-///
-/// The alias exists so a consumer already carrying `rhino-cli/` in its first
-/// line does not have to rewrite it on the same day RHINO ships.
-pub const SCHEMA: &str = "rhino/repo-config/v1";
-pub const SCHEMA_ALIAS: &str = "rhino-cli/repo-config/v1";
 
 /// Where the configuration lives, relative to the repository root.
 pub const PATH: &str = "repo-config.yml";
@@ -65,11 +56,13 @@ impl fmt::Display for ConfigError {
             }
             Self::SchemaUndeclared => write!(
                 formatter,
-                "{PATH}: line 1 declares no schema: expected a leading `# schema: {SCHEMA}` comment"
+                "{PATH}: line 1 declares no schema: expected `schema: {}`",
+                v0_4::config::SCHEMA
             ),
             Self::SchemaUnrecognized { declared, line } => write!(
                 formatter,
-                "{PATH}: line {line}: unrecognized schema `{declared}`: this build understands `{SCHEMA}` (and `{SCHEMA_ALIAS}`)"
+                "{PATH}: line {line}: unrecognized schema `{declared}`: this stable build accepts only `{}` and no longer accepts predecessor configuration",
+                v0_4::config::SCHEMA
             ),
             Self::Malformed(message) => write!(formatter, "{PATH}: {message}"),
             Self::Semantic { key, line, reason } => {
@@ -80,25 +73,16 @@ impl fmt::Display for ConfigError {
 }
 
 impl Config {
-    /// The directories this repository excludes from every walk.
-    ///
-    /// An undeclared `scan` is not a default: it is a repository that excluded
-    /// nothing, which is a thing a repository may legitimately be. v1 requires
-    /// the section, so only a v2 document can reach the empty case.
+    /// The directory names a grouped policy excludes from its shared scan.
     pub fn excluded(&self) -> &[String] {
-        match &self.scan {
-            Some(scan) => &scan.exclude_directories,
-            None => &[],
-        }
+        self.scan
+            .as_ref()
+            .map(|scan| scan.exclude_directories.as_slice())
+            .unwrap_or(&[])
     }
 }
 
-/// Every section either schema may declare.
-///
-/// All optional to the decoder, because v2 requires none of them and v1
-/// requires five. Which five is a v1 rule, so v1 states it in
-/// `check_semantics` rather than in the field types -- that way one struct
-/// serves both schemas and no rule is written twice.
+/// Shared typed policy sections projected from the grouped stable document.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
     #[serde(rename = "governance-word-budget", default)]
@@ -125,8 +109,6 @@ pub struct Config {
     /// Optional, on the same rule as every section added after `v0.1`.
     #[serde(rename = "md-readme-index", default)]
     pub readme_index: Option<ReadmeIndex>,
-    #[serde(rename = "harness-parity", default)]
-    pub harness_parity: Option<HarnessParity>,
     /// Optional, on the same rule as every section added after `v0.1`.
     #[serde(rename = "convention-emoji", default)]
     pub emoji: Option<Emoji>,
@@ -138,24 +120,9 @@ pub struct Config {
     /// redefine what an agent declares would have adopted nothing.
     #[serde(default)]
     pub metadata: Option<Metadata>,
-    /// The optional model and effort a harness uses for each portable tier.
-    ///
-    /// Read here rather than from an agent, because a mapping written beside
-    /// the agent would make one repository's vendor choice part of a portable
-    /// artifact. Every harness and every tier may be omitted; what may not be
-    /// omitted is half of a pair.
-    #[serde(rename = "model-tiers", default)]
-    pub model_tiers: Option<BTreeMap<String, BTreeMap<String, Option<TierMapping>>>>,
     #[serde(default)]
     pub scan: Option<Scan>,
 }
-
-/// The harness profiles this schema recognizes.
-///
-/// Closed rather than open: an unrecognized key is far more often a typo than
-/// a harness nobody has heard of, and a typo that silently maps nothing is a
-/// vendor pin that quietly stops applying.
-pub const HARNESS_PROFILES: [&str; 3] = ["claude", "codex", "opencode"];
 
 /// The portable tiers a mapping may be keyed by.
 ///
@@ -188,20 +155,6 @@ pub enum MetadataSchema {
     Workflow,
     Skill,
     Agent,
-}
-
-/// One harness's choice for one tier.
-///
-/// Both fields are optional *to the decoder* and required *to the checker*, so
-/// that half a pair is reported as the policy fault it is rather than as a
-/// decoding failure a reader has to translate.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TierMapping {
-    #[serde(default)]
-    pub model: Option<String>,
-    #[serde(default)]
-    pub effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
@@ -428,279 +381,6 @@ pub enum NameStyle {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HarnessParity {
-    pub canonical: Canonical,
-    /// Empty is legal and explicit: the difference between "no harnesses" and
-    /// "I forgot to configure harnesses" has to stay visible, so the key itself
-    /// is required.
-    pub harnesses: Vec<Harness>,
-    #[serde(rename = "prohibited-instruction-sources")]
-    pub prohibited_instruction_sources: Vec<String>,
-    /// Fields of a harness's own configuration file that may not carry
-    /// instructions.
-    ///
-    /// Optional, because most harnesses keep their always-on instructions in a
-    /// Markdown file and a repository with none of these has nothing to
-    /// declare. Where a harness does read instructions out of its settings,
-    /// that key is a competing always-on source wearing the vendor's syntax,
-    /// and prohibiting the *file* would be wrong -- the file is legitimate and
-    /// holds everything else that harness needs.
-    #[serde(rename = "prohibited-instruction-fields", default)]
-    pub prohibited_instruction_fields: Vec<ProhibitedField>,
-    pub capabilities: Vec<String>,
-    pub constraints: Vec<String>,
-    /// Optional even alongside a roster: not every repository requires its
-    /// harnesses to reach a capability server, and a schema that insisted
-    /// would be asserting one repository's arrangement as everyone's.
-    ///
-    /// Still refused alongside an *empty* roster, on the same rule as the
-    /// canonical roots: a server nothing reconciles silently does nothing.
-    #[serde(rename = "required-mcp", default)]
-    pub required_mcp: Option<RequiredMcp>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Canonical {
-    pub instruction: String,
-    /// Optional: a repository may have no file that merely imports the
-    /// instruction. Absent weakens nothing -- it means there is nothing to
-    /// route -- and the prohibition on competing sources still applies in full.
-    #[serde(rename = "instruction-adapter", default)]
-    pub instruction_adapter: Option<String>,
-    /// Required whenever the roster is non-empty; omissible only alongside an
-    /// empty one.
-    #[serde(rename = "skills-root", default)]
-    pub skills_root: Option<String>,
-    #[serde(rename = "agents-root", default)]
-    pub agents_root: Option<String>,
-    /// The sentence an adapter carries in place of the canonical prompt.
-    ///
-    /// An adapter is a route, not a copy. Every harness a repository declares
-    /// points at the same canonical file, so the sentence is written once here
-    /// with `{path}` standing for the canonical document's repository-relative
-    /// path. The wording is the repository's -- RHINO ships none -- and it is
-    /// required alongside the root whose adapters use it, because a root with
-    /// no route would leave every adapter's body unchecked.
-    #[serde(rename = "agent-route", default)]
-    pub agent_route: Option<String>,
-    #[serde(rename = "skill-route", default)]
-    pub skill_route: Option<String>,
-    /// How this repository writes a canonical agent's permissions.
-    ///
-    /// The three lists have names, and the names are the repository's own --
-    /// one writes `requires:` where another writes `capabilities:`. Reading
-    /// them by a name RHINO chose would not merely miss a field: an unnamed
-    /// list is an empty one, so every translation would find nothing to fire on
-    /// and the run would report clean without having compared anything.
-    /// Required alongside `agents-root`, because only agents carry
-    /// permissions.
-    #[serde(default)]
-    pub declaration: Option<DeclarationShape>,
-}
-
-/// Which field of a canonical agent carries which half of its permissions, and
-/// what every such declaration must say outright.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct DeclarationShape {
-    /// The field naming what the agent may do.
-    pub grants: String,
-    /// The field naming what it may not.
-    pub denials: String,
-    /// The field naming how it must behave while doing it.
-    pub limits: String,
-    /// Fields every canonical agent must carry with exactly this value.
-    #[serde(default)]
-    pub fixed: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Harness {
-    pub name: String,
-    /// How this harness expresses the canon: where its adapters live, what
-    /// document format they use, and how the canonical capability vocabulary
-    /// translates into the permissions this harness actually understands.
-    ///
-    /// All of it is data. A harness that names its tools one way and a harness
-    /// that names them another are two configurations, not two code paths, and
-    /// a fourth harness is one more entry here.
-    #[serde(rename = "agent-adapter", default)]
-    pub agent_adapter: Option<Adapter>,
-    /// Per-harness rather than global, so a second harness gaining skill
-    /// wrappers is one line of configuration instead of a code change.
-    #[serde(rename = "skill-adapter", default)]
-    pub skill_adapter: Option<Adapter>,
-    /// Where this harness declares what it may reach, and in which format.
-    ///
-    /// The two travel together because neither means anything alone: a path
-    /// with no format cannot be parsed and a format with no path names
-    /// nothing. Nesting them makes half a declaration unrepresentable rather
-    /// than merely detectable.
-    #[serde(default)]
-    pub capability: Option<Capability>,
-}
-
-/// Where one harness's adapter keeps a projected tier.
-///
-/// Both together or neither, which is the same pairing the mapping itself
-/// obeys: a repository that named only the model field could describe an
-/// adapter carrying half a pair and would have no way to say the other half
-/// was missing.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TierFields {
-    pub model: String,
-    pub effort: String,
-}
-
-/// One harness's expression of one kind of canonical document.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Adapter {
-    /// Where the adapter for a canonical document named `n` lives, with
-    /// `{name}` standing for `n`.
-    ///
-    /// A pattern rather than a directory and an extension, because the two
-    /// real shapes are a file per document and a directory per document, and
-    /// only a pattern can say both.
-    pub path: String,
-    pub format: DocumentFormat,
-    /// Where the route sentence lives: `body` for the prose beneath a
-    /// declaration, or the name of a field holding it.
-    #[serde(rename = "route-field")]
-    pub route_field: String,
-    /// Adapter field to the canonical property it must equal, either `name` or
-    /// `description`. A harness that carries neither declares an empty map.
-    #[serde(default)]
-    pub identity: BTreeMap<String, Identity>,
-    /// Fields that must be present and hold exactly this scalar.
-    #[serde(default)]
-    pub fixed: BTreeMap<String, String>,
-    /// Which two fields of this harness's adapter carry the model and the
-    /// effort a portable tier maps to.
-    ///
-    /// Declared beside the adapter rather than globally, because the field
-    /// names are this harness's vocabulary and a second harness names them its
-    /// own way. Omitting them is a valid answer: a harness that expresses no
-    /// model has no projection to get wrong.
-    #[serde(rename = "tier-fields", default)]
-    pub tier_fields: Option<TierFields>,
-    /// Fields that must not appear at all.
-    #[serde(default)]
-    pub absent: Vec<String>,
-    /// Front matter that may declare nothing beyond what the rules above name.
-    ///
-    /// A wrapper exists to route. One that also carries a model, a tool list,
-    /// or a second description is a place for the canon and the harness to
-    /// drift apart, so a repository can say the declaration is closed.
-    #[serde(default)]
-    pub closed: bool,
-    /// How the canonical capability vocabulary reaches this harness's own
-    /// permission vocabulary.
-    #[serde(default)]
-    pub translations: Vec<Translation>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Identity {
-    Name,
-    Description,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum DocumentFormat {
-    /// YAML front matter between `---` fences, with prose beneath.
-    FrontMatter,
-    Toml,
-}
-
-/// One obligation an adapter takes on, and when it takes it on.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Translation {
-    pub when: When,
-    /// The canonical capability or constraint that triggers this obligation.
-    /// Absent only for `always`.
-    #[serde(default)]
-    pub capability: Option<String>,
-    /// The adapter field the obligation is about.
-    pub field: String,
-    /// Members the field must contain. A sequence contributes its items; a
-    /// scalar contributes its comma-separated parts, which is how a harness
-    /// that writes one string and a harness that writes a list are read the
-    /// same way.
-    #[serde(default)]
-    pub members: Vec<String>,
-    /// Members the field must not contain.
-    #[serde(rename = "absent-members", default)]
-    pub absent_members: Vec<String>,
-    /// At least one member beginning with this.
-    #[serde(rename = "member-prefix", default)]
-    pub member_prefix: Option<String>,
-    /// Keys the field must map to exactly these values.
-    #[serde(default)]
-    pub entries: BTreeMap<String, String>,
-    /// At least one key beginning with this, mapped to `entry-value`.
-    #[serde(rename = "entry-prefix", default)]
-    pub entry_prefix: Option<String>,
-    #[serde(rename = "entry-value", default)]
-    pub entry_value: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum When {
-    /// Whatever the canonical document says.
-    Always,
-    /// Only when the canonical document requires the named capability.
-    Requires,
-    /// Only when it denies the named capability.
-    Denies,
-    /// Only when it carries the named constraint.
-    Constrains,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Capability {
-    pub file: String,
-    pub format: CapabilityFormat,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CapabilityFormat {
-    Toml,
-    Json,
-}
-
-/// One configuration field that may not carry instructions.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ProhibitedField {
-    pub file: String,
-    pub format: CapabilityFormat,
-    /// The key, read at the document's top level. Nested keys are not
-    /// expressible on purpose: a harness that buried its instructions would be
-    /// a different rule, and guessing at one would report a repository clean
-    /// for a reason nobody wrote down.
-    pub field: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RequiredMcp {
-    pub name: String,
-    pub command: String,
-    pub args: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Scan {
     /// Directory *names*, matched at any depth. Filesystem links are always
     /// skipped regardless of this list, because following one can escape the
@@ -709,16 +389,8 @@ pub struct Scan {
     pub exclude_directories: Vec<String>,
 }
 
-/// What a repository declared, whichever schema it wrote it in.
-///
-/// An enum rather than one widened struct, because the two schemas answer
-/// different questions. A v1 document says how to check a tree; a v2 document
-/// says how a repository is governed and what its gates are. Folding them
-/// together would give every validator a section that is legal to be absent for
-/// a reason it has no way to tell from an omission.
+/// The sole stable configuration document.
 pub enum Document {
-    V1(Box<Config>),
-    V2(Box<v2::Document>),
     V0_4(Box<v0_4::config::Document>),
 }
 
@@ -729,8 +401,6 @@ pub enum Document {
 /// messages rather than only on exit codes.
 pub fn parse(text: &str) -> Result<Document, ConfigError> {
     match declared_schema(text)? {
-        Schema::V1 => parse_v1(text).map(|config| Document::V1(Box::new(config))),
-        Schema::V2 => v2::parse(text).map(|document| Document::V2(Box::new(document))),
         Schema::V0_4 => {
             v0_4::config::parse(text).map(|document| Document::V0_4(Box::new(document)))
         }
@@ -745,83 +415,34 @@ pub fn v0_4_schema_bytes() -> Result<Vec<u8>, serde_json::Error> {
     v0_4::config::schema_bytes()
 }
 
-/// Decode the validator sections from a document, with no schema-specific rule.
-///
-/// Used by v2, which requires none of them. v1 goes through `parse_v1`, which
-/// adds the five it requires; the decoding itself is the same either way.
-pub(crate) fn decode_sections(text: &str) -> Result<Config, ConfigError> {
-    yaml_serde::from_str(text).map_err(|error| {
-        let mut message = error.to_string();
-        if !message.contains("line ")
-            && let Some(location) = error.location()
-        {
-            message = format!("{message} at line {}", location.line());
-        }
-        ConfigError::Malformed(message)
-    })
-}
-
-fn parse_v1(text: &str) -> Result<Config, ConfigError> {
-    let config: Config = yaml_serde::from_str(text).map_err(|error| {
-        // The parser reports `section.key: reason at line L column C`, which is
-        // already the shape a maintainer needs. Passing it through keeps one
-        // wording for every structural fault instead of paraphrasing per case.
-        let mut message = error.to_string();
-        if !message.contains("line ")
-            && let Some(location) = error.location()
-        {
-            message = format!("{message} at line {}", location.line());
-        }
-        ConfigError::Malformed(message)
-    })?;
-
-    check_semantics(&config, text)?;
-    Ok(config)
-}
-
-/// Which schema a document is written in.
-enum Schema {
-    V1,
-    V2,
-    V0_4,
-}
-
-/// Decide which schema a document declares, and refuse anything else.
-///
-/// v1 declares its schema in a leading comment and v2 in a leading key, so the
-/// two are read from different places and no document can be mistaken for the
-/// other. One carrying both is refused rather than resolved by precedence: a
-/// rule that picked a winner would silently enforce half of one contract.
+/// Decide whether text declares the one stable schema, while preserving a
+/// diagnostic for a predecessor comment rather than attempting to parse it.
 fn declared_schema(text: &str) -> Result<Schema, ConfigError> {
-    let commented = commented_schema(text);
-    let keyed = v2::declares(text);
-    match (commented, keyed) {
-        (Some(_), Some(_)) => Err(ConfigError::Semantic {
-            key: "schema".to_string(),
-            line: 1,
-            reason: "declares two schemas, and a document is written in one".to_string(),
-        }),
-        (Some((declared, line)), None) => {
-            if declared == SCHEMA || declared == SCHEMA_ALIAS {
-                Ok(Schema::V1)
-            } else {
-                Err(ConfigError::SchemaUnrecognized { declared, line })
-            }
-        }
-        (None, Some(declared)) => {
-            if declared == v2::SCHEMA {
-                Ok(Schema::V2)
-            } else if declared == v0_4::config::SCHEMA {
-                Ok(Schema::V0_4)
-            } else {
-                Err(ConfigError::SchemaUnrecognized { declared, line: 1 })
-            }
-        }
-        (None, None) => Err(ConfigError::SchemaUndeclared),
+    if let Some((declared, line)) = commented_schema(text) {
+        return Err(ConfigError::SchemaUnrecognized { declared, line });
+    }
+
+    match keyed_schema(text)? {
+        Some(declared) if declared == v0_4::config::SCHEMA => Ok(Schema::V0_4),
+        Some(declared) => Err(ConfigError::SchemaUnrecognized { declared, line: 1 }),
+        None => Err(ConfigError::SchemaUndeclared),
     }
 }
 
-/// The schema a v1 document declares, in the leading comment it belongs in.
+/// Read only the top-level schema declaration needed to select the closed
+/// stable parser. Any policy shape remains owned by `v0_4::config::parse`.
+fn keyed_schema(text: &str) -> Result<Option<String>, ConfigError> {
+    let raw: serde_json::Value =
+        yaml_serde::from_str(text).map_err(|error| ConfigError::Malformed(error.to_string()))?;
+    Ok(raw
+        .as_object()
+        .and_then(|mapping| mapping.get("schema"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string))
+}
+
+/// A predecessor schema was declared in a leading comment. It is recognized
+/// only so stable can refuse it explicitly; it is never decoded as input.
 fn commented_schema(text: &str) -> Option<(String, usize)> {
     for (index, raw) in text.lines().enumerate() {
         let line = raw.trim();
@@ -837,447 +458,9 @@ fn commented_schema(text: &str) -> Option<(String, usize)> {
     None
 }
 
-/// The five sections a v1 document may not omit.
-///
-/// Required here rather than in the field types, because the same struct also
-/// carries a v2 document, which requires none of them. The message names the
-/// section and the schema so a maintainer is told which contract they are
-/// under rather than which field a decoder wanted.
-/// A section's name and a way to ask whether the document declared it.
-type Required = (&'static str, fn(&Config) -> bool);
-
-const V1_REQUIRED: [Required; 5] = [
-    ("governance-word-budget", |c| c.word_budget.is_some()),
-    ("governance-directory-map", |c| c.directory_map.is_some()),
-    ("md-mermaid", |c| c.mermaid.is_some()),
-    ("harness-parity", |c| c.harness_parity.is_some()),
-    ("scan", |c| c.scan.is_some()),
-];
-
-/// The rules a well-typed document can still break.
-fn check_semantics(config: &Config, text: &str) -> Result<(), ConfigError> {
-    for (section, present) in V1_REQUIRED {
-        if !present(config) {
-            return Err(ConfigError::Semantic {
-                key: section.to_string(),
-                line: 1,
-                reason: format!("is required by `{SCHEMA}`"),
-            });
-        }
-    }
-
-    check_model_tiers(config, text)?;
-
-    let harness_parity = config
-        .harness_parity
-        .as_ref()
-        .expect("a v1 document declares harness-parity");
-    let canonical = &harness_parity.canonical;
-
-    // Everything a harness is reconciled *against*: the two canonical roots and
-    // the capability declaration every harness has to match. Each one is
-    // meaningful only in the presence of a harness, so each follows the roster.
-    let reconciled_against = [
-        ("skills-root", canonical.skills_root.is_some()),
-        ("agents-root", canonical.agents_root.is_some()),
-        ("required-mcp", harness_parity.required_mcp.is_some()),
-    ];
-
-    // Canon with nowhere to reconcile it is a configuration error rather than a
-    // clean pass: it means the reconciliation was silently skipped.
-    //
-    // The converse does not hold. A repository may declare harnesses and no
-    // canonical skills, no canonical agents, or no capability server -- each is
-    // a thing a repository may not have, and requiring any of them alongside a
-    // roster would be asserting one repository's arrangement as everyone's.
-    // What each *does* require is the rest of its own pair, below.
-    if harness_parity.harnesses.is_empty() {
-        for (key, declared) in reconciled_against {
-            if declared {
-                return Err(ConfigError::Semantic {
-                    key: key.to_string(),
-                    line: line_of(text, key),
-                    reason: "declared alongside an empty harness roster, so there is no harness to reconcile it against".to_string(),
-                });
-            }
-        }
-    }
-
-    // An adapter contract and the canon it expresses stand or fall together,
-    // on the same rule as the server below: a contract with no canon behind it
-    // reconciles nothing, and a canon no harness expresses is a canon nothing
-    // reaches.
-    let agents = canonical.agents_root.is_some();
-    let skills = canonical.skills_root.is_some();
-    for harness in &harness_parity.harnesses {
-        if harness.agent_adapter.is_some() != agents {
-            let reason = if agents {
-                format!(
-                    "`{}` declares no agent adapter, so the canonical agents reach it nowhere",
-                    harness.name
-                )
-            } else {
-                format!(
-                    "`{}` declares an agent adapter, but no `agents-root` names what it would express",
-                    harness.name
-                )
-            };
-            return Err(ConfigError::Semantic {
-                key: "agent-adapter".to_string(),
-                line: line_of(text, "harnesses"),
-                reason,
-            });
-        }
-        if harness.skill_adapter.is_some() && !skills {
-            return Err(ConfigError::Semantic {
-                key: "skill-adapter".to_string(),
-                line: line_of(text, "harnesses"),
-                reason: format!(
-                    "`{}` declares a skill adapter, but no `skills-root` names what it would express",
-                    harness.name
-                ),
-            });
-        }
-    }
-
-    // A required server and the per-harness declarations that must satisfy it
-    // stand or fall together. Declared alone, either one is a rule nothing
-    // enforces: a server no harness is checked against, or a file no rule
-    // reads.
-    let required = harness_parity.required_mcp.is_some();
-    for harness in &harness_parity.harnesses {
-        if harness.capability.is_some() == required {
-            continue;
-        }
-        let reason = if required {
-            format!(
-                "`{}` declares no capability file, so the required server is reconciled against nothing",
-                harness.name
-            )
-        } else {
-            format!(
-                "`{}` declares a capability file, but no required server names anything to find in it",
-                harness.name
-            )
-        };
-        return Err(ConfigError::Semantic {
-            key: "capability".to_string(),
-            line: line_of(text, "harnesses"),
-            reason,
-        });
-    }
-
-    // A root says where the canon is; a route says what an adapter must carry
-    // in its place. Neither means anything without the other, so each root
-    // brings its route and a route with no root has nothing to substitute for.
-    for (root, route, root_key, route_key) in [
-        (
-            canonical.agents_root.is_some(),
-            canonical.agent_route.is_some(),
-            "agents-root",
-            "agent-route",
-        ),
-        (
-            canonical.skills_root.is_some(),
-            canonical.skill_route.is_some(),
-            "skills-root",
-            "skill-route",
-        ),
-    ] {
-        if root == route {
-            continue;
-        }
-        let (key, reason) = if root {
-            (
-                route_key,
-                format!("required alongside `{root_key}`, or every adapter's body goes unchecked"),
-            )
-        } else {
-            (
-                route_key,
-                format!("declared without `{root_key}`, so there is nothing for it to route to"),
-            )
-        };
-        return Err(ConfigError::Semantic {
-            key: key.to_string(),
-            line: line_of(text, key),
-            reason,
-        });
-    }
-
-    // The shape says which field holds which permission. Without it the lists
-    // would be read by a name RHINO chose, and a name nobody wrote reads as an
-    // empty list rather than as an error -- so the pairing is what keeps a
-    // silently unchecked canon from passing as a clean one.
-    if canonical.agents_root.is_some() != canonical.declaration.is_some() {
-        let (key, reason) = if canonical.agents_root.is_some() {
-            (
-                "declaration",
-                "required alongside `agents-root`, or every canonical agent reads as granting and denying nothing"
-                    .to_string(),
-            )
-        } else {
-            (
-                "declaration",
-                "declared without `agents-root`, so there is no canonical agent to read"
-                    .to_string(),
-            )
-        };
-        return Err(ConfigError::Semantic {
-            key: key.to_string(),
-            line: line_of(text, key),
-            reason,
-        });
-    }
-
-    // A translation fires on a canonical name. One that names something outside
-    // the declared vocabulary can never fire, which makes it a permission rule
-    // that silently grants everything.
-    let vocabulary: Vec<&str> = harness_parity
-        .capabilities
-        .iter()
-        .chain(&harness_parity.constraints)
-        .map(String::as_str)
-        .collect();
-    for harness in &harness_parity.harnesses {
-        let adapters = harness.agent_adapter.iter().chain(&harness.skill_adapter);
-        for adapter in adapters {
-            for translation in &adapter.translations {
-                let named = match (translation.when, &translation.capability) {
-                    (When::Always, _) => continue,
-                    (_, Some(name)) => name.as_str(),
-                    (_, None) => {
-                        return Err(ConfigError::Semantic {
-                            key: "translations".to_string(),
-                            line: line_of(text, "translations"),
-                            reason: format!(
-                                "`{}` declares a conditional translation naming no capability",
-                                harness.name
-                            ),
-                        });
-                    }
-                };
-                if !vocabulary.contains(&named) {
-                    return Err(ConfigError::Semantic {
-                        key: "translations".to_string(),
-                        line: line_of(text, "translations"),
-                        reason: format!(
-                            "`{named}` is outside the declared vocabulary, so nothing would ever trigger this translation"
-                        ),
-                    });
-                }
-            }
-        }
-    }
-
-    // A separator says where an encoded prefix ends. A `path-prefixed` surface
-    // without one has no way to read a filename, and a `kebab-case` surface
-    // with one has no prefix for it to follow -- the second being the quieter
-    // fault, since a separator nothing consults reads as a rule that is in
-    // force.
-    if let Some(naming) = &config.naming {
-        for surface in &naming.surfaces {
-            let declared = surface
-                .separator
-                .as_deref()
-                .is_some_and(|separator| !separator.is_empty());
-            let reason = match (surface.style, declared) {
-                (NameStyle::PathPrefixed, false) => Some(format!(
-                    "required by the path-prefixed surface `{}`, or nothing says where its encoded prefix ends",
-                    surface.glob
-                )),
-                (NameStyle::KebabCase, true) => Some(format!(
-                    "declared on the kebab-case surface `{}`, which has no encoded prefix for a separator to follow",
-                    surface.glob
-                )),
-                _ => None,
-            };
-            if let Some(reason) = reason {
-                return Err(ConfigError::Semantic {
-                    key: "separator".to_string(),
-                    line: line_of(text, "surfaces"),
-                    reason,
-                });
-            }
-        }
-    }
-
-    for (key, value) in declared_paths(config) {
-        if let Some(reason) = escapes_root(&value) {
-            return Err(ConfigError::Semantic {
-                key: key.to_string(),
-                line: line_of(text, key),
-                reason: format!("`{value}` {reason}"),
-            });
-        }
-    }
-
-    Ok(())
-}
-
-/// Every scalar the configuration declares as a repository-relative path.
-fn declared_paths(config: &Config) -> Vec<(&'static str, String)> {
-    // Only reached from the v1 path, where both sections are required.
-    let harness_parity = config
-        .harness_parity
-        .as_ref()
-        .expect("a v1 document declares harness-parity");
-    let canonical = &harness_parity.canonical;
-    let mut paths: Vec<(&'static str, String)> =
-        vec![("instruction", canonical.instruction.clone())];
-
-    for (key, declared) in [
-        ("instruction-adapter", &canonical.instruction_adapter),
-        ("skills-root", &canonical.skills_root),
-        ("agents-root", &canonical.agents_root),
-    ] {
-        if let Some(value) = declared {
-            paths.push((key, value.clone()));
-        }
-    }
-    if let Some(map) = &config.directory_map {
-        for tree in &map.trees {
-            paths.push(("path", tree.path.clone()));
-        }
-    }
-    for harness in &harness_parity.harnesses {
-        if let Some(adapter) = &harness.agent_adapter {
-            paths.push(("agent-adapter", adapter.path.clone()));
-        }
-        if let Some(capability) = &harness.capability {
-            paths.push(("capability-file", capability.file.clone()));
-        }
-        if let Some(adapter) = &harness.skill_adapter {
-            paths.push(("skill-adapter", adapter.path.clone()));
-        }
-    }
-    paths
-}
-
-/// Whether a declared path leaves the repository, and how.
-///
-/// Resolved textually rather than against the filesystem, so the answer does
-/// not depend on which components happen to exist yet.
-fn escapes_root(value: &str) -> Option<&'static str> {
-    if value.starts_with('/') {
-        return Some("is absolute, and every declared path is relative to the repository root");
-    }
-    let mut depth: isize = 0;
-    for segment in value.split('/') {
-        match segment {
-            ".." => depth -= 1,
-            "." | "" => {}
-            _ => depth += 1,
-        }
-        if depth < 0 {
-            return Some("escapes the repository root");
-        }
-    }
-    None
-}
-
-/// The first line declaring `key`, one-based, for a fault the parser did not
-/// raise and so did not position.
-/// The tier mapping, which is refused before anything could be generated from it.
-///
-/// Every fault here is a fault a generator would otherwise have to guess its
-/// way around, and a guess is exactly what the mapping exists to prevent: an
-/// unmapped tier means "inherit the harness default", so a half-mapped one has
-/// no honest reading at all.
-fn check_model_tiers(config: &Config, text: &str) -> Result<(), ConfigError> {
-    let Some(harnesses) = &config.model_tiers else {
-        return Ok(());
-    };
-    check_tier_map(harnesses, line_of(text, "model-tiers"))
-}
-
-/// The tier map's whole contract, held wherever the section is declared.
-///
-/// Shared by both schemas rather than reimplemented beside the second one: a
-/// tier map that meant something different depending on which schema carried it
-/// would give a generator two answers to the same question.
-pub(crate) fn check_tier_map(
-    harnesses: &BTreeMap<String, BTreeMap<String, Option<TierMapping>>>,
-    line: usize,
-) -> Result<(), ConfigError> {
-    const KEY: &str = "model-tiers";
-    let refuse = |reason: String| {
-        Err(ConfigError::Semantic {
-            key: KEY.to_string(),
-            line,
-            reason,
-        })
-    };
-
-    // An empty section and an omitted one would mean the same thing to a
-    // generator, which is why the empty one is refused: only the omission is
-    // an answer a repository can be held to.
-    if harnesses.is_empty() {
-        return refuse(
-            "declares no harness, and an empty section cannot be told from one a repository meant to omit"
-                .to_string(),
-        );
-    }
-
-    for (harness, tiers) in harnesses {
-        if !HARNESS_PROFILES.contains(&harness.as_str()) {
-            return refuse(format!(
-                "`{harness}` is not a harness profile this schema recognizes; the initial profiles are {}",
-                listed(&HARNESS_PROFILES)
-            ));
-        }
-        if tiers.is_empty() {
-            return refuse(format!(
-                "`{harness}` declares no tier, and an empty map cannot be told from a harness a repository meant to omit"
-            ));
-        }
-        for (tier, mapping) in tiers {
-            if !TIERS.contains(&tier.as_str()) {
-                return refuse(format!(
-                    "`{harness}` maps `{tier}`, which is not a portable tier; the closed set is {}. A mapping keyed by an agent name is the same fault: model and effort resolve by tier, never by artifact",
-                    listed(&TIERS)
-                ));
-            }
-            let Some(mapping) = mapping else {
-                return refuse(format!(
-                    "`{harness}.{tier}` declares no model or effort; an unmapped tier is written by omitting it, not by mapping it to nothing"
-                ));
-            };
-            for (field, value) in [("model", &mapping.model), ("effort", &mapping.effort)] {
-                match value {
-                    None => {
-                        return refuse(format!(
-                            "`{harness}.{tier}` declares no {field}; a present tier carries both, or the generator would emit half a pin"
-                        ));
-                    }
-                    Some(value) if value.trim().is_empty() => {
-                        return refuse(format!(
-                            "`{harness}.{tier}` declares an empty {field}, which is not a value a harness can be given"
-                        ));
-                    }
-                    Some(_) => {}
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// A closed set, written the way a sentence would read it.
-pub(crate) fn listed(values: &[&str]) -> String {
-    let quoted: Vec<String> = values.iter().map(|value| format!("`{value}`")).collect();
-    match quoted.split_last() {
-        None => String::new(),
-        Some((last, [])) => last.clone(),
-        Some((last, rest)) => format!("{}, and {last}", rest.join(", ")),
-    }
-}
-
-fn line_of(text: &str, key: &str) -> usize {
-    text.lines()
-        .position(|line| line.trim_start().starts_with(&format!("{key}:")))
-        .map_or(1, |index| index + 1)
+/// The schema selector's closed result.
+enum Schema {
+    V0_4,
 }
 
 #[cfg(test)]
@@ -1285,7 +468,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn grouped_schema_bytes_and_decoder_refusals_are_available_without_a_tree() {
+    fn grouped_schema_bytes_and_stable_reader_are_available_without_a_tree() {
         let schema = v0_4_schema_bytes().expect("the closed grouped schema serializes");
         assert!(schema.ends_with(b"\n"));
         assert!(
@@ -1293,35 +476,48 @@ mod tests {
                 .windows(b"rhino/repo-config/v2".len())
                 .any(|window| window == b"rhino/repo-config/v2")
         );
-        assert!(decode_sections("unknown: [").is_err());
         assert!(parse("schema: rhino/repo-config/v2\n").is_ok());
-        let legacy = parse(
-            "schema: ose/repo-config/v2\nvisibility: private\ngates:\n  - id: plan\n    kind: check\n    run: [./gates/plan.sh]\n    surfaces: [commit-msg, pre-commit, pre-push]\n",
-        )
-        .expect("the synthetic legacy document is structurally valid");
-        match crate::v0_4::config::migration_disposition(&legacy) {
-            crate::v0_4::config::MigrationDisposition::Legacy { schema } => {
-                assert_eq!(schema, v2::SCHEMA);
-            }
-            crate::v0_4::config::MigrationDisposition::Grouped => {
-                panic!("legacy input must remain a review-only disposition");
-            }
-        }
+        assert!(matches!(
+            parse("schema: ose/repo-config/v2\n"),
+            Err(ConfigError::SchemaUnrecognized { .. })
+        ));
     }
 
     #[test]
-    fn legacy_schema_helpers_preserve_missing_and_listed_contracts() {
+    fn predecessor_comments_are_rejected_without_a_legacy_decoder() {
         assert_eq!(commented_schema("\n# note\nkey: value\n"), None);
         assert_eq!(
             commented_schema("\n# schema: rhino/repo-config/v1\nkey: value\n"),
             Some(("rhino/repo-config/v1".to_string(), 2))
         );
         assert!(matches!(
-            check_semantics(&Config::default(), ""),
-            Err(ConfigError::Semantic { .. })
+            parse("# schema: rhino/repo-config/v1\n"),
+            Err(ConfigError::SchemaUnrecognized { .. })
         ));
-        assert_eq!(listed(&[]), "");
-        assert_eq!(listed(&["one"]), "`one`");
-        assert_eq!(listed(&["one", "two"]), "`one`, and `two`");
+    }
+
+    #[test]
+    fn stable_errors_render_missing_undeclared_and_terminal_comment_cases() {
+        assert!(
+            ConfigError::Missing
+                .to_string()
+                .contains("no configuration file")
+        );
+        assert!(
+            ConfigError::Unreadable("denied".to_string())
+                .to_string()
+                .contains("denied")
+        );
+        assert!(
+            ConfigError::SchemaUndeclared
+                .to_string()
+                .contains("declares no schema")
+        );
+        assert!(matches!(
+            parse("repository: {}\n"),
+            Err(ConfigError::SchemaUndeclared)
+        ));
+        assert!(matches!(parse("["), Err(ConfigError::Malformed(_))));
+        assert_eq!(commented_schema("# note\n# another"), None);
     }
 }

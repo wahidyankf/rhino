@@ -6,8 +6,5 @@
 //! that outgrew its budget splits, and what the canonical instruction opens
 //! with.
 
-pub mod companion;
 pub mod directory_map;
-pub mod instructions;
-pub mod structure;
 pub mod word_budget;

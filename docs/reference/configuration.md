@@ -57,16 +57,11 @@ In Rhino source, `cargo xtask schema` regenerates the artifact and
 `cargo xtask schema --check` proves it has not drifted. Consumers validate their
 local configuration with `rhino repo-config validate`.
 
-## Release-candidate migration boundary
+## Stable predecessor handling
 
-During the v0.4 release candidate, the predecessor schemas
-`rhino/repo-config/v1` and `ose/repo-config/v2` remain readable solely as
-legacy input. They do not alias to grouped v2 keys or commands. Run
-`rhino repo-config migrate` against a legacy file to print a reviewed migration
-plan, then create and validate the grouped document explicitly.
-
-The RC-only reader is removed before stable. New adopters must start with
-`rhino/repo-config/v2`; existing adopters should follow
+Stable accepts only `rhino/repo-config/v2`. It rejects predecessor schemas with
+exit `2` and does not register `repo-config migrate` or any retired legacy
+leaf. New adopters must start with grouped v2; existing adopters should follow
 [the v0.3-to-v0.4 migration guide](../how-to/migrate-to-v0-4.md).
 
 ## Related

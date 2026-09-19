@@ -1,12 +1,12 @@
 ---
-description: Review changed Gherkin scenarios and their bindings against this repository's rules, read-only, and report what each binding actually asserts.
+description: "Review changed Gherkin scenarios and their bindings against this repository's rules, read-only, and report what each binding actually asserts."
 mode: subagent
 permission:
-  read: allow
+  bash: deny
+  edit: deny
   glob: allow
   grep: allow
-  edit: deny
-  bash: deny
+  read: allow
   task: deny
 ---
 

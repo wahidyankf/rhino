@@ -71,47 +71,36 @@ The split between the binary and the library is not stylistic. Rust links integr
 graph TD
     Cli["cli — command tree"]
     Runtime["runtime — filesystem port"]
-    ConfigMod["config — schema"]
+    ConfigMod["config — grouped schema"]
+    Grouped["v0_4 — grouped dispatch owners"]
     Scan["markdown scan"]
     Link["internal_link"]
     Mermaid["mermaid"]
     Word["word_budget"]
     Map["directory_map"]
-    Harness["harness"]
-    Adapter["v0_4 harness adapters"]
-    Operations["v0_4 operations"]
+    Adapter["harness adapters"]
+    Operations["environment and toolchains"]
     Metadata["metadata"]
-    Gate["gate — dispatch"]
-    Structure["governance structure"]
-    Companion["governance companion"]
-    Instructions["governance instructions"]
-    PlanMod["plan structure"]
+    Gates["lifecycle gates"]
+    Conventions["conventions"]
 
     Cli --> ConfigMod
-    Cli --> Link
-    Cli --> Mermaid
-    Cli --> Word
-    Cli --> Map
-    Cli --> Harness
+    Cli --> Grouped
+    Grouped --> Link
+    Grouped --> Mermaid
+    Grouped --> Word
+    Grouped --> Map
     Cli --> Adapter
     Cli --> Operations
-    Cli --> Metadata
-    Cli --> Gate
-    Cli --> Structure
-    Cli --> Companion
-    Cli --> Instructions
-    Cli --> PlanMod
+    Grouped --> Metadata
+    Cli --> Gates
+    Grouped --> Conventions
     ConfigMod --> Runtime
     Scan --> Runtime
-    Harness --> Runtime
     Adapter --> Runtime
     Operations --> Runtime
     Map --> Runtime
     Metadata --> Scan
-    Structure --> Runtime
-    Companion --> Runtime
-    Instructions --> Runtime
-    PlanMod --> Runtime
     Link --> Scan
     Mermaid --> Scan
     Word --> Scan
@@ -121,18 +110,22 @@ graph TD
     classDef shared fill:#029E73,stroke:#000000,color:#000000
 
     class Cli entry
-    class Link,Mermaid,Word,Map,Harness,Metadata,Structure,Companion,Instructions,PlanMod check
-    class Gate entry
-    class ConfigMod,Runtime,Scan shared
+    class Link,Mermaid,Word,Map,Adapter,Metadata,Conventions check
+    class Gates entry
+    class ConfigMod,Grouped,Runtime,Scan shared
 ```
 
 Every validator reaches the filesystem through one port trait rather than through `std::fs` directly. That is what makes the unit adapter able to drive the whole corpus against an in-memory tree, and it is also the seam the read-only constraint is enforced at: the port exposes no write operation, so a validator cannot write even by mistake.
 
-The three Markdown validators share one scan so the tree is walked once per invocation. `harness` and `directory_map` do not use it, because they read named paths and directory structure rather than Markdown content.
+The Markdown validators share one scan so the tree is walked once per invocation.
+Directory maps use the declared directory projection; harness adapters use their
+own named inputs and transaction boundary.
 
-The three governance structure modules arrived with `ose/repo-config/v2` and read the shared contract rather than a declared section, so a repository still on `v1` is refused rather than held to rules it never adopted. `structure` is the one module that asks the port for directories rather than files, because an empty governed directory is the single state a file list cannot express. `gate` dispatches declared children through the launcher port. `v0_4::operations` owns environment transactions and the separate toolchain runner port; it starts only declared typed argv, without a shell or reported child output.
-
-`plan` is the one module whose rules this crate does not own. Their identifiers, messages, diagnostics, exit classes, and fixture corpus are frozen in a shared contract because more than one implementation validates plan structure, and a contract written after the first implementation would describe an accident rather than an agreement. The corpus is copied in byte-identically and its digest is checked before any case runs.
+The grouped `v0_4` boundary owns the stable validation, lifecycle, adapter, and
+operation paths. `gates` dispatches declared children through the launcher port.
+`v0_4::operations` owns environment transactions and the separate toolchain
+runner port; it starts only declared typed argv, without a shell or reported
+child output.
 
 ## Data
 

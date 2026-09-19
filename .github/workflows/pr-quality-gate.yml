@@ -64,16 +64,12 @@ jobs:
       - name: Prove the wrapper still holds its own contract
         run: bash scripts/public-safety/tests/run.sh
 
-  commit-messages:
-    name: Commit messages
+  quick:
+    name: Quick gate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
-      # The real head, not the synthetic merge commit: commitlint must read the
-      # messages this branch actually contributes. GitHub's merge commit carries
-      # a "Merge ... into ..." subject that no Conventional Commits rule accepts.
-      - name: Check out the pull request head
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -85,48 +81,6 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      - name: Lint every commit this pull request adds
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -eu
-          git fetch --no-tags origin "${BASE_REF}"
-          # The fork point, not the base tip: a branch behind `main` would
-          # otherwise re-lint commits it never authored and fail on history it
-          # did not write.
-          from=$(git merge-base FETCH_HEAD HEAD)
-          npm exec -- commitlint --from "${from}" --to HEAD --verbose
-
-  formatting:
-    name: Formatting
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci --ignore-scripts
-
-      # The whole tree, not the changed files. `lint-staged` only ever sees
-      # staged paths, and nothing else in this repository ran Prettier at all,
-      # so a file could drift unformatted and no gate would say so -- which is
-      # exactly what had happened to one document before this job existed. A
-      # changed-files check would not have caught it, and would not catch the
-      # next one either. `.prettierignore` carries the exclusions.
-      - name: Verify Prettier formatting across the repository
-        run: npm exec -- prettier --check --ignore-unknown .
-
-  quick:
-    name: Quick gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
@@ -137,23 +91,14 @@ jobs:
         # execution, so the gate cannot run without this.
         run: cargo install --locked cargo-llvm-cov
 
-      # `cargo fmt`, `clippy`, fast unit coverage under a 99% line floor, the
-      # static behaviour check, and exact grouped-schema bytes -- the contract
-      # `.husky/pre-push` runs before native release runners do.
-      - name: Quick gate
-        run: cargo xtask test-quick
-
-      # The `ci` gate surface, dispatched from `repo-config.yml` -- the same
-      # registry the three Git hooks dispatch, which is the property AC-23 of
-      # this repository's governance asks for and the reason the list stopped
-      # living in `xtask`.
-      #
-      # It re-runs the public-safety screen that the job above already ran. That
-      # is deliberate and not a duplicate by accident: the job above is the
-      # fail-fast mirror that needs no Rust toolchain and reports first, and this
-      # one proves that what the declared surface actually dispatches is the
-      # screen rather than something that merely resembles it.
-      - name: Self-validation
+      # The immutable pull-request gate owns the quick suite, typed commit
+      # messages, selected-path formatter replay, source validators, and the
+      # adapter proof. The metadata job above remains separate because only
+      # GitHub supplies its branch name, title, and body.
+      - name: Pull-request lifecycle replay
+        env:
+          RHINO_GATE_BASE: ${{ github.event.pull_request.base.sha }}
+          RHINO_GATE_HEAD: ${{ github.event.pull_request.head.sha }}
         run: cargo xtask self-validate
 
   supply-chain:
@@ -256,15 +201,7 @@ jobs:
     # The single required status check. Individual jobs may legitimately skip,
     # and a skipped required check never reports at all, so merge protection
     # points at this aggregate rather than at each job.
-    needs:
-      [
-        public-safety,
-        commit-messages,
-        formatting,
-        quick,
-        supply-chain,
-        consumer-bootstrap,
-      ]
+    needs: [public-safety, quick, supply-chain, consumer-bootstrap]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

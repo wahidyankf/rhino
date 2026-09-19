@@ -472,4 +472,38 @@ mod tests {
         assert!(outcome.stdout.is_empty());
         assert_eq!(outcome.stderr, "[synthetic] not declared\n");
     }
+
+    #[test]
+    fn structural_text_and_json_rendering_preserve_positions_fields_and_measurements() {
+        let mut report = Report::new("directory", "directory");
+        report
+            .inspected_one()
+            .note("declared boundary")
+            .scanned("z/path")
+            .scanned("a/path")
+            .measure("count", 2)
+            .found(
+                Finding::new("late", "z/path", "late finding")
+                    .at(10, 2)
+                    .about("field")
+                    .with("count", Detail::Count(2))
+                    .with("text", Detail::Text("value".to_string())),
+            )
+            .found(Finding::new("early", "a/path", "early finding").at(2, 1));
+
+        let text = report.render(Format::Text);
+        assert_eq!(text.exit_code, 1);
+        assert!(text.stdout.contains("directories"));
+        assert!(text.stdout.contains("declared boundary"));
+        assert!(text.stdout.find("a/path").unwrap() < text.stdout.find("z/path").unwrap());
+        assert!(text.stderr.find("a/path:2:1").unwrap() < text.stderr.find("z/path:10:2").unwrap());
+
+        let json = report.render(Format::Json);
+        assert!(json.stdout.contains("\"column\":2"));
+        assert!(json.stdout.contains("\"field\":\"field\""));
+        assert!(json.stdout.contains("\"count\":2"));
+        assert!(json.stdout.contains("\"text\":\"value\""));
+        assert_eq!(plural("harness", 2), "harnesses");
+        assert_eq!(plural("file", 1), "file");
+    }
 }

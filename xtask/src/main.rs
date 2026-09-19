@@ -160,7 +160,7 @@ fn test_quick() -> Result<(), String> {
     Ok(())
 }
 
-/// Run this repository's own `ci` gate surface, with the binary it builds.
+/// Run this repository's own immutable pull-request gate surface.
 ///
 /// A second corpus that no one wrote: the tree changes constantly, nobody
 /// curates it as test data, and every page in it is something a maintainer
@@ -180,20 +180,43 @@ fn self_validate() -> Result<(), String> {
     // Built once up front so a compile error is reported as a compile error
     // rather than as the first gate failing to start.
     run("cargo", &["build", "--quiet"])?;
+    let root = repository_root();
+    let base = match std::env::var("RHINO_GATE_BASE") {
+        Ok(value) => value,
+        Err(_) => git_revision(&root, "HEAD^")?,
+    };
+    let head = match std::env::var("RHINO_GATE_HEAD") {
+        Ok(value) => value,
+        Err(_) => git_revision(&root, "HEAD")?,
+    };
     run(
-        "cargo",
+        "./target/debug/rhino",
         &[
-            "run",
-            "--quiet",
-            "--bin",
-            "rhino",
-            "--",
             "gate",
             "run",
             "--surface",
-            "ci",
+            "pull-request",
+            "--base",
+            &base,
+            "--head",
+            &head,
         ],
     )
+}
+
+fn git_revision(root: &Path, revision: &str) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--verify", "--end-of-options", revision])
+        .output()
+        .map_err(|error| format!("resolving {revision}: {error}"))?;
+    if !output.status.success() {
+        return Err(format!("resolving {revision} failed"));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|_| format!("Git returned non-UTF-8 output for {revision}"))
+        .map(|value| value.trim().to_string())
 }
 
 // -- Release artifacts --------------------------------------------------------
