@@ -548,6 +548,56 @@ fn disk_mutation_replay_resolves_a_relative_path_from_the_original_root() {
 }
 
 #[test]
+fn disk_mutation_replay_reaches_project_local_tools_from_the_original_root() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir_all(fixture.root.join("notes"))
+        .expect("the fixture notes directory exists");
+    std::fs::create_dir_all(fixture.root.join("node_modules/.bin"))
+        .expect("the local tool directory exists outside the snapshot");
+    std::fs::write(fixture.root.join("notes/candidate.md"), "before\n")
+        .expect("the candidate fixture file is written");
+    let formatter = fixture.root.join("node_modules/.bin/formatter");
+    std::fs::write(
+        &formatter,
+        "#!/bin/sh\nprintf 'formatted\\n' > notes/candidate.md\n",
+    )
+    .expect("the project-local formatter is written");
+    std::fs::set_permissions(&formatter, std::fs::Permissions::from_mode(0o755))
+        .expect("the project-local formatter is executable");
+    fixture.git(&["add", "--", "notes/candidate.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    let revision = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("Git returns a UTF-8 commit ID")
+        .trim()
+        .to_string();
+    let root = fixture.root.to_string_lossy().into_owned();
+
+    let result = DiskMutationRunner.verify_clean(MutationLaunch {
+        arguments: &["formatter".to_string()],
+        directory: &root,
+        environment: &BTreeMap::new(),
+        selected_paths: &[],
+        revision: Some(&revision),
+    });
+
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => panic!(
+            "the replay sees the original project's local tools: {}",
+            error.0
+        ),
+    };
+    assert_eq!(result.code, 1);
+    assert_eq!(result.changes, vec!["notes/candidate.md"]);
+    assert!(result.divergences.is_empty());
+}
+
+#[test]
 fn disk_environment_store_creates_synthetic_targets_once_and_refuses_symlink_routes() {
     use std::os::unix::fs::symlink;
 

@@ -787,16 +787,26 @@ fn mutator_path(
         .get("PATH")
         .map(std::ffi::OsString::from)
         .or_else(|| std::env::var_os("PATH"));
-    let Some(path) = path else {
+    let mut normalized = Vec::new();
+    let project_tools = root.join("node_modules/.bin");
+    if project_tools.is_dir() {
+        // A disposable index or pull-request snapshot deliberately has no
+        // dependency tree. The declared script can still use the project's
+        // pinned local tool when its original root has one.
+        normalized.push(project_tools);
+    }
+    if let Some(path) = path {
+        normalized.extend(std::env::split_paths(&path).map(|entry| {
+            if entry.is_relative() {
+                root.join(entry)
+            } else {
+                entry
+            }
+        }));
+    }
+    if normalized.is_empty() {
         return Ok(None);
-    };
-    let normalized = std::env::split_paths(&path).map(|entry| {
-        if entry.is_relative() {
-            root.join(entry)
-        } else {
-            entry
-        }
-    });
+    }
     std::env::join_paths(normalized)
         .map(Some)
         .map_err(|_| MutationError("the mutator PATH cannot be represented safely".to_string()))
