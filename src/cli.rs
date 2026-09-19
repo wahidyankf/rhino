@@ -37,8 +37,6 @@ pub enum Accepts {
     Apply,
     /// Replace an existing target after the operation has planned its backup.
     Force,
-    /// One harness to reconcile instead of the whole roster.
-    Harness,
     /// The one surface a gate dispatch is selected by.
     Surface,
     /// The exact path Git handed to the commit-msg hook.
@@ -70,12 +68,6 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check that repo-config.yml is complete and usable.",
     },
     Leaf {
-        path: &["repo-config", "migrate"],
-        category: "repo-config-migration",
-        accepts: &[],
-        summary: "Print the RC-only reviewed migration plan for a legacy configuration.",
-    },
-    Leaf {
         path: &["gate", "run"],
         category: "gate",
         accepts: &[
@@ -99,24 +91,6 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Validate v0.4 lifecycle membership and pull-request composition.",
     },
     Leaf {
-        path: &["governance", "roots", "validate"],
-        category: "governance-roots",
-        accepts: &[],
-        summary: "Check the governance layers, their categories, and that each holds something.",
-    },
-    Leaf {
-        path: &["governance", "companions", "validate"],
-        category: "governance-companions",
-        accepts: &[],
-        summary: "Check each companion directory's name, index, and ordinals.",
-    },
-    Leaf {
-        path: &["governance", "instructions", "validate"],
-        category: "governance-instructions",
-        accepts: &[],
-        summary: "Check the canonical instruction spine and the exact import beside it.",
-    },
-    Leaf {
         path: &["governance", "vendor", "validate"],
         category: "vendor",
         accepts: &[],
@@ -135,12 +109,6 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check declared artifacts and their declared local links.",
     },
     Leaf {
-        path: &["plan", "validate"],
-        category: "plan",
-        accepts: &[],
-        summary: "Check plan lifecycle, documents, companions, criteria, and delivery order.",
-    },
-    Leaf {
         path: &["governance", "word-budget", "validate"],
         category: "word-budget",
         accepts: &[],
@@ -151,12 +119,6 @@ pub const LEAVES: &[Leaf] = &[
         category: "directory-map",
         accepts: &[Accepts::Directory],
         summary: "Check that every mapped tree's READMEs list their siblings.",
-    },
-    Leaf {
-        path: &["harness", "parity", "validate"],
-        category: "harness-parity",
-        accepts: &[Accepts::Harness],
-        summary: "Reconcile the canon against every declared coding harness.",
     },
     Leaf {
         path: &["harness", "adapters", "validate"],
@@ -249,12 +211,6 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check that every directory in a declared tree carries a README.",
     },
     Leaf {
-        path: &["md", "word-count", "inspect"],
-        category: "word-count",
-        accepts: &[Accepts::File],
-        summary: "Report a file's word count. Never reports findings.",
-    },
-    Leaf {
         path: &["convention", "emoji", "validate"],
         category: "emoji",
         accepts: &[],
@@ -283,7 +239,6 @@ pub struct Invocation {
     pub files: Vec<String>,
     pub directory: Option<String>,
     pub backup_directory: Option<String>,
-    pub harness: Option<String>,
     pub surface: Option<String>,
     pub message_file: Option<String>,
     pub push_updates_stdin: bool,
@@ -307,6 +262,7 @@ pub enum Parsed {
 ///
 /// Rendered without a category prefix, because the fault is in the command line
 /// and there may be no command to attribute it to.
+#[derive(Debug)]
 pub struct Refusal(pub String);
 
 impl fmt::Display for Refusal {
@@ -323,7 +279,6 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     let mut files: Vec<String> = Vec::new();
     let mut directory: Option<String> = None;
     let mut backup_directory: Option<String> = None;
-    let mut harness: Option<String> = None;
     let mut surface: Option<String> = None;
     let mut message_file: Option<String> = None;
     let mut push_updates_stdin = false;
@@ -355,7 +310,6 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
             "--output" => value("--output", &mut format, &mut rest)?,
             "--directory" => value("--directory", &mut directory, &mut rest)?,
             "--dir" => value("--dir", &mut backup_directory, &mut rest)?,
-            "--harness" => value("--harness", &mut harness, &mut rest)?,
             "--surface" => value("--surface", &mut surface, &mut rest)?,
             "--message-file" => value("--message-file", &mut message_file, &mut rest)?,
             "--push-updates-stdin" => push_updates_stdin = true,
@@ -414,8 +368,8 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     };
 
     // A flag the leaf has no use for is refused rather than dropped. Silently
-    // ignoring `--harness` on the word-budget leaf would report a whole-tree
-    // result to a caller who asked for a narrowed one.
+    // ignoring a narrowed request would report a whole-tree result to a caller
+    // who asked for a narrower one.
     let accepted: BTreeSet<Accepts> = leaf.accepts.iter().copied().collect();
     for (given, flag, name) in [
         (!files.is_empty(), Accepts::File, "--file"),
@@ -425,7 +379,6 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
             Accepts::BackupDirectory,
             "--dir",
         ),
-        (harness.is_some(), Accepts::Harness, "--harness"),
         (surface.is_some(), Accepts::Surface, "--surface"),
         (
             message_file.is_some(),
@@ -513,7 +466,6 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         files,
         directory,
         backup_directory,
-        harness,
         surface,
         message_file,
         push_updates_stdin,
@@ -591,9 +543,6 @@ fn help_for(segments: &[&str]) -> Option<String> {
             }
             Accepts::Force => {
                 "  --force                Replace an existing target after backup planning.\n"
-            }
-            Accepts::Harness => {
-                "  --harness <name>       Reconcile this harness instead of the whole roster.\n"
             }
             Accepts::Surface => {
                 "  --surface <name>       Which closed lifecycle surface is dispatching.\n"
@@ -681,28 +630,140 @@ mod tests {
                 "abcdef2",
             ],
         ] {
+            assert!(parse(&arguments(invocation)).is_err());
+        }
+    }
+
+    #[test]
+    fn grouped_adapter_leaves_refuse_the_retired_harness_selector() {
+        for leaf in ["validate", "generate"] {
+            let refusal = parse(&arguments(&[
+                "harness",
+                "adapters",
+                leaf,
+                "--harness",
+                "alpha",
+            ]))
+            .err()
+            .expect("grouped adapters do not select one profile");
+            assert!(refusal.0.contains("--harness"));
+        }
+    }
+
+    #[test]
+    fn parser_covers_help_projection_and_every_flag_family() {
+        assert!(matches!(
+            parse(&arguments(&["--help"])),
+            Ok(Parsed::Help(Help(text))) if text.contains("repo-config validate")
+        ));
+        assert!(matches!(
+            parse(&arguments(&["gate", "--help"])),
+            Ok(Parsed::Help(Help(text))) if text.contains("--surface <name>")
+        ));
+
+        let invocation = parse(&arguments(&[
+            "gate",
+            "run",
+            "--root",
+            "repo",
+            "--output",
+            "json",
+            "--surface",
+            "pull-request",
+            "--base",
+            "base",
+            "--head",
+            "head",
+            "--quiet",
+            "--",
+            "--child-flag",
+        ]))
+        .expect("valid pull-request gate");
+        assert!(matches!(
+            invocation,
+            Parsed::Run(invocation)
+                if invocation.category == "gate"
+                    && invocation.format == Format::Json
+                    && invocation.forwarded == vec!["--child-flag"]
+        ));
+
+        let directory = parse(&arguments(&[
+            "governance",
+            "directory-map",
+            "validate",
+            "--directory",
+            "docs",
+        ]))
+        .expect("valid directory selection");
+        assert!(matches!(
+            directory,
+            Parsed::Run(invocation) if invocation.directory.as_deref() == Some("docs")
+        ));
+
+        let mermaid = parse(&arguments(&[
+            "md",
+            "mermaid",
+            "validate",
+            "--file",
+            "docs/a.md",
+            "--file",
+            "-",
+        ]))
+        .expect("valid file selection");
+        assert!(matches!(
+            mermaid,
+            Parsed::Run(invocation) if invocation.files == vec!["docs/a.md", "-"]
+        ));
+
+        let restore = parse(&arguments(&[
+            "env", "restore", "--dir", "backup", "--force",
+        ]))
+        .expect("valid restore flags");
+        assert!(matches!(
+            restore,
+            Parsed::Run(invocation) if invocation.force && !invocation.apply
+        ));
+        let initialization = parse(&arguments(&["env", "init", "--apply"]))
+            .expect("valid initialization authorization");
+        assert!(matches!(
+            initialization,
+            Parsed::Run(invocation) if invocation.apply
+        ));
+    }
+
+    #[test]
+    fn parser_refuses_unknown_incompatible_and_escaping_input_without_guessing() {
+        for invocation in [
+            &["unknown"][..],
+            &["--help", "unknown"],
+            &["repo-config", "validate", "--output", "xml"],
+            &["repo-config", "validate", "--file", "docs/a.md"],
+            &["md", "mermaid", "validate", "--file", "/tmp/a.md"],
+            &[
+                "governance",
+                "directory-map",
+                "validate",
+                "--directory",
+                "../outside",
+            ],
+            &["version", "--json", "--output", "text"],
+            &["env", "restore", "--dir"],
+            &["version", "--unknown"],
+        ] {
             assert!(
                 parse(&arguments(invocation)).is_err(),
                 "{}",
                 invocation.join(" ")
             );
         }
-    }
-
-    #[test]
-    fn grouped_adapter_leaves_refuse_the_inherited_harness_selector() {
-        for leaf in ["validate", "generate"] {
-            let result = parse(&arguments(&[
-                "harness",
-                "adapters",
-                leaf,
-                "--harness",
-                "alpha",
-            ]));
-            let Err(refusal) = result else {
-                panic!("grouped adapters do not select one profile");
-            };
-            assert!(refusal.0.contains("--harness"));
-        }
+        assert_eq!(not_repository_relative(""), Some("names nothing"));
+        assert!(not_repository_relative("/absolute").is_some());
+        assert!(not_repository_relative("a/../../outside").is_some());
+        assert!(not_repository_relative("docs/./a").is_none());
+        assert_eq!(unrecognized(&[]), "no command given; try `rhino --help`");
+        assert_eq!(
+            unrecognized(&["not", "a", "command"]),
+            "unrecognized command `not a command`"
+        );
     }
 }

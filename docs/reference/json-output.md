@@ -1,9 +1,8 @@
 # JSON output
 
-The legacy report envelope below remains readable during the v0.4 release
-candidate. Grouped-v2 operations may emit a command-specific status document;
-callers must validate the selected leaf's contract rather than assuming every
-command emits the legacy `violations` array.
+Grouped-v2 validation leaves emit the result envelope below. Operations may
+emit a command-specific status document; callers must validate the selected
+leaf's contract rather than assuming every command emits `violations`.
 
 Every command accepts `--output json` and writes **one object on one line**.
 Line-delimited rather than pretty-printed, so the output pipes through `grep`
@@ -46,7 +45,7 @@ A run with findings, shown wrapped for reading — the real output is one line:
 }
 ```
 
-## Legacy report-envelope fields
+## Validation result fields
 
 | Field           | Type             | Meaning                                                                          |
 | --------------- | ---------------- | -------------------------------------------------------------------------------- |
@@ -90,7 +89,7 @@ JSON, stderr stays empty on exit `0` and `1`.
 one repository produce byte-identical output and a diff between two
 repositories is a diff about the repositories.
 
-## Using the legacy report envelope
+## Using the validation result envelope
 
 Count violations by kind across every validator:
 

@@ -99,21 +99,41 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "extension owner"
 
-  Scenario: A legacy configuration emits an RC-only reviewed migration plan
-    Given the repository declares a complete configuration
-    When I invoke the CLI with "repo-config|migrate"
-    Then the exit code is 0
-    And stdout contains "reviewed migration plan"
-    And stdout contains "deleted before stable"
+  Scenario: A predecessor configuration is rejected after stable retirement
+    Given the configuration file is this text:
+      """
+      # schema: rhino/repo-config/v1
+      """
+    When I invoke the CLI with "repo-config|validate"
+    Then the exit code is 2
+    And stderr contains "no longer accepts predecessor configuration"
 
-  Scenario: A grouped configuration does not require migration
+  Scenario: The RC-only migration command is unknown after stable retirement
+    Given the configuration file is this text:
+      """
+      # schema: rhino/repo-config/v1
+      """
+    When I invoke the CLI with "repo-config|migrate"
+    Then the exit code is 2
+    And stderr contains "unrecognized command"
+
+  Scenario Outline: A retired legacy command is unknown after stable retirement
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
       """
-    When I invoke the CLI with "repo-config|migrate"
+    When I invoke the CLI with "<command>"
     Then the exit code is 2
-    And stderr contains "does not require migration"
+    And stderr contains "unrecognized command"
+
+    Examples:
+      | command                          |
+      | governance|roots|validate         |
+      | governance|companions|validate    |
+      | governance|instructions|validate  |
+      | plan|validate                     |
+      | harness|parity|validate           |
+      | md|word-count|inspect             |
 
   Scenario: Lifecycle identities are listed declaratively
     Given the configuration file is this text:
@@ -524,10 +544,14 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 3
     And stderr contains "no index mutation boundary"
 
-  Scenario: Harness adapters have one canonical lifecycle
-    Given the repository declares a complete configuration
+  Scenario: Harness adapter validation refuses an undeclared grouped profile
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      """
     When I invoke the CLI with "harness|adapters|validate"
-    Then the exit code is 0
+    Then the exit code is 2
+    And stderr contains "no adapter profiles are declared"
 
   Scenario: Environment backup starts with an explicit destination plan
     Given the configuration file is this text:
@@ -653,13 +677,20 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|run|--surface|pull-request|--base|aaaaaaaa|--head|bbbbbbbb"
     Then the exit code is 0
 
-  Scenario: Canonical harness adapters generate as one transaction
-    Given the repository declares a complete configuration
+  Scenario: Harness adapter generation refuses an undeclared grouped profile
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      """
     When I invoke the CLI with "harness|adapters|generate"
-    Then the exit code is 0
+    Then the exit code is 2
+    And stderr contains "no adapter profiles are declared"
 
   Scenario: Grouped harness adapters refuse an inherited profile selector
-    Given the repository declares a complete configuration
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      """
     When I invoke the CLI with "harness|adapters|validate|--harness|alpha"
     Then the exit code is 2
     And stderr contains "--harness"
@@ -815,6 +846,56 @@ Feature: Rhino v0.4 contracts
     And the generated adapter at "adapters/alpha/skills/review/SKILL.md" contains "name: review"
     And the generated adapter at "CLAUDE.md" contains "@AGENTS.md"
     And the file "adapters/gamma/opencode.json" still contains "user-owned"
+
+  Scenario: A canonical denial removes native member projections
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: requires, denials: denies, constraints: constraints}
+        requirements:
+          capabilities: [repo-read, repo-write]
+          routes: [canonical-import]
+          identities: [reviewer]
+        profiles:
+          - id: alpha
+            supports: {capabilities: [repo-read, repo-write], routes: [canonical-import], identities: [reviewer]}
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name, description: description}
+              translations:
+                - {when: always, field: tools, members: [Read, Write, Edit]}
+                - {when: denies, capability: repo-write, field: tools, absent-members: [Write, Edit]}
+          - id: beta
+            supports: {capabilities: [repo-read, repo-write], routes: [canonical-import], identities: [reviewer]}
+            agent-adapter:
+              path: adapters/beta/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name, description: description}
+          - id: gamma
+            supports: {capabilities: [repo-read, repo-write], routes: [canonical-import], identities: [reviewer]}
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name, description: description}
+      """
+    And the repository contains:
+      | path                       | content                                                                                              |
+      | AGENTS.md                  | Canonical instruction                                                                                |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\nrequires:\n  - repo-read\ndenies:\n  - repo-write\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "tools: Read"
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" does not contain "Write"
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" does not contain "Edit"
 
   Scenario: An unrepresentable canonical requirement refuses before adapter generation
     Given the configuration file is this text:

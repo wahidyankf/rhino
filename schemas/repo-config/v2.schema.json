@@ -1504,6 +1504,12 @@
       "additionalProperties": false,
       "description": "One capability projection into the declared native adapter format.",
       "properties": {
+        "absent-members": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "capability": {
           "type": ["string", "null"]
         },

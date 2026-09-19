@@ -630,27 +630,10 @@ fn the_scheduled_workflow_runs_both_slow_adapters_unfiltered() {
 
 #[test]
 fn a_table_cell_may_contain_an_escaped_pipe() {
-    let corpus = Corpus::canonical();
-    let scenario = corpus
-        .find("cli-contract", "Help requests succeed")
-        .expect("the escaped-pipe scenario is in the corpus");
-
-    let invocations: Vec<String> = scenario
-        .expansions()
-        .iter()
-        .filter_map(|steps| steps.iter().find(|step| step.text.starts_with("I invoke")))
-        .map(|step| step.text.clone())
-        .collect();
-
-    assert!(
-        invocations
-            .iter()
-            .any(|text| text.contains("word-budget|validate|--help")),
-        "an escaped pipe was treated as a column separator; invocations were {invocations:?}"
-    );
-    assert!(
-        !invocations.iter().any(|text| text.contains('\\')),
-        "a cell kept its backslash instead of being unescaped: {invocations:?}"
+    assert_eq!(
+        gherkin::split_row("| gate\\|run\\|--surface\\|pre-commit |"),
+        vec!["gate|run|--surface|pre-commit"],
+        "an escaped pipe must remain literal data inside its table cell"
     );
 }
 
@@ -697,73 +680,26 @@ fn no_expanded_step_carries_an_unresolved_escape() {
 
 #[test]
 fn a_background_reaches_every_scenario_in_its_feature() {
-    // Each of these features declares its policy in a `Background:`. Every
-    // scenario in that feature must carry the declaration, or it asserts
-    // against a value nothing established.
-    const DECLARED: [(&str, &str); 5] = [
-        ("directory-map", "the repository declares the mapped tree"),
-        (
-            "internal-link",
-            "the repository declares a complete configuration",
-        ),
-        (
-            "harness-parity",
-            "the repository declares a harness roster of",
-        ),
-        (
-            "mermaid-cli",
-            "the repository declares the accessible palette",
-        ),
-        (
-            "mermaid-legibility",
-            "the repository declares the accessible palette",
-        ),
-    ];
-
-    let corpus = Corpus::canonical();
-    let mut missing: Vec<String> = Vec::new();
-
-    for (feature, declaration) in DECLARED {
-        let scenarios: Vec<_> = corpus
-            .scenarios
-            .iter()
-            .filter(|scenario| scenario.feature == feature)
-            .collect();
-        assert!(
-            !scenarios.is_empty(),
-            "{feature} has no scenarios; the check would pass vacuously"
-        );
-
-        for scenario in scenarios {
-            let declared = scenario
-                .steps
-                .iter()
-                .any(|step| step.text.starts_with(declaration));
-            if !declared {
-                missing.push(format!("{feature}: {}", scenario.name));
-            }
-        }
-    }
-
+    let scenarios = gherkin::parse(
+        "parser-regression",
+        "Feature: Background propagation\n\n  Background:\n    Given shared grouped setup\n\n  Scenario: First\n    When first action\n\n  Scenario: Second\n    Then second outcome\n",
+    );
     assert!(
-        missing.is_empty(),
-        "scenarios missing their feature's Background declaration:\n{}",
-        missing.join("\n")
+        scenarios.iter().all(|scenario| scenario
+            .steps
+            .first()
+            .is_some_and(|step| step.text == "shared grouped setup")),
+        "every scenario must retain the Background setup"
     );
 }
 
 #[test]
 fn a_docstring_reaches_the_step_it_belongs_to() {
-    // Docstrings were dropped entirely at first, and silently: `#` opened a
-    // Gherkin comment even inside a `"""` block, so a fixture whose first line
-    // is a Markdown heading vanished along with the rest of the file it
-    // described. The scenarios then inspected an empty tree.
+    // Docstrings must preserve configuration text exactly, including a leading
+    // comment used by an editor modeline.
     let corpus = Corpus::canonical();
     let scenario = corpus
-        .find(
-            "internal-link",
-            "Existing local links and non-local links pass",
-        )
+        .find("v0-4-contract", "A grouped v0.4 configuration is accepted")
         .expect("the docstring scenario is in the corpus");
 
     let bodies: Vec<&String> = scenario
@@ -774,19 +710,13 @@ fn a_docstring_reaches_the_step_it_belongs_to() {
 
     assert_eq!(
         bodies.len(),
-        4,
-        "expected four fixture files to carry content, got {}",
+        1,
+        "expected the grouped configuration fixture, got {}",
         bodies.len()
     );
     assert!(
-        bodies.iter().any(|body| body.starts_with("# Root")),
-        "a Markdown heading inside a docstring was eaten as a Gherkin comment"
-    );
-    assert!(
-        bodies
-            .iter()
-            .any(|body| body.contains("[Reference target][target-ref]")),
-        "docstring content is missing the link the scenario inspects"
+        bodies[0].starts_with("# yaml-language-server:"),
+        "the docstring modeline was lost or treated as a Gherkin comment"
     );
 }
 

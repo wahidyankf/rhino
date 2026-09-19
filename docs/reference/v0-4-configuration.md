@@ -63,11 +63,11 @@ release, so an empty group is not a request to run a legacy plan validator.
 
 `harness` declares the portable requirements and exactly three opaque profiles.
 Each profile explicitly lists the capabilities, grants, denials, constraints,
-routes, and identities it can represent. The canonical field vocabulary and
-each native adapter representation are also declared, so Rhino does not assume
-a harness's path, format, front-matter keys, or route syntax. Canonical source
-remains `AGENTS.md`, `.agents/agents/*.md`, and
-`.agents/skills/*/SKILL.md`.
+routes, and identities its documented native adapter can represent. The
+canonical field vocabulary and each native adapter representation are also
+declared, so Rhino does not assume a harness's path, format, front-matter keys,
+or route syntax. Canonical source remains `AGENTS.md`,
+`.agents/agents/*.md`, and `.agents/skills/*/SKILL.md`.
 
 An agent or skill adapter has one `{name}` output placeholder, a native
 `front-matter` or `toml` format, an identity mapping, optional fixed fields,
@@ -286,14 +286,11 @@ cargo xtask schema --check
 rhino repo-config validate
 ```
 
-## RC Migration
+## Stable predecessor handling
 
-During the release candidate only, a legacy configuration may be read by
-`rhino repo-config migrate`. The command prints a reviewed plan: write grouped
-v2 with the immutable modeline, compare effective policy, and validate local
-bytes offline. It does not rewrite configuration. A grouped v2 document is
-refused because it needs no migration. The RC-only legacy reader is deleted
-before stable.
+Stable accepts only grouped v2 configuration. It rejects predecessor schemas
+and does not provide `rhino repo-config migrate`; create the grouped document,
+pin its immutable modeline, and validate local bytes offline.
 
 Follow [How to migrate from v0.3 to v0.4](../how-to/migrate-to-v0-4.md) for
 the owner-by-owner transition and no-alias boundary.

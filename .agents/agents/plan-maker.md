@@ -17,7 +17,6 @@ requires:
   - shell
 denies:
   - nested-agent
-constraints: []
 ---
 
 # Plan Maker

@@ -209,7 +209,6 @@ pub struct Scope {
     /// Paths given with `--file`. `-` stands for standard input.
     pub files: Vec<String>,
     pub directory: Option<String>,
-    pub harness: Option<String>,
     /// What `--file -` should read, when a caller supplied it.
     pub stdin: Option<String>,
 }
@@ -238,5 +237,53 @@ impl Scope {
                 }
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::MemoryTree;
+
+    #[test]
+    fn corpus_scope_and_directory_walks_distinguish_read_state_and_declared_exclusions() {
+        let mut tree = MemoryTree::default();
+        tree.write("docs/README.MD", "# docs");
+        tree.write("docs/nested/guide.md", "# guide");
+        tree.write("generated/ignored.md", "# ignored");
+        tree.write("docs/gone.md", "# gone");
+        tree.mark_vanished("docs/gone.md");
+        let config = Config {
+            scan: Some(crate::config::Scan {
+                exclude_directories: vec!["generated".to_string()],
+            }),
+            ..Config::default()
+        };
+        assert!(Corpus::read(&tree, &config).is_ok());
+        assert!(directories(&tree, &config, "docs").contains(&"docs/nested".to_string()));
+        assert!(is_markdown("docs/README.MD"));
+        assert!(!is_markdown("docs/readme"));
+        assert!(is_excluded("generated/ignored.md", config.excluded()));
+        assert_eq!(
+            Surfaces::compile("test", ["docs/*.md"])
+                .unwrap()
+                .governing("docs/a.md"),
+            Some(0)
+        );
+
+        let scope = Scope {
+            files: vec![STDIN.to_string(), "missing.md".to_string()],
+            directory: None,
+            stdin: Some("standard input".to_string()),
+        };
+        assert_eq!(
+            scope.documents(&tree),
+            vec![
+                (STDIN.to_string(), Some("standard input".to_string())),
+                ("missing.md".to_string(), None)
+            ]
+        );
+        tree.mark_binary("docs/nested/guide.md");
+        assert!(Corpus::read(&tree, &config).is_err());
     }
 }

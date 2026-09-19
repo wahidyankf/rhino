@@ -257,3 +257,90 @@ fn days_in(year: u32, month: u32) -> u32 {
         _ => 28,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::runtime::MemoryTree;
+    use std::collections::BTreeMap;
+
+    fn rules(glob: &str) -> Frontmatter {
+        Frontmatter {
+            surfaces: vec![FrontmatterSurface {
+                glob: glob.to_string(),
+                require: vec!["title".to_string(), "status".to_string()],
+                values: BTreeMap::from([(
+                    "status".to_string(),
+                    vec!["draft".to_string(), "published".to_string()],
+                )]),
+                iso_date: vec!["date".to_string()],
+                forbid: vec!["legacy".to_string()],
+            }],
+        }
+    }
+
+    #[test]
+    fn reader_uses_only_leading_top_level_declarations_and_real_dates() {
+        let Head::Entries(entries) =
+            head("---\ntitle: \"A title\"\n  nested: ignored\n# comment\nstatus: draft\n---\n")
+        else {
+            panic!("expected entries");
+        };
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].value, "A title");
+        assert!(matches!(head("---\ntitle: x"), Head::Unterminated));
+        assert!(
+            matches!(head("prose\n---\ntitle: x\n---"), Head::Entries(entries) if entries.is_empty())
+        );
+        assert_eq!(unquoted("'value'"), "value");
+        assert_eq!(unquoted("plain"), "plain");
+        for date in ["2024-02-29", "2000-02-29", "2026-12-31"] {
+            assert!(is_iso_date(date), "{date}");
+        }
+        for date in [
+            "2023-02-29",
+            "1900-02-29",
+            "2026-02-30",
+            "2026-2-01",
+            "+026-02-01",
+        ] {
+            assert!(!is_iso_date(date), "{date}");
+        }
+        assert_eq!(days_in(2026, 4), 30);
+        assert_eq!(number("2026"), 2026);
+    }
+
+    #[test]
+    fn validator_reports_missing_forbidden_closed_set_and_calendar_failures() {
+        let tree = MemoryTree::default();
+        tree.write(
+            "notes/a.md",
+            "---\ntitle: Entry\nstatus: wrong\ndate: 2026-02-30\nlegacy: yes\n---\n",
+        );
+        tree.write("notes/b.md", "---\n---\n");
+        tree.write("notes/broken.md", "---\ntitle: broken");
+        tree.write("outside/a.md", "---\n---\n");
+        let result = validate(&tree, &Config::default(), &rules("notes/*.md")).render(Format::Text);
+        assert_eq!(result.exit_code, 1);
+        for expected in [
+            "front matter declares no `status`",
+            "`legacy` is a key this surface forbids",
+            "holds a value outside its declared set",
+            "does not hold an ISO calendar date",
+            "front matter opens and never closes",
+        ] {
+            assert!(
+                result.stderr.contains(expected),
+                "{expected}: {}",
+                result.stderr
+            );
+        }
+        assert_eq!(
+            validate(&tree, &Config::default(), &rules("["))
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+    }
+}

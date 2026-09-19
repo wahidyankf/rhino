@@ -108,3 +108,55 @@ fn headings(text: &str) -> Vec<(usize, usize)> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::config::Globbed;
+    use crate::runtime::MemoryTree;
+
+    fn rules(glob: &str, single_h1: bool, jump: usize) -> HeadingHierarchy {
+        HeadingHierarchy {
+            surfaces: vec![Globbed {
+                glob: glob.to_string(),
+            }],
+            single_h1,
+            max_level_jump: jump,
+        }
+    }
+
+    #[test]
+    fn heading_reader_ignores_examples_and_only_recognizes_valid_atx_levels() {
+        assert_eq!(
+            headings("# top\n#no-space\n####### too deep\n```sh\n# fenced\n```\n  ## second\n"),
+            vec![(1, 1), (7, 2)]
+        );
+    }
+
+    #[test]
+    fn validator_reports_each_extra_h1_and_only_excessive_downward_jumps() {
+        let tree = MemoryTree::default();
+        tree.write(
+            "docs/a.md",
+            "## starts deep\n# first\n# second\n#### skip\n## back up\n",
+        );
+        tree.write("outside/a.md", "### ignored\n");
+        let strict =
+            validate(&tree, &Config::default(), &rules("docs/*.md", true, 1)).render(Format::Text);
+        assert_eq!(strict.exit_code, 1);
+        assert!(strict.stderr.contains("declares a second level-1 heading"));
+        assert!(strict.stderr.contains("drops from level 1 to level 4"));
+
+        let missing = validate(&tree, &Config::default(), &rules("outside/*.md", true, 2))
+            .render(Format::Text);
+        assert_eq!(missing.exit_code, 1);
+        assert!(missing.stderr.contains("declares no level-1 heading"));
+        assert_eq!(
+            validate(&tree, &Config::default(), &rules("[", false, 1))
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+    }
+}

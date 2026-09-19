@@ -1,6 +1,6 @@
 # Coding-Harness Contract
 
-Claude Code, Codex, and OpenCode must reach the same repository-owned rules and the same skill procedures. Claude Code and OpenCode also reach the same custom-agent intent and safety boundaries; Codex receives no agent adapter, for the reason under [Codex](#codex). Vendor system prompts, built-in tools, models, credentials, local memory, plugins, and approval interfaces are outside the claim.
+Claude Code, Codex, and OpenCode must reach the same repository-owned rules, skill procedures, and custom-agent prompts. Each generated adapter routes to the canonical source. Where a vendor documents a native control for a canonical capability or denial, the adapter uses that strongest control; vendor system prompts, built-in tools, models, credentials, local memory, plugins, and approval interfaces remain outside this contract.
 
 Matching file names, paths, or counts is not parity. Parity means each harness reaches the same effective canonical content, and that every adapter routes to it without adding instructions or weakening a restriction.
 
@@ -10,9 +10,9 @@ Matching file names, paths, or counts is not parity. Parity means each harness r
 | ------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Rules   | Every harness reaches the normalized root `AGENTS.md` body and no other always-on instruction. | Exact `CLAUDE.md` import, a canonical-content digest, and refusal of every competing source.      |
 | Skills  | Every canonical skill, with its complete supporting bundle, is reachable in every harness.     | Adapter coverage where the harness has a native surface, exact route, and a digest of the bundle. |
-| Agents  | Every canonical agent is reachable in every harness with the same prompt intent and boundary.  | One native adapter each, exact route, prompt digest, and equivalent grants, denials, and limits.  |
+| Agents  | Every canonical agent is reachable in every harness with the same prompt intent and boundary.  | One native adapter each, exact route, prompt digest, and every documented native control.         |
 
-An adapter fails parity when it is missing, stale, extra, malformed, routes to the wrong source, copies or extends canonical instructions, changes effective content, or weakens a denial. Adding, renaming, changing, or removing a canonical skill or agent therefore changes every affected adapter in the same commit.
+An adapter fails parity when it is missing, stale, extra, malformed, routes to the wrong source, copies or extends canonical instructions, changes effective content, or weakens a denial that its documented native format can express. Adding, renaming, changing, or removing a canonical skill or agent therefore changes every affected adapter in the same commit.
 
 ## Canonical Sources
 
@@ -36,7 +36,9 @@ A competing always-on instruction written into a vendor's own settings file is t
 
 ## Codex
 
-Codex reads `AGENTS.md` and `.agents/skills/` natively, so rules and skills reach it without an adapter. It receives no agent adapter: its per-agent configuration has no control that enforces the nested-agent denial every canonical agent declares, and an adapter that drops a denial fails parity by definition. The agents row above therefore holds for the harnesses `repo-config.yml` declares, and Codex returns to it only once it can express that denial.
+Codex reads `AGENTS.md` and `.agents/skills/` natively. Its project subagents are standalone TOML files under `.codex/agents/`, with `name`, `description`, and `developer_instructions`; the generated TOML adapter carries those fields and routes its instruction field to the complete canonical agent.
+
+That documented adapter schema has no agent-scoped native permission or denial field. Codex therefore receives the full canonical boundary through `developer_instructions`, but this repository makes no claim that Codex itself hard-enforces a capability denial. Such a denial is not listed as a native Codex profile requirement. Claude and OpenCode continue to project every denial their documented formats express.
 
 ## Enforcement
 

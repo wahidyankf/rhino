@@ -290,7 +290,10 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
     let mut translation_fields = BTreeMap::new();
     for translation in &adapter.translations {
         if translation.field.trim().is_empty()
-            || (translation.members.is_empty() == translation.entries.is_empty())
+            || (usize::from(!translation.members.is_empty())
+                + usize::from(!translation.absent_members.is_empty())
+                + usize::from(!translation.entries.is_empty())
+                != 1)
             || matches!(translation.when, When::Always) != translation.capability.is_none()
             || direct_fields.contains(translation.field.as_str())
         {
@@ -298,7 +301,7 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
                 "profile `{profile}` has an invalid capability translation"
             ));
         }
-        let is_members = !translation.members.is_empty();
+        let is_members = !translation.members.is_empty() || !translation.absent_members.is_empty();
         if translation_fields
             .insert(translation.field.as_str(), is_members)
             .is_some_and(|previous| previous != is_members)
@@ -571,6 +574,7 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
         add_scalar(&mut fields, &tier_fields.model, mapping.model.clone())?;
         add_scalar(&mut fields, &tier_fields.effort, mapping.effort.clone())?;
     }
+    let mut absent_members = BTreeMap::<String, BTreeSet<String>>::new();
     for translation in &adapter.translations {
         let applies = match translation.when {
             When::Always => true,
@@ -588,8 +592,23 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
                 .is_some_and(|capability| metadata.constraints.contains(capability)),
         };
         if applies {
-            add_translation(&mut fields, translation)?;
+            if translation.absent_members.is_empty() {
+                add_translation(&mut fields, translation)?;
+            } else {
+                absent_members
+                    .entry(translation.field.clone())
+                    .or_default()
+                    .extend(translation.absent_members.iter().cloned());
+            }
         }
+    }
+    for (field, members_to_remove) in absent_members {
+        let Some(RenderField::Members(members)) = fields.get_mut(&field) else {
+            return Err(format!(
+                "adapter output cannot remove members from undeclared field `{field}`"
+            ));
+        };
+        members.retain(|member| !members_to_remove.contains(member));
     }
     if adapter
         .absent
@@ -864,6 +883,12 @@ fn add_translation(
     fields: &mut BTreeMap<String, RenderField>,
     translation: &Translation,
 ) -> Result<(), String> {
+    if !translation.absent_members.is_empty() {
+        return Err(format!(
+            "adapter output cannot add absent members at `{}`",
+            translation.field
+        ));
+    }
     if !translation.members.is_empty() {
         match fields.entry(translation.field.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
@@ -1173,6 +1198,7 @@ mod typed_tests {
                 capability: None,
                 field: "tools".to_string(),
                 members: vec!["Read".to_string()],
+                absent_members: Vec::new(),
                 entries: BTreeMap::new(),
             },
             Translation {
@@ -1180,6 +1206,7 @@ mod typed_tests {
                 capability: Some("read".to_string()),
                 field: "permission".to_string(),
                 members: Vec::new(),
+                absent_members: Vec::new(),
                 entries: BTreeMap::from([("read".to_string(), "allow".to_string())]),
             },
             Translation {
@@ -1187,6 +1214,7 @@ mod typed_tests {
                 capability: Some("network".to_string()),
                 field: "permission".to_string(),
                 members: Vec::new(),
+                absent_members: Vec::new(),
                 entries: BTreeMap::from([("network".to_string(), "deny".to_string())]),
             },
             Translation {
@@ -1194,6 +1222,7 @@ mod typed_tests {
                 capability: Some("offline".to_string()),
                 field: "permission".to_string(),
                 members: Vec::new(),
+                absent_members: Vec::new(),
                 entries: BTreeMap::from([("offline".to_string(), "required".to_string())]),
             },
         ];
@@ -1488,6 +1517,7 @@ mod typed_tests {
                 capability: Some("read".to_string()),
                 field: "tools".to_string(),
                 members: vec!["Read".to_string()],
+                absent_members: Vec::new(),
                 entries: BTreeMap::new(),
             },
             Translation {
@@ -1495,6 +1525,7 @@ mod typed_tests {
                 capability: None,
                 field: "tools".to_string(),
                 members: vec!["Read".to_string()],
+                absent_members: Vec::new(),
                 entries: BTreeMap::new(),
             },
             Translation {
@@ -1502,6 +1533,7 @@ mod typed_tests {
                 capability: None,
                 field: "".to_string(),
                 members: vec!["Read".to_string()],
+                absent_members: Vec::new(),
                 entries: BTreeMap::new(),
             },
             Translation {
@@ -1509,6 +1541,7 @@ mod typed_tests {
                 capability: None,
                 field: "tools".to_string(),
                 members: Vec::new(),
+                absent_members: Vec::new(),
                 entries: BTreeMap::new(),
             },
         ] {
@@ -1523,6 +1556,7 @@ mod typed_tests {
                 capability: None,
                 field: "tools".to_string(),
                 members: vec!["Read".to_string()],
+                absent_members: Vec::new(),
                 entries: BTreeMap::new(),
             },
             Translation {
@@ -1530,6 +1564,7 @@ mod typed_tests {
                 capability: None,
                 field: "tools".to_string(),
                 members: Vec::new(),
+                absent_members: Vec::new(),
                 entries: BTreeMap::from([("read".to_string(), "allow".to_string())]),
             },
         ];
@@ -1591,6 +1626,7 @@ mod typed_tests {
             capability: None,
             field: "tools".to_string(),
             members: vec!["Read".to_string()],
+            absent_members: Vec::new(),
             entries: BTreeMap::new(),
         };
         add_translation(&mut fields, &members).unwrap();
@@ -1607,6 +1643,7 @@ mod typed_tests {
             capability: None,
             field: "permissions".to_string(),
             members: Vec::new(),
+            absent_members: Vec::new(),
             entries: BTreeMap::from([("network".to_string(), "deny".to_string())]),
         };
         add_translation(&mut fields, &entries).unwrap();
@@ -1619,6 +1656,63 @@ mod typed_tests {
         assert_eq!(yaml_scalar("needs: quotes"), "\"needs: quotes\"");
         assert!(toml_scalar("needs quotes").contains("needs quotes"));
         assert!(route("missing", "AGENTS.md").is_err());
+
+        let source = Source {
+            id: "agent/reviewer".to_string(),
+            path: ".agents/agents/reviewer.md".to_string(),
+            digest: digest("reviewer"),
+            kind: SourceKind::Agent,
+            metadata: Some(Metadata {
+                name: "reviewer".to_string(),
+                description: "Review changes".to_string(),
+                tier: None,
+                grants: BTreeSet::new(),
+                denials: BTreeSet::from(["repo-write".to_string()]),
+                constraints: BTreeSet::new(),
+            }),
+        };
+        let mut denial_adapter = adapter(
+            "adapters/test/agents/{name}.md",
+            AdapterFormat::FrontMatter,
+            "body",
+        );
+        denial_adapter.translations = vec![
+            Translation {
+                when: When::Always,
+                capability: None,
+                field: "tools".to_string(),
+                members: vec!["Read".to_string(), "Write".to_string(), "Edit".to_string()],
+                absent_members: Vec::new(),
+                entries: BTreeMap::new(),
+            },
+            Translation {
+                when: When::Denies,
+                capability: Some("repo-write".to_string()),
+                field: "tools".to_string(),
+                members: Vec::new(),
+                absent_members: vec!["Write".to_string(), "Edit".to_string()],
+                entries: BTreeMap::new(),
+            },
+        ];
+        let rendered = render_adapter(&profile("test", "read"), &denial_adapter, &source).unwrap();
+        assert!(rendered.contains("tools: Read"));
+        assert!(!rendered.contains("Write"));
+        assert!(!rendered.contains("Edit"));
+
+        let mut missing_member_field = denial_adapter.clone();
+        missing_member_field.translations = vec![Translation {
+            when: When::Denies,
+            capability: Some("repo-write".to_string()),
+            field: "tools".to_string(),
+            members: Vec::new(),
+            absent_members: vec!["Write".to_string()],
+            entries: BTreeMap::new(),
+        }];
+        assert!(
+            render_adapter(&profile("test", "read"), &missing_member_field, &source)
+                .unwrap_err()
+                .contains("cannot remove members from undeclared field")
+        );
 
         let mut tree = canonical_tree();
         let harness = complete_harness("read");
@@ -1780,6 +1874,7 @@ mod typed_tests {
             capability: None,
             field: "name".to_string(),
             members: vec!["Read".to_string()],
+            absent_members: Vec::new(),
             entries: BTreeMap::new(),
         }];
         assert!(render_adapter(&profile("test", "read"), &translation_conflict, &source).is_err());
@@ -1830,6 +1925,7 @@ mod typed_tests {
             capability: None,
             field: "tools".to_string(),
             members: vec!["Read".to_string()],
+            absent_members: Vec::new(),
             entries: BTreeMap::new(),
         };
         assert!(add_translation(&mut conflicts, &members).is_err());
@@ -1842,6 +1938,7 @@ mod typed_tests {
             capability: None,
             field: "permissions".to_string(),
             members: Vec::new(),
+            absent_members: Vec::new(),
             entries: BTreeMap::from([("network".to_string(), "deny".to_string())]),
         };
         assert!(add_translation(&mut conflicts, &entries).is_err());

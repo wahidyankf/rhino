@@ -48,7 +48,14 @@ pub fn run_bound_scenarios<D: Driver + Default>(layer: &str, bindings: &[Binding
             panic!("{layer}: bound scenario is not in the corpus: {feature} :: {name}")
         });
 
-        for expansion in scenario.expansions() {
+        let expansions = scenario.expansions();
+        assert!(
+            !expansions.is_empty(),
+            "{layer}: {} :: {} has no executable scenario expansion",
+            scenario.feature,
+            scenario.name
+        );
+        for expansion in expansions {
             match run_expansion::<D>(scenario, &expansion) {
                 Ok(()) => passed += 1,
                 Err(reason) => failures.push(reason),

@@ -744,3 +744,210 @@ fn unquote(value: &str) -> &str {
         })
         .unwrap_or(value)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::runtime::MemoryTree;
+
+    fn kinds(findings: &[Finding]) -> Vec<&'static str> {
+        findings.iter().map(|finding| finding.kind).collect()
+    }
+
+    #[test]
+    fn agent_metadata_reports_each_structural_and_value_fault_without_a_decoder() {
+        let findings = inspect(
+            "agents/wrong-name.md",
+            "---\nwhen_to_use: plain routing text. It has too many sentences. One. Two. Three.\ndescription: |\n  short\ndescription: duplicate description that deliberately has sufficient length\nname: Wrong_Name\ntier: imaginary\ncapabilities:\n  - shell\n  - repository-read\n  - unknown\n  - unknown\nskills: []\nconstraints: scalar\nunknown: null\norphaned value\n---\n",
+            MetadataSchema::Agent,
+        );
+        let kinds = kinds(&findings);
+        for expected in [
+            "metadata-frontmatter-malformed",
+            "metadata-duplicate-key",
+            "metadata-unknown-key",
+            "metadata-key-order",
+            "metadata-description-form",
+            "metadata-description-length",
+            "metadata-folded-scalar-required",
+            "metadata-when-to-use-sentences",
+            "metadata-name-format",
+            "metadata-tier-unknown",
+            "metadata-array-order",
+            "metadata-capability-unknown",
+            "metadata-array-duplicate",
+            "metadata-array-empty",
+            "metadata-array-required",
+            "metadata-null-value",
+        ] {
+            assert!(kinds.contains(&expected), "missing {expected}: {kinds:?}");
+        }
+    }
+
+    #[test]
+    fn every_schema_identity_and_missing_or_unterminated_block_is_explicit() {
+        let absent = inspect("docs/governance.md", "# prose", MetadataSchema::Governance);
+        assert_eq!(
+            kinds(&absent),
+            vec![
+                "metadata-required-key-missing",
+                "metadata-required-key-missing"
+            ]
+        );
+        assert_eq!(
+            kinds(&inspect("docs/a.md", "---\nname: a", MetadataSchema::Agent)),
+            vec!["metadata-frontmatter-unterminated"]
+        );
+
+        let valid_skill = inspect(
+            "skills/example-skill/SKILL.md",
+            "---\nname: example-skill\ndescription: A complete portable skill description that is long enough.\nwhen_to_use: >\n  Use this skill when its declared behaviour is needed.\ncompatibility: supported\n---\n",
+            MetadataSchema::Skill,
+        );
+        assert!(valid_skill.is_empty(), "{valid_skill:?}");
+
+        let workflow = inspect(
+            "workflows/release/README.md",
+            "---\nname: another-name\ndescription: A complete portable workflow description that is long enough.\nwhen_to_use: >\n  Use this workflow when the declared delivery action is needed.\n---\n",
+            MetadataSchema::Workflow,
+        );
+        assert!(kinds(&workflow).contains(&"metadata-name-path-mismatch"));
+    }
+
+    #[test]
+    fn handwritten_frontmatter_reader_preserves_forms_lists_and_malformed_lines() {
+        let Head::Entries(entries, malformed) = read(
+            "\n---\nplain: 'value'\nfolded: >\n  many\n  words\nliteral: |\n  exact\nitems:\n  - one\n  - \"two\"\nempty:\nnullish: ~\nnot a declaration\n---\n",
+        ) else {
+            panic!("expected entries");
+        };
+        assert_eq!(malformed, vec![14]);
+        assert_eq!(entries.len(), 6);
+        assert!(matches!(
+            &entries[0].value,
+            Value::Scalar {
+                form: Form::Plain,
+                ..
+            }
+        ));
+        assert!(matches!(
+            &entries[1].value,
+            Value::Scalar {
+                form: Form::Folded,
+                ..
+            }
+        ));
+        assert!(matches!(
+            &entries[2].value,
+            Value::Scalar {
+                form: Form::Literal,
+                ..
+            }
+        ));
+        assert!(matches!(&entries[3].value, Value::List(_)));
+        assert!(matches!(&entries[4].value, Value::Empty));
+        assert!(matches!(&entries[5].value, Value::Null));
+        assert!(matches!(block_form(">-"), Some(Form::Folded)));
+        assert!(matches!(block_form("|+"), Some(Form::Literal)));
+        assert!(block_form("value").is_none());
+        assert_eq!(unquote("\"value\""), "value");
+        assert_eq!(unquote("'value'"), "value");
+        assert_eq!(normalize(" a\n  b "), "a b");
+        assert_eq!(sentences("one. two! three?"), 3);
+        assert_eq!(
+            identity("skills/name/SKILL.md", MetadataSchema::Skill),
+            Some("name".to_string())
+        );
+        assert_eq!(
+            identity("flows/release/README.md", MetadataSchema::Workflow),
+            Some("release".to_string())
+        );
+        assert!(is_portable_name("alpha-2"));
+        assert!(!is_portable_name("Alpha_2"));
+    }
+
+    #[test]
+    fn metadata_value_reader_covers_empty_list_scalar_and_routing_distinction_cases() {
+        let findings = inspect(
+            "agents/example.md",
+            "---\nunknown: value\ndescription: []\nwhen_to_use: >\n  same routing description that is deliberately long enough to validate.\nname: example\ntier: execution\ncapabilities:\n  - repository-read\nskills:\n  - one\n  - one\nconstraints: \"\"\n---\n",
+            MetadataSchema::Agent,
+        );
+        let finding_kinds = kinds(&findings);
+        assert!(finding_kinds.contains(&"metadata-unknown-key"));
+        assert!(finding_kinds.contains(&"metadata-scalar-required"));
+        assert!(finding_kinds.contains(&"metadata-array-duplicate"));
+        assert!(finding_kinds.contains(&"metadata-empty-value"));
+
+        let routing = inspect(
+            "agents/example.md",
+            "---\nname: example\ndescription: A portable description that is long enough to satisfy the declared shared bound.\nwhen_to_use: >\n  A portable description that is long enough to satisfy the declared shared bound.\ntier: execution\ncapabilities:\n  - repository-read\n---\n",
+            MetadataSchema::Agent,
+        );
+        assert!(kinds(&routing).contains(&"metadata-routing-not-distinct"));
+
+        assert!(matches!(
+            read("prose\n---\nname: example\n---"),
+            Head::Missing
+        ));
+        let Head::Entries(_, _) = read("---\n\nitems:\n  - one\n\nnext: value\n---") else {
+            panic!("expected entries");
+        };
+        let Head::Entries(entries, _) = read("---\nempty: \"\"\n---") else {
+            panic!("expected empty entry");
+        };
+        assert!(matches!(&entries[0].value, Value::Empty));
+    }
+
+    #[test]
+    fn validation_applies_declared_surfaces_and_refuses_unusable_scans() {
+        let mut tree = MemoryTree::default();
+        tree.write(
+            "agents/example.md",
+            "---\nname: example\ndescription: A complete portable agent description that is long enough.\nwhen_to_use: >\n  Use this agent when its declared task is the current task.\ntier: execution\ncapabilities:\n  - repository-read\n---\n",
+        );
+        tree.write("outside.md", "---\n---\n");
+        let config = Config::default();
+        let metadata = Metadata {
+            surfaces: vec![MetadataSurface {
+                glob: "agents/*.md".to_string(),
+                schema: MetadataSchema::Agent,
+            }],
+        };
+        assert_eq!(
+            validate(&tree, &config, &metadata)
+                .render(Format::Text)
+                .exit_code,
+            0
+        );
+
+        tree.write("agents/broken.md", "---\n---\n");
+        assert_eq!(
+            validate(&tree, &config, &metadata)
+                .render(Format::Text)
+                .exit_code,
+            1
+        );
+        tree.mark_binary("agents/broken.md");
+        assert_eq!(
+            validate(&tree, &config, &metadata)
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+
+        let malformed = Metadata {
+            surfaces: vec![MetadataSurface {
+                glob: "[".to_string(),
+                schema: MetadataSchema::Agent,
+            }],
+        };
+        assert_eq!(
+            validate(&tree, &config, &malformed)
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+    }
+}

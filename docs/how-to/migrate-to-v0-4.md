@@ -1,24 +1,14 @@
 # How to migrate from v0.3 to v0.4
 
-Use this guide while the v0.4 release candidate is available. The migration is
-deliberate: grouped v2 does not alias predecessor keys or commands, and stable
-removes the RC-only legacy reader.
+Use this guide to convert a predecessor configuration before using stable v0.4.
+Stable accepts only grouped v2; it does not alias predecessor keys or commands,
+read predecessor configuration, or provide a migration command.
 
 ## 1. Record the legacy configuration
 
 Keep the existing `repo-config.yml` and record the exact Rhino tag and checksum
-that currently validate it. Do not overwrite the legacy file in place before
-you have reviewed the new policy ownership.
-
-Run the RC migration leaf against the legacy repository:
-
-```console
-$ rhino repo-config migrate
-[repo-config-migration] reviewed migration plan for `…`
-```
-
-The command prints a plan only. It writes no configuration and a grouped v2
-document is refused because it already needs no migration.
+that last validated it. Do not overwrite the legacy file in place before you
+have reviewed the new policy ownership.
 
 ## 2. Create a grouped document
 
@@ -50,9 +40,9 @@ editor modeline. Rhino validates local bytes and never fetches that URL.
 | Environment examples, detectors, staged paths                                     | `environment`              | Name paths and keys, never values; review a plan before `--apply`.                                                       |
 | Tool discovery and installation                                                   | `toolchains`               | Declare no-shell probes and platform provision vectors; provision only with `--apply`.                                   |
 
-The older structure validators, `md word-count inspect`, and legacy
-harness-parity leaves have no grouped-v2 alias. Keep them only as RC legacy
-input while you decide their local owner or remove their obsolete policy.
+The retired structure validators, `md word-count inspect`, and legacy
+harness-parity leaves have no grouped-v2 alias. Retire their obsolete local
+policy during conversion; stable does not register those commands.
 
 ## 4. Validate before adoption
 
@@ -75,13 +65,13 @@ For one semantic gate that checks Conventional Commit messages, retain one
 `base..head` range for the replay. Do not create a second PR-only command or
 pass a mutable hook-file path to pull-request CI.
 
-## 5. Finish before stable
+## 5. Finish with stable
 
 Commit the grouped configuration, its immutable version/checksum pin, and
 native validation evidence together. Remove predecessor configuration from the
 active path before adopting stable. Do not retain a fallback command, a wrapper
 that translates old flags, or a conditional schema reader: stable deliberately
-removes that compatibility code.
+has no compatibility path.
 
 ## Related
 

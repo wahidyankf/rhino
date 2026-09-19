@@ -87,10 +87,10 @@ instruction-adapter files.
 
 ## v0.3 to v0.4 migration
 
-The v0.4 release candidate reads predecessor schemas only to support a reviewed
-migration. It does not alias old keys or forward removed commands. Run
-`rhino repo-config migrate`, create an explicit grouped configuration, validate
-it locally, and finish the migration before stable removes the RC-only reader.
+Stable v0.4 accepts only the grouped schema. It rejects predecessor schemas and
+does not provide aliases, compatibility wrappers, or a migration command.
+Create an explicit grouped configuration and validate it locally before using
+the stable binary.
 
 [How to migrate from v0.3 to v0.4](./docs/how-to/migrate-to-v0-4.md) gives the
 owner-by-owner mapping and verification sequence.
@@ -111,10 +111,9 @@ the executable Gherkin corpus disagree, the corpus wins.
 
 ## Project status
 
-RHINO is a pre-1.0 product. The planned v0.4 release is breaking by design: a
-qualified release candidate is for explicit migration, and stable removes the
-legacy reader rather than carrying an unbounded compatibility layer. Published
-tags and assets are immutable.
+RHINO is a pre-1.0 product. The planned v0.4 release is breaking by design:
+stable accepts the grouped contract only, rather than carrying an unbounded
+compatibility layer. Published tags and assets are immutable.
 
 Contributor rules for maintainers and automated agents start at
 [AGENTS.md](./AGENTS.md). External contributions are currently closed while the

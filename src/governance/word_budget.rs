@@ -102,3 +102,104 @@ pub fn inspect(tree: &dyn Tree, budget: &WordBudget, scope: &Scope) -> Report {
     report.measure("wordCount", total);
     report
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::config::Surface;
+    use crate::runtime::MemoryTree;
+
+    fn budget(rule: WordRule, glob: &str, fail: usize) -> WordBudget {
+        WordBudget {
+            count: rule,
+            surfaces: vec![Surface {
+                glob: glob.to_string(),
+                fail,
+                warn: None,
+                target: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn word_rules_handle_joiners_unicode_and_whitespace_differently() {
+        assert_eq!(
+            count("can't-stop déjà_vu 123", WordRule::LettersAndDigits),
+            3
+        );
+        assert_eq!(
+            count("can't-stop déjà_vu 123", WordRule::WhitespaceSeparated),
+            3
+        );
+        assert_eq!(count("one\n two\tthree", WordRule::WhitespaceSeparated), 3);
+        assert_eq!(count("one -- two", WordRule::LettersAndDigits), 2);
+    }
+
+    #[test]
+    fn declared_budget_last_surface_and_inspection_scope_are_explicit() {
+        let mut tree = MemoryTree::default();
+        tree.write("docs/a.md", "one two three");
+        tree.write("notes/a.md", "one two three four");
+        let declared = WordBudget {
+            count: WordRule::LettersAndDigits,
+            surfaces: vec![
+                Surface {
+                    glob: "**/*.md".to_string(),
+                    fail: 2,
+                    warn: None,
+                    target: None,
+                },
+                Surface {
+                    glob: "docs/*.md".to_string(),
+                    fail: 3,
+                    warn: None,
+                    target: None,
+                },
+            ],
+        };
+        let result = validate(&tree, &Config::default(), &declared).render(Format::Text);
+        assert_eq!(result.exit_code, 1);
+        assert!(result.stderr.contains("notes/a.md"));
+        assert!(!result.stderr.contains("docs/a.md"));
+
+        assert_eq!(
+            inspect(&tree, &declared, &Scope::default())
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+        let selection = Scope {
+            files: vec!["docs/a.md".to_string(), "notes/a.md".to_string()],
+            ..Scope::default()
+        };
+        let counted = inspect(&tree, &declared, &selection).render(Format::Json);
+        assert_eq!(counted.exit_code, 0);
+        assert!(counted.stdout.contains("\"wordCount\":7"));
+
+        tree.mark_unreadable("docs/a.md");
+        assert_eq!(
+            inspect(
+                &tree,
+                &declared,
+                &Scope {
+                    files: vec!["docs/a.md".to_string()],
+                    ..Scope::default()
+                },
+            )
+            .render(Format::Text)
+            .exit_code,
+            2
+        );
+        assert_eq!(
+            validate(
+                &tree,
+                &Config::default(),
+                &budget(WordRule::LettersAndDigits, "[", 1)
+            )
+            .render(Format::Text)
+            .exit_code,
+            2
+        );
+    }
+}

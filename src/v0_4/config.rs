@@ -12,12 +12,6 @@ use std::collections::BTreeMap;
 
 pub const SCHEMA: &str = "rhino/repo-config/v2";
 
-/// The last release boundary that may contain legacy reader code.
-///
-/// Existing reader modules remain only for this RC route. The stable delivery
-/// deletes them rather than widening grouped-v2 dispatch with compatibility.
-pub(crate) const LEGACY_REMOVAL_BOUNDARY: &str = "stable";
-
 const CORE_KEYS: [&str; 9] = [
     "schema",
     "repository",
@@ -551,6 +545,12 @@ pub(crate) struct Translation {
     pub(crate) field: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) members: Vec<String>,
+    #[serde(
+        rename = "absent-members",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub(crate) absent_members: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) entries: BTreeMap<String, String>,
 }
@@ -906,28 +906,6 @@ fn fits_scalar_array(values: &[Value], depth: usize) -> bool {
 
 fn indent(rendered: &mut String, depth: usize) {
     rendered.push_str(&"  ".repeat(depth));
-}
-
-/// The sole RC disposition for a parsed legacy document.
-///
-/// This is intentionally data rather than a converter. A migration changes
-/// repository-owned policy and needs human review; emitting YAML here would
-/// imply the tool understood policy it has not yet modelled.
-pub(crate) enum MigrationDisposition {
-    Legacy { schema: &'static str },
-    Grouped,
-}
-
-pub(crate) fn migration_disposition(document: &crate::config::Document) -> MigrationDisposition {
-    match document {
-        crate::config::Document::V1(_) => MigrationDisposition::Legacy {
-            schema: crate::config::SCHEMA,
-        },
-        crate::config::Document::V2(_) => MigrationDisposition::Legacy {
-            schema: crate::config::v2::SCHEMA,
-        },
-        crate::config::Document::V0_4(_) => MigrationDisposition::Grouped,
-    }
 }
 
 fn malformed(error: yaml_serde::Error) -> ConfigError {

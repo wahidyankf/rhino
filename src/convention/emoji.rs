@@ -109,3 +109,73 @@ fn is_emoji(character: char) -> bool {
         .iter()
         .any(|(first, last, _)| (*first..=*last).contains(&character))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::config::Globbed;
+    use crate::runtime::MemoryTree;
+
+    fn policy(glob: &str) -> Emoji {
+        Emoji {
+            prohibited: vec![Globbed {
+                glob: glob.to_string(),
+            }],
+        }
+    }
+
+    #[test]
+    fn declared_ranges_flag_emoji_but_not_neighbouring_prose_symbols() {
+        for character in ['🦏', '✓', '⬆', '\u{FE0F}', '㊗'] {
+            assert!(is_emoji(character), "{character}");
+        }
+        for character in ['—', '©', '+', 'A'] {
+            assert!(!is_emoji(character), "{character}");
+        }
+    }
+
+    #[test]
+    fn validator_walks_only_declared_files_and_distinguishes_read_faults() {
+        let mut tree = MemoryTree::default();
+        tree.write("config/a.json", "first 🦏\nsecond ✓\n");
+        tree.write("notes/a.md", "🦏 is allowed here\n");
+        let clean =
+            validate(&tree, &Config::default(), &policy("config/**/*.json")).render(Format::Text);
+        assert_eq!(clean.exit_code, 1);
+        assert!(clean.stderr.contains("U+1F98F"));
+        assert!(clean.stderr.contains("U+2713"));
+
+        tree.mark_unreadable("config/a.json");
+        assert_eq!(
+            validate(&tree, &Config::default(), &policy("config/**/*.json"))
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+        let mut binary = MemoryTree::default();
+        binary.write("config/a.json", "bytes");
+        binary.mark_binary("config/a.json");
+        assert_eq!(
+            validate(&binary, &Config::default(), &policy("config/**/*.json"))
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+        let mut vanished = MemoryTree::default();
+        vanished.write("config/a.json", "gone before validation");
+        vanished.mark_vanished("config/a.json");
+        assert_eq!(
+            validate(&vanished, &Config::default(), &policy("config/**/*.json"))
+                .render(Format::Text)
+                .exit_code,
+            0
+        );
+        assert_eq!(
+            validate(&tree, &Config::default(), &policy("["))
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+    }
+}

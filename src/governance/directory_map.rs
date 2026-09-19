@@ -220,3 +220,133 @@ fn resolve(tree: &dyn Tree, directory: &str, target: &str) -> Option<String> {
 
     tree.exists(&addressed).then_some(sibling)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::config::Tree as DeclaredTree;
+    use crate::runtime::MemoryTree;
+
+    fn map(paths: &[&str]) -> DirectoryMap {
+        DirectoryMap {
+            trees: paths
+                .iter()
+                .map(|path| DeclaredTree {
+                    path: (*path).to_string(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn parser_accepts_only_direct_markdown_entries_inside_the_named_section() {
+        assert_eq!(map_entries("# title\n"), None);
+        assert_eq!(map_entries("## Directory Map\n"), Some(Vec::new()));
+        assert_eq!(
+            map_entries(
+                "## Directory Map\n- [Guide](guide.md)\n* [Child](child/README.md)\n## Else\n- [No](no.md)\n"
+            ),
+            Some(vec![
+                (2, "guide.md".to_string()),
+                (3, "child/README.md".to_string())
+            ])
+        );
+        assert_eq!(
+            list_entry("- [Guide](guide.md)"),
+            Some("guide.md".to_string())
+        );
+        assert!(list_entry("- plain text").is_none());
+    }
+
+    #[test]
+    fn resolver_rejects_escaping_or_non_sibling_targets() {
+        let tree = MemoryTree::default();
+        tree.write("docs/guide.md", "# guide");
+        tree.write("docs/child/README.md", "# child");
+        assert_eq!(
+            resolve(&tree, "docs", "guide.md"),
+            Some("docs/guide.md".to_string())
+        );
+        assert_eq!(
+            resolve(&tree, "docs", "child/README.md#section"),
+            Some("docs/child".to_string())
+        );
+        for target in [
+            "",
+            "\0",
+            "/outside",
+            "https://example.com",
+            "../outside",
+            "child/a/b",
+            "missing.md",
+        ] {
+            assert!(resolve(&tree, "docs", target).is_none(), "{target:?}");
+        }
+    }
+
+    #[test]
+    fn validation_reports_missing_maps_bad_entries_and_read_faults() {
+        let mut tree = MemoryTree::default();
+        tree.write(
+            "docs/README.md",
+            "# Docs\n\n## Directory Map\n- [Guide](guide.md)\n- [Bad](../outside.md)\n",
+        );
+        tree.write("docs/guide.md", "# guide");
+        tree.write("docs/unlisted.md", "# unlisted");
+        tree.write("other/file.md", "# file");
+        let result = validate(
+            &tree,
+            &Config::default(),
+            &map(&["docs", "other"]),
+            &Scope::default(),
+        )
+        .render(Format::Text);
+        assert_eq!(result.exit_code, 1);
+        assert!(result.stderr.contains("invalid map entry"));
+        assert!(
+            result
+                .stderr
+                .contains("missing map entry for `docs/unlisted.md`")
+        );
+        assert!(result.stderr.contains("missing README"));
+
+        let selected = Scope {
+            directory: Some("docs".to_string()),
+            ..Scope::default()
+        };
+        assert_eq!(
+            validate(&tree, &Config::default(), &map(&["other"]), &selected)
+                .render(Format::Text)
+                .exit_code,
+            1
+        );
+        assert_eq!(
+            validate(
+                &tree,
+                &Config::default(),
+                &map(&["docs"]),
+                &Scope {
+                    directory: Some("missing".to_string()),
+                    ..Scope::default()
+                },
+            )
+            .render(Format::Text)
+            .exit_code,
+            2
+        );
+
+        tree.mark_unreadable("docs/README.md");
+        assert_eq!(
+            validate(
+                &tree,
+                &Config::default(),
+                &map(&["docs"]),
+                &Scope::default()
+            )
+            .render(Format::Text)
+            .exit_code,
+            2
+        );
+    }
+}

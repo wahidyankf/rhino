@@ -1152,4 +1152,52 @@ mod tests {
         assert!(under_root("adapters/file.md", "adapters"));
         assert!(!under_root("adapter/file.md", "adapters"));
     }
+
+    #[test]
+    fn memory_tree_models_each_read_state_directory_shape_and_root_boundary() {
+        let mut tree = MemoryTree::default();
+        tree.write("docs/guide.md", "guide");
+        tree.write("docs/link.md", "link");
+        tree.write("docs/gone.md", "gone");
+        tree.write("docs/binary.md", "bytes");
+        tree.write("COMMIT_EDITMSG", "feat: message");
+        tree.mark_link("docs/link.md");
+        tree.mark_vanished("docs/gone.md");
+        tree.mark_binary("docs/binary.md");
+        tree.mark_directory("empty/nested");
+
+        assert_eq!(normalise_directory("/docs/"), "docs/");
+        assert_eq!(normalise_directory("."), "");
+        assert!(matches!(
+            tree.read("docs/gone.md"),
+            Err(TreeError::NotFound)
+        ));
+        assert!(matches!(
+            tree.read("docs/binary.md"),
+            Err(TreeError::NotText)
+        ));
+        assert!(!tree.files().contains(&"docs/link.md".to_string()));
+        assert!(tree.directories().contains(&"empty/nested".to_string()));
+        assert!(
+            tree.excluding(&["docs".to_string()])
+                .files()
+                .contains(&"docs/guide.md".to_string())
+        );
+
+        let rooted = tree.rooted_at("docs").expect("docs exists");
+        assert_eq!(rooted.read("guide.md").expect("rerooted file"), "guide");
+        assert!(tree.rooted_at("missing").is_err());
+        assert!(tree.rooted_at(".").is_ok());
+
+        tree.set_hook_message_file("COMMIT_EDITMSG");
+        assert_eq!(
+            tree.hook_message_file("COMMIT_EDITMSG")
+                .expect("hook message"),
+            "feat: message"
+        );
+        assert!(tree.hook_message_file("other").is_err());
+        assert!(
+            parents(&["a/b/c.md".to_string(), "a/d.md".to_string()]).contains(&"a/b".to_string())
+        );
+    }
 }

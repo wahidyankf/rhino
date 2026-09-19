@@ -36,7 +36,7 @@ with the command category. stdout still carries the summary.
 `2` — any of:
 
 - an unrecognized command or option;
-- a flag a leaf does not accept, such as `--harness` on a Markdown command;
+- a flag a leaf does not accept, such as `--dir` on a Markdown command;
 - `--output` with a value other than `text` or `json`;
 - a `--root` that holds no `repo-config.yml`;
 - a `repo-config.yml` that is missing, unreadable, declares no schema, declares

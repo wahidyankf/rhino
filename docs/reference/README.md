@@ -11,9 +11,9 @@ disagree, the corpus wins.
 
 - [Command line](./cli.md) — every command, every flag, and which flags each command accepts.
 - [Exit codes](./exit-codes.md) — `0` through `3`, and what each one promises.
-- [Findings](./findings.md) — predecessor finding kinds retained during the RC migration window.
-- [JSON output](./json-output.md) — the legacy report envelope and grouped command-specific status documents.
-- [Configuration](./configuration.md) — the grouped v2 contract and its RC migration boundary.
+- [Findings](./findings.md) — stable grouped-v2 validation finding kinds.
+- [JSON output](./json-output.md) — validation result envelopes and command-specific status documents.
+- [Configuration](./configuration.md) — the grouped v2 contract and stable predecessor handling.
 - [Grouped v2 Configuration](./v0-4-configuration.md) — the closed grouped contract, generated schema, modelines,
   and offline verification.
 

@@ -2405,6 +2405,19 @@ Body.
                 None => Outcome::Failed(format!("no generated adapter exists at `{path}`")),
             }
         }
+        "the generated adapter at {string} does not contain {string}" => {
+            let path = matched.string(0);
+            let unexpected = matched.string(1);
+            match world.files.get(path) {
+                Some(contents) => expect(
+                    !contents.contains(unexpected),
+                    format!(
+                        "generated adapter `{path}` unexpectedly contains `{unexpected}`\ncontents: {contents}"
+                    ),
+                ),
+                None => Outcome::Failed(format!("no generated adapter exists at `{path}`")),
+            }
+        }
         "the file {string} still contains {string}" => {
             let path = matched.string(0);
             let expected = matched.string(1);

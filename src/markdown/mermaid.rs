@@ -422,7 +422,7 @@ fn contrast(first: f64, second: f64) -> f64 {
 // -- Legibility ---------------------------------------------------------------
 
 /// Where a label was found, which is also what a consumer filters on.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Segment {
     Node,
     Edge,
@@ -691,4 +691,234 @@ fn numeric(entity: &str) -> Option<char> {
         None => digits.parse().ok()?,
     };
     char::from_u32(code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::Format;
+    use crate::runtime::MemoryTree;
+
+    fn policy(rule: Option<AuthoringRule>) -> Mermaid {
+        Mermaid {
+            authoring_rule: rule,
+            node_label_graphemes: 4,
+            edge_label_graphemes: 3,
+            fill_colors: vec!["#FFFFFF".to_string(), "#000000".to_string()],
+            edge_colors: vec!["#000000".to_string(), "#123456".to_string()],
+            text_colors: vec!["#000000".to_string(), "#FFFFFF".to_string()],
+        }
+    }
+
+    fn diagram(kind: Kind, lines: &[&str]) -> Diagram {
+        Diagram {
+            kind,
+            lines: lines
+                .iter()
+                .enumerate()
+                .map(|(index, line)| (index + 1, (*line).to_string()))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn all_supported_declarations_are_read_and_unknown_ones_are_ignored() {
+        for declaration in [
+            "flowchart",
+            "graph",
+            "classDiagram",
+            "classDiagram-v2",
+            "stateDiagram",
+            "stateDiagram-v2",
+            "erDiagram",
+            "requirementDiagram",
+            "block",
+            "block-beta",
+        ] {
+            assert!(kind_of(declaration).is_some(), "{declaration}");
+        }
+        assert!(kind_of("sequenceDiagram").is_none());
+
+        let blocks = fenced_blocks(
+            "```mermaid\n---\ntheme: base\n---\n%% comment\nflowchart LR\nA --> B\n```\n\n```mermaid\nsequenceDiagram\n```",
+        );
+        assert_eq!(blocks.len(), 2);
+        assert!(matches!(
+            read(&blocks[0]).expect("supported diagram").kind,
+            Kind::Flow
+        ));
+        assert!(read(&blocks[1]).is_none());
+    }
+
+    #[test]
+    fn rendered_diagrams_cover_palette_accessibility_and_every_label_syntax() {
+        let policy = policy(Some(AuthoringRule::Rendered));
+        let diagrams = [
+            diagram(
+                Kind::Flow,
+                &[
+                    "flowchart LR",
+                    "A[long node] -->|long edge| B((other node))",
+                    "A -- long text --> B{third node}",
+                    "classDef good fill:#FFFFFF,stroke:#FFFFFF,color:#FFFFFF",
+                    "classDef malformed fill:blue,stroke:#123456,color:#000000",
+                    "classDef undeclared fill:#ABCDEF,stroke:#123456,color:#000000",
+                    "classDef no-stroke fill:#FFFFFF",
+                    "classDef no-text fill:#FFFFFF,stroke:#123456",
+                    "classDef outline stroke:#123456",
+                    "classDef bad-outline stroke:#ABCDEF",
+                    "classDef textonly color:#000000",
+                    "classDef mixed stroke:#badbad,color:#000000",
+                    "classDef empty",
+                    "classDef incomplete missing-colon",
+                    "style A fill:#fff",
+                    "%% a prose palette comment",
+                    "%%{init: {\"theme\": \"base\"}}%%",
+                ],
+            ),
+            diagram(Kind::Class, &["classDiagram", "class VeryLongClass {"]),
+            diagram(
+                Kind::State,
+                &["stateDiagram-v2", "A --> B;", "state \"Very long state\""],
+            ),
+            diagram(
+                Kind::Entity,
+                &[
+                    "erDiagram",
+                    "VERY_LONG_ENTITY ||--|| OTHER_ENTITY : relates",
+                ],
+            ),
+            diagram(
+                Kind::Requirement,
+                &["requirementDiagram", "requirement VeryLongRequirement {"],
+            ),
+            diagram(Kind::Block, &["block-beta", "A[very long block label]"]),
+        ];
+
+        let findings: Vec<_> = diagrams
+            .iter()
+            .flat_map(|diagram| inspect(diagram, &policy))
+            .collect();
+        let kinds: Vec<_> = findings.iter().map(|finding| finding.kind).collect();
+        assert!(kinds.contains(&ACCESSIBILITY));
+        assert!(kinds.contains(&LEGIBILITY));
+        assert!(kinds.iter().filter(|kind| **kind == ACCESSIBILITY).count() > 6);
+        assert!(kinds.iter().filter(|kind| **kind == LEGIBILITY).count() > 5);
+    }
+
+    #[test]
+    fn parser_helpers_measure_visible_text_without_counting_markup() {
+        assert!(is_not_a_label_source(Kind::Flow, "class A important"));
+        assert!(!is_not_a_label_source(Kind::Class, "class A important"));
+        assert_eq!(
+            flow_labels("A[one] -->|two| B(three) -- four --> C{five}"),
+            vec![
+                (Segment::Edge, "two".to_string()),
+                (Segment::Node, "one".to_string()),
+                (Segment::Node, "three".to_string()),
+                (Segment::Node, "five".to_string()),
+            ]
+        );
+        assert!(flow_labels("A -- four --> B").contains(&(Segment::Edge, "four".to_string())));
+        assert_eq!(
+            enclosed_after("class Thing {", "class"),
+            Some("Thing".to_string())
+        );
+        assert_eq!(quoted("state \"Readable\""), Some("Readable".to_string()));
+        assert_eq!(
+            between("A[outer [inner]]", '[', ']'),
+            vec!["outer [inner]".to_string()]
+        );
+        assert_eq!(
+            segments("<b>A&amp;B</b><br/>C&#x44;\\nE&#69;"),
+            vec!["A&B".to_string(), "CD".to_string(), "EE".to_string()]
+        );
+        assert_eq!(decode("&unknown; &broken"), "&unknown; &broken");
+        assert_eq!(numeric("#65"), Some('A'));
+        assert_eq!(numeric("#x41"), Some('A'));
+        assert!(contains_color("stroke: red"));
+        assert!(!contains_color("documentation only"));
+        assert!(luminance("#FFFFFF").is_some());
+        assert!(luminance("bad").is_none());
+        assert!(luminance("#123").is_none());
+        assert!(contrast(1.0, 0.0) > 4.5);
+        assert!(contrast(0.0, 1.0) > 4.5);
+        assert!(contains_color("style A fill: rgb(1, 2, 3)"));
+        assert!(contains_color("style A fill:#abc"));
+        assert!(flow_labels("A |unclosed").is_empty());
+    }
+
+    #[test]
+    fn validator_distinguishes_plain_text_rules_selection_and_unreadable_files() {
+        let mut tree = MemoryTree::default();
+        tree.write(
+            "docs/diagram.md",
+            "```mermaid\nflowchart LR\nA[Node] --> B[Next]\n```\n",
+        );
+        tree.write("docs/plain.md", "# prose\n");
+
+        let plain = validate(
+            &tree,
+            &Config::default(),
+            &policy(Some(AuthoringRule::PlainText)),
+            &Scope::default(),
+        )
+        .render(Format::Text);
+        assert_eq!(plain.exit_code, 1);
+        assert!(
+            plain
+                .stderr
+                .contains("authors conceptual diagrams in plain text")
+        );
+
+        let narrowed = Scope {
+            files: vec!["docs/plain.md".to_string()],
+            ..Scope::default()
+        };
+        let rendered = validate(
+            &tree,
+            &Config::default(),
+            &policy(Some(AuthoringRule::Rendered)),
+            &narrowed,
+        )
+        .render(Format::Text);
+        assert_eq!(rendered.exit_code, 0);
+
+        tree.write(
+            "docs/not-diagram.md",
+            "```rust\n# not Mermaid\n```\n```mermaid\nsequenceDiagram\n```",
+        );
+        let ignored = validate(&tree, &Config::default(), &policy(None), &Scope::default())
+            .render(Format::Text);
+        assert_eq!(ignored.exit_code, 0);
+        assert!(accessibility(&diagram(Kind::Flow, &["graph LR"]), &policy(None)).is_empty());
+
+        tree.mark_unreadable("docs/diagram.md");
+        let unreadable = validate(
+            &tree,
+            &Config::default(),
+            &policy(None),
+            &Scope {
+                files: vec!["docs/diagram.md".to_string()],
+                ..Scope::default()
+            },
+        )
+        .render(Format::Text);
+        assert_eq!(unreadable.exit_code, 2);
+
+        let mut binary = MemoryTree::default();
+        binary.write("docs/diagram.md", "bytes");
+        binary.mark_binary("docs/diagram.md");
+        assert_eq!(
+            validate(
+                &binary,
+                &Config::default(),
+                &policy(None),
+                &Scope::default()
+            )
+            .render(Format::Text)
+            .exit_code,
+            2
+        );
+    }
 }

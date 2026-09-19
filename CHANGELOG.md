@@ -12,9 +12,8 @@ the commits behind any release, see its
 ## [v0.4.0] — unreleased
 
 Breaking. **New and migrated repositories use the closed grouped
-`rhino/repo-config/v2` contract.** This release candidate retains predecessor
-schema readers only to print a reviewed migration plan; stable removes them
-rather than forwarding old keys or commands through aliases.
+`rhino/repo-config/v2` contract.** Stable rejects predecessor schemas and has
+no compatibility aliases, wrappers, or migration command.
 
 ### Added
 
@@ -31,11 +30,10 @@ rather than forwarding old keys or commands through aliases.
 
 ### Changed
 
-- **RC migration is deliberate.** `repo-config migrate` prints a reviewed plan
-  and never rewrites configuration. Grouped v2 does not accept predecessor
-  leaves as aliases, and the inherited adapter `--harness` selector is refused
-  because grouped adapters validate their declared profile projection as one
-  transaction.
+- **Stable migration is explicit.** Convert a predecessor configuration with
+  the documented owner-by-owner mapping, then validate the grouped document.
+  Stable rejects predecessor schemas and does not register the retired command
+  leaves or `--harness` selector.
 
 ### Fixed
 
@@ -59,25 +57,6 @@ rather than forwarding old keys or commands through aliases.
   `os.LookupEnv, "KEY"`; a nonliteral injected key remains an
   `unsupported-dynamic-access` finding. Both forms stay confined to the
   repository files the consumer declares.
-- **A `v2` flow collection left open at the end of its line is refused for
-  being open, not for what it swallowed.** The flow subset this schema
-  documents is written on one line, and the reader treated running out of text
-  as an ending just like the closing brace. It kept the part that fit, and
-  because the keys below sat at a deeper indentation than the mapping it was
-  reading, it stopped there: every remaining top-level key vanished from the
-  document. The refusal that followed named one of those keys as missing --
-  `line 1: gates: the schema requires it` on a file that declares `gates` --
-  which points at the wrong line, in the wrong section, for the wrong reason.
-  A collection that never closes is now reported where it opens, as
-  `is a flow collection that is not closed on the line it opens on`.
-
-  Found while migrating RHINO's own configuration. Formatters produce this
-  shape without being asked -- a flow mapping wider than the print width gets
-  wrapped -- so the file that triggers it can be one an author never hand-wrote.
-  No released consumer is affected: every `v2` configuration in use closes each
-  flow collection on the line that opens it, which is what this release makes
-  a checkable claim rather than an assumption.
-
 ## [v0.3.0] — 2026-09-11
 
 Additive. **An existing consumer changes nothing but its pin.** The twelve

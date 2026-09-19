@@ -2,9 +2,10 @@
 # finding and let the commit through -- the failure mode a gate cannot have.
 set -e
 
-# What runs here, and in what order, is declared in `repo-config.yml` rather
-# than written out below. The message file is forwarded after `--`, which
-# reaches every gate on this surface: the safety screen reads it as outbound
-# text, and Commitlint reads it as a message. Both want the same file, which is
-# why forwarding is correct here and only here.
-exec cargo run --quiet --bin rhino -- gate run --surface commit-msg -- "$1"
+root=$(git rev-parse --show-toplevel)
+export PATH="$root/node_modules/.bin:$PATH"
+
+# What runs here, and in what order, is declared in `repo-config.yml`. Rhino
+# resolves Git's canonical message file and projects its text only to the gates
+# that explicitly declare the typed commit-message input.
+exec cargo run --quiet --bin rhino -- gate run --surface commit-msg --message-file "$1"
