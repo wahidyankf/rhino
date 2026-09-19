@@ -296,6 +296,10 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 "the step promised a table of files and carried none".to_string(),
             )
         }
+        "the repository contains a symbolic link at {string}" => {
+            world.links.insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
         "the repository declares the front-matter surface {string} requiring {string}" => {
             let required: Vec<&str> = matched.string(1).split(',').map(str::trim).collect();
             push_frontmatter_surface(

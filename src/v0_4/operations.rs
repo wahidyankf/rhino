@@ -449,7 +449,7 @@ pub(crate) fn init(
                 example.target
             ));
         }
-        let contents = match tree.read(&example.source) {
+        let contents = match tree.read_no_follow(&example.source) {
             Ok(contents) => contents,
             Err(TreeError::NotFound) => {
                 return Outcome::refused(format!(
@@ -997,6 +997,30 @@ mod tests {
                 Err(TreeError::NotFound)
             ));
         }
+    }
+
+    #[test]
+    fn initialization_refuses_a_declared_source_symlink_before_a_write() {
+        let mut tree = MemoryTree::default();
+        tree.write(".env.example", "SYNTHETIC=value\n");
+        tree.mark_link(".env.example");
+        let environment = Environment {
+            examples: vec![EnvironmentExample {
+                source: ".env.example".to_string(),
+                target: ".env.fixture".to_string(),
+            }],
+            ..Environment::default()
+        };
+        let store = MemoryEnvironmentStore::new(&tree);
+
+        let outcome = init(Some(&environment), &tree, ".", true, &store, Format::Text);
+
+        assert_eq!(outcome.exit_code, 2);
+        assert!(outcome.stderr.contains("unreadable"));
+        assert!(matches!(
+            tree.read(".env.fixture"),
+            Err(TreeError::NotFound)
+        ));
     }
 
     #[test]
