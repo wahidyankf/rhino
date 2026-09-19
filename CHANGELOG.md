@@ -39,6 +39,11 @@ rather than forwarding old keys or commands through aliases.
 
 ### Fixed
 
+- **Linked-worktree commit hooks keep a narrow message-file boundary.** At
+  `commit-msg`, Rhino asks Git for that worktree's canonical `COMMIT_EDITMSG`
+  path and reads only that file. A linked worktree therefore works even though
+  Git keeps its message outside the checkout; another external path is refused
+  before a gate child starts.
 - **Gate children receive product-scoped surface metadata.** `gate run` now
   exposes its selected surface as `RHINO_GATE_SURFACE`; it no longer overwrites
   a consumer's `OSE_GATE_SURFACE` adapter variable.

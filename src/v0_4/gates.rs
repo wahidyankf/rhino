@@ -345,7 +345,7 @@ fn resolve_inputs<'a>(
                 let Some(path) = invocation.message_file.as_deref() else {
                     return Err("requires `--message-file` for a commit-message input".to_string());
                 };
-                let message = tree.read(path).map_err(|error| match error {
+                let message = tree.hook_message_file(path).map_err(|error| match error {
                     TreeError::NotFound => format!("message file `{path}` does not exist"),
                     TreeError::Unreadable(reason) => {
                         format!("message file `{path}` cannot be read: {reason}")
@@ -1112,6 +1112,7 @@ gates:
         };
         let mut unreadable = MemoryTree::default();
         unreadable.write("message", "synthetic");
+        unreadable.set_hook_message_file("message");
         unreadable.mark_unreadable("message");
         assert!(
             resolve_inputs(
@@ -1125,6 +1126,7 @@ gates:
         );
         let mut binary = MemoryTree::default();
         binary.write("message", "synthetic");
+        binary.set_hook_message_file("message");
         binary.mark_binary("message");
         assert!(
             resolve_inputs(
@@ -1363,6 +1365,7 @@ gates:
     fn grouped_gate_typed_resolution_projection_and_push_parser_cover_declared_variants() {
         let mut tree = MemoryTree::default();
         tree.write("message.txt", "checked message");
+        tree.set_hook_message_file("message.txt");
         tree.write("docs/a.md", "a");
         tree.set_indexed_files(["docs/a.md", "docs/a.md"]);
         tree.set_changed_files("aaaaaaa", "bbbbbbb", ["docs/b.md", "docs/a.md"]);
@@ -1456,6 +1459,7 @@ gates:
             message_file: Some("missing-message.txt".to_string()),
             ..Invocation::default()
         };
+        tree.set_hook_message_file("missing-message.txt");
         assert!(
             resolve_inputs(&gate, message.iter(), &absent_message_file, &tree, None)
                 .unwrap_err()

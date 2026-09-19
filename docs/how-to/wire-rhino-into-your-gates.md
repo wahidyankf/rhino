@@ -42,7 +42,9 @@ surface binds that input:
 rhino gate run --surface pull-request --base "$BASE_SHA" --head "$HEAD_SHA"
 ```
 
-For `commit-msg`, pass the exact hook path with `--message-file`. For
+For `commit-msg`, pass Git's hook path with `--message-file`. Rhino confirms it
+is the current worktree's canonical `COMMIT_EDITMSG` file before reading it;
+this works in linked worktrees and refuses another external path. For
 `pre-push`, pass update records only with `--push-updates-stdin`. The command
 refuses the wrong surface/input combination with exit `2`.
 

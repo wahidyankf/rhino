@@ -316,6 +316,16 @@ pub trait Tree {
         Err("this tree has no commit-message range boundary".to_string())
     }
 
+    /// Read the one message file Git assigned to the current `commit-msg`
+    /// hook. This is deliberately separate from [`Tree::read`]: Git keeps the
+    /// file outside a linked worktree, while arbitrary external paths are not
+    /// repository inputs RHINO may read.
+    fn hook_message_file(&self, _path: &str) -> Result<String, TreeError> {
+        Err(TreeError::Unreadable(
+            "the Git hook message-file boundary is unavailable".to_string(),
+        ))
+    }
+
     /// Every directory in the tree, repository-relative and sorted, including
     /// one that holds no file at any depth.
     ///
@@ -427,6 +437,7 @@ pub struct MemoryTree {
     changed_files: BTreeMap<(String, String), Vec<String>>,
     git_refs: BTreeMap<String, String>,
     commit_messages: BTreeMap<(String, String), String>,
+    hook_message_file: Option<String>,
 }
 
 impl MemoryTree {
@@ -526,6 +537,13 @@ impl MemoryTree {
     pub fn set_commit_messages(&mut self, base: &str, head: &str, messages: &str) {
         self.commit_messages
             .insert((base.to_string(), head.to_string()), messages.to_string());
+    }
+
+    /// State the one file a synthetic Git hook supplied. Keeping this distinct
+    /// from ordinary files lets the unit boundary prove that a typed message
+    /// input does not become a general file-read capability.
+    pub fn set_hook_message_file(&mut self, path: &str) {
+        self.hook_message_file = Some(path.to_string());
     }
 
     fn replace_adapter_files(&self, transaction: &AdapterTransaction) -> Result<(), AdapterError> {
@@ -678,6 +696,20 @@ impl Tree for MemoryTree {
             .ok_or_else(|| "this tree has no commit-message range boundary".to_string())
     }
 
+    fn hook_message_file(&self, path: &str) -> Result<String, TreeError> {
+        let Some(expected) = self.hook_message_file.as_deref() else {
+            return Err(TreeError::Unreadable(
+                "the Git hook message-file boundary is unavailable".to_string(),
+            ));
+        };
+        if path != expected {
+            return Err(TreeError::Unreadable(
+                "the supplied path is not Git's canonical COMMIT_EDITMSG".to_string(),
+            ));
+        }
+        self.read(path)
+    }
+
     fn directories(&self) -> Vec<String> {
         let mut found = parents(&self.files());
         // A stated empty directory contributes itself and every directory on
@@ -758,6 +790,7 @@ impl Tree for MemoryTree {
                 .collect(),
             git_refs: self.git_refs.clone(),
             commit_messages: self.commit_messages.clone(),
+            hook_message_file: self.hook_message_file.clone(),
         }))
     }
 }
@@ -963,6 +996,7 @@ mod tests {
         assert!(tree.changed_files("aaaaaaa", "bbbbbbb").is_err());
         assert!(tree.resolve_git_ref("main").is_err());
         assert!(tree.commit_messages("aaaaaaa", "bbbbbbb").is_err());
+        assert!(tree.hook_message_file("COMMIT_EDITMSG").is_err());
         assert_eq!(
             tree.excluding(&["ignored".to_string()]).files(),
             vec!["docs/guide.md".to_string()]
@@ -1045,6 +1079,18 @@ mod tests {
             vec!["guide.md".to_string()]
         );
 
+        tree.write("COMMIT_EDITMSG", "feat: synthetic hook\n");
+        tree.set_hook_message_file("COMMIT_EDITMSG");
+        assert_eq!(
+            tree.hook_message_file("COMMIT_EDITMSG").unwrap(),
+            "feat: synthetic hook\n"
+        );
+        assert!(matches!(
+            tree.hook_message_file("another-message"),
+            Err(TreeError::Unreadable(reason))
+                if reason.contains("not Git's canonical COMMIT_EDITMSG")
+        ));
+
         assert!(adapter_roots(&["adapters".to_string(), "adapters/nested".to_string()]).is_err());
         assert!(
             adapter_files(
@@ -1094,6 +1140,9 @@ mod tests {
                 }],
             )
             .is_ok()
+        );
+        assert!(
+            adapter_files(&["adapters".to_string()], &["CLAUDE.md".to_string()], &[],).is_err()
         );
         assert_eq!(
             normal_adapter_path("/adapters/file.md/"),

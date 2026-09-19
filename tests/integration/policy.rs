@@ -167,6 +167,65 @@ fn disk_tree_reads_only_changed_paths_from_an_immutable_range() {
 }
 
 #[test]
+fn disk_tree_reads_only_the_canonical_git_hook_message_file_in_a_linked_worktree() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::write(fixture.root.join("README.md"), "fixture\n")
+        .expect("the fixture baseline is written");
+    fixture.git(&["add", "--", "README.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+
+    let linked = fixture.root.join("hook-worktree");
+    let linked_text = linked.to_string_lossy().into_owned();
+    fixture.git(&[
+        "worktree",
+        "add",
+        "--quiet",
+        "--detach",
+        &linked_text,
+        "HEAD",
+    ]);
+
+    let canonical_output = Command::new("git")
+        .arg("-C")
+        .arg(&linked)
+        .args([
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-path",
+            "COMMIT_EDITMSG",
+        ])
+        .output()
+        .expect("Git reports the linked worktree message path");
+    assert!(canonical_output.status.success());
+    let canonical = PathBuf::from(
+        String::from_utf8(canonical_output.stdout)
+            .expect("Git reports a UTF-8 linked-worktree message path")
+            .trim(),
+    );
+    std::fs::write(&canonical, "feat: linked worktree hook\n")
+        .expect("the canonical hook message is writable");
+    let foreign = fixture.root.join("foreign-message");
+    std::fs::write(&foreign, "do not read this\n").expect("the foreign fixture is writable");
+
+    let tree = DiskTree::new(&linked).expect("the linked worktree is a tree");
+    assert_eq!(
+        tree.hook_message_file(canonical.to_str().expect("the path is UTF-8"))
+            .expect("the Git-selected hook message is readable"),
+        "feat: linked worktree hook\n"
+    );
+    assert!(matches!(
+        tree.hook_message_file(foreign.to_str().expect("the path is UTF-8")),
+        Err(rhino::runtime::TreeError::Unreadable(reason))
+            if reason.contains("not Git's canonical COMMIT_EDITMSG")
+    ));
+
+    fixture.git(&["worktree", "remove", "--force", &linked_text]);
+}
+
+#[test]
 fn disk_mutation_updates_only_the_selected_index_blob() {
     use std::os::unix::fs::PermissionsExt;
 

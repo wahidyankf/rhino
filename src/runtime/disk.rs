@@ -306,6 +306,58 @@ impl Tree for DiskTree {
             .map_err(|_| "Git returned non-UTF-8 commit-message text".to_string())
     }
 
+    fn hook_message_file(&self, path: &str) -> Result<String, TreeError> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args([
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-path",
+                "COMMIT_EDITMSG",
+            ])
+            .output()
+            .map_err(|error| {
+                TreeError::Unreadable(format!(
+                    "the Git hook message-file boundary is unavailable: {error}"
+                ))
+            })?;
+        if !output.status.success() {
+            return Err(TreeError::Unreadable(
+                "the Git hook message-file boundary is unavailable".to_string(),
+            ));
+        }
+        let canonical = std::str::from_utf8(&output.stdout).map_err(|_| {
+            TreeError::Unreadable(
+                "the Git hook message-file boundary returned a non-UTF-8 path".to_string(),
+            )
+        })?;
+        let canonical = PathBuf::from(canonical.trim());
+        if !canonical.is_absolute() {
+            return Err(TreeError::Unreadable(
+                "the Git hook message-file boundary returned a relative path".to_string(),
+            ));
+        }
+        let supplied = if Path::new(path).is_absolute() {
+            PathBuf::from(path)
+        } else {
+            self.root.join(path)
+        };
+        if supplied != canonical {
+            return Err(TreeError::Unreadable(
+                "the supplied path is not Git's canonical COMMIT_EDITMSG".to_string(),
+            ));
+        }
+        match std::fs::read_to_string(canonical) {
+            Ok(text) => Ok(text),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err(TreeError::NotFound),
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+                Err(TreeError::NotText)
+            }
+            Err(error) => Err(TreeError::Unreadable(error.to_string())),
+        }
+    }
+
     /// The direct children of one directory, read from that directory alone.
     ///
     /// The port defines a child in terms of the file list, and the trait's
