@@ -53,15 +53,17 @@ release artifact suite; rehearsal never replaces it.
 
 5. **Verify embedded identity.** Each executable's `version --json` must report the tag and the commit exactly. A mismatch means the archive was built from something other than what is being tagged.
 
-6. **Screen, then tag and push the tag.** The tag name, any annotation, and the notes the release workflow generates from merged pull requests are published with the release. Screen them first, and tag only on exit `0`:
+6. **Screen, then tag and push the tag.** The tag name, any annotation, and the notes the release workflow generates from merged pull requests are published with the release. Screen the same note range that the workflow will publish, and tag only on exit `0`. For the non-RC v0.4.0 release, the range starts at the prior stable tag v0.3.0, never at a rehearsal tag:
 
    ```sh
-   gh api repos/<owner>/<repo>/releases/generate-notes -f tag_name=v<version> --jq .body > local-tmp/release-notes.md
-   scripts/public-safety/public-safety.sh --surface release --text "v<version>" --file local-tmp/release-notes.md
+   release_notes=$(gh api repos/<owner>/<repo>/releases/generate-notes \
+     -f tag_name=v0.4.0 -f target_commitish=HEAD -f previous_tag_name=v0.3.0 --jq .body)
+   scripts/public-safety/public-safety.sh --surface release --text "v0.4.0" --text "$release_notes"
    ```
 
-   Pass an annotation as one more `--text`. The release workflow builds and publishes every platform archive, the
-   grouped v2 schema, and `checksums.txt`.
+   Pass an annotation as one more `--text`. A later stable release chooses and encodes its own prior stable baseline
+   in both this preview and the release workflow; never accept GitHub's nearest-tag default when rehearsal tags exist.
+   The release workflow builds and publishes every platform archive, the grouped v2 schema, and `checksums.txt`.
 
 7. **Verify the published release** before telling anyone it exists: an archive per supported platform, the grouped
    v2 schema, a `checksums.txt` covering every release asset, and downloaded archive/schema bytes whose digests match.

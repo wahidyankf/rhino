@@ -238,6 +238,19 @@ fn release_workflow_publishes_the_checksummed_grouped_schema() {
 }
 
 #[test]
+fn release_cut_screens_the_v0_4_stable_note_range() {
+    let workflow = repository_root().join("repo-governance/workflows/release-cut.md");
+    let text = std::fs::read_to_string(&workflow)
+        .unwrap_or_else(|error| panic!("{}: {error}", workflow.display()));
+    assert!(
+        text.contains("previous_tag_name=v0.3.0")
+            && text.contains("tag_name=v0.4.0")
+            && text.contains("--text \"$release_notes\""),
+        "the v0.4.0 release procedure must screen the same v0.3.0-based notes it publishes"
+    );
+}
+
+#[test]
 fn release_size_rehearsal_measures_each_native_target_without_publishing() {
     let workflow = repository_root().join(".github/workflows/release-size-rehearsal.yml");
     let text = std::fs::read_to_string(&workflow)
