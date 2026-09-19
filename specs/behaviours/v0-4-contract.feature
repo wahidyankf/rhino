@@ -299,6 +299,34 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "nx-affected"
 
+  Scenario: A pull-request file input declares an explicit immutable range
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: changed-files-check
+            type: check
+            inputs:
+              files: { kind: files }
+            command:
+              executable: runner
+              args:
+                - { input: files.paths, expand: repeat }
+            run-on:
+              pre-commit:
+                bind:
+                  files: { source: git-index }
+              pull-request:
+                bind:
+                  files: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    When I invoke the CLI with "gate|validate"
+    Then the exit code is 0
+
   Scenario: Typed argv and environment projections name resolved range fields
     Given the configuration file is this text:
       """

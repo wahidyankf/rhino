@@ -130,7 +130,7 @@ pub(crate) fn run(
         };
         if gate.kind == GateKind::Mutation {
             let root = tree.root();
-            let selected_paths = index_selected_paths(&resolved, membership.bind.iter());
+            let selected_paths = selected_paths(&resolved, membership.bind.iter());
             let mutation = MutationLaunch {
                 arguments: &arguments,
                 directory: &root,
@@ -319,6 +319,25 @@ fn resolve_inputs<'a>(
             .expect("the grouped configuration validates every binding name");
         let value = match (input.kind, binding.source) {
             (InputKind::Files, InputSource::Checkout) => ResolvedInput::Files(tree.files()),
+            (InputKind::Files, InputSource::ExplicitRange) => {
+                let (Some(base), Some(head)) =
+                    (invocation.base.as_deref(), invocation.head.as_deref())
+                else {
+                    return Err(
+                        "requires both `--base` and `--head` for an explicit file range"
+                            .to_string(),
+                    );
+                };
+                if !is_commit(base) || !is_commit(head) {
+                    return Err(
+                        "requires hexadecimal commit IDs for `--base` and `--head`".to_string()
+                    );
+                }
+                let paths = tree.changed_files(base, head).map_err(|reason| {
+                    format!("cannot read changed files for the explicit range: {reason}")
+                })?;
+                ResolvedInput::Files(paths)
+            }
             (InputKind::RepositoryState, InputSource::Checkout) => {
                 ResolvedInput::RepositoryState { root: tree.root() }
             }
@@ -404,12 +423,17 @@ fn resolve_inputs<'a>(
     Ok(Some(resolved))
 }
 
-fn index_selected_paths<'a>(
+fn selected_paths<'a>(
     inputs: &BTreeMap<String, ResolvedInput>,
     bindings: impl Iterator<Item = (&'a String, &'a InputBinding)>,
 ) -> Vec<String> {
     bindings
-        .filter(|(_, binding)| binding.source == InputSource::GitIndex)
+        .filter(|(_, binding)| {
+            matches!(
+                binding.source,
+                InputSource::GitIndex | InputSource::ExplicitRange
+            )
+        })
         .filter_map(|(name, _)| inputs.get(name))
         .filter_map(|input| match input {
             ResolvedInput::Files(paths) => Some(paths),
@@ -851,15 +875,17 @@ gates:
             files: { source: git-index }
         pull-request:
           bind:
-            files: { source: checkout }
+            files: { source: explicit-range, range: explicit }
   composition:
     pull-request:
       relation: exact
 "#,
         )
         .expect("the pull-request mutation model parses");
-        let tree = MemoryTree::default();
+        let mut tree = MemoryTree::default();
         tree.write("notes/candidate.md", "candidate bytes");
+        tree.write("notes/unselected.md", "unselected bytes");
+        tree.set_changed_files("aaaaaaaa", "bbbbbbbb", ["notes/candidate.md"]);
         let mutations = CapturingMutations::default();
         let outcome = run(
             document.gates.as_ref(),
@@ -881,7 +907,7 @@ gates:
             mutations.verify_clean.into_inner(),
             vec![(
                 vec!["formatter".to_string(), "notes/candidate.md".to_string()],
-                Vec::new(),
+                vec!["notes/candidate.md".to_string()],
                 Some("bbbbbbbb".to_string()),
             )]
         );
@@ -1339,6 +1365,7 @@ gates:
         tree.write("message.txt", "checked message");
         tree.write("docs/a.md", "a");
         tree.set_indexed_files(["docs/a.md", "docs/a.md"]);
+        tree.set_changed_files("aaaaaaa", "bbbbbbb", ["docs/b.md", "docs/a.md"]);
         tree.set_git_ref("refs/main", "ccccccc");
         tree.set_commit_messages("aaaaaaa", "bbbbbbb", "feat: checked message\n\nbody");
 
@@ -1558,8 +1585,57 @@ gates:
             resolve_inputs(&gate, indexed.iter(), &invocation, &tree, None),
             Ok(Some(values)) if matches!(values["files"], ResolvedInput::Files(_))
         ));
+        let explicit_files = BTreeMap::from([(
+            "files".to_string(),
+            InputBinding {
+                source: InputSource::ExplicitRange,
+                range: Some(crate::v0_4::config::RangeSelector::Explicit),
+                fallback: None,
+            },
+        )]);
+        assert!(matches!(
+            resolve_inputs(&gate, explicit_files.iter(), &invocation, &tree, None),
+            Ok(Some(values))
+                if matches!(
+                    values["files"],
+                    ResolvedInput::Files(ref paths)
+                        if paths == &vec!["docs/a.md".to_string(), "docs/b.md".to_string()]
+                )
+        ));
+        assert!(
+            resolve_inputs(
+                &gate,
+                explicit_files.iter(),
+                &Invocation::default(),
+                &tree,
+                None
+            )
+            .unwrap_err()
+            .contains("both `--base`")
+        );
+        assert!(
+            resolve_inputs(&gate, explicit_files.iter(), &invalid_commit, &tree, None)
+                .unwrap_err()
+                .contains("hexadecimal")
+        );
+        let unavailable_file_range = Invocation {
+            base: Some("ccccccc".to_string()),
+            head: Some("ddddddd".to_string()),
+            ..Invocation::default()
+        };
+        assert!(
+            resolve_inputs(
+                &gate,
+                explicit_files.iter(),
+                &unavailable_file_range,
+                &tree,
+                None
+            )
+            .unwrap_err()
+            .contains("cannot read changed files")
+        );
         assert_eq!(
-            index_selected_paths(
+            selected_paths(
                 &BTreeMap::from([(
                     "files".to_string(),
                     ResolvedInput::Files(vec![
@@ -1571,6 +1647,16 @@ gates:
                 indexed.iter(),
             ),
             vec!["a.md".to_string(), "b.md".to_string()]
+        );
+        assert_eq!(
+            selected_paths(
+                &BTreeMap::from([(
+                    "files".to_string(),
+                    ResolvedInput::Files(vec!["docs/b.md".to_string(), "docs/a.md".to_string()]),
+                )]),
+                explicit_files.iter(),
+            ),
+            vec!["docs/a.md".to_string(), "docs/b.md".to_string()]
         );
 
         let inputs = BTreeMap::from([

@@ -129,6 +129,44 @@ fn disk_tree_reads_only_staged_paths_from_the_git_index() {
 }
 
 #[test]
+fn disk_tree_reads_only_changed_paths_from_an_immutable_range() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir(fixture.root.join("notes")).expect("the fixture notes directory exists");
+    std::fs::write(fixture.root.join("notes/changed.md"), "before\n")
+        .expect("the changed fixture file is written");
+    std::fs::write(fixture.root.join("notes/unchanged.md"), "before\n")
+        .expect("the unchanged fixture file is written");
+    fixture.git(&["add", "--", "notes/changed.md", "notes/unchanged.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture base"]);
+    let base = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the base commit is UTF-8")
+        .trim()
+        .to_string();
+
+    std::fs::write(fixture.root.join("notes/changed.md"), "after\n")
+        .expect("the changed fixture file is updated");
+    std::fs::write(fixture.root.join("notes/added name.md"), "new\n")
+        .expect("the added fixture file is written");
+    fixture.git(&["add", "--", "notes/changed.md", "notes/added name.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture head"]);
+    let head = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the head commit is UTF-8")
+        .trim()
+        .to_string();
+
+    let tree = DiskTree::new(&fixture.root).expect("the Git fixture is a tree");
+
+    assert_eq!(
+        tree.changed_files(&base, &head)
+            .expect("the immutable Git range is readable"),
+        vec!["notes/added name.md", "notes/changed.md"]
+    );
+}
+
+#[test]
 fn disk_mutation_updates_only_the_selected_index_blob() {
     use std::os::unix::fs::PermissionsExt;
 
@@ -1029,6 +1067,10 @@ impl Tree for CountingTree {
 
     fn files(&self) -> Vec<String> {
         self.inner.files()
+    }
+
+    fn changed_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
+        self.inner.changed_files(base, head)
     }
 
     fn children(&self, directory: &str) -> Vec<String> {

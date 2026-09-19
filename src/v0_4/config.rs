@@ -1264,7 +1264,7 @@ fn source_accepts(kind: InputKind, source: InputSource) -> bool {
         (kind, source),
         (
             InputKind::Files,
-            InputSource::GitIndex | InputSource::Checkout
+            InputSource::GitIndex | InputSource::ExplicitRange | InputSource::Checkout
         ) | (
             InputKind::CommitMessage,
             InputSource::HookMessageFile | InputSource::ExplicitRange
@@ -1477,6 +1477,7 @@ mod tests {
         assert!(is_environment_name("CHECK_ROOT_2"));
         assert!(!is_environment_name("check_root"));
         assert!(source_accepts(InputKind::Files, InputSource::GitIndex));
+        assert!(source_accepts(InputKind::Files, InputSource::ExplicitRange));
         assert!(source_accepts(
             InputKind::CommitMessage,
             InputSource::HookMessageFile

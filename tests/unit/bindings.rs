@@ -1987,6 +1987,10 @@ pub const BINDINGS: &[Binding] = &[
     ("v0-4-contract", "Tool-named input selectors are refused"),
     (
         "v0-4-contract",
+        "A pull-request file input declares an explicit immutable range",
+    ),
+    (
+        "v0-4-contract",
         "Typed argv and environment projections name resolved range fields",
     ),
     (
