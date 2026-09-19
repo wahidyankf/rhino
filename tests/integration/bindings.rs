@@ -2076,6 +2076,18 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Curated environment detection accepts a declared TypeScript schema key",
+    ),
+    (
+        "v0-4-contract",
+        "Curated environment detection accepts an injected Go lookup key",
+    ),
+    (
+        "v0-4-contract",
+        "Curated environment detection redacts a dynamic injected Go lookup",
+    ),
+    (
+        "v0-4-contract",
         "Curated environment detection redacts unsupported dynamic access",
     ),
     (

@@ -841,6 +841,58 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|validate"
     Then the exit code is 0
 
+  Scenario: Curated environment detection accepts a declared TypeScript schema key
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        contracts:
+          - path: .env.example
+            keys: [SERVICE_TOKEN]
+        detectors:
+          - language: type-script
+            paths: [src/env.ts]
+      """
+    And the repository contains:
+      | path       | content                                                   |
+      | src/env.ts | export const environment = {\n  SERVICE_TOKEN: text(),\n}; |
+    When I invoke the CLI with "env|validate"
+    Then the exit code is 0
+
+  Scenario: Curated environment detection accepts an injected Go lookup key
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        contracts:
+          - path: .env.example
+            keys: [SERVICE_PORT]
+        detectors:
+          - language: go
+            paths: [cmd/service/main.go]
+      """
+    And the repository contains:
+      | path                | content                                                        |
+      | cmd/service/main.go | func main() { resolve(os.LookupEnv, "SERVICE_PORT") }         |
+    When I invoke the CLI with "env|validate"
+    Then the exit code is 0
+
+  Scenario: Curated environment detection redacts a dynamic injected Go lookup
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        detectors:
+          - language: go
+            paths: [cmd/service/main.go]
+      """
+    And the repository contains:
+      | path                | content                                                |
+      | cmd/service/main.go | func main() { resolve(os.LookupEnv, variableName) }    |
+    When I invoke the CLI with "env|validate"
+    Then the exit code is 1
+    And stderr contains "unsupported-dynamic-access"
+
   Scenario: Curated environment detection redacts unsupported dynamic access
     Given the configuration file is this text:
       """
