@@ -866,7 +866,7 @@ impl Launcher for ProcessLauncher {
         let mut child = Command::new(program)
             .args(arguments)
             .current_dir(launch.directory)
-            .env("OSE_GATE_SURFACE", launch.surface)
+            .env("RHINO_GATE_SURFACE", launch.surface)
             .envs(launch.environment)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

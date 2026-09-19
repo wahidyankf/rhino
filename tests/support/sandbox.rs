@@ -103,7 +103,7 @@ for argument in "$@"; do
   if [ -z "$arguments" ]; then arguments="$argument"; else arguments="$arguments|$argument"; fi
 done
 input=$(cat)
-printf 'start\t{id}\t%s\t%s\t%s\t%s\n' "$arguments" "$OSE_GATE_SURFACE" "$input" "$PWD" >> "$journal"
+printf 'start\t{id}\t%s\t%s\t%s\t%s\n' "$arguments" "$RHINO_GATE_SURFACE" "$input" "$PWD" >> "$journal"
 printf '{marker} {id}\n'
 printf '{marker} {id}\n' >&2
 printf 'stop\t{id}\n' >> "$journal"
