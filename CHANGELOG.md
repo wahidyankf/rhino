@@ -39,6 +39,9 @@ rather than forwarding old keys or commands through aliases.
 
 ### Fixed
 
+- **Gate children receive product-scoped surface metadata.** `gate run` now
+  exposes its selected surface as `RHINO_GATE_SURFACE`; it no longer overwrites
+  a consumer's `OSE_GATE_SURFACE` adapter variable.
 - **Pull-request file gates receive their immutable changed-file selection.** A
   `files` input may bind `explicit-range` on `pull-request`, resolving only the
   repository-relative paths changed between the supplied immutable commits.

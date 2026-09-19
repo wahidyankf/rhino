@@ -9,11 +9,11 @@
 #   pre-push     ref updates arrive on stdin, as Git supplies them
 #   ci           no arguments; the checked-out tree is the subject
 #
-# The surface arrives in the environment and nowhere else. `rhino gate run`
-# exports it before starting each child. It is never inferred from an argument's
-# filename, from which hook happens to be running, or from whether a remote is
-# reachable -- a gate that guesses its own surface will eventually guess a
-# weaker one, and that is exactly the case where guessing is expensive.
+# The consumer adapter owns its public-safety surface. RHINO's product-scoped
+# marker is a fallback for this repository's own adapter, never a replacement
+# for a consumer value. Neither value is inferred from an argument's filename,
+# from which hook happens to be running, or from whether a remote is reachable
+# -- a gate that guesses its own surface will eventually guess a weaker one.
 #
 # This file decides *what is outbound* at each surface. `public-safety.sh`
 # decides whether any of it is prohibited. Keeping those apart is what lets the
@@ -40,7 +40,7 @@ leaf="$here/public-safety.sh"
 	exit 2
 }
 
-surface="${OSE_GATE_SURFACE:-}"
+surface="${OSE_GATE_SURFACE:-${RHINO_GATE_SURFACE:-}}"
 case "$surface" in
 commit-msg | pre-commit | pre-push | ci) ;;
 "")
