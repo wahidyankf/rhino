@@ -8,6 +8,11 @@ for file in "$@"; do
 	# pre-commit failure.
 	[[ -e "$file" || -L "$file" ]] || continue
 	case "$file" in
+	.claude/agents/catalog.json | .claude/agents/provenance.json | .claude/skills/catalog.json | .claude/skills/provenance.json | .codex/agents/catalog.json | .codex/agents/provenance.json | .opencode/agents/catalog.json | .opencode/agents/provenance.json)
+		# These manifests are byte-for-byte output of `harness adapters generate`.
+		# Reformatting them would make a generated adapter stale immediately.
+		continue
+		;;
 	*.rs)
 		bash scripts/format-staged-rust.sh "$file"
 		;;
