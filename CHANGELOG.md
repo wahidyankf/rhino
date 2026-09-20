@@ -9,7 +9,15 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [v0.4.1] — unreleased
+## [v0.4.2] — unreleased
+
+### Fixed
+
+- **Generated harness adapters are formatter-stable.** YAML scalar values that require quoting now use YAML literal
+  blocks, and generated catalog and provenance JSON uses stable pretty formatting. Regeneration no longer rewrites
+  consumer formatter output.
+
+## [v0.4.1] — 2026-09-20
 
 ### Fixed
 

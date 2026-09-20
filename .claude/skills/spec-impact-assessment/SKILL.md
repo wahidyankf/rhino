@@ -1,5 +1,6 @@
 ---
-description: "Assess specs/behaviours and specs/architecture.md for impact before changing anything, and record a verified no-op rather than churning an unaffected specification."
+description: |-
+  Assess specs/behaviours and specs/architecture.md for impact before changing anything, and record a verified no-op rather than churning an unaffected specification.
 name: spec-impact-assessment
 ---
 

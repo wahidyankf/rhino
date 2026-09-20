@@ -1,5 +1,6 @@
 ---
-description: "Take a change from a task worktree to merged on main through a pull request, the only path this repository's ruleset allows."
+description: |-
+  Take a change from a task worktree to merged on main through a pull request, the only path this repository's ruleset allows.
 name: worktree-to-pr
 ---
 
