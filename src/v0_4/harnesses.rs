@@ -930,16 +930,14 @@ fn render_front_matter(
     let mut output = String::from("---\n");
     for (field, value) in fields {
         match value {
-            RenderField::Scalar(value) => {
-                output.push_str(&format!("{field}: {}\n", yaml_scalar(value)))
-            }
+            RenderField::Scalar(value) => render_yaml_field(&mut output, field, value, ""),
             RenderField::Members(members) => {
-                output.push_str(&format!("{field}: {}\n", yaml_scalar(&members.join(", "))));
+                render_yaml_field(&mut output, field, &members.join(", "), "")
             }
             RenderField::Entries(entries) => {
                 output.push_str(&format!("{field}:\n"));
                 for (key, value) in entries {
-                    output.push_str(&format!("  {key}: {}\n", yaml_scalar(value)));
+                    render_yaml_field(&mut output, key, value, "  ");
                 }
             }
         }
@@ -971,16 +969,33 @@ fn render_toml(fields: &BTreeMap<String, RenderField>) -> Result<String, String>
     Ok(output)
 }
 
-fn yaml_scalar(value: &str) -> String {
+enum YamlScalar<'a> {
+    Plain(&'a str),
+    Literal,
+}
+
+fn render_yaml_field(output: &mut String, field: &str, value: &str, indentation: &str) {
+    match yaml_scalar(value) {
+        YamlScalar::Plain(value) => output.push_str(&format!("{indentation}{field}: {value}\n")),
+        YamlScalar::Literal => {
+            output.push_str(&format!("{indentation}{field}: |-\n"));
+            for line in value.lines() {
+                output.push_str(&format!("{indentation}  {line}\n"));
+            }
+        }
+    }
+}
+
+fn yaml_scalar(value: &str) -> YamlScalar<'_> {
     let plain = !value.is_empty()
         && value.chars().all(|character| {
             character.is_ascii_alphanumeric() || matches!(character, ' ' | '-' | '_' | '.')
         })
         && !value.starts_with('-');
     if plain {
-        value.to_string()
+        YamlScalar::Plain(value)
     } else {
-        serde_json::to_string(value).expect("a string always serializes")
+        YamlScalar::Literal
     }
 }
 
@@ -999,7 +1014,7 @@ fn digest(contents: &str) -> String {
 }
 
 fn json(value: &impl Serialize, kind: &str) -> Result<String, String> {
-    serde_json::to_string(value)
+    serde_json::to_string_pretty(value)
         .map(|value| format!("{value}\n"))
         .map_err(|error| format!("cannot render adapter {kind}: {error}"))
 }
@@ -1647,13 +1662,17 @@ mod typed_tests {
             entries: BTreeMap::from([("network".to_string(), "deny".to_string())]),
         };
         add_translation(&mut fields, &entries).unwrap();
+        add_scalar(&mut fields, "description", "needs: quotes".to_string()).unwrap();
         assert!(
             render_front_matter(&fields, "Read path: value")
                 .unwrap()
-                .contains("Glob")
+                .contains("description: |-\n  needs: quotes\n")
         );
         assert!(render_toml(&fields).unwrap().contains("[permissions]"));
-        assert_eq!(yaml_scalar("needs: quotes"), "\"needs: quotes\"");
+        assert_eq!(
+            json(&serde_json::json!({"schemaVersion": 1}), "catalog").unwrap(),
+            "{\n  \"schemaVersion\": 1\n}\n"
+        );
         assert!(toml_scalar("needs quotes").contains("needs quotes"));
         assert!(route("missing", "AGENTS.md").is_err());
 

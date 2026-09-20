@@ -754,10 +754,11 @@ Feature: Rhino v0.4 contracts
       | path                           | content               |
       | AGENTS.md                      | Canonical instruction |
       | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
-      | .agents/skills/review/SKILL.md | ---\nname: review\ndescription: Review skill\n---\nCanonical skill    |
+      | .agents/skills/review/SKILL.md | ---\nname: review\ndescription: Review: skill\n---\nCanonical skill   |
     When I invoke the CLI with "harness|adapters|generate"
     Then the exit code is 0
     And the last adapter generation changes the repository
+    And the generated adapter at "adapters/alpha/skills/review/SKILL.md" contains "description: |-"
     When I invoke the CLI with "harness|adapters|generate"
     Then the exit code is 0
     And the last adapter generation makes no repository change

@@ -1,5 +1,6 @@
 ---
-description: "Build, checksum, and tag a RHINO release from the primary checkout, where a published tag is permanent and is never replaced."
+description: |-
+  Build, checksum, and tag a RHINO release from the primary checkout, where a published tag is permanent and is never replaced.
 name: release-cut
 ---
 
