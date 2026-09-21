@@ -4,13 +4,15 @@ Removing exactly the development artifacts one piece of work created, and bringi
 
 ## Scope
 
-Five things, and nothing else: the worktree this work provisioned, its local branch, that branch on `origin`, the regenerable build output this work produced, and the primary checkout's `main` ref.
+Six things, and nothing else: the worktree this work provisioned, its local branch, that branch on `origin`, the regenerable build output this work produced, the `local-tmp/` scratch it wrote, and the primary checkout's `main` ref.
 
 Build output means `target/` and the build caches a documented command rebuilds — in the worktree, and the same regenerable output in the primary checkout. It never means a `.env*` file or any other local secret: those are not build output, exist nowhere else, and are out of scope in every location.
 
+Scratch means what this work itself wrote under `local-tmp/`, never another actor's files.
+
 An exact ignored, nonshared cache such as `.fvm-cache` may be scratch even when another task created it, but only after recorded regeneration, non-use, and secret-free evidence. This never makes a shared cache removable.
 
-Everything else on the machine belongs to someone else — a worktree this work did not create, a branch it did not open, another repository's state. That holds even when they look abandoned.
+Everything else on the machine belongs to someone else — a worktree this work did not create, a branch it did not open, another repository's state — even when they look abandoned.
 
 ## When
 
@@ -38,28 +40,27 @@ git branch -d worktree/<name>
 git push origin --delete worktree/<name>
 ```
 
-Purge the build output this work produced once delivery has landed and nothing is using it. Retain
-logs, traces, and any other non-regenerable evidence a failure would need.
+Purge the build output this work produced, and its own scratch, once delivery has landed and nothing uses it. Retain logs, traces, and any other non-regenerable evidence a failure would need.
 
 The count must read `0 0`. `--prune` drops the remote-tracking ref for a branch the forge deleted on merge; without it the branch keeps appearing in `git branch -a` after it is gone. Delete on `origin` only if merging did not.
 
-Where a clone has no primary checkout, `git fetch origin main:main` reconciles without one — never against a branch checked out somewhere.
+Where a clone has no primary checkout, `git fetch origin main:main` reconciles without one, never against a branch checked out elsewhere.
 
 ## When `-d` Refuses
 
-`git branch -d` refuses a branch whose commits `main` does not literally contain, so after a rebase merge it always refuses: the landed commits carry different hashes than the ones on the branch, and this repository merges by rebase.
+`git branch -d` refuses a branch whose commits `main` does not literally contain, so after a rebase merge — which is how this repository merges — it always refuses: the landed commits carry different hashes.
 
-Read the refusal before answering it. Where the pull request reports merged and the change is on `origin/main`, `-D` is correct, because `-d` is asking about hashes rather than about content. Where that is not established, `-D` discards work.
+Read the refusal before answering it. Where the pull request reports merged and the change is on `origin/main`, `-D` is correct: `-d` asks about hashes, not content. Where that is not established, `-D` discards work.
 
 ## Verification
 
-`git worktree list` no longer names the path, `git branch --list` no longer prints the branch, the branch is gone from `origin`, the purged build output is gone, and the count above reads `0 0`.
+`git worktree list` no longer names the path, `git branch --list` no longer prints the branch, the branch is gone from `origin`, the purged build output and this work's scratch are gone, and the count above reads `0 0`.
 
 ## Never
 
-Never delete a `.env*` file or any other local secret-bearing file or directory. They are gitignored and unregenerable — nothing in the repository reconstructs one — so deleting one is permanent loss of the operator's own configuration, not a reclaimed artifact. That holds inside a worktree being removed too, which is part of why removal is never forced: `git worktree remove` refuses while untracked files remain, and that refusal is a signal to stop.
+Never delete a `.env*` file or any other local secret-bearing file or directory. They are gitignored and unregenerable — nothing in the repository reconstructs one — so deleting one is permanent loss of the operator's own configuration, not a reclaimed artifact. That holds inside a worktree being removed too, which is why removal is never forced: `git worktree remove` refuses while untracked files remain, and that refusal is a signal to stop.
 
-In the primary checkout, only regenerable build output is removable. Every other removal targets the worktree this work provisioned or the branch it opened. The primary checkout holds the only copies of gitignored secrets and local state, so a deletion there is unrecoverable. Never delete `main` itself, locally or on `origin`.
+In the primary checkout, only regenerable build output and this work's own scratch are removable. Every other removal targets the worktree this work provisioned or the branch it opened. The primary checkout holds the only copies of gitignored secrets and local state, so a deletion there is unrecoverable. Never delete `main` itself, locally or on `origin`.
 
 Never delete an artifact another actor created. Never stash to clear a worktree before removing it — the stash stack is shared across every worktree of a clone, so a pop elsewhere takes an entry it did not create.
 
