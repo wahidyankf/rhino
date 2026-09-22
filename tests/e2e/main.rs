@@ -45,6 +45,7 @@ mod world;
 
 #[allow(dead_code)]
 mod bindings;
+mod conformance;
 mod driver;
 mod policy;
 
