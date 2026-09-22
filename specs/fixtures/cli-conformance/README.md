@@ -1,11 +1,3 @@
----
-description: >-
-  Describes the command-line interface assertion manifest, how an adopting repository owns its copy, and why this
-  corpus carries no digest, pin check, or drift ledger.
-when_to_use: >-
-  Use before building a conformance runner against this corpus, or before changing an assertion in it.
----
-
 # Command-Line Interface Conformance Corpus
 
 `assertions.json` is the machine-readable form of the `command-line-interface` structure convention published in the
@@ -15,6 +7,11 @@ satisfies it, the source it rests on, and its verification status.
 This copy deliberately names the convention rather than linking it: the convention is not adopted into this repository
 yet, and a link to a document that is not here would be a broken link rather than a reference. When it is adopted, the
 link replaces this paragraph.
+
+## Directory Map
+
+- [assertions.json](assertions.json) — one assertion per obligation, each with
+  its invocation, expected observation, source, and verification status.
 
 ## The Copy Is Owned Locally
 
