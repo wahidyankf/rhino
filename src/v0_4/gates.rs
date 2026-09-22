@@ -6,8 +6,9 @@
 
 use crate::Outcome;
 use crate::cli::{Format, Invocation};
+use crate::errors::ErrorCode;
 use crate::runtime::{
-    Launch, LaunchError, Launched, Launcher, Mutated, MutationError, MutationLaunch,
+    Launch, LaunchError, LaunchFailure, Launched, Launcher, Mutated, MutationError, MutationLaunch,
     MutationRunner, Tree, TreeError,
 };
 use crate::v0_4::config::{
@@ -45,15 +46,19 @@ pub(crate) fn list(gates: Option<&Gates>, format: Format) -> Outcome {
             }
             Outcome::clean(text)
         }
-        Format::Json => match serde_json::to_string(&ListingEnvelope {
-            schema_version: 1,
-            command: ["gate", "list"],
-            result: "clean",
-            surfaces: listed,
-        }) {
-            Ok(json) => Outcome::clean(format!("{json}\n")),
-            Err(error) => Outcome::refused(format!("rhino: serializing gate list: {error}\n")),
-        },
+        // Through a `Value` rather than straight to a string, because that
+        // turn cannot fail: every field here is a number, a string, or a list
+        // of them. The fallible spelling bought an arm no test could reach and
+        // an error code no caller could ever see.
+        Format::Json => Outcome::clean(format!(
+            "{}\n",
+            serde_json::json!(ListingEnvelope {
+                schema_version: 1,
+                command: ["gate", "list"],
+                result: "clean",
+                surfaces: listed,
+            })
+        )),
     }
 }
 
@@ -80,22 +85,25 @@ pub(crate) fn run(
     mutations: &dyn MutationRunner,
 ) -> Outcome {
     let Some(surface) = invocation.surface.as_deref().and_then(surface) else {
-        return Outcome::refused(format!(
-            "rhino: `--surface` must name one of {}\n",
-            Surface::ALL
-                .iter()
-                .map(|known| known.name())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    };
-    if !invocation.forwarded.is_empty() {
-        return Outcome::refused(
-            "rhino: v0.4 gate commands use declared typed argv; arguments after `--` are not accepted\n",
+        return Outcome::refusal(
+            invocation.format,
+            ErrorCode::ArgsIncomplete,
+            format!(
+                "`--surface` must name one of {}",
+                Surface::ALL
+                    .iter()
+                    .map(|known| known.name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         );
-    }
+    };
     if invocation.base.is_some() != invocation.head.is_some() {
-        return Outcome::refused("rhino: `--base` and `--head` must be supplied together\n");
+        return Outcome::refusal(
+            invocation.format,
+            ErrorCode::ArgsIncomplete,
+            "`--base` and `--head` must be supplied together",
+        );
     }
 
     let mut report = String::new();
@@ -113,19 +121,28 @@ pub(crate) fn run(
             Ok(Some(inputs)) => inputs,
             Ok(None) => continue,
             Err(reason) => {
-                return Outcome::refused(format!("rhino: gate `{}`: {reason}\n", gate.id));
+                return Outcome::refusal(
+                    invocation.format,
+                    ErrorCode::ConfigUnusable,
+                    format!("gate `{}`: {reason}", gate.id),
+                );
             }
         };
         let Some(command) = &gate.command else {
-            return Outcome::refused(format!(
-                "rhino: gate `{}` declares no executable command\n",
-                gate.id
-            ));
+            return Outcome::refusal(
+                invocation.format,
+                ErrorCode::GateUndeclared,
+                format!("gate `{}` declares no executable command", gate.id),
+            );
         };
         let (arguments, environment) = match project(command, &resolved) {
             Ok(projected) => projected,
             Err(reason) => {
-                return Outcome::refused(format!("rhino: gate `{}`: {reason}\n", gate.id));
+                return Outcome::refusal(
+                    invocation.format,
+                    ErrorCode::ConfigUnusable,
+                    format!("gate `{}`: {reason}", gate.id),
+                );
             }
         };
         if gate.kind == GateKind::Mutation {
@@ -190,14 +207,12 @@ pub(crate) fn run(
                 }
                 Err(MutationError(reason)) => {
                     report.push_str(&format!("[gate] {} could not run\n", gate.id));
-                    return run_outcome(
+                    return run_refusal(
                         invocation.format,
-                        3,
-                        "failed",
-                        &completed,
-                        &[],
+                        2,
+                        ErrorCode::GateChildRefused,
                         report,
-                        format!("rhino: gate `{}`: {reason}\n", gate.id),
+                        format!("gate `{}`: {reason}", gate.id),
                     );
                 }
             }
@@ -229,16 +244,23 @@ pub(crate) fn run(
                     ),
                 );
             }
-            Err(LaunchError(reason)) => {
+            Err(LaunchError { reason, failure }) => {
                 report.push_str(&format!("[gate] {} could not run\n", gate.id));
-                return run_outcome(
+                // 127 and 126 are what a shell already reports for these two,
+                // so a caller reading the status needs no rhino-specific
+                // vocabulary to act on it. Anything else is this tool failing
+                // to run, which is 2.
+                let (status, code) = match failure {
+                    LaunchFailure::NotFound => (127, ErrorCode::GateChildNotFound),
+                    LaunchFailure::NotExecutable => (126, ErrorCode::GateChildNotExecutable),
+                    LaunchFailure::Refused => (2, ErrorCode::GateChildRefused),
+                };
+                return run_refusal(
                     invocation.format,
-                    3,
-                    "failed",
-                    &completed,
-                    &[],
+                    status,
+                    code,
                     report,
-                    format!("rhino: gate `{}`: {reason}\n", gate.id),
+                    format!("gate `{}`: {reason}", gate.id),
                 );
             }
         }
@@ -252,6 +274,33 @@ pub(crate) fn run(
         report,
         String::new(),
     )
+}
+
+/// A run that never reached a verdict.
+///
+/// Stdout stays empty. A caller parsing the result document has to be able to
+/// trust that stdout either holds a verdict or holds nothing, so the progress
+/// lines accumulated before the failure move to stderr alongside the
+/// diagnostic rather than masquerading as a result.
+fn run_refusal(
+    format: Format,
+    exit_code: u8,
+    code: ErrorCode,
+    progress: String,
+    message: String,
+) -> Outcome {
+    // The progress lines are a text-mode affordance. Under `--output json` a
+    // caller reading stderr wants one document, not a document preceded by
+    // prose it has to learn to skip.
+    let progress = match format {
+        Format::Text => progress,
+        Format::Json => String::new(),
+    };
+    Outcome {
+        exit_code,
+        stdout: String::new(),
+        stderr: format!("{progress}{}", crate::errors::body(format, code, &message)),
+    }
 }
 
 fn run_outcome(
@@ -269,25 +318,25 @@ fn run_outcome(
             stdout: text,
             stderr,
         },
-        Format::Json => match serde_json::to_string(&serde_json::json!({
-            "schemaVersion": 1,
-            "command": ["gate", "run"],
-            "result": result,
-            "summary": {
-                "scanned": completed.len(),
-                "findings": if exit_code == 1 { 1 } else { 0 },
-                "changed": 0,
-            },
-            "findings": [],
-            "changes": changes,
-            "metadata": { "gates": completed },
-        })) {
-            Ok(json) => Outcome {
-                exit_code,
-                stdout: format!("{json}\n"),
-                stderr,
-            },
-            Err(error) => Outcome::refused(format!("rhino: serializing gate result: {error}\n")),
+        Format::Json => Outcome {
+            exit_code,
+            stdout: format!(
+                "{}\n",
+                serde_json::json!({
+                    "schemaVersion": 1,
+                    "command": ["gate", "run"],
+                    "result": result,
+                    "summary": {
+                        "scanned": completed.len(),
+                        "findings": if exit_code == 1 { 1 } else { 0 },
+                        "changed": 0,
+                    },
+                    "findings": [],
+                    "changes": changes,
+                    "metadata": { "gates": completed },
+                })
+            ),
+            stderr,
         },
     }
 }
@@ -612,8 +661,11 @@ mod tests {
     }
 
     enum LaunchResult {
+        Clean,
         Finding,
         Error,
+        NotFound,
+        NotExecutable,
     }
 
     struct TerminalLauncher(LaunchResult);
@@ -621,8 +673,17 @@ mod tests {
     impl Launcher for TerminalLauncher {
         fn launch(&self, _launch: Launch<'_>) -> Result<Launched, LaunchError> {
             match self.0 {
+                LaunchResult::Clean => Ok(Launched { code: 0 }),
                 LaunchResult::Finding => Ok(Launched { code: 1 }),
-                LaunchResult::Error => Err(LaunchError("launcher refused".to_string())),
+                LaunchResult::Error => Err(LaunchError::refused("launcher refused")),
+                LaunchResult::NotFound => Err(LaunchError::from_spawn(
+                    "/no/such/program",
+                    &std::io::Error::from(std::io::ErrorKind::NotFound),
+                )),
+                LaunchResult::NotExecutable => Err(LaunchError::from_spawn(
+                    "not-executable",
+                    &std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+                )),
             }
         }
     }
@@ -1031,22 +1092,6 @@ gates:
         assert_eq!(no_surface.exit_code, 2);
         assert!(no_surface.stderr.contains("--surface"));
 
-        let forwarded = run(
-            None,
-            &Invocation {
-                category: "gate",
-                surface: Some("manual".to_string()),
-                forwarded: vec!["replacement".to_string()],
-                ..Invocation::default()
-            },
-            &tree,
-            None,
-            &CapturingLauncher::default(),
-            &NoMutationRunner,
-        );
-        assert_eq!(forwarded.exit_code, 2);
-        assert!(forwarded.stderr.contains("not accepted"));
-
         let half_range = run(
             None,
             &Invocation {
@@ -1268,8 +1313,156 @@ gates:
                 &NoMutationRunner,
             )
             .exit_code,
-            3
+            // A mutation that could not be carried out is this tool failing to
+            // run, not a verdict about the repository.
+            2
         );
+    }
+
+    /// An input that cannot be resolved stops the run before any child starts.
+    ///
+    /// `resolve_inputs` is driven directly elsewhere; this drives it through
+    /// `run`, which is where its refusal becomes an exit status and a code a
+    /// caller can read.
+    #[test]
+    fn an_unresolvable_input_refuses_before_a_child_is_launched() {
+        let gate = Gate {
+            id: "message".to_string(),
+            kind: GateKind::Check,
+            inputs: BTreeMap::from([(
+                "message".to_string(),
+                GateInput {
+                    kind: InputKind::CommitMessage,
+                },
+            )]),
+            command: Some(command()),
+            mutation: None,
+            run_on: BTreeMap::from([(
+                Surface::Manual,
+                GateMembership {
+                    reason: None,
+                    bind: BTreeMap::from([(
+                        "message".to_string(),
+                        InputBinding {
+                            source: InputSource::HookMessageFile,
+                            range: None,
+                            fallback: None,
+                        },
+                    )]),
+                },
+            )]),
+        };
+        let mut unreadable = MemoryTree::default();
+        unreadable.write("message", "synthetic");
+        unreadable.set_hook_message_file("message");
+        unreadable.mark_unreadable("message");
+
+        let launcher = CapturingLauncher::default();
+        let outcome = run(
+            Some(&Gates {
+                entries: vec![gate],
+                composition: None,
+            }),
+            &Invocation {
+                category: "gate",
+                surface: Some("manual".to_string()),
+                message_file: Some("message".to_string()),
+                format: Format::Json,
+                ..Invocation::default()
+            },
+            &unreadable,
+            None,
+            &launcher,
+            &NoMutationRunner,
+        );
+
+        assert_eq!(outcome.exit_code, 2);
+        assert!(outcome.stdout.is_empty());
+        assert!(
+            outcome
+                .stderr
+                .contains("\"code\":\"rhino.config.unusable\"")
+        );
+        assert!(outcome.stderr.contains("gate `message`"));
+        assert!(launcher.calls.borrow().is_empty());
+    }
+
+    /// The two statuses that replaced exit `3`, and the result document.
+    ///
+    /// A shell reports `127` for a program it cannot find and `126` for one it
+    /// finds and cannot execute. RHINO reports the same two, so a caller needs
+    /// no RHINO-specific vocabulary -- and the distinction only survives if
+    /// something drives both arms.
+    #[test]
+    fn a_gate_child_that_never_started_reports_what_a_shell_would() {
+        let tree = MemoryTree::default();
+        let invocation = Invocation {
+            category: "gate",
+            surface: Some("manual".to_string()),
+            format: Format::Json,
+            ..Invocation::default()
+        };
+
+        for (result, status, code) in [
+            (LaunchResult::NotFound, 127, "rhino.gate.child-not-found"),
+            (
+                LaunchResult::NotExecutable,
+                126,
+                "rhino.gate.child-not-executable",
+            ),
+        ] {
+            let outcome = run(
+                Some(&manual_gate(Some(command()))),
+                &invocation,
+                &tree,
+                None,
+                &TerminalLauncher(result),
+                &NoMutationRunner,
+            );
+            assert_eq!(outcome.exit_code, status);
+            // Nothing on stdout: a caller parsing a result must never be handed
+            // a document describing a run that did not happen.
+            assert!(outcome.stdout.is_empty());
+            assert!(outcome.stderr.contains(code));
+            // And no progress prose ahead of the document in this format.
+            assert!(outcome.stderr.starts_with('{'));
+        }
+    }
+
+    #[test]
+    fn a_gate_run_that_reached_a_verdict_renders_the_result_document() {
+        let tree = MemoryTree::default();
+        let invocation = Invocation {
+            category: "gate",
+            surface: Some("manual".to_string()),
+            format: Format::Json,
+            ..Invocation::default()
+        };
+
+        let clean = run(
+            Some(&manual_gate(Some(command()))),
+            &invocation,
+            &tree,
+            None,
+            &TerminalLauncher(LaunchResult::Clean),
+            &NoMutationRunner,
+        );
+        assert_eq!(clean.exit_code, 0);
+        assert!(clean.stdout.contains("\"result\":\"clean\""));
+        assert!(clean.stdout.contains("\"schemaVersion\":1"));
+        assert!(clean.stdout.contains("\"scanned\":1"));
+
+        let finding = run(
+            Some(&manual_gate(Some(command()))),
+            &invocation,
+            &tree,
+            None,
+            &TerminalLauncher(LaunchResult::Finding),
+            &NoMutationRunner,
+        );
+        assert_eq!(finding.exit_code, 1);
+        assert!(finding.stdout.contains("\"result\":\"findings\""));
+        assert!(finding.stdout.contains("\"findings\":1"));
     }
 
     #[test]
@@ -1302,9 +1495,16 @@ gates:
             &TerminalLauncher(LaunchResult::Error),
             &NoMutationRunner,
         );
-        assert_eq!(unavailable.exit_code, 3);
-        assert!(unavailable.stdout.contains("\"result\":\"failed\""));
+        // A refused launch is a refusal: stdout stays empty rather than
+        // carrying a result document describing a run that never happened.
+        assert_eq!(unavailable.exit_code, 2);
+        assert!(unavailable.stdout.is_empty());
         assert!(unavailable.stderr.contains("launcher refused"));
+        assert!(
+            unavailable
+                .stderr
+                .contains("\"code\":\"rhino.gate.child-refused\"")
+        );
 
         let mutation = Gates {
             entries: vec![Gate {
@@ -1357,7 +1557,8 @@ gates:
             &CapturingLauncher::default(),
             &TerminalMutations(MutationResult::Error),
         );
-        assert_eq!(error.exit_code, 3);
+        assert_eq!(error.exit_code, 2);
+        assert!(error.stdout.is_empty());
         assert!(error.stderr.contains("mutation refused"));
     }
 

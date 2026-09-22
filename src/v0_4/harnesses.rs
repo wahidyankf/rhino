@@ -11,6 +11,7 @@ use super::config::{
 };
 use crate::Outcome;
 use crate::cli::Format;
+use crate::errors::ErrorCode;
 use crate::runtime::{
     AdapterFile, AdapterStore, AdapterTransaction, Tree, TreeError, adapter_exact_paths,
     adapter_roots, normal_adapter_path, under_root,
@@ -1077,14 +1078,18 @@ fn findings(format: Format, differences: Vec<String>) -> Outcome {
     }
 }
 
+/// One refusal shape for both formats.
+///
+/// The JSON form used to carry a `reason` string under a command-specific
+/// envelope, which meant a caller wanting to know why any rhino command refused
+/// had to learn one shape per command. It now carries the same `error.code` and
+/// `error.message` every other refusal does.
 fn refused(format: Format, reason: String) -> Outcome {
-    match format {
-        Format::Text => Outcome::refused(format!("[harness-adapters] {reason}\n")),
-        Format::Json => Outcome::refused(format!(
-            "{{\"schemaVersion\":1,\"command\":\"harness-adapters\",\"status\":\"refused\",\"reason\":{}}}\n",
-            serde_json::to_string(&reason).expect("a string always serializes")
-        )),
-    }
+    Outcome::refusal(
+        format,
+        ErrorCode::HarnessRefused,
+        format!("[harness-adapters] {reason}"),
+    )
 }
 
 #[cfg(test)]

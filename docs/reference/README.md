@@ -10,7 +10,8 @@ disagree, the corpus wins.
 ## Directory Map
 
 - [Command line](./cli.md) — every command, every flag, and which flags each command accepts.
-- [Exit codes](./exit-codes.md) — `0` through `3`, and what each one promises.
+- [Exit codes](./exit-codes.md) — the closed status vocabulary, and what each code promises.
+- [Error codes](./error-codes.md) — the closed `error.code` vocabulary in the JSON error body.
 - [Findings](./findings.md) — stable grouped-v2 validation finding kinds.
 - [JSON output](./json-output.md) — validation result envelopes and command-specific status documents.
 - [Configuration](./configuration.md) — the grouped v2 contract and stable predecessor handling.

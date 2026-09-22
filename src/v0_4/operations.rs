@@ -5,6 +5,7 @@ use super::config::{
 };
 use crate::Outcome;
 use crate::cli::Format;
+use crate::errors::ErrorCode;
 use crate::runtime::{
     EnvironmentFile, EnvironmentRestoreFile, EnvironmentRestoreTransaction, EnvironmentStore,
     EnvironmentTransaction, ToolchainLaunch, ToolchainRunner, Tree, TreeError,
@@ -21,39 +22,52 @@ pub(crate) fn validate(
     format: Format,
 ) -> Outcome {
     let Some(environment) = environment else {
-        return Outcome::refused("rhino: environment section is not declared\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "environment section is not declared",
+        );
     };
     if let Err(reason) = validate_detector_policy(environment) {
-        return Outcome::refused(format!("rhino: environment detector policy: {reason}\n"));
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUnusable,
+            format!("environment detector policy: {reason}"),
+        );
     }
 
     let mut inspected = 0usize;
     let mut findings = BTreeSet::new();
     if let Some(staged) = &environment.staged {
         if staged.allowed.iter().any(|path| !is_exact_path(path)) {
-            return Outcome::refused(
-                "rhino: environment staging guard allows only exact repository-relative paths\n",
+            return Outcome::refusal(
+                format,
+                ErrorCode::PathEscapesRoot,
+                "environment staging guard allows only exact repository-relative paths",
             );
         }
         let indexed = match tree.indexed_files() {
             Ok(indexed) => indexed,
             Err(reason) => {
-                return Outcome::refused(format!(
-                    "rhino: environment staging guard refused: {reason}\n"
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::ConfigUnusable,
+                    format!("environment staging guard refused: {reason}"),
+                );
             }
         };
         inspected += indexed.len();
-        let forbidden = match patterns(&staged.forbidden) {
-            Ok(patterns) => patterns,
-            Err(reason) => {
-                return Outcome::refused(format!("rhino: environment staging guard: {reason}\n"));
-            }
-        };
-        let allowed = match patterns(&staged.allowed) {
-            Ok(patterns) => patterns,
-            Err(reason) => {
-                return Outcome::refused(format!("rhino: environment staging guard: {reason}\n"));
+        // Both lists in one arm: an unusable pattern is the same refusal
+        // whichever list it came from, and two identical arms only meant one
+        // of them was never driven.
+        let (forbidden, allowed) = match (patterns(&staged.forbidden), patterns(&staged.allowed)) {
+            (Ok(forbidden), Ok(allowed)) => (forbidden, allowed),
+            (Err(reason), _) | (_, Err(reason)) => {
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::ConfigUnusable,
+                    format!("environment staging guard: {reason}"),
+                );
             }
         };
         for path in indexed
@@ -423,45 +437,68 @@ pub(crate) fn init(
     format: Format,
 ) -> Outcome {
     let Some(environment) = environment else {
-        return Outcome::refused("rhino: environment section is not declared\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "environment section is not declared",
+        );
     };
     if environment.examples.is_empty() {
-        return Outcome::refused("rhino: environment policy declares no example targets\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "environment policy declares no example targets",
+        );
     }
     let mut targets = BTreeSet::new();
     let mut files = Vec::new();
     for example in &environment.examples {
         if !is_relative_file(&example.source) || !is_relative_file(&example.target) {
-            return Outcome::refused("rhino: environment example leaves the repository root\n");
+            return Outcome::refusal(
+                format,
+                ErrorCode::PathEscapesRoot,
+                "environment example leaves the repository root",
+            );
         }
         if example.source == example.target {
-            return Outcome::refused("rhino: environment example source and target are the same\n");
+            return Outcome::refusal(
+                format,
+                ErrorCode::ConfigUnusable,
+                "environment example source and target are the same",
+            );
         }
         if !targets.insert(example.target.clone()) {
-            return Outcome::refused(format!(
-                "rhino: environment target `{}` is declared more than once\n",
-                example.target
-            ));
+            return Outcome::refusal(
+                format,
+                ErrorCode::ConfigUnusable,
+                format!(
+                    "environment target `{}` is declared more than once",
+                    example.target
+                ),
+            );
         }
         if tree.exists(&example.target) {
-            return Outcome::refused(format!(
-                "rhino: environment target `{}` already exists\n",
-                example.target
-            ));
+            return Outcome::refusal(
+                format,
+                ErrorCode::FileExists,
+                format!("environment target `{}` already exists", example.target),
+            );
         }
         let contents = match tree.read_no_follow(&example.source) {
             Ok(contents) => contents,
             Err(TreeError::NotFound) => {
-                return Outcome::refused(format!(
-                    "rhino: environment example `{}` is missing\n",
-                    example.source
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::FileMissing,
+                    format!("environment example `{}` is missing", example.source),
+                );
             }
             Err(TreeError::Unreadable(_) | TreeError::NotText) => {
-                return Outcome::refused(format!(
-                    "rhino: environment example `{}` is unreadable\n",
-                    example.source
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::FileUnreadable,
+                    format!("environment example `{}` is unreadable", example.source),
+                );
             }
         };
         files.push(EnvironmentFile {
@@ -476,10 +513,11 @@ pub(crate) fn init(
         ));
     }
     if let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
-        return Outcome::refused(format!(
-            "rhino: environment initialization refused: {}\n",
-            error.0
-        ));
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUnusable,
+            format!("environment initialization refused: {}", error.0),
+        );
     }
     match format {
         Format::Text => Outcome::clean("[environment-init] created declared targets\n"),
@@ -515,32 +553,50 @@ pub(crate) fn backup(
     format: Format,
 ) -> Outcome {
     let Some(environment) = environment else {
-        return Outcome::refused("rhino: environment section is not declared\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "environment section is not declared",
+        );
     };
     let Some(destination) = destination else {
-        return Outcome::refused("rhino: environment backup requires --dir\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ArgsIncomplete,
+            "environment backup requires --dir",
+        );
     };
     if leaves_root(destination) {
-        return Outcome::refused("rhino: backup destination leaves the repository root\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::PathEscapesRoot,
+            "backup destination leaves the repository root",
+        );
     }
     let mut files = Vec::new();
     for example in &environment.examples {
         if !is_relative_file(&example.target) {
-            return Outcome::refused("rhino: environment example leaves the repository root\n");
+            return Outcome::refusal(
+                format,
+                ErrorCode::PathEscapesRoot,
+                "environment example leaves the repository root",
+            );
         }
         let contents = match tree.read(&example.target) {
             Ok(contents) => contents,
             Err(TreeError::NotFound) => {
-                return Outcome::refused(format!(
-                    "rhino: environment target `{}` is missing\n",
-                    example.target
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::FileMissing,
+                    format!("environment target `{}` is missing", example.target),
+                );
             }
             Err(TreeError::Unreadable(_) | TreeError::NotText) => {
-                return Outcome::refused(format!(
-                    "rhino: environment target `{}` is unreadable\n",
-                    example.target
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::FileUnreadable,
+                    format!("environment target `{}` is unreadable", example.target),
+                );
             }
         };
         files.push(EnvironmentFile {
@@ -551,7 +607,11 @@ pub(crate) fn backup(
     if !files.is_empty()
         && let Err(error) = store.create(root, &EnvironmentTransaction { files })
     {
-        return Outcome::refused(format!("rhino: environment backup refused: {}\n", error.0));
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUnusable,
+            format!("environment backup refused: {}", error.0),
+        );
     }
     match format {
         Format::Text => Outcome::clean(format!(
@@ -589,38 +649,62 @@ pub(crate) fn restore(
     format: Format,
 ) -> Outcome {
     let Some(environment) = environment else {
-        return Outcome::refused("rhino: environment section is not declared\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "environment section is not declared",
+        );
     };
     let Some(directory) = directory else {
-        return Outcome::refused("rhino: environment restore requires --dir\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ArgsIncomplete,
+            "environment restore requires --dir",
+        );
     };
     if leaves_root(directory) {
-        return Outcome::refused("rhino: backup destination leaves the repository root\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::PathEscapesRoot,
+            "backup destination leaves the repository root",
+        );
     }
     let mut files = Vec::new();
     for example in &environment.examples {
         if !is_relative_file(&example.target) {
-            return Outcome::refused("rhino: environment example leaves the repository root\n");
+            return Outcome::refusal(
+                format,
+                ErrorCode::PathEscapesRoot,
+                "environment example leaves the repository root",
+            );
         }
         let source = backup_path(directory, &example.target);
         let contents = match tree.read(&source) {
             Ok(contents) => contents,
             Err(TreeError::NotFound) => {
-                return Outcome::refused(format!(
-                    "rhino: environment backup `{source}` is missing\n"
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::FileMissing,
+                    format!("environment backup `{source}` is missing"),
+                );
             }
             Err(TreeError::Unreadable(_) | TreeError::NotText) => {
-                return Outcome::refused(format!(
-                    "rhino: environment backup `{source}` is unreadable\n"
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::FileUnreadable,
+                    format!("environment backup `{source}` is unreadable"),
+                );
             }
         };
         if tree.exists(&example.target) && !force {
-            return Outcome::refused(format!(
-                "rhino: environment target `{}` already exists; use --force\n",
-                example.target
-            ));
+            return Outcome::refusal(
+                format,
+                ErrorCode::FileExists,
+                format!(
+                    "environment target `{}` already exists; use --force",
+                    example.target
+                ),
+            );
         }
         files.push(EnvironmentRestoreFile {
             path: example.target.clone(),
@@ -629,7 +713,11 @@ pub(crate) fn restore(
         });
     }
     if let Err(error) = store.restore(root, &EnvironmentRestoreTransaction { files }) {
-        return Outcome::refused(format!("rhino: environment restore refused: {}\n", error.0));
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUnusable,
+            format!("environment restore refused: {}", error.0),
+        );
     }
     match format {
         Format::Text => Outcome::clean("[environment-restore] restored declared targets\n"),
@@ -648,10 +736,18 @@ pub(crate) fn validate_toolchains(
     format: Format,
 ) -> Outcome {
     let Some(toolchains) = toolchains else {
-        return Outcome::refused("rhino: toolchains section is not declared\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "toolchains section is not declared",
+        );
     };
     if let Err(reason) = validate_toolchain_policy(toolchains) {
-        return Outcome::refused(format!("rhino: toolchain policy: {reason}\n"));
+        return Outcome::refusal(
+            format,
+            ErrorCode::ToolchainFailed,
+            format!("toolchain policy: {reason}"),
+        );
     }
     let mut findings = Vec::new();
     for toolchain in &toolchains.entries {
@@ -804,10 +900,18 @@ pub(crate) fn provision(
     format: Format,
 ) -> Outcome {
     let Some(toolchains) = toolchains else {
-        return Outcome::refused("rhino: toolchains section is not declared\n");
+        return Outcome::refusal(
+            format,
+            ErrorCode::ConfigUndeclared,
+            "toolchains section is not declared",
+        );
     };
     if let Err(reason) = validate_toolchain_policy(toolchains) {
-        return Outcome::refused(format!("rhino: toolchain policy: {reason}\n"));
+        return Outcome::refusal(
+            format,
+            ErrorCode::ToolchainFailed,
+            format!("toolchain policy: {reason}"),
+        );
     }
     let platform = std::env::consts::OS;
     let mut declared = Vec::new();
@@ -820,10 +924,14 @@ pub(crate) fn provision(
             .iter()
             .find(|provision| provision.platform == platform)
         else {
-            return Outcome::refused(format!(
-                "rhino: toolchain `{}` has no provision declaration for `{platform}`\n",
-                toolchain.id,
-            ));
+            return Outcome::refusal(
+                format,
+                ErrorCode::ToolchainUndeclared,
+                format!(
+                    "toolchain `{}` has no provision declaration for `{platform}`",
+                    toolchain.id,
+                ),
+            );
         };
         declared.push((toolchain, provision));
     }
@@ -842,17 +950,22 @@ pub(crate) fn provision(
         }) {
             Ok(result) => result,
             Err(error) => {
-                return Outcome::refused(format!(
-                    "rhino: toolchain `{}` could not start: {}\n",
-                    toolchain.id, error.0
-                ));
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::ToolchainFailed,
+                    format!("toolchain `{}` could not start: {}", toolchain.id, error.0),
+                );
             }
         };
         if result.code != 0 {
-            return Outcome::refused(format!(
-                "rhino: toolchain `{}` provision failed with status {}\n",
-                toolchain.id, result.code
-            ));
+            return Outcome::refusal(
+                format,
+                ErrorCode::ToolchainFailed,
+                format!(
+                    "toolchain `{}` provision failed with status {}",
+                    toolchain.id, result.code
+                ),
+            );
         }
         completed += 1;
     }

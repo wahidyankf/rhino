@@ -40,10 +40,18 @@ pub fn validate(tree: &dyn Tree, config: &Config, emoji: &Emoji) -> Report {
             // pointed at and RHINO could not read leaves the prohibition
             // unchecked, and an unchecked prohibition must not report clean.
             Err(TreeError::Unreadable(reason)) => {
-                return Report::refused("emoji", format!("{path}: {reason}"));
+                return Report::refused_as(
+                    crate::errors::ErrorCode::FileUnreadable,
+                    "emoji",
+                    format!("{path}: {reason}"),
+                );
             }
             Err(TreeError::NotText) => {
-                return Report::refused("emoji", format!("{path}: holds no text"));
+                return Report::refused_as(
+                    crate::errors::ErrorCode::FileUnreadable,
+                    "emoji",
+                    format!("{path}: holds no text"),
+                );
             }
         };
         report.scanned(&path);

@@ -940,7 +940,7 @@ pub struct ProcessLauncher;
 impl Launcher for ProcessLauncher {
     fn launch(&self, launch: Launch<'_>) -> Result<Launched, LaunchError> {
         let Some((program, arguments)) = launch.arguments.split_first() else {
-            return Err(LaunchError("the gate declares no command".to_string()));
+            return Err(LaunchError::refused("the gate declares no command"));
         };
 
         // Standard input is always a pipe, closed when the hook supplied
@@ -960,11 +960,13 @@ impl Launcher for ProcessLauncher {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| LaunchError(format!("`{program}` could not be started: {error}")))?;
+            .map_err(|error| LaunchError::from_spawn(program, &error))?;
 
         {
             let Some(mut pipe) = child.stdin.take() else {
-                return Err(LaunchError(format!("`{program}` has no standard input")));
+                return Err(LaunchError::refused(format!(
+                    "`{program}` has no standard input"
+                )));
             };
             if let Some(text) = launch.stdin {
                 let _ = pipe.write_all(text.as_bytes());
@@ -974,15 +976,17 @@ impl Launcher for ProcessLauncher {
         // Waited on with its output collected rather than with `wait`: a child
         // writing more than a pipe holds would otherwise block forever on a
         // buffer nobody is draining.
-        let output = child
-            .wait_with_output()
-            .map_err(|error| LaunchError(format!("`{program}` could not be waited on: {error}")))?;
+        let output = child.wait_with_output().map_err(|error| {
+            LaunchError::refused(format!("`{program}` could not be waited on: {error}"))
+        })?;
 
         // A signal leaves no code. Reported as the protocol failure it is
         // rather than as a finding, because a killed child checked nothing.
         match output.status.code() {
             Some(code) => Ok(Launched { code }),
-            None => Err(LaunchError(format!("`{program}` was ended by a signal"))),
+            None => Err(LaunchError::refused(format!(
+                "`{program}` was ended by a signal"
+            ))),
         }
     }
 }

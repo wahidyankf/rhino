@@ -66,8 +66,51 @@ pub struct Launched {
     pub code: i32,
 }
 
+/// Why a child never ran, in the only three shapes a caller can act on.
+///
+/// The distinction between the first two is the whole difference between `127`
+/// and `126`: one says the program is not installed, the other says it is there
+/// and the kernel would not run it. A caller fixes those two problems in
+/// completely different places, and collapsing them costs exactly the
+/// information needed to tell which.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaunchFailure {
+    /// The named program does not exist.
+    NotFound,
+    /// The program exists and could not be executed.
+    NotExecutable,
+    /// Anything else: refused before the attempt, or lost after it.
+    Refused,
+}
+
 /// Why a child never ran.
-pub struct LaunchError(pub String);
+pub struct LaunchError {
+    pub reason: String,
+    pub failure: LaunchFailure,
+}
+
+impl LaunchError {
+    /// A refusal that is neither an absent program nor an unusable one.
+    pub fn refused(reason: impl Into<String>) -> Self {
+        Self {
+            reason: reason.into(),
+            failure: LaunchFailure::Refused,
+        }
+    }
+
+    /// A spawn failure classified by what the operating system said about it.
+    pub fn from_spawn(program: &str, error: &std::io::Error) -> Self {
+        let failure = match error.kind() {
+            std::io::ErrorKind::NotFound => LaunchFailure::NotFound,
+            std::io::ErrorKind::PermissionDenied => LaunchFailure::NotExecutable,
+            _ => LaunchFailure::Refused,
+        };
+        Self {
+            reason: format!("`{program}` could not be started: {error}"),
+            failure,
+        }
+    }
+}
 
 /// A declared mutation command isolated from the ordinary child launcher.
 /// The runner owns the snapshot and write boundary; the gate dispatcher owns
@@ -273,8 +316,8 @@ pub struct NoLauncher;
 
 impl Launcher for NoLauncher {
     fn launch(&self, _: Launch<'_>) -> Result<Launched, LaunchError> {
-        Err(LaunchError(
-            "this build was called through an entry point that starts no process".to_string(),
+        Err(LaunchError::refused(
+            "this build was called through an entry point that starts no process",
         ))
     }
 }
@@ -918,6 +961,32 @@ pub(crate) fn under_root(path: &str, root: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The three ways a spawn can fail, and only three.
+    ///
+    /// The first two carry the statuses a shell already reports; everything
+    /// else is this tool failing to run, which is not the child's fault and
+    /// must not be reported as though it were.
+    #[test]
+    fn a_spawn_failure_is_classified_by_what_the_system_said() {
+        use std::io::ErrorKind;
+
+        for (kind, expected) in [
+            (ErrorKind::NotFound, LaunchFailure::NotFound),
+            (ErrorKind::PermissionDenied, LaunchFailure::NotExecutable),
+            (ErrorKind::WouldBlock, LaunchFailure::Refused),
+            (ErrorKind::Interrupted, LaunchFailure::Refused),
+        ] {
+            let error = LaunchError::from_spawn("child", &std::io::Error::from(kind));
+            assert_eq!(error.failure, expected);
+            assert!(error.reason.starts_with("`child` could not be started: "));
+        }
+
+        assert_eq!(
+            LaunchError::refused("declined").failure,
+            LaunchFailure::Refused
+        );
+    }
 
     #[derive(Clone)]
     struct ReadOnlyTree;

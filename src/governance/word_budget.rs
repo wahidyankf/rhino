@@ -83,13 +83,21 @@ pub fn inspect(tree: &dyn Tree, budget: &WordBudget, scope: &Scope) -> Report {
     let mut report = Report::new("word-count", "file");
 
     if !scope.is_narrowed() {
-        return Report::refused("word-count", "`--file` names what to count; none was given");
+        return Report::refused_as(
+            crate::errors::ErrorCode::ArgsIncomplete,
+            "word-count",
+            "`--file` names what to count; none was given",
+        );
     }
 
     let mut total = 0usize;
     for (path, content) in scope.documents(tree) {
         let Some(text) = content else {
-            return Report::refused("word-count", format!("{path}: cannot be read"));
+            return Report::refused_as(
+                crate::errors::ErrorCode::FileUnreadable,
+                "word-count",
+                format!("{path}: cannot be read"),
+            );
         };
         let words = count(&text, budget.count);
         total += words;

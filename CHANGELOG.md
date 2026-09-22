@@ -9,10 +9,53 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [v0.4.2] — unreleased
+## [v0.5.0] — unreleased
+
+RHINO now reports from one closed status vocabulary and one closed error-code
+vocabulary, described in [exit codes](docs/reference/exit-codes.md) and
+[error codes](docs/reference/error-codes.md). The version moves in the minor
+position because RHINO is in `0.x`, where that is where a breaking change goes.
+
+### Changed — breaking
+
+- **Exit `3` is retired.** A gate child that could not be started now reports
+  `127` when it was not found and `126` when it was found and could not be
+  executed — the two statuses a shell already reports for these situations. A
+  gate child refused for any other reason reports `2`. A caller matching on `3`
+  must be updated.
+- **An internal failure reports `2`.** A panic used to reach the caller as
+  SIGABRT, so the process reported `134`. It now prints
+  `rhino: internal error: …` on stderr and exits `2`. The backtrace stays
+  behind `RUST_BACKTRACE`.
+- **A closed pipe reports `141`.** Writing to a pipe whose reader has gone away
+  ends the process the way the signal says to, rather than as `134`.
+- **A failed `gate run` leaves stdout empty.** It used to write a result
+  document describing a run that had not happened. A caller parsing stdout can
+  now rely on it holding a result or holding nothing.
+
+### Added
+
+- **A namespaced `error.code` in the JSON error body.** Under `--output json`
+  every refusal writes one document to stderr carrying `schemaVersion`,
+  `error.code`, and `error.message`. The code is drawn from a closed,
+  [published vocabulary](docs/reference/error-codes.md) and is stable; the
+  message is for a person and is not.
+- **`--version` and `-V`**, alongside the existing `version` command.
+- **A `help` command**, alongside `--help` and `-h`.
 
 ### Fixed
 
+- **A bare invocation is a usage mistake.** `rhino` with no command prints its
+  help on stderr and exits `2` rather than reporting success.
+- **A standard-input read failure is reported.** It used to be discarded, so a
+  stream that failed halfway through was indistinguishable from an empty one
+  and the caller was told its input held no findings.
+- **`--json` is honoured by a refusal.** The shorthand now selects the JSON
+  error body the same way `--output json` does.
+- **`--` ends the options.** It used to mean "forward the rest to a child",
+  which nothing consumed.
+- **`--help` places `--json` on the leaf that accepts it** rather than in the
+  global options block, and publishes every status RHINO can report.
 - **Generated harness adapters are formatter-stable.** YAML scalar values that require quoting now use YAML literal
   blocks, and generated catalog and provenance JSON uses stable pretty formatting. Regeneration no longer rewrites
   consumer formatter output.

@@ -22,7 +22,10 @@ separate, narrow boundaries.
 - **Explicit operations.** Adapter generation, environment setup, toolchain
   provision, and gate execution need their own declared authority.
 - **Stable exit meanings.** `1` means a declared policy found a violation; `2`
-  means the invocation, configuration, or boundary was unusable.
+  means the invocation, configuration, or boundary was unusable; `126` and `127`
+  mean a gate child could not be executed or was not found, the same two things
+  a shell reports with those numbers. A signal ends the process as `128+N`,
+  never as a value in the result range.
 - **Machine-readable results.** `--output json` keeps programmatic callers out
   of human prose.
 

@@ -167,6 +167,10 @@ pub struct Report {
     /// result is rendered and a refusal cannot quietly acquire a shape of its
     /// own under `--output json`.
     refusal: Option<String>,
+    /// Which member of the closed vocabulary a refusal carries. Meaningless
+    /// while `refusal` is `None`, which is why it is not an `Option` too: one
+    /// optional field already says whether this report is a refusal.
+    refusal_code: crate::errors::ErrorCode,
 }
 
 impl Report {
@@ -180,6 +184,7 @@ impl Report {
             measurements: Vec::new(),
             findings: Vec::new(),
             refusal: None,
+            refusal_code: crate::errors::ErrorCode::ConfigUnusable,
         }
     }
 
@@ -231,11 +236,11 @@ impl Report {
         // empty stdout. A caller parsing JSON has to be able to trust that
         // stdout either holds a result or holds nothing.
         if let Some(reason) = &self.refusal {
-            return Outcome {
-                exit_code: 2,
-                stdout: String::new(),
-                stderr: format!("[{}] {reason}\n", self.category),
-            };
+            return Outcome::refusal(
+                format,
+                self.refusal_code,
+                format!("[{}] {reason}", self.category),
+            );
         }
         match format {
             Format::Text => self.finish(),
@@ -389,8 +394,23 @@ impl Report {
     /// configuration. stdout stays empty, because a summary line here would
     /// claim something was checked when nothing was.
     pub fn refused(category: &'static str, message: impl AsRef<str>) -> Self {
+        Self::refused_as(crate::errors::ErrorCode::ConfigUnusable, category, message)
+    }
+
+    /// A refusal carrying a code other than the configuration one.
+    ///
+    /// The default exists because almost every refusal a validator reaches is
+    /// the same one -- it was asked for a policy the configuration does not
+    /// declare, or declares unusably. The ones that are not say so here rather
+    /// than inheriting a label that would be wrong.
+    pub fn refused_as(
+        code: crate::errors::ErrorCode,
+        category: &'static str,
+        message: impl AsRef<str>,
+    ) -> Self {
         let mut report = Self::new(category, "subject");
         report.refusal = Some(message.as_ref().to_string());
+        report.refusal_code = code;
         report
     }
 }
@@ -470,7 +490,15 @@ mod tests {
 
         assert_eq!(outcome.exit_code, 2);
         assert!(outcome.stdout.is_empty());
-        assert_eq!(outcome.stderr, "[synthetic] not declared\n");
+        // A refusal under the machine-readable format is one document on
+        // stderr, not the text line wearing a different hat.
+        assert!(outcome.stderr.contains("\"schemaVersion\":1"));
+        assert!(
+            outcome
+                .stderr
+                .contains("\"code\":\"rhino.config.unusable\"")
+        );
+        assert!(outcome.stderr.contains("[synthetic] not declared"));
     }
 
     #[test]

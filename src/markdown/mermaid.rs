@@ -68,7 +68,11 @@ pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Sco
         let mut selected = Vec::new();
         for (path, content) in scope.documents(tree) {
             let Some(text) = content else {
-                return Report::refused("mermaid", format!("{path}: cannot be read"));
+                return Report::refused_as(
+                    crate::errors::ErrorCode::FileUnreadable,
+                    "mermaid",
+                    format!("{path}: cannot be read"),
+                );
             };
             selected.push(Document { path, text });
         }
