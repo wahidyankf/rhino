@@ -5,6 +5,8 @@ Repository-wide choices, within the [vision](../vision/README.md) and the [princ
 ## Directory Map
 
 - [Coding-harness contract](coding-harness-contract.md) — one instruction body, one prompt per agent, adapters that route rather than copy.
+- [Command-line interface](command-line-interface.md) — the two-layer contract a command-line tool presents to its callers: one closed exit vocabulary, and a body that says what happened.
+- [Command-line interface modules](command-line-interface/README.md) — the eight modules that entrypoint indexes.
 - [Commit authorization](commit-authorization.md) — when a commit or push may happen at all.
 - [Directory maps](directory-maps.md) — every governed directory maps its contents, and the word budget.
 - [Documentation architecture](documentation-architecture.md) — what belongs in `docs/`, and its Diátaxis categories.
