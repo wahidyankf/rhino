@@ -12,13 +12,23 @@ Use `light` for narrow static checks, `standard` for ordinary checks and writers
 
 ## Exit Codes
 
-- **`75`** — retry only when a new schema-1 receipt proves `never-started`; pressure-shed, storage-shed, `started-safety-stop`, and child-owned `75` require payload-specific recovery.
-- **`76`** — never retry. Inspect `./hippo status`, drain or upgrade the incompatible peer, then retry the original command. A legacy client without distinct exit `76` can still report the mismatch as `75`, but has no qualifying receipt.
-- **`73`** — insufficient storage. Clean up, then retry.
-- **`78`** — the request cannot be satisfied as configured. Replan the work rather than reshaping the invocation until it is admitted.
-- **`1`** — diagnose malformed shared state or Hippo-owned post-launch cleanup; never classify it as capacity.
+HIPPO answers with a status and a `hippo: [hippo.area.reason]` line on stderr. Two reasons under one
+status can need opposite responses, so read both.
 
-Child codes pass through, including `75` and `76`; task-failed evidence without a new `never-started` receipt keeps them child-owned. Recovery and status commands run directly, unguarded, because a guard that blocks the tool used to diagnose the guard is a deadlock.
+- **`124`** — a limit stopped the work. `hippo.limit.capacity-deferred` retries only when a new
+  schema-1 receipt proves `never-started`; `hippo.limit.pressure-shed` and a `started-safety-stop`
+  need payload-specific recovery; `hippo.limit.storage-blocked` needs storage cleaned, since waiting
+  frees no disk.
+- **`125`** — HIPPO started nothing. `hippo.coordination.protocol-mismatch` is never retried: drain
+  or upgrade the incompatible peer first. `hippo.policy.replan-required` and the `hippo.config.*`
+  reasons mean replanning the work, not reshaping the call until admitted.
+- **`2`** — the call itself is unusable; read the diagnostic and fix it.
+- **`126`, `127`** — the guarded command cannot be executed, or is not there.
+- **`1`** — the work ran and the answer is empty: a result, never a capacity signal.
+
+Child codes pass through, including ones colliding with a status HIPPO uses; only HIPPO's own
+failures write that `hippo:` line. Recovery and status commands run unguarded, since a guard
+blocking the tool that diagnoses it is a deadlock.
 
 Use `./hippo status`, `./hippo watch --source rhino`, and `./hippo history --since 30d --source rhino` from either the primary checkout or a contained `worktrees/<task>` checkout. If that worktree has no ignored `hippo.local.json`, its wrapper uses the primary checkout's copy. Every checkout uses the shared default state root; set `HIPPO_ROOT` only for isolated tests.
 Raw evidence rolls for seven days and compacted daily summaries roll for 30 days under byte caps, so the shared log cannot grow without bound.
@@ -37,7 +47,7 @@ Two gaps stay open and recorded. A verb reached through an interpreter or a Make
 
 ## Not in CI
 
-The [pull-request gate](../../.github/workflows/pr-quality-gate.yml) does not wrap its jobs in `./hippo`. A dedicated ephemeral runner has no contention to arbitrate, so the wrapper could only add a download, a checksum verification, and an exit-`75` path that cannot occur. The guard stays where the contention is real.
+The [pull-request gate](../../.github/workflows/pr-quality-gate.yml) does not wrap its jobs in `./hippo`. A dedicated ephemeral runner has no contention to arbitrate, so the wrapper could only add a download, a checksum verification, and an exit-`124` path that cannot occur. The guard stays where the contention is real.
 
 The gate does verify that the wrapper still resolves and runs, on a clean machine, whenever the wrapper or its lock changes — that is the one condition a local hook cannot observe.
 

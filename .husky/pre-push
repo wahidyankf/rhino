@@ -14,5 +14,6 @@ set -e
 # The quick gate is the last entry on this surface and carries its own HIPPO
 # guard, because it is the one gate here that is real compute. HIPPO cannot
 # guard HIPPO; RHINO has no such constraint, so it does not exempt itself. Exit
-# 75 means the host was busy: retry, never bypass.
+# 124 means a limit stopped the work and the reason on stderr says which:
+# retry, never bypass.
 exec cargo run --quiet --bin rhino -- gate run --surface pre-push

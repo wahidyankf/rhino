@@ -8,7 +8,7 @@ Do not pass `--no-verify` to `git commit` or `git push` unless the user explicit
 
 - `commit-msg` screens the message, then runs `commitlint`, enforcing Conventional Commits.
 - `pre-commit` screens the staged content and names, then runs `lint-staged`, which formats staged files only.
-- `pre-push` screens the tracked tree and the branch name, then runs `cargo xtask test-quick` under the pinned HIPPO guard. Exit `75` means the host was busy: retry that same invocation once the condition clears, never bypass it.
+- `pre-push` screens the tracked tree and the branch name, then runs `cargo xtask test-quick` under the pinned HIPPO guard. Exit `124` means a limit stopped the work, and the reason on stderr says which: retry that same invocation once the condition clears, never bypass it.
 
 ## Requirements
 
