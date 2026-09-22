@@ -18,7 +18,7 @@ RHINO is a repository-hygiene validator that [owns no repository's answers](repo
 
 - `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook. [`repo-config.yml`](repo-config.yml) declares which gates run at which moment; `cargo xtask self-validate` dispatches the `ci` surface.
 - The 99% coverage floor and two declared exclusions are [not negotiable](repo-governance/development/software-quality-enforcement.md).
-- Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md): `75` inspect its receipt, `73` clean up, `78` replan, never bypass.
+- Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124` read its reason, `125` replan or drain, `2` fix the call.
 
 ## Change Discipline
 

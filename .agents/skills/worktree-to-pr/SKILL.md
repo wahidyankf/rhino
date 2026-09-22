@@ -23,7 +23,7 @@ One worktree per task, reused for every delivery unit. A second `git worktree ad
 
 1. `git fetch origin && git rebase origin/main`. Never auto-stash, never auto-resolve. Read the whole incoming diff when the sync brings commits in.
 2. Commit thematically, with authorization.
-3. `git push`. The `pre-push` hook runs `cargo xtask test-quick` under the HIPPO guard. Exit `75` means retry the same invocation, never bypass.
+3. `git push`. The `pre-push` hook runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped the work: retry the same invocation once it clears, never bypass.
 4. `gh pr create --draft --base main --title "<type>: <subject>" --body-file <path>`.
 5. `gh pr checks <number>` — at most once every three minutes. Use the interval for independent work.
 6. Repair a failing job at its cause. Never weaken the gate.

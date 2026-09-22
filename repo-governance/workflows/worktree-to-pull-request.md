@@ -18,7 +18,7 @@ Provision **one** worktree per task and reuse it for every delivery unit the tas
 
 1. **Sync.** `git fetch origin && git rebase origin/main`. Never auto-stash and never auto-resolve; an unclean tree or a conflict stops the work. When the sync brings in commits, read the whole incoming diff and reconcile the task against it before continuing.
 2. **Commit** in [thematic commits](../conventions/thematic-commits.md), with authorization under [commit authorization](../conventions/commit-authorization.md).
-3. **Push.** The `pre-push` hook runs the quick gate under the HIPPO guard. Exit `75` means retry that same invocation, never bypass.
+3. **Push.** The `pre-push` hook runs the quick gate under the HIPPO guard. Exit `124` means a limit stopped the work: retry that same invocation once the reason on stderr clears, never bypass.
 4. **Open as a draft.**
 
    ```sh
