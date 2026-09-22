@@ -4,14 +4,14 @@ RHINO reports from one closed vocabulary. Every status below means the same
 thing whichever subcommand produced it, and RHINO never invents a status
 outside this set.
 
-| Code    | Meaning                                             | What to do                                          |
-| ------- | --------------------------------------------------- | --------------------------------------------------- |
-| `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.        |
-| `1`     | The repository violates its declared policy         | Read the findings on stderr and fix the repository. |
-| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
-| `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.  |
+| Code    | Meaning                                             | What to do                                            |
+| ------- | --------------------------------------------------- | ----------------------------------------------------- |
+| `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.          |
+| `1`     | The repository violates its declared policy         | Read the findings on stderr and fix the repository.   |
+| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.    |
+| `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.    |
 | `127`   | A gate child was not found                          | Fix the gate's `command.executable`. `gate run` only. |
-| `128+N` | Ended by signal `N`                                 | Nothing; `130` is an interrupt, `141` a closed pipe. |
+| `128+N` | Ended by signal `N`                                 | Nothing; `130` is an interrupt, `141` a closed pipe.  |
 
 The distinction that matters is between `1` and `2`. **Exit `1` always means
 the repository broke a rule it declared for itself.** Exit `2` means RHINO
