@@ -9,7 +9,7 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [v0.5.0] — unreleased
+## [v0.5.0] — 2026-09-22
 
 RHINO now reports from one closed status vocabulary and one closed error-code
 vocabulary, described in [exit codes](docs/reference/exit-codes.md) and
