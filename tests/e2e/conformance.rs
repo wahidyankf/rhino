@@ -56,6 +56,16 @@ const KNOWN_GAPS: &[(&str, &str)] = &[
         "`--no-color` exists in place of a tri-state `--color`",
     ),
     (
+        "cli.exit.vocabulary-is-closed",
+        "`gate run` returns 3 when a gate child cannot be launched, which is outside the \
+         closed vocabulary and is published in the `Exit codes:` block",
+    ),
+    (
+        "cli.exit.child-not-found-is-one-two-seven",
+        "a gate child that does not exist reports 3 rather than 127, so a missing program \
+         and an unexecutable one are the same status",
+    ),
+    (
         "cli.exit.closed-pipe-is-one-four-one",
         "a closed reader panics in the standard library's stdout handling and exits 101, \
          printing the panic message the contract forbids",
@@ -144,6 +154,31 @@ fn invoke_with_closed_reader(arguments: &[&str]) -> Observed {
         stdout: String::new(),
         stderr,
     }
+}
+
+/// A throwaway repository whose single gate names a program that does not exist.
+///
+/// Without it the closed-vocabulary sweep passes by never reaching the one path
+/// that leaves the vocabulary, which is a false pass rather than a measurement:
+/// `--help` publishes `3  a gate child could not be started`, and `gate run`
+/// returns it. An assertion that passes because the probe did not go looking is
+/// the failure mode the three-outcome design exists to prevent, and it slipped
+/// through anyway until the published status block was read against the sweep.
+fn absent_child_repository() -> std::path::PathBuf {
+    let root = std::env::temp_dir().join(format!(
+        "rhino-conformance-absent-child-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("the fixture root is creatable");
+    std::fs::write(
+        root.join("repo-config.yml"),
+        "schema: rhino/repo-config/v2\nrepository: {}\ngates:\n  entries:\n    \
+         - id: absent-child\n      type: check\n      command:\n        \
+         executable: /no/such/program\n        args: []\n      run-on:\n        main: {}\n",
+    )
+    .expect("the fixture configuration is writable");
+    root
 }
 
 fn expect_status(observed: &Observed, wanted: i32) -> Outcome {
@@ -437,12 +472,20 @@ fn probe(id: &str) -> Option<Outcome> {
 
         "cli.exit.vocabulary-is-closed" => {
             // Every status this runner can provoke, checked against the set.
+            let root = absent_child_repository();
+            let gate_run: Vec<String> = ["gate", "run", "--surface", "main", "--root"]
+                .iter()
+                .map(|part| (*part).to_string())
+                .chain(std::iter::once(root.to_string_lossy().into_owned()))
+                .collect();
+            let borrowed: Vec<&str> = gate_run.iter().map(String::as_str).collect();
             let probes: &[&[&str]] = &[
                 &["version"],
                 &["gate", "list"],
                 &["--no-such-flag"],
                 &["--help"],
                 &["no-such-command"],
+                &borrowed,
             ];
             let allowed = [0, 1, 2, 124, 125, 126, 127];
             let mut outside = Vec::new();
@@ -452,6 +495,7 @@ fn probe(id: &str) -> Option<Outcome> {
                     outside.push(format!("`{}` exits {status}", arguments.join(" ")));
                 }
             }
+            let _ = std::fs::remove_dir_all(&root);
             if outside.is_empty() {
                 Outcome::Passed
             } else {
@@ -459,10 +503,22 @@ fn probe(id: &str) -> Option<Outcome> {
             }
         }
 
-        "cli.exit.child-not-found-is-one-two-seven" => Outcome::Unmeasured(
-            "provoking it needs a configuration whose gate command does not exist; the fixture \
-             belongs with the Phase 4 change that retires exit 3",
-        ),
+        "cli.exit.child-not-found-is-one-two-seven" => {
+            let root = absent_child_repository();
+            let observed = invoke(
+                &[
+                    "gate",
+                    "run",
+                    "--root",
+                    &root.to_string_lossy(),
+                    "--surface",
+                    "main",
+                ],
+                &[],
+            );
+            let _ = std::fs::remove_dir_all(&root);
+            expect_status(&observed, 127)
+        }
 
         "cli.exit.internal-crash-is-two" | "cli.exit.crash-trace-behind-a-switch" => {
             Outcome::Unmeasured("no fault-injection point exists at the process boundary")
