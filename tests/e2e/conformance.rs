@@ -56,6 +56,11 @@ const KNOWN_GAPS: &[(&str, &str)] = &[
         "`--no-color` exists in place of a tri-state `--color`",
     ),
     (
+        "cli.exit.closed-pipe-is-one-four-one",
+        "a closed reader panics in the standard library's stdout handling and exits 101, \
+         printing the panic message the contract forbids",
+    ),
+    (
         "cli.args.help-subcommand-when-a-tree-exists",
         "`help` is not a command; only the `-h` and `--help` flags reach the usage text",
     ),
@@ -107,8 +112,14 @@ fn invoke(arguments: &[&str], env: &[(&str, &str)]) -> Observed {
     }
 }
 
-/// Provoke a closed pipe: read one byte, drop the read end, and let the child
-/// discover that nobody is listening.
+/// Provoke a closed pipe by closing the read end **before** reading anything,
+/// so the child's first write meets a reader that is already gone.
+///
+/// The obvious probe — read one byte, then drop the pipe — does not work on a
+/// command whose whole output fits in the kernel's pipe buffer: the write
+/// succeeds, the process exits `0`, and the assertion goes unmeasured. Closing
+/// first removes the race, because no amount of buffering saves a write to a
+/// pipe with no reader.
 fn invoke_with_closed_reader(arguments: &[&str]) -> Observed {
     let mut child = Command::new(env!("CARGO_BIN_EXE_rhino"))
         .args(arguments)
@@ -118,12 +129,8 @@ fn invoke_with_closed_reader(arguments: &[&str]) -> Observed {
         .spawn()
         .expect("the built executable is runnable");
 
-    {
-        let mut pipe = child.stdout.take().expect("stdout is a pipe");
-        let mut first = [0u8; 1];
-        let _ = pipe.read(&mut first);
-        // `pipe` drops here, closing the read end while the child may still write.
-    }
+    // Dropped immediately, closing the read end before the child writes.
+    drop(child.stdout.take().expect("stdout is a pipe"));
 
     let mut stderr = String::new();
     if let Some(mut handle) = child.stderr.take() {
@@ -230,15 +237,14 @@ fn probe(id: &str) -> Option<Outcome> {
 
         "cli.exit.closed-pipe-is-one-four-one" => {
             let observed = invoke_with_closed_reader(&["--help"]);
-            match observed.status() {
-                141 => Outcome::Passed,
-                0 => Outcome::Unmeasured(
-                    "the command completed before the reader closed; its output is too small to \
-                     provoke EPIPE, which is itself the buffering gap this contract names",
-                ),
-                other => Outcome::Failed(format!(
-                    "expected exit 141 on a closed pipe, observed {other}"
-                )),
+            if observed.status() == 141 && observed.stderr.is_empty() {
+                Outcome::Passed
+            } else {
+                Outcome::Failed(format!(
+                    "expected exit 141 and a silent stderr, observed exit {} and {:?}",
+                    observed.status(),
+                    observed.stderr.lines().next().unwrap_or_default()
+                ))
             }
         }
 
