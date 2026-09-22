@@ -29,6 +29,7 @@ const CAPABILITIES: &[&str] = &[
     "machine-readable-output",
     "colour-output",
     "reads-configuration",
+    "has-subcommand-tree",
 ];
 
 /// This executable is not a harness callback, so it claims no exempt class.
@@ -53,6 +54,10 @@ const KNOWN_GAPS: &[(&str, &str)] = &[
     (
         "cli.terminal.colour-is-tri-state",
         "`--no-color` exists in place of a tri-state `--color`",
+    ),
+    (
+        "cli.args.help-subcommand-when-a-tree-exists",
+        "`help` is not a command; only the `-h` and `--help` flags reach the usage text",
     ),
 ];
 
@@ -275,6 +280,33 @@ fn probe(id: &str) -> Option<Outcome> {
                     observed.status()
                 ))
             }
+        }
+
+        // The stream matters as much as the status here. A bare invocation that
+        // exits 2 but writes its help to stdout has put a diagnostic where a
+        // caller reading the payload will find it.
+        "cli.args.bare-invocation-is-a-usage-mistake" => {
+            let observed = invoke(&[], &[]);
+            let placed = if observed.stdout.is_empty() && !observed.stderr.is_empty() {
+                Outcome::Passed
+            } else {
+                Outcome::Failed(format!(
+                    "expected the diagnostic on stderr and nothing on stdout, observed {} and {} bytes",
+                    observed.stdout.len(),
+                    observed.stderr.len()
+                ))
+            };
+            both(expect_status(&observed, 2), placed)
+        }
+
+        "cli.args.help-subcommand-when-a-tree-exists" => {
+            let observed = invoke(&["help"], &[]);
+            let placed = if observed.stdout.is_empty() {
+                Outcome::Failed("expected usage text on stdout, observed none".to_string())
+            } else {
+                Outcome::Passed
+            };
+            both(expect_status(&observed, 0), placed)
         }
 
         "cli.args.short-help-on-every-subcommand" => {

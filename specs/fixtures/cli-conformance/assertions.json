@@ -8,7 +8,8 @@
     "machine-readable-output",
     "colour-output",
     "prompts",
-    "reads-configuration"
+    "reads-configuration",
+    "has-subcommand-tree"
   ],
   "classes": [
     "harness-callback"
@@ -409,6 +410,35 @@
       "invoke": { "args": ["<any-subcommand>", "-h"] },
       "expect": { "exit": 0, "stdout": "usage text for that subcommand" },
       "source": "clig.dev",
+      "status": "verified"
+    },
+    {
+      "id": "cli.args.bare-invocation-is-a-usage-mistake",
+      "tier": "floor",
+      "applies_to": {
+        "requires_capabilities": ["has-subcommand-tree"],
+        "excludes_classes": ["harness-callback"]
+      },
+      "invoke": { "args": [] },
+      "expect": {
+        "exit": 2,
+        "exit_not": 0,
+        "stdout": "empty",
+        "stderr": "the diagnostic, and any help text"
+      },
+      "source": "convention.command-line-interface",
+      "status": "verified"
+    },
+    {
+      "id": "cli.args.help-subcommand-when-a-tree-exists",
+      "tier": "full",
+      "applies_to": {
+        "requires_capabilities": ["has-subcommand-tree"],
+        "excludes_classes": ["harness-callback"]
+      },
+      "invoke": { "args": ["help"] },
+      "expect": { "exit": 0, "stdout": "usage text" },
+      "source": "convention.command-line-interface",
       "status": "verified"
     },
     {
