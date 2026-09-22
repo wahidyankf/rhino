@@ -11,6 +11,7 @@
 //! ignored there -- a spelling mistake that silently narrowed nothing would
 //! report a clean repository that was never fully checked.
 
+use crate::errors::ErrorCode;
 use crate::scan::STDIN;
 use std::collections::BTreeSet;
 use std::fmt;
@@ -246,8 +247,6 @@ pub struct Invocation {
     pub head: Option<String>,
     pub apply: bool,
     pub force: bool,
-    /// Everything after `--`: the hook's own arguments, forwarded unmodified.
-    pub forwarded: Vec<String>,
 }
 
 /// A request for help, which is answered rather than refused.
@@ -263,17 +262,45 @@ pub enum Parsed {
 /// Rendered without a category prefix, because the fault is in the command line
 /// and there may be no command to attribute it to.
 #[derive(Debug)]
-pub struct Refusal(pub String);
+pub struct Refusal {
+    pub code: ErrorCode,
+    pub message: String,
+    /// The output format as far as the parse got before refusing.
+    ///
+    /// Carried because a caller who asked for JSON asked for it about the whole
+    /// run, including the part where the run does not happen. A refusal
+    /// rendered as prose to a caller that was promised a document is a parse
+    /// error in the caller rather than a diagnostic.
+    pub format: Format,
+}
+
+impl Refusal {
+    /// A refusal from inside the scan, before the command line has been read to
+    /// the end.
+    ///
+    /// The format is whatever has been seen so far. A caller who wrote
+    /// `--output json` before the mistake asked for a document and gets one; a
+    /// caller who wrote it after gets prose, which is the most that can be
+    /// known at the point the scan stops.
+    fn new(seen: PartialFormat, code: ErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            format: seen.resolve(),
+        }
+    }
+}
 
 impl fmt::Display for Refusal {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "rhino: {}", self.0)
+        write!(formatter, "rhino: {}", self.message)
     }
 }
 
 pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     let mut path: Vec<String> = Vec::new();
     let mut wants_help = false;
+    let mut wants_version = false;
     let mut root: Option<String> = None;
     let mut format: Option<String> = None;
     let mut files: Vec<String> = Vec::new();
@@ -286,47 +313,71 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     let mut head: Option<String> = None;
     let mut apply = false;
     let mut force = false;
-    let mut forwarded: Vec<String> = Vec::new();
     let mut json_flag = false;
 
     let mut rest = arguments.iter();
     while let Some(argument) = rest.next() {
         // A flag may appear before or after the command path: a caller who
         // knows the root should not have to remember where the parser wants it.
-        let value =
-            |name: &str, held: &mut Option<String>, rest: &mut std::slice::Iter<'_, String>| {
-                match rest.next() {
-                    Some(value) => {
-                        *held = Some(value.clone());
-                        Ok(())
-                    }
-                    None => Err(Refusal(format!("`{name}` needs a value"))),
+        //
+        // `seen` is resolved by the caller rather than read here, because at
+        // the `--output` site the format being learned is the very slot this
+        // closure writes to. A caller who already said `--output json` and then
+        // left a later flag bare is owed the document it asked for.
+        let value = |name: &str,
+                     held: &mut Option<String>,
+                     rest: &mut std::slice::Iter<'_, String>,
+                     seen: Format| {
+            match rest.next() {
+                Some(value) => {
+                    *held = Some(value.clone());
+                    Ok(())
                 }
-            };
+                None => Err(Refusal {
+                    code: ErrorCode::ArgsIncomplete,
+                    message: format!("`{name}` needs a value"),
+                    format: seen,
+                }),
+            }
+        };
+
+        // Whatever the scan has learned about the format so far, resolved
+        // before the match so the `--output` arm may take `&mut format`.
+        let seen = PartialFormat {
+            output: format.as_ref(),
+            json_flag,
+        }
+        .resolve();
 
         match argument.as_str() {
             "--help" | "-h" => wants_help = true,
-            "--root" => value("--root", &mut root, &mut rest)?,
-            "--output" => value("--output", &mut format, &mut rest)?,
-            "--directory" => value("--directory", &mut directory, &mut rest)?,
-            "--dir" => value("--dir", &mut backup_directory, &mut rest)?,
-            "--surface" => value("--surface", &mut surface, &mut rest)?,
-            "--message-file" => value("--message-file", &mut message_file, &mut rest)?,
+            "--version" | "-V" => wants_version = true,
+            "--root" => value("--root", &mut root, &mut rest, seen)?,
+            "--output" => value("--output", &mut format, &mut rest, seen)?,
+            "--directory" => value("--directory", &mut directory, &mut rest, seen)?,
+            "--dir" => value("--dir", &mut backup_directory, &mut rest, seen)?,
+            "--surface" => value("--surface", &mut surface, &mut rest, seen)?,
+            "--message-file" => value("--message-file", &mut message_file, &mut rest, seen)?,
             "--push-updates-stdin" => push_updates_stdin = true,
-            "--base" => value("--base", &mut base, &mut rest)?,
-            "--head" => value("--head", &mut head, &mut rest)?,
+            "--base" => value("--base", &mut base, &mut rest, seen)?,
+            "--head" => value("--head", &mut head, &mut rest, seen)?,
             "--apply" => apply = true,
             "--force" => force = true,
-            // Everything past this point belongs to the child, not to RHINO. A
-            // hook argument that happens to start with a hyphen is payload, and
-            // a parser that read it as a flag would refuse the invocation Git
-            // itself assembled.
+            // The end of the options, which is what `--` means everywhere else
+            // a shell is involved: everything after it is an operand, whatever
+            // it starts with.
+            //
+            // It used to mean "forward the rest to a child". Nothing ever
+            // consumed those arguments -- the one command that could have
+            // refused them outright -- and no caller passed any, so the feature
+            // existed only to make `--` mean something a caller would not
+            // expect.
             "--" => {
-                forwarded.extend(rest.by_ref().cloned());
+                path.extend(rest.by_ref().cloned());
             }
             "--file" => {
                 let mut held = None;
-                value("--file", &mut held, &mut rest)?;
+                value("--file", &mut held, &mut rest, seen)?;
                 files.extend(held);
             }
             "--json" => json_flag = true,
@@ -335,10 +386,32 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
             // to know which leaf understands which of them.
             "--quiet" | "--verbose" | "--no-color" => {}
             other if other.starts_with('-') => {
-                return Err(Refusal(format!("unrecognized option `{other}`")));
+                return Err(Refusal::new(
+                    PartialFormat {
+                        output: format.as_ref(),
+                        json_flag,
+                    },
+                    ErrorCode::ArgsUnrecognized,
+                    format!("unrecognized option `{other}`"),
+                ));
             }
             segment => path.push(segment.to_string()),
         }
+    }
+
+    // `help` is a command as well as a flag, because a caller reaching for one
+    // of the two spellings has no way to know which this tool chose, and being
+    // told `unrecognized command \`help\`` is a usage mistake reported to
+    // someone in the middle of asking how to avoid one.
+    if path.first().is_some_and(|first| first == "help") {
+        path.remove(0);
+        wants_help = true;
+    }
+
+    // Answered as the leaf it duplicates rather than as a special case, so the
+    // flag and the command cannot drift apart.
+    if wants_version && !wants_help {
+        path = vec!["version".to_string()];
     }
 
     let segments: Vec<&str> = path.iter().map(String::as_str).collect();
@@ -348,12 +421,26 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         // a reader finds out what `md` contains.
         return match help_for(&segments) {
             Some(text) => Ok(Parsed::Help(Help(text))),
-            None => Err(Refusal(unrecognized(&segments))),
+            None => Err(Refusal::new(
+                PartialFormat {
+                    output: format.as_ref(),
+                    json_flag,
+                },
+                ErrorCode::ArgsUnrecognized,
+                unrecognized(&segments),
+            )),
         };
     }
 
     let Some(leaf) = LEAVES.iter().find(|leaf| leaf.path == segments.as_slice()) else {
-        return Err(Refusal(unrecognized(&segments)));
+        return Err(Refusal::new(
+            PartialFormat {
+                output: format.as_ref(),
+                json_flag,
+            },
+            ErrorCode::ArgsUnrecognized,
+            unrecognized(&segments),
+        ));
     };
 
     let format_given = format.is_some();
@@ -361,9 +448,16 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         None | Some("text") => Format::Text,
         Some("json") => Format::Json,
         Some(other) => {
-            return Err(Refusal(format!(
-                "`--output {other}` is not a format this build writes; expected `text` or `json`"
-            )));
+            return Err(Refusal::new(
+                PartialFormat {
+                    output: None,
+                    json_flag,
+                },
+                ErrorCode::ArgsUnrecognized,
+                format!(
+                    "`--output {other}` is not a format this build writes; expected `text` or `json`"
+                ),
+            ));
         }
     };
 
@@ -400,10 +494,11 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         (force, Accepts::Force, "--force"),
     ] {
         if given && !accepted.contains(&flag) {
-            return Err(Refusal(format!(
-                "`{name}` is not accepted by `{}`",
-                leaf.path.join(" ")
-            )));
+            return Err(refusing(
+                format,
+                ErrorCode::ArgsUnrecognized,
+                format!("`{name}` is not accepted by `{}`", leaf.path.join(" ")),
+            ));
         }
     }
 
@@ -414,7 +509,11 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     if let Some(selected) = &directory
         && let Some(reason) = not_repository_relative(selected)
     {
-        return Err(Refusal(format!("`--directory {selected}` {reason}")));
+        return Err(refusing(
+            format,
+            ErrorCode::PathEscapesRoot,
+            format!("`--directory {selected}` {reason}"),
+        ));
     }
     // The same rule for `--file`, and for the same reason. An absolute path
     // silently reinterpreted as a repository-relative one inspects a file the
@@ -423,37 +522,51 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         if selected != STDIN
             && let Some(reason) = not_repository_relative(selected)
         {
-            return Err(Refusal(format!("`--file {selected}` {reason}")));
+            return Err(refusing(
+                format,
+                ErrorCode::PathEscapesRoot,
+                format!("`--file {selected}` {reason}"),
+            ));
         }
     }
     // A contradiction is refused rather than resolved by declaration order,
     // which would make the same two flags mean different things depending on
     // how a script happened to assemble them.
     if json_flag && format_given && format == Format::Text {
-        return Err(Refusal(
-            "`--json` and `--output text` ask for different things".to_string(),
+        return Err(refusing(
+            format,
+            ErrorCode::ArgsIncomplete,
+            "`--json` and `--output text` ask for different things",
         ));
     }
     if base.is_some() != head.is_some() {
-        return Err(Refusal(
-            "`--base` and `--head` must be supplied together".to_string(),
+        return Err(refusing(
+            format,
+            ErrorCode::ArgsIncomplete,
+            "`--base` and `--head` must be supplied together",
         ));
     }
     if leaf.category == "gate" {
         let selected = surface.as_deref();
         if message_file.is_some() && selected != Some("commit-msg") {
-            return Err(Refusal(
-                "`--message-file` is accepted only with `--surface commit-msg`".to_string(),
+            return Err(refusing(
+                format,
+                ErrorCode::ArgsIncomplete,
+                "`--message-file` is accepted only with `--surface commit-msg`",
             ));
         }
         if push_updates_stdin && selected != Some("pre-push") {
-            return Err(Refusal(
-                "`--push-updates-stdin` is accepted only with `--surface pre-push`".to_string(),
+            return Err(refusing(
+                format,
+                ErrorCode::ArgsIncomplete,
+                "`--push-updates-stdin` is accepted only with `--surface pre-push`",
             ));
         }
         if base.is_some() && selected != Some("pull-request") {
-            return Err(Refusal(
-                "`--base` and `--head` are accepted only with `--surface pull-request`".to_string(),
+            return Err(refusing(
+                format,
+                ErrorCode::ArgsIncomplete,
+                "`--base` and `--head` are accepted only with `--surface pull-request`",
             ));
         }
     }
@@ -473,7 +586,6 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
         head,
         apply,
         force,
-        forwarded,
     })))
 }
 
@@ -520,6 +632,8 @@ fn help_for(segments: &[&str]) -> Option<String> {
         "  --root <path>          The repository to inspect. Defaults to the working directory.\n",
     );
     text.push_str("  --output <text|json>   How to render the result. Defaults to text.\n");
+    text.push_str("  -h, --help             Show this help and exit.\n");
+    text.push_str("  -V, --version          Show the release identity and exit.\n");
     text.push_str("  --quiet, --verbose, --no-color\n");
     text.push_str("                         Accepted everywhere; presentation only.\n");
 
@@ -528,6 +642,11 @@ fn help_for(segments: &[&str]) -> Option<String> {
         .flat_map(|leaf| leaf.accepts.iter().copied())
         .collect();
     for flag in flags {
+        // This block is the union of every matching leaf's options, which reads
+        // as a set the tool accepts everywhere. That reading is how `--json`
+        // came to be advertised globally while only `version` accepts it, and a
+        // caller who believed the help got exit 2 for their trouble. Where a
+        // flag is narrower than the block it appears in, the block says so.
         text.push_str(match flag {
             Accepts::File => {
                 "  --file <path>          Inspect these paths instead of the declared surface.\n                         Repeatable; `-` reads standard input.\n"
@@ -558,9 +677,66 @@ fn help_for(segments: &[&str]) -> Option<String> {
             }
             Accepts::Json => "  --json                 Shorthand for --output json.\n",
         });
+        text.push_str(&scope_note(&matching, flag));
     }
-    text.push_str("\nExit codes:\n  0  checked and clean\n  1  the repository violates its declared policy\n  2  the invocation, root, or configuration was unusable\n  3  a gate child could not be started\n");
+    text.push_str(
+        "\nExit codes:\n  \
+         0    checked and clean\n  \
+         1    the repository violates its declared policy\n  \
+         2    the invocation, root, or configuration was unusable\n  \
+         126  a gate child was found and could not be executed\n  \
+         127  a gate child was not found\n  \
+         128+N  ended by signal N; 130 is an interrupt, 141 a closed pipe\n",
+    );
     Some(text)
+}
+
+/// What the scan has learned about the requested format so far.
+///
+/// Both spellings count. `--json` is a documented shorthand for
+/// `--output json`, so a caller who used the shorthand and then made a mistake
+/// is owed the same document as one who used the long form.
+#[derive(Clone, Copy)]
+struct PartialFormat<'a> {
+    output: Option<&'a String>,
+    json_flag: bool,
+}
+
+impl PartialFormat<'_> {
+    fn resolve(self) -> Format {
+        if self.json_flag || self.output.map(String::as_str) == Some("json") {
+            Format::Json
+        } else {
+            Format::Text
+        }
+    }
+}
+
+/// A refusal that knows which format the caller asked for.
+///
+/// Separate from [`Refusal::new`] because the format is only known after the
+/// whole command line has been scanned, and half the refusals happen before
+/// that point.
+fn refusing(format: Format, code: ErrorCode, message: impl Into<String>) -> Refusal {
+    Refusal {
+        code,
+        message: message.into(),
+        format,
+    }
+}
+
+/// One line naming which leaves accept a flag, or nothing when they all do.
+fn scope_note(matching: &[&Leaf], flag: Accepts) -> String {
+    let accepting: Vec<String> = matching
+        .iter()
+        .filter(|leaf| leaf.accepts.contains(&flag))
+        .map(|leaf| format!("`{}`", leaf.path.join(" ")))
+        .collect();
+    // Nothing to warn about when every command in the block takes it.
+    if accepting.len() == matching.len() {
+        return String::new();
+    }
+    format!("  (accepted by {} only)\n", accepting.join(", "))
 }
 
 /// Why a value cannot address something inside the repository.
@@ -591,6 +767,81 @@ mod tests {
 
     fn arguments(words: &[&str]) -> Vec<String> {
         words.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    /// Three spellings of the same two questions.
+    ///
+    /// `--help`, `-h`, and `help` all ask what this tool does; `--version` and
+    /// `-V` all ask which one this is. A caller should not have to discover
+    /// which spelling this particular tool chose.
+    #[test]
+    fn help_and_version_answer_to_every_published_spelling() {
+        for words in [
+            &["--help"][..],
+            &["-h"][..],
+            &["help"][..],
+            &["gate", "--help"][..],
+            &["help", "gate"][..],
+        ] {
+            assert!(matches!(parse(&arguments(words)), Ok(Parsed::Help(_))));
+        }
+        for words in [&["--version"][..], &["-V"][..], &["version"][..]] {
+            assert!(matches!(
+                parse(&arguments(words)),
+                Ok(Parsed::Run(invocation)) if invocation.category == "version"
+            ));
+        }
+    }
+
+    /// The help block says which commands accept a flag, and stays short.
+    ///
+    /// A note listing every command is noise, and a note listing twenty is
+    /// worse than none: both leave a reader scanning names they did not ask
+    /// about.
+    #[test]
+    fn a_help_block_scopes_a_flag_without_reciting_the_whole_tree() {
+        let all: Vec<&Leaf> = LEAVES.iter().collect();
+        let accepting = |flag: Accepts| -> Vec<&Leaf> {
+            all.iter()
+                .copied()
+                .filter(|leaf| leaf.accepts.contains(&flag))
+                .collect()
+        };
+
+        // Every leaf in the slice accepts it, so there is nothing to warn about.
+        assert_eq!(
+            scope_note(&accepting(Accepts::Json), Accepts::Json),
+            String::new()
+        );
+
+        // One leaf out of the whole tree: named outright.
+        assert_eq!(accepting(Accepts::Json).len(), 1);
+        assert!(scope_note(&all, Accepts::Json).contains("accepted by `version` only"));
+
+        // Two out of many: both named, because no flag in this tree is taken
+        // by enough commands for a list to be worse than a count.
+        assert!(scope_note(&all, Accepts::Apply).contains(", "));
+    }
+
+    /// A caller who asked for a document gets one even when refused.
+    #[test]
+    fn a_refusal_carries_the_format_the_caller_had_already_asked_for() {
+        for words in [
+            &["--output", "json", "--no-such-flag"][..],
+            &["--json", "--no-such-flag"][..],
+            &["--output", "json", "--root"][..],
+        ] {
+            assert!(matches!(
+                parse(&arguments(words)),
+                Err(refusal) if refusal.format == Format::Json
+            ));
+        }
+
+        // Nothing was said before the mistake, so prose is the most that can be
+        // known at the point the scan stops.
+        let refusal = parse(&arguments(&["--output"])).err().expect("it refuses");
+        assert_eq!(refusal.format, Format::Text);
+        assert_eq!(refusal.to_string(), "rhino: `--output` needs a value");
     }
 
     #[test]
@@ -646,7 +897,7 @@ mod tests {
             ]))
             .err()
             .expect("grouped adapters do not select one profile");
-            assert!(refusal.0.contains("--harness"));
+            assert!(refusal.message.contains("--harness"));
         }
     }
 
@@ -675,8 +926,6 @@ mod tests {
             "--head",
             "head",
             "--quiet",
-            "--",
-            "--child-flag",
         ]))
         .expect("valid pull-request gate");
         assert!(matches!(
@@ -684,7 +933,14 @@ mod tests {
             Parsed::Run(invocation)
                 if invocation.category == "gate"
                     && invocation.format == Format::Json
-                    && invocation.forwarded == vec!["--child-flag"]
+        ));
+
+        // `--` ends the options. The operand after it reaches the command path
+        // rather than being read as a flag, which is the whole of the rule.
+        let after_double_dash = parse(&arguments(&["--", "version"])).expect("valid version leaf");
+        assert!(matches!(
+            after_double_dash,
+            Parsed::Run(invocation) if invocation.category == "version"
         ));
 
         let directory = parse(&arguments(&[

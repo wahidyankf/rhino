@@ -39,12 +39,14 @@ impl Recorder {
 impl Launcher for Recorder {
     fn launch(&self, launch: Launch<'_>) -> Result<Launched, LaunchError> {
         let Some((program, arguments)) = launch.arguments.split_first() else {
-            return Err(LaunchError("the gate declares no command".to_string()));
+            return Err(LaunchError::refused("the gate declares no command"));
         };
         let id = identifier(program);
 
         if self.unlaunchable.contains(&id) {
-            return Err(LaunchError(format!("`{program}` could not be started")));
+            return Err(LaunchError::refused(format!(
+                "`{program}` could not be started"
+            )));
         }
 
         // `{root}` rather than the path, because the path differs per adapter

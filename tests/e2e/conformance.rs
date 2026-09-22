@@ -18,16 +18,23 @@
 
 use serde_json::Value;
 use std::io::Read;
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Command, Stdio};
 
 /// What this executable declares about itself, which decides the assertions
-/// that apply to it. `prompts` is absent: no leaf asks a question.
+/// that apply to it.
+///
+/// `prompts` is absent: no leaf asks a question. `colour-output` is absent
+/// because this executable emits no escape sequence anywhere -- `--no-color` is
+/// accepted and ignored, which is not the same as producing colour. Claiming
+/// the capability made five assertions apply that describe a behaviour that
+/// does not exist here, and turned "there is nothing to suppress" into a gap.
+/// A capability is a statement of fact about the tool, not a level of ambition.
 const CAPABILITIES: &[&str] = &[
     "starts-child-processes",
     "reads-standard-input",
     "machine-readable-output",
-    "colour-output",
     "reads-configuration",
     "has-subcommand-tree",
 ];
@@ -42,39 +49,7 @@ const CLASSES: &[&str] = &[];
 /// removed here fails the test, and so does a gap that appears without being
 /// added — which is the only way a known-gap list stays honest rather than
 /// becoming the place failures go to be forgotten.
-const KNOWN_GAPS: &[(&str, &str)] = &[
-    (
-        "cli.streams.requested-version-on-stdout",
-        "there is no `--version` flag; a `version` leaf carries it instead",
-    ),
-    (
-        "cli.args.double-dash-ends-options",
-        "`--` is not recognized as the end-of-options delimiter",
-    ),
-    (
-        "cli.terminal.colour-is-tri-state",
-        "`--no-color` exists in place of a tri-state `--color`",
-    ),
-    (
-        "cli.exit.vocabulary-is-closed",
-        "`gate run` returns 3 when a gate child cannot be launched, which is outside the \
-         closed vocabulary and is published in the `Exit codes:` block",
-    ),
-    (
-        "cli.exit.child-not-found-is-one-two-seven",
-        "a gate child that does not exist reports 3 rather than 127, so a missing program \
-         and an unexecutable one are the same status",
-    ),
-    (
-        "cli.exit.closed-pipe-is-one-four-one",
-        "a closed reader panics in the standard library's stdout handling and exits 101, \
-         printing the panic message the contract forbids",
-    ),
-    (
-        "cli.args.help-subcommand-when-a-tree-exists",
-        "`help` is not a command; only the `-h` and `--help` flags reach the usage text",
-    ),
-];
+const KNOWN_GAPS: &[(&str, &str)] = &[];
 
 enum Outcome {
     Passed,
@@ -165,20 +140,115 @@ fn invoke_with_closed_reader(arguments: &[&str]) -> Observed {
 /// the failure mode the three-outcome design exists to prevent, and it slipped
 /// through anyway until the published status block was read against the sweep.
 fn absent_child_repository() -> std::path::PathBuf {
-    let root = std::env::temp_dir().join(format!(
-        "rhino-conformance-absent-child-{}",
-        std::process::id()
-    ));
+    child_repository("absent-child", "/no/such/program")
+}
+
+/// A throwaway repository whose single gate names a file that exists and
+/// carries no executable bit, so the launcher can find it and cannot run it.
+///
+/// Distinguishing this from the missing case is the whole point of having two
+/// statuses for it, and a probe that only ever names a path that is not there
+/// would let the two collapse into one without the runner noticing.
+fn unexecutable_child_repository() -> std::path::PathBuf {
+    let root = child_repository("unexecutable-child", "PLACEHOLDER");
+    let child = root.join("not-executable.sh");
+    std::fs::write(&child, "#!/bin/sh\nexit 0\n").expect("the fixture child is writable");
+    std::fs::set_permissions(&child, std::fs::Permissions::from_mode(0o644))
+        .expect("the fixture child's mode is settable");
+    let configuration = root.join("repo-config.yml");
+    let text = std::fs::read_to_string(&configuration).expect("the fixture configuration is there");
+    std::fs::write(
+        &configuration,
+        text.replace("PLACEHOLDER", &child.to_string_lossy()),
+    )
+    .expect("the fixture configuration is writable");
+    root
+}
+
+fn child_repository(id: &str, executable: &str) -> std::path::PathBuf {
+    let root = std::env::temp_dir().join(format!("rhino-conformance-{id}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("the fixture root is creatable");
     std::fs::write(
         root.join("repo-config.yml"),
-        "schema: rhino/repo-config/v2\nrepository: {}\ngates:\n  entries:\n    \
-         - id: absent-child\n      type: check\n      command:\n        \
-         executable: /no/such/program\n        args: []\n      run-on:\n        main: {}\n",
+        format!(
+            "schema: rhino/repo-config/v2\nrepository: {{}}\ngates:\n  entries:\n    \
+             - id: {id}\n      type: check\n      command:\n        \
+             executable: {executable}\n        args: []\n      run-on:\n        main: {{}}\n"
+        ),
     )
     .expect("the fixture configuration is writable");
     root
+}
+
+/// Every failure path RHINO documents, paired with the code it must report.
+///
+/// Read against the published vocabulary rather than against the crate: an
+/// assertion that a set is closed is worth nothing if the set it checks is the
+/// one the implementation happens to hold.
+fn documented_failure_paths() -> Vec<(Vec<String>, &'static str)> {
+    let absent = absent_child_repository();
+    let unexecutable = unexecutable_child_repository();
+    let owned = |parts: &[&str]| parts.iter().map(|part| (*part).to_string()).collect();
+    vec![
+        (
+            owned(&["--output", "json", "--no-such-flag"]),
+            "rhino.args.unrecognized",
+        ),
+        (
+            owned(&["--output", "json", "no-such-command"]),
+            "rhino.args.unrecognized",
+        ),
+        (
+            owned(&["--output", "json", "--root"]),
+            "rhino.args.incomplete",
+        ),
+        (
+            owned(&["--output", "json", "--root", "/no/such/root", "version"]),
+            "rhino.repository.unusable",
+        ),
+        (
+            [
+                owned(&["gate", "run", "--surface", "main", "--output", "json"]),
+                vec!["--root".to_string(), absent.to_string_lossy().into_owned()],
+            ]
+            .concat(),
+            "rhino.gate.child-not-found",
+        ),
+        (
+            [
+                owned(&["gate", "run", "--surface", "main", "--output", "json"]),
+                vec![
+                    "--root".to_string(),
+                    unexecutable.to_string_lossy().into_owned(),
+                ],
+            ]
+            .concat(),
+            "rhino.gate.child-not-executable",
+        ),
+    ]
+}
+
+/// The vocabulary as a caller reads it: from the published reference page.
+fn published_error_codes() -> Vec<String> {
+    let page = include_str!("../../docs/reference/error-codes.md");
+    let mut codes: Vec<String> = Vec::new();
+    for piece in page.split('`') {
+        if piece.starts_with("rhino.")
+            && !piece.contains('<')
+            && !codes.iter().any(|seen| seen == piece)
+        {
+            codes.push(piece.to_string());
+        }
+    }
+    codes
+}
+
+/// The one member of a JSON object this runner needs, without a parser.
+fn member<'a>(document: &'a str, path: &str) -> Option<&'a str> {
+    let key = format!("\"{}\":\"", path.rsplit('.').next()?);
+    let rest = document.split(&key).nth(1)?;
+    rest.split('"').next()
 }
 
 fn expect_status(observed: &Observed, wanted: i32) -> Outcome {
@@ -202,6 +272,11 @@ fn expect_clean_stdout(observed: &Observed) -> Outcome {
             observed.stdout.chars().take(60).collect::<String>()
         ))
     }
+}
+
+/// The first line of a stream, for a failure message that stays one line.
+fn firstish(text: &str) -> String {
+    text.lines().next().unwrap_or("<empty>").to_string()
 }
 
 fn both(first: Outcome, second: Outcome) -> Outcome {
@@ -503,6 +578,169 @@ fn probe(id: &str) -> Option<Outcome> {
             }
         }
 
+        "cli.exit.child-not-executable-is-one-two-six" => {
+            let root = unexecutable_child_repository();
+            let observed = invoke(
+                &[
+                    "gate",
+                    "run",
+                    "--root",
+                    &root.to_string_lossy(),
+                    "--surface",
+                    "main",
+                ],
+                &[],
+            );
+            let _ = std::fs::remove_dir_all(&root);
+            expect_status(&observed, 126)
+        }
+
+        "cli.streams.error-body-on-stderr" => {
+            let root = absent_child_repository();
+            let observed = invoke(
+                &[
+                    "gate",
+                    "run",
+                    "--root",
+                    &root.to_string_lossy(),
+                    "--surface",
+                    "main",
+                    "--output",
+                    "json",
+                ],
+                &[],
+            );
+            let _ = std::fs::remove_dir_all(&root);
+            let parses = observed.stderr.trim_start().starts_with('{')
+                && observed.stderr.trim_end().ends_with('}');
+            let body = if parses {
+                Outcome::Passed
+            } else {
+                Outcome::Failed(format!(
+                    "stderr did not carry one document in the declared format: {}",
+                    firstish(&observed.stderr)
+                ))
+            };
+            let failed = if observed.status() == 0 {
+                Outcome::Failed("the failing run exited 0".to_string())
+            } else {
+                Outcome::Passed
+            };
+            both(both(failed, expect_clean_stdout(&observed)), body)
+        }
+
+        "cli.output.error-body-required-fields" => {
+            let root = absent_child_repository();
+            let observed = invoke(
+                &[
+                    "gate",
+                    "run",
+                    "--root",
+                    &root.to_string_lossy(),
+                    "--surface",
+                    "main",
+                    "--output",
+                    "json",
+                ],
+                &[],
+            );
+            let _ = std::fs::remove_dir_all(&root);
+            let missing: Vec<&str> = ["\"schemaVersion\":", "\"code\":", "\"message\":"]
+                .into_iter()
+                .filter(|needle| !observed.stderr.contains(needle))
+                .collect();
+            if missing.is_empty() {
+                Outcome::Passed
+            } else {
+                Outcome::Failed(format!("the error body omits {}", missing.join(", ")))
+            }
+        }
+
+        "cli.output.error-codes-are-namespaced" => {
+            let mut wrong: Vec<String> = Vec::new();
+            for (arguments, expected) in documented_failure_paths() {
+                let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+                let observed = invoke(&borrowed, &[]);
+                match member(&observed.stderr, "error.code") {
+                    Some(code) if code == expected => {}
+                    Some(code) if code.split('.').count() == 3 && code.starts_with("rhino.") => {
+                        wrong.push(format!(
+                            "`{}` reported {code}, wanted {expected}",
+                            borrowed.join(" ")
+                        ));
+                    }
+                    Some(code) => wrong.push(format!("`{code}` is not `tool.area.reason`")),
+                    None => wrong.push(format!("`{}` carried no error code", borrowed.join(" "))),
+                }
+            }
+            if wrong.is_empty() {
+                Outcome::Passed
+            } else {
+                Outcome::Failed(wrong.join("; "))
+            }
+        }
+
+        "cli.output.error-code-vocabulary-is-closed" => {
+            let published = published_error_codes();
+            if published.len() < 2 {
+                return Some(Outcome::Unmeasured(
+                    "the published vocabulary could not be read",
+                ));
+            }
+            let mut outside: Vec<String> = Vec::new();
+            for (arguments, _) in documented_failure_paths() {
+                let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+                let observed = invoke(&borrowed, &[]);
+                if let Some(code) = member(&observed.stderr, "error.code")
+                    && !published.iter().any(|known| known == code)
+                {
+                    outside.push(format!(
+                        "`{}` reported unpublished `{code}`",
+                        borrowed.join(" ")
+                    ));
+                }
+            }
+            if outside.is_empty() {
+                Outcome::Passed
+            } else {
+                Outcome::Failed(outside.join("; "))
+            }
+        }
+
+        "cli.stdin.read-failure-is-not-empty-input" => {
+            // A write-only descriptor is a stream that exists and cannot be
+            // read: the one shape that used to be reported as an empty
+            // document, which is the failure this assertion exists to catch.
+            let sink =
+                std::env::temp_dir().join(format!("rhino-conformance-sink-{}", std::process::id()));
+            let Ok(handle) = std::fs::File::create(&sink) else {
+                return Some(Outcome::Unmeasured(
+                    "an unreadable stream could not be prepared",
+                ));
+            };
+            let output = Command::new(env!("CARGO_BIN_EXE_rhino"))
+                .args(["governance", "word-budget", "validate", "--file", "-"])
+                .stdin(Stdio::from(handle))
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+                .expect("the built executable is runnable");
+            let _ = std::fs::remove_file(&sink);
+            let observed = Observed {
+                code: output.status.code(),
+                signal: output.status.signal(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            };
+            if observed.status() == 0 {
+                Outcome::Failed(
+                    "a stream that could not be read was reported as an empty document".to_string(),
+                )
+            } else {
+                both(expect_status(&observed, 2), expect_clean_stdout(&observed))
+            }
+        }
+
         "cli.exit.child-not-found-is-one-two-seven" => {
             let root = absent_child_repository();
             let observed = invoke(
@@ -520,8 +758,39 @@ fn probe(id: &str) -> Option<Outcome> {
             expect_status(&observed, 127)
         }
 
-        "cli.exit.internal-crash-is-two" | "cli.exit.crash-trace-behind-a-switch" => {
-            Outcome::Unmeasured("no fault-injection point exists at the process boundary")
+        // The seam these two use is compiled out of a release build, so a
+        // released binary cannot be asked to panic. In a debug build it is the
+        // difference between measuring what a crash reports and declaring the
+        // question unanswerable.
+        "cli.exit.internal-crash-is-two" => {
+            let observed = invoke(&["version"], &[("RHINO_PANIC_FOR_TESTS", "1")]);
+            let quiet = if observed.stderr.contains("panicked at") {
+                Outcome::Failed("the runtime's own panic message reached stderr".to_string())
+            } else {
+                Outcome::Passed
+            };
+            both(
+                both(expect_status(&observed, 2), expect_clean_stdout(&observed)),
+                quiet,
+            )
+        }
+
+        "cli.exit.crash-trace-behind-a-switch" => {
+            let without = invoke(&["version"], &[("RHINO_PANIC_FOR_TESTS", "1")]);
+            let with = invoke(
+                &["version"],
+                &[("RHINO_PANIC_FOR_TESTS", "1"), ("RUST_BACKTRACE", "1")],
+            );
+            if without.stderr.lines().count() <= 2 && with.stderr.len() > without.stderr.len() {
+                expect_status(&with, 2)
+            } else {
+                Outcome::Failed(format!(
+                    "expected a trace only behind the switch, observed {} bytes without it \
+                     and {} with it",
+                    without.stderr.len(),
+                    with.stderr.len()
+                ))
+            }
         }
 
         "cli.exit.interrupt-is-one-three-zero" => Outcome::Unmeasured(

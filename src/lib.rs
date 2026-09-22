@@ -12,6 +12,7 @@
 pub mod cli;
 pub mod config;
 pub mod convention;
+pub mod errors;
 pub mod governance;
 pub mod markdown;
 pub mod metadata;
@@ -33,7 +34,13 @@ use runtime::{
 /// a process, which is what lets the behaviour corpus run at the unit boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Outcome {
-    /// `0` clean or help, `1` findings, `2` invalid invocation or configuration.
+    /// The closed vocabulary, and nothing outside it: `0` clean or help, `1`
+    /// findings, `2` an unusable invocation, configuration, or run, `126` a gate
+    /// child that could not be executed, `127` one that was not found.
+    ///
+    /// A status from a signal never appears here. The process boundary reports
+    /// `128+N` by ending the way the signal says to, because a signal death
+    /// translated into a value is the one substitution a caller cannot detect.
     pub exit_code: u8,
     pub stdout: String,
     pub stderr: String,
@@ -62,12 +69,23 @@ impl Outcome {
     /// A fault in the invocation or the configuration. Never `1`: exit `1` has
     /// to mean "the repository violates its declared policy" whichever command
     /// produced it, so nothing else may borrow it.
+    ///
+    /// The message arrives already rendered, which is why this stays the
+    /// low-level constructor. Every caller that knows which format was asked
+    /// for should use [`Outcome::refusal`] instead, so the reason reaches a
+    /// program as a code rather than as prose it would have to parse.
     pub fn refused(stderr: impl Into<String>) -> Self {
         Self {
             exit_code: 2,
             stdout: String::new(),
             stderr: stderr.into(),
         }
+    }
+
+    /// A refusal carrying a code from the closed vocabulary, rendered for the
+    /// format the caller asked for.
+    pub fn refusal(format: cli::Format, code: errors::ErrorCode, message: impl AsRef<str>) -> Self {
+        Self::refused(errors::body(format, code, message.as_ref()))
     }
 }
 
@@ -148,7 +166,9 @@ pub fn execute_using_with_boundaries(
     let invocation = match cli::parse(arguments) {
         Ok(cli::Parsed::Help(cli::Help(text))) => return Outcome::clean(text),
         Ok(cli::Parsed::Run(invocation)) => *invocation,
-        Err(refusal) => return Outcome::refused(format!("{refusal}\n")),
+        Err(refusal) => {
+            return Outcome::refusal(refusal.format, refusal.code, &refusal.message);
+        }
     };
 
     // `--root` is answered before anything is read, so a root that names
@@ -162,7 +182,13 @@ pub fn execute_using_with_boundaries(
                 rerooted = rooted;
                 rerooted.as_ref()
             }
-            Err(reason) => return Outcome::refused(format!("rhino: {reason}\n")),
+            Err(reason) => {
+                return Outcome::refusal(
+                    invocation.format,
+                    errors::ErrorCode::RepositoryUnusable,
+                    &reason,
+                );
+            }
         },
     };
 

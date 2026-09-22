@@ -541,7 +541,7 @@ Feature: Rhino v0.4 contracts
             relation: exact
       """
     When I invoke the CLI with "gate|run|--surface|pre-commit"
-    Then the exit code is 3
+    Then the exit code is 2
     And stderr contains "no index mutation boundary"
 
   Scenario: Harness adapter validation refuses an undeclared grouped profile

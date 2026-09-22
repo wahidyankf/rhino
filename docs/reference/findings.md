@@ -171,7 +171,8 @@ document: the path already supplies every identity the schema omits.
 
 `gate run` reports no findings of its own. It reports which gate ran and
 whether it passed, and the exit code carries the verdict: `1` when a child
-reported something, `3` when a child could not be started. A child's own
+reported something, `127` when a child was not found, and `126` when one was
+found and could not be executed. A child's own
 streams are never repeated.
 
 ## Not findings
