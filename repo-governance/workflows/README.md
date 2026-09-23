@@ -8,6 +8,8 @@ Several here carry a terminal contract — a fixed set of results, one of which 
 
 - [Coding-harness contract change](coding-harness-contract-change.md) — one canonical edit, every adapter reconciled with it.
 - [Coding-harness parity verification](coding-harness-parity-verification.md) — the read-only audit of the same contract.
+- [Docs propagation](docs-propagation.md) — the only writer of every document edit, run automatically with each change a document describes.
+- [Docs quality gate](docs-quality-gate.md) — a read-only verdict on documents, handing findings to propagation. Explicit request or release only.
 - [Gherkin implementation review](gherkin-implementation-review.md) — semantic review of what a binding actually asserts.
 - [Dev artifact clean-up](dev-artifact-clean-up.md) — removing the artifacts one piece of work created, and nothing else.
 - [PR leak review](pr-leak-review.md) — the posted, current-head review a merge requires.

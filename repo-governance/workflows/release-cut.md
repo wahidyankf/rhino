@@ -10,6 +10,7 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 - Local `main` equals `origin/main`, reconciled after the last merge by the [integration path](../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
 - The quick gate and `cargo xtask schema --check` pass on that exact commit.
+- `CHANGELOG.md` describes this version, and a [docs quality gate](docs-quality-gate.md) run with scope `all` passes; any other verdict stops the release.
 
 ## Size Rehearsal
 
@@ -22,8 +23,6 @@ record the raw executable/archive byte counts with the toolchain and commit. It 
 release but cannot publish a tag or asset. A partial matrix is evidence of nothing: do not change a ceiling until the
 aggregate names all four release targets and a review explains the material change. Then rebuild and rerun the normal
 release artifact suite; rehearsal never replaces it.
-
-- `CHANGELOG.md` describes this version, and `README.md` and `docs/` are true to the binary being built.
 
 ## Procedure
 
