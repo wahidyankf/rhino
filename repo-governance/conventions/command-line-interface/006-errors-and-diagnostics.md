@@ -61,3 +61,7 @@ not exempt.
 
 The exemption is not enforceable by an automated runner, because a conforming exempt program looks exactly like a tool
 that has stopped working. It is bound by review, and an adopter records which of its own programs claim it.
+
+FERRET records coding-agent harness activity. Capture is registered at the user level of the maintainer's harness
+configuration, not in this repository, so nothing here forwards hook payloads. Use `./ferret` to query the local record
+— `./ferret status --json`, whose `dataHome` names where it lives, and `./ferret usage --group-by tool --json`.
