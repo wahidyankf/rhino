@@ -6,9 +6,9 @@ Removing exactly the development artifacts one piece of work created, and bringi
 
 Six things, and nothing else: the worktree this work provisioned, its local branch, that branch on `origin`, the regenerable build output this work produced, the `local-tmp/` scratch it wrote, and the primary checkout's `main` ref.
 
-Build output means `target/` and the build caches a documented command rebuilds — in the worktree, and the same regenerable output in the primary checkout. It never means a `.env*` file or any other local secret: those are not build output, exist nowhere else, and are out of scope in every location.
+Build output means `target/` and the build caches a documented command rebuilds — in the worktree, and the same output in the primary checkout. It never means a `.env*` file or any other local secret, in any location.
 
-Scratch means what this work itself wrote under `local-tmp/`, never another actor's files.
+Scratch means what this work itself wrote under `local-tmp/`, never another actor's files. Scratch a crashed session left behind is reclaimed only deliberately, never by an ambient sweep: once unmodified for seven days, it moves to `local-tmp/.reclaim-quarantine-YYYY-MM-DD/`, and is deleted once nothing needs it.
 
 An exact ignored, nonshared cache such as `.fvm-cache` may be scratch even when another task created it, but only after recorded regeneration, non-use, and secret-free evidence. This never makes a shared cache removable.
 
@@ -42,7 +42,7 @@ git push origin --delete worktree/<name>
 
 Purge the build output this work produced, and its own scratch, once delivery has landed and nothing uses it. Retain logs, traces, and any other non-regenerable evidence a failure would need.
 
-The count must read `0 0`. `--prune` drops the remote-tracking ref for a branch the forge deleted on merge; without it the branch keeps appearing in `git branch -a` after it is gone. Delete on `origin` only if merging did not.
+The count must read `0 0`. `--prune` drops the remote-tracking ref for a branch the forge deleted on merge; without it the deleted branch lingers in `git branch -a`. Delete on `origin` only if merging did not.
 
 Where a clone has no primary checkout, `git fetch origin main:main` reconciles without one, never against a branch checked out elsewhere.
 
@@ -58,7 +58,7 @@ Read the refusal before answering it. Where the pull request reports merged and 
 
 ## Never
 
-Never delete a `.env*` file or any other local secret-bearing file or directory. They are gitignored and unregenerable — nothing in the repository reconstructs one — so deleting one is permanent loss of the operator's own configuration, not a reclaimed artifact. That holds inside a worktree being removed too, which is why removal is never forced: `git worktree remove` refuses while untracked files remain, and that refusal is a signal to stop.
+Never delete a `.env*` file or any other local secret-bearing file or directory. They are gitignored and unregenerable; deleting one permanently loses the operator's configuration. That holds inside a worktree being removed too, which is why removal is never forced: `git worktree remove` refuses while untracked files remain, and that refusal is a signal to stop.
 
 In the primary checkout, only regenerable build output and this work's own scratch are removable. Every other removal targets the worktree this work provisioned or the branch it opened. The primary checkout holds the only copies of gitignored secrets and local state, so a deletion there is unrecoverable. Never delete `main` itself, locally or on `origin`.
 
