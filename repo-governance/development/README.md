@@ -13,6 +13,7 @@ Engineering standards, within every higher level. These govern how the product i
 - [The public contract](public-contract.md) — exit codes, `version --json`, and what a consumer may pin.
 - [Planning capabilities](planning-capabilities.md) — what a repository must be able to do with a plan, and in what form.
 - [Planning capability modules](planning-capabilities/README.md) — the seven modules that standard indexes.
+- [Quality](quality/README.md) — the software-development standards adopted from the shared catalog.
 - [Quality gates](quality-gates.md) — the quick gate, the full gate, and the server gate.
 - [Resource-aware development](resource-aware-development.md) — the HIPPO guard and its exit codes.
 - [Software quality enforcement](software-quality-enforcement.md) — coverage, product invariants, no superficial passes.
