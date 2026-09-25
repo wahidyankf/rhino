@@ -1741,6 +1741,76 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And the first stdout JSON violation kind is "internal-link-missing"
 
+  Scenario: Internal-link policy reports a target behind a symbolic link as outside the repository
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          internal-link:
+            exclude-sources: []
+      """
+    And the repository contains:
+      | path           | content                    |
+      | docs/readme.md | [Held](outside/held.md)    |
+    And the repository contains a symbolic link at "docs/outside" to a directory outside it holding "held.md"
+    When I invoke the CLI with "md|internal-link|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "internal-link-outside-repository"
+
+  Scenario: A declared file behind a symbolic link is refused rather than read
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        conventions:
+          license:
+            paths:
+              - path: vendor/outside/LICENSE
+                identifiers: [MIT]
+      """
+    And the repository contains a symbolic link at "vendor/outside" to a directory outside it holding "LICENSE"
+    When I invoke the CLI with "convention|license|validate"
+    Then the exit code is 2
+    And stderr contains "symbolic link"
+
+  Scenario: A selected file behind a symbolic link escapes the repository root
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: plain-text
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: []
+            edge-colors: []
+            text-colors: []
+      """
+    And the repository contains a symbolic link at "docs/outside" to a directory outside it holding "held.md"
+    When I invoke the CLI with "md|mermaid|validate|--file|docs/outside/held.md|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.path.escapes-root"
+
+  Scenario: A selected directory behind a symbolic link escapes the repository root
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          directory-map:
+            trees:
+              - path: docs
+      """
+    And the repository contains:
+      | path           | content                         |
+      | docs/README.md | # Docs\n\n## Directory Map\n    |
+    And the repository contains a symbolic link at "docs/outside" to a directory outside it holding "held.md"
+    When I invoke the CLI with "governance|directory-map|validate|--directory|docs/outside|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.path.escapes-root"
+
   Scenario: Mermaid policy accepts a declared plain-text repository with no diagrams
     Given the configuration file is this text:
       """

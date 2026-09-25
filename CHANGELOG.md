@@ -44,6 +44,17 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   write. Omitted, every canonical agent renders as before.
 - The v2 configuration schema describes both keys.
 
+### Fixed
+
+- **A symbolic link is never followed out of the repository.** A tree
+  validator could read outside the selected root when a path passed through a
+  linked directory, although the walk already skipped links. No path is now
+  read through a filesystem link at any component. An internal link whose
+  target lies behind one is reported as `internal-link-outside-repository`. A
+  declared file behind one refuses the run with exit `2`. A `--file` or
+  `--directory` selection behind one is refused with exit `2` and
+  `rhino.path.escapes-root`.
+
 ## [v0.5.0] — 2026-09-22
 
 RHINO now reports from one closed status vocabulary and one closed error-code

@@ -147,6 +147,28 @@ impl DiskTree {
         false
     }
 
+    /// Whether any component of a repository-relative path, the last
+    /// included, is a filesystem link. Each component is inspected with
+    /// `symlink_metadata`, which never follows the link it is asked about, and
+    /// the walk stops at the first component that is not there.
+    fn through_link(&self, path: &str) -> bool {
+        let mut current = self.root.clone();
+        for segment in path.split('/') {
+            match segment {
+                "" | "." => continue,
+                // `resolve` refuses a climbing path before anything reads it.
+                ".." => return false,
+                name => current.push(name),
+            }
+            match std::fs::symlink_metadata(&current) {
+                Ok(metadata) if metadata.is_symlink() => return true,
+                Ok(_) => {}
+                Err(_) => return false,
+            }
+        }
+        false
+    }
+
     /// Resolve a repository-relative path, refusing one that would leave the
     /// root even if the caller built it from configuration.
     fn resolve(&self, path: &str) -> Option<PathBuf> {
@@ -169,6 +191,11 @@ impl Tree for DiskTree {
                 "{path} leaves the repository root"
             )));
         };
+        if self.through_link(path) {
+            return Err(TreeError::Unreadable(format!(
+                "{path} passes through a symbolic link, which RHINO never follows"
+            )));
+        }
         match std::fs::read_to_string(&resolved) {
             Ok(text) => Ok(text),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err(TreeError::NotFound),
@@ -196,6 +223,11 @@ impl Tree for DiskTree {
         if metadata.is_symlink() {
             return Err(TreeError::Unreadable(format!("{path} is a symbolic link")));
         }
+        if self.through_link(path) {
+            return Err(TreeError::Unreadable(format!(
+                "{path} passes through a symbolic link, which RHINO never follows"
+            )));
+        }
         match std::fs::read_to_string(&resolved) {
             Ok(text) => Ok(text),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err(TreeError::NotFound),
@@ -204,6 +236,10 @@ impl Tree for DiskTree {
             }
             Err(error) => Err(TreeError::Unreadable(error.to_string())),
         }
+    }
+
+    fn passes_through_link(&self, path: &str) -> bool {
+        self.through_link(path)
     }
 
     fn files(&self) -> Vec<String> {
@@ -412,6 +448,9 @@ impl Tree for DiskTree {
         let Some(resolved) = self.resolve(directory) else {
             return Vec::new();
         };
+        if self.through_link(directory) {
+            return Vec::new();
+        }
         let Ok(entries) = std::fs::read_dir(&resolved) else {
             return Vec::new();
         };
@@ -437,7 +476,7 @@ impl Tree for DiskTree {
     }
 
     fn is_directory(&self, path: &str) -> bool {
-        self.resolve(path).is_some_and(|resolved| resolved.is_dir())
+        !self.through_link(path) && self.resolve(path).is_some_and(|resolved| resolved.is_dir())
     }
 
     /// Every directory under the root, read from the filesystem rather than

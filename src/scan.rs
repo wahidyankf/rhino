@@ -216,6 +216,36 @@ pub struct Scope {
 /// The path a document read from standard input is reported under.
 pub const STDIN: &str = "-";
 
+/// Why a selected path yielded no document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unselectable {
+    /// The path passes through a filesystem link, which RHINO never follows,
+    /// so it names something outside the repository root.
+    Escapes,
+    /// The path could not be read.
+    Unreadable,
+}
+
+impl Unselectable {
+    /// The refusal a leaf reports for a selection it could not read.
+    ///
+    /// One place, so every leaf that accepts `--file` answers a bad selection
+    /// with the same code and the same words.
+    pub fn refusal(self, category: &'static str, path: &str) -> crate::report::Report {
+        let (code, message) = match self {
+            Self::Escapes => (
+                crate::errors::ErrorCode::PathEscapesRoot,
+                format!("{path}: passes through a symbolic link, which RHINO never follows"),
+            ),
+            Self::Unreadable => (
+                crate::errors::ErrorCode::FileUnreadable,
+                format!("{path}: cannot be read"),
+            ),
+        };
+        crate::report::Report::refused_as(code, category, message)
+    }
+}
+
 impl Scope {
     pub fn is_narrowed(&self) -> bool {
         !self.files.is_empty()
@@ -223,17 +253,21 @@ impl Scope {
 
     /// The documents this scope selects, in the order they were given.
     ///
-    /// A path that cannot be read is *not* skipped: it is returned with no
-    /// content so the caller reports it, because a selection naming a file that
+    /// A path that cannot be read is *not* skipped: it is returned with the
+    /// reason so the caller reports it, because a selection naming a file that
     /// is not there is a mistake in the invocation and not an empty repository.
-    pub fn documents(&self, tree: &dyn Tree) -> Vec<(String, Option<String>)> {
+    pub fn documents(&self, tree: &dyn Tree) -> Vec<(String, Result<String, Unselectable>)> {
         self.files
             .iter()
             .map(|path| {
                 if path == STDIN {
-                    (STDIN.to_string(), self.stdin.clone())
+                    let text = self.stdin.clone().ok_or(Unselectable::Unreadable);
+                    (STDIN.to_string(), text)
+                } else if tree.passes_through_link(path) {
+                    (path.clone(), Err(Unselectable::Escapes))
                 } else {
-                    (path.clone(), tree.read(path).ok())
+                    let text = tree.read(path).map_err(|_| Unselectable::Unreadable);
+                    (path.clone(), text)
                 }
             })
             .collect()
@@ -279,11 +313,43 @@ mod tests {
         assert_eq!(
             scope.documents(&tree),
             vec![
-                (STDIN.to_string(), Some("standard input".to_string())),
-                ("missing.md".to_string(), None)
+                (STDIN.to_string(), Ok("standard input".to_string())),
+                ("missing.md".to_string(), Err(Unselectable::Unreadable))
             ]
         );
         tree.mark_binary("docs/nested/guide.md");
         assert!(Corpus::read(&tree, &config).is_err());
+    }
+
+    #[test]
+    fn a_selection_behind_a_link_escapes_and_an_unreadable_one_is_unreadable() {
+        let mut tree = MemoryTree::default();
+        tree.write("docs/outside/held.md", "# held");
+        tree.mark_link("docs/outside");
+        let scope = Scope {
+            files: vec!["docs/outside/held.md".to_string(), STDIN.to_string()],
+            directory: None,
+            stdin: None,
+        };
+        assert_eq!(
+            scope.documents(&tree),
+            vec![
+                (
+                    "docs/outside/held.md".to_string(),
+                    Err(Unselectable::Escapes)
+                ),
+                (STDIN.to_string(), Err(Unselectable::Unreadable)),
+            ]
+        );
+        for (reason, code) in [
+            (Unselectable::Escapes, "rhino.path.escapes-root"),
+            (Unselectable::Unreadable, "rhino.file.unreadable"),
+        ] {
+            let refused = reason
+                .refusal("mermaid", "docs/a.md")
+                .render(crate::cli::Format::Json);
+            assert_eq!(refused.exit_code, 2);
+            assert!(refused.stderr.contains(code), "{}", refused.stderr);
+        }
     }
 }

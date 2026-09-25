@@ -43,6 +43,13 @@ impl Driver for UnitDriver {
         for path in repository.links {
             tree.mark_link(path);
         }
+        // In memory, "outside" is a file only reachable through the link: the
+        // tree holds it under the link's path and marks the link, which is how
+        // a disk tree that followed links would see it.
+        for (link, held) in repository.outside_links {
+            tree.write(&format!("{link}/{held}"), world::OUTSIDE_CONTENT);
+            tree.mark_link(link);
+        }
         for path in repository.empty_directories {
             tree.mark_directory(path);
         }

@@ -324,7 +324,21 @@ impl Launcher for NoLauncher {
 
 /// A repository as RHINO is allowed to see it: read, list, and nothing else.
 pub trait Tree {
+    /// Read one repository-relative file as text.
+    ///
+    /// A path that passes through a filesystem link at any component, the
+    /// last included, is refused as unreadable rather than followed: a link
+    /// can lead anywhere, including out of the repository, and a read that
+    /// followed one would report on bytes the repository does not hold.
     fn read(&self, path: &str) -> Result<String, TreeError>;
+
+    /// Whether reaching `path` passes through a filesystem link at any
+    /// component, the last included.
+    ///
+    /// Answered without following the link. RHINO never follows one, so a
+    /// path behind a link is outside what the repository can be said to hold,
+    /// and a caller reports it that way rather than as missing.
+    fn passes_through_link(&self, path: &str) -> bool;
 
     /// Read one declared mutation source without following a filesystem link.
     /// The default preserves the in-memory behavior; disk-backed trees tighten
@@ -694,6 +708,11 @@ impl EnvironmentStore for MemoryEnvironmentStore<'_> {
 impl Tree for MemoryTree {
     fn read(&self, path: &str) -> Result<String, TreeError> {
         let path = path.trim_start_matches('/');
+        if self.passes_through_link(path) {
+            return Err(TreeError::Unreadable(format!(
+                "{path} passes through a symbolic link, which RHINO never follows"
+            )));
+        }
         if self.unreadable.contains(path) {
             return Err(TreeError::Unreadable("permission denied".to_string()));
         }
@@ -718,11 +737,18 @@ impl Tree for MemoryTree {
         self.read(path)
     }
 
+    fn passes_through_link(&self, path: &str) -> bool {
+        let path = path.trim_matches('/');
+        self.links
+            .iter()
+            .any(|link| path == link || path.starts_with(&format!("{link}/")))
+    }
+
     fn files(&self) -> Vec<String> {
         self.files
             .borrow()
             .keys()
-            .filter(|path| !self.links.contains(*path))
+            .filter(|path| !self.passes_through_link(path))
             .cloned()
             .collect()
     }
@@ -996,6 +1022,10 @@ mod tests {
             Err(TreeError::NotFound)
         }
 
+        fn passes_through_link(&self, _: &str) -> bool {
+            false
+        }
+
         fn files(&self) -> Vec<String> {
             vec!["docs/guide.md".to_string()]
         }
@@ -1097,6 +1127,26 @@ mod tests {
         assert_eq!(tree.children("docs"), vec!["docs/guide.md".to_string()]);
         assert!(tree.is_directory("docs"));
         assert!(!tree.exists("absent"));
+        assert!(!tree.passes_through_link("docs/guide.md"));
+    }
+
+    #[test]
+    fn memory_tree_never_follows_a_link_at_any_component() {
+        let mut tree = MemoryTree::default();
+        tree.write("docs/outside/held.md", "held");
+        tree.write("docs/outsider.md", "sibling");
+        tree.mark_link("docs/outside");
+
+        assert!(tree.passes_through_link("docs/outside"));
+        assert!(tree.passes_through_link("/docs/outside/held.md"));
+        assert!(!tree.passes_through_link("docs/outsider.md"));
+        assert!(matches!(
+            tree.read("docs/outside/held.md"),
+            Err(TreeError::Unreadable(reason)) if reason.contains("symbolic link")
+        ));
+        assert_eq!(tree.files(), vec!["docs/outsider.md".to_string()]);
+        assert!(!tree.is_directory("docs/outside"));
+        assert!(!tree.exists("docs/outside/held.md"));
     }
 
     #[test]
