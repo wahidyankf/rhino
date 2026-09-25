@@ -4,64 +4,63 @@ Status: Backlog
 
 ## Context
 
-[Repo-grounded] Three current validator boundaries produce incorrect answers on valid repository input:
+[Repo-grounded] Two current validator boundaries produce incorrect answers on valid repository input:
 
-- plan acceptance identifiers are defined only when a line starts with `Scenario:`, so `Scenario Outline:` definitions
-  are invisible to delivery-reference validation;
-- harness tier validation returns before inspecting an adapter when the canonical agent declares no tier, so an adapter
-  can silently choose a model or effort; and
+- a harness profile's `fixed` adapter field may name the same native field as its `tier-fields`, so every canonical
+  agent that declares no tier silently receives a model or effort, and harness adapter validation reports clean; and
 - Mermaid colour and label readers inspect accessibility metadata as diagram content, treating parenthesized
-  `accDescr` prose as a node and a numeric HTML entity as a colour.
+  `accTitle` or `accDescr` prose as a node label and a decimal numeric HTML entity as a colour.
 
 The defects share RHINO's deterministic validation surface, but they do not depend on one another. The plan therefore
-keeps one investigation and convergence record while delivering three independently releasable pull requests.
+keeps one investigation and convergence record while delivering two independently releasable pull requests.
 
 ## Decision
 
-[Judgment call] Use one formal plan with three delivery units. Separate plans would repeat the same validation,
+[Judgment call] Use one formal plan with two delivery units. Separate plans would repeat the same validation,
 specification, and release-readiness framing; one combined code change would make independent defects share a rollback.
 
 Rejected alternatives:
 
-- one pull request for all three defects — smaller ceremony, but one regression would block or roll back unrelated
-  fixes;
-- three formal plans — strongest isolation, but duplicates setup, convergence, and archival work without improving the
+- one pull request for both defects — smaller ceremony, but one regression would block or roll back an unrelated fix;
+- two formal plans — strongest isolation, but duplicates setup, convergence, and archival work without improving the
   implementation seams.
 
 ## Decision Gate Record
 
-- Pre-write, 2026-09-16: the owner selected one RHINO plan with three independent delivery units rather than one
-  combined pull request or three formal plans.
+- Pre-write, 2026-09-16: the owner selected one RHINO plan with independent delivery units rather than one combined pull
+  request or separate formal plans.
 - Post-write, 2026-09-16: after the complete draft and cold-read repairs, the owner approved the plan as written and
   authorized its formal quality gate plus plan-only delivery.
+- Re-grounding, 2026-09-25: a documentation audit found the plan grounded on paths that no longer exist and its first
+  unit targeting the retired `plan validate` command. The owner chose the minimal resolution: remove that unit,
+  re-ground the harness and Mermaid units on `src/v0_4/harnesses.rs` and `src/markdown/mermaid.rs`, and keep the plan in
+  backlog.
 
 ## Scope
 
 In scope:
 
-- recognize acceptance identifiers on both `Scenario:` and `Scenario Outline:` declarations;
-- reject model or effort projection when the canonical agent declares no tier;
+- refuse a harness adapter configuration whose direct fields name a declared tier field;
 - exclude `accTitle` and `accDescr` metadata from diagram-content inspection;
-- distinguish numeric HTML entities from colour literals while preserving entity decoding for visible labels;
-- update canonical Gherkin, bindings, the shared plan fixture corpus, and applicable governance contracts.
+- distinguish decimal numeric HTML entities from colour literals while preserving entity decoding for visible labels;
+- update canonical Gherkin, bindings, and the documentation that describes the changed behaviour.
 
 Out of scope:
 
-- changing existing rule identifiers, exit classes, configuration keys, label limits, or colour policy;
+- changing existing finding kinds, exit classes, configuration keys, label limits, or colour policy;
 - changing unsupported Mermaid syntaxes or adding a general Mermaid parser;
 - publishing a release or changing a consumer repository.
 
 ## Approach Summary
 
-1. Extend the plan-criterion grammar and freeze an accepted shared-corpus case.
-2. Add a new harness diagnostic for projection without a canonical tier.
-3. Classify accessibility metadata before colour and legibility readers inspect diagram source.
-4. Deliver and prove each seam independently, then run repository-wide convergence.
+1. Refuse a direct adapter field that collides with a declared tier field.
+2. Classify accessibility metadata and numeric entities before colour and legibility readers inspect diagram source.
+3. Deliver and prove each seam independently, then run repository-wide convergence.
 
 ## Dependencies
 
-- [Repo-grounded] `specs/` remains the canonical behavior source.
-- [Repo-grounded] The shared plan fixture corpus is byte-locked by `SHA256SUMS` and `CORPUS-DIGEST`.
+- [Repo-grounded] `specs/` remains the canonical behavior source; its whole corpus is
+  `specs/behaviours/v0-4-contract.feature`.
 - [Repo-grounded] `cargo xtask test-quick` and `cargo xtask self-validate` are the local completion gates.
 
 ## Directory Map
