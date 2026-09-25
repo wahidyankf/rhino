@@ -89,7 +89,11 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   linked directory, although the walk already skipped links. No path is now
   read through a filesystem link at any component. An internal link whose
   target lies behind one is reported as `internal-link-outside-repository`. A
-  declared file behind one refuses the run with exit `2`. A `--file` or
+  declared path behind one is never read. A license path or an environment
+  example source behind one refuses the run with exit `2` and
+  `rhino.file.unreadable`. An environment target behind one also refuses with
+  exit `2`: `rhino.file.unwritable` where the command would write it, and
+  `rhino.file.unreadable` where `env backup` would read it. A `--file` or
   `--directory` selection behind one is refused with exit `2` and
   `rhino.path.escapes-root`.
 - **`env init` and `toolchain provision` plans honour `--output json`.**
