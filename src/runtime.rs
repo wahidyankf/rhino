@@ -672,6 +672,7 @@ impl EnvironmentStore for MemoryEnvironmentStore<'_> {
                     "environment target `{path}` already exists"
                 )));
             }
+            file_blocking_parent(&current, &path)?;
         }
         for file in &transaction.files {
             current.insert(file.path.clone(), file.contents.clone());
@@ -697,12 +698,35 @@ impl EnvironmentStore for MemoryEnvironmentStore<'_> {
                     "environment target `{path}` already exists"
                 )));
             }
+            file_blocking_parent(&current, &path)?;
         }
         for file in &transaction.files {
             current.insert(file.path.clone(), file.contents.clone());
         }
         Ok(())
     }
+}
+
+/// A file standing where a target needs a parent directory makes the write
+/// impossible, as it does on disk: the in-memory store refuses it the same way.
+fn file_blocking_parent(
+    current: &BTreeMap<String, String>,
+    path: &str,
+) -> Result<(), EnvironmentError> {
+    let mut parent = String::new();
+    let segments: Vec<&str> = path.split('/').collect();
+    for segment in &segments[..segments.len() - 1] {
+        if !parent.is_empty() {
+            parent.push('/');
+        }
+        parent.push_str(segment);
+        if current.contains_key(&parent) {
+            return Err(EnvironmentError(format!(
+                "cannot create environment parent `{path}`: `{parent}` is a file"
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl Tree for MemoryTree {

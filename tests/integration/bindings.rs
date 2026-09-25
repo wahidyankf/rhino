@@ -341,6 +341,18 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Environment initialization reports a target it cannot write",
+    ),
+    (
+        "v0-4-contract",
+        "Environment backup reports a destination it cannot write",
+    ),
+    (
+        "v0-4-contract",
+        "Environment restore reports a target it cannot write",
+    ),
+    (
+        "v0-4-contract",
         "An unknown lifecycle surface is an unrecognized option value",
     ),
     (

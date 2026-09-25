@@ -61,6 +61,9 @@ report, so read **Changed — breaking** before upgrading a pinned version.
     `rhino.repository.unusable` rather than `rhino.config.unusable`.
   - An inconsistent `toolchains` policy reports `rhino.config.unusable`
     rather than `rhino.toolchain.failed`.
+  - `env init --apply`, `env backup`, and `env restore` that fail while
+    writing, creating, or renaming a file report the new
+    `rhino.file.unwritable` rather than `rhino.config.unusable`.
 
 ### Added
 
@@ -74,6 +77,10 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   `stale-adapter`, and a name with no canonical source refuses before any
   write. Omitted, every canonical agent renders as before.
 - The v2 configuration schema describes both keys.
+- **`rhino.file.unwritable`.** A new error code: a file that had to be
+  written could not be written. Adding a code moves the minor version, because
+  a caller may treat the vocabulary as closed. A harness adapter that cannot be
+  written still reports `rhino.harness.refused`.
 
 ### Fixed
 

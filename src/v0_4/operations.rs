@@ -515,7 +515,7 @@ pub(crate) fn init(
     if let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
         return Outcome::refusal(
             format,
-            ErrorCode::ConfigUnusable,
+            ErrorCode::FileUnwritable,
             format!("environment initialization refused: {}", error.0),
         );
     }
@@ -609,7 +609,7 @@ pub(crate) fn backup(
     {
         return Outcome::refusal(
             format,
-            ErrorCode::ConfigUnusable,
+            ErrorCode::FileUnwritable,
             format!("environment backup refused: {}", error.0),
         );
     }
@@ -715,7 +715,7 @@ pub(crate) fn restore(
     if let Err(error) = store.restore(root, &EnvironmentRestoreTransaction { files }) {
         return Outcome::refusal(
             format,
-            ErrorCode::ConfigUnusable,
+            ErrorCode::FileUnwritable,
             format!("environment restore refused: {}", error.0),
         );
     }
