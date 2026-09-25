@@ -127,13 +127,13 @@ Feature: Rhino v0.4 contracts
     And stderr contains "unrecognized command"
 
     Examples:
-      | command                          |
-      | governance|roots|validate         |
-      | governance|companions|validate    |
-      | governance|instructions|validate  |
-      | plan|validate                     |
-      | harness|parity|validate           |
-      | md|word-count|inspect             |
+      | command                            |
+      | governance\|roots\|validate        |
+      | governance\|companions\|validate   |
+      | governance\|instructions\|validate |
+      | plan\|validate                     |
+      | harness\|parity\|validate          |
+      | md\|word-count\|inspect            |
 
   Scenario: Lifecycle identities are listed declaratively
     Given the configuration file is this text:
