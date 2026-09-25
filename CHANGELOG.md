@@ -92,6 +92,12 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   declared file behind one refuses the run with exit `2`. A `--file` or
   `--directory` selection behind one is refused with exit `2` and
   `rhino.path.escapes-root`.
+- **`env init` and `toolchain provision` plans honour `--output json`.**
+  Without `--apply`, both wrote their text plan line even under
+  `--output json`, so a caller piping them into `jq` failed. They now write
+  one object on one line, with `status` `planned`, the planned `count`, and
+  the planned `targets` or `toolchains`. Text output is unchanged. See
+  [operation status documents](docs/reference/json-output.md#operation-status-documents).
 
 ## [v0.5.0] — 2026-09-22
 

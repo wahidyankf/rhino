@@ -1,8 +1,9 @@
 # JSON output
 
 Grouped-v2 validation leaves emit the result envelope below. Operations may
-emit a command-specific status document; callers must validate the selected
-leaf's contract rather than assuming every command emits `violations`.
+emit a command-specific [status document](#operation-status-documents); callers
+must validate the selected leaf's contract rather than assuming every command
+emits `violations`.
 
 Every command accepts `--output json` and writes **one object on one line**.
 Line-delimited rather than pretty-printed, so the output pipes through `grep`
@@ -88,6 +89,26 @@ JSON, stderr stays empty on exit `0` and `1`.
 **Ordering is stable.** `scanned` and `violations` are sorted, so two runs over
 one repository produce byte-identical output and a diff between two
 repositories is a diff about the repositories.
+
+## Operation status documents
+
+The environment and toolchain operations report what they planned or did as one
+object carrying `schemaVersion` `1`, `command`, and `status`. `status` is
+`planned` or `completed`:
+
+| Invocation                    | `status`    | Other fields                          |
+| ----------------------------- | ----------- | ------------------------------------- |
+| `env init`                    | `planned`   | `count`, `targets` (repository paths) |
+| `env init --apply`            | `completed` | none                                  |
+| `env backup`                  | `planned`   | `destination`                         |
+| `env restore`                 | `completed` | none                                  |
+| `toolchain provision`         | `planned`   | `count`, `toolchains` (IDs)           |
+| `toolchain provision --apply` | `completed` | `count`                               |
+
+```console
+$ rhino env init --output json
+{"command":"environment-init","count":1,"schemaVersion":1,"status":"planned","targets":[".env.generated"]}
+```
 
 ## Using the validation result envelope
 

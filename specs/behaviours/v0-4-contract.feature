@@ -1159,6 +1159,27 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 0
     And stdout contains "planned 0"
 
+  Scenario: Toolchain provisioning plans as one JSON object
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: planned-tool
+            executable: planned-tool
+            probe: [--version]
+            required: false
+            provision:
+              - {platform: linux, executable: planned-installer, arguments: [install]}
+              - {platform: macos, executable: planned-installer, arguments: [install]}
+              - {platform: windows, executable: planned-installer, arguments: [install]}
+      """
+    When I invoke the CLI with "toolchain|provision|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "schemaVersion" is 1
+    And stdout JSON property "count" is 1
+    And stdout contains "planned-tool"
+
   Scenario: Toolchain validation reports a required unavailable probe without output bytes
     Given the configuration file is this text:
       """
@@ -1292,6 +1313,25 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|init|--apply"
     Then the exit code is 2
     And stderr contains "environment example `.env.example` is unreadable"
+
+  Scenario: Environment initialization plans as one JSON object
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: .env.generated
+      """
+    And the repository contains:
+      | path         | content                 |
+      | .env.example | EXAMPLE_KEY=placeholder |
+    When I invoke the CLI with "env|init|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "schemaVersion" is 1
+    And stdout JSON property "count" is 1
+    And stdout contains ".env.generated"
+    And the repository is unchanged by the inspection
 
   Scenario: License policy is repository-configured rather than OSE-defined
     Given the configuration file is this text:

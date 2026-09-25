@@ -507,10 +507,22 @@ pub(crate) fn init(
         });
     }
     if !apply {
-        return Outcome::clean(format!(
-            "[environment-init] planned {} declared targets; pass --apply to write\n",
-            files.len()
-        ));
+        return match format {
+            Format::Text => Outcome::clean(format!(
+                "[environment-init] planned {} declared targets; pass --apply to write\n",
+                files.len()
+            )),
+            Format::Json => Outcome::clean(format!(
+                "{}\n",
+                serde_json::json!({
+                    "schemaVersion": 1,
+                    "command": "environment-init",
+                    "status": "planned",
+                    "count": files.len(),
+                    "targets": serde_json::Value::from_iter(files.iter().map(|file| file.path.as_str())),
+                })
+            )),
+        };
     }
     if let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
         return Outcome::refusal(
@@ -936,10 +948,24 @@ pub(crate) fn provision(
         declared.push((toolchain, provision));
     }
     if !apply {
-        return Outcome::clean(format!(
-            "[toolchain-provision] planned {} declared toolchains; pass --apply to run\n",
-            declared.len()
-        ));
+        return match format {
+            Format::Text => Outcome::clean(format!(
+                "[toolchain-provision] planned {} declared toolchains; pass --apply to run\n",
+                declared.len()
+            )),
+            Format::Json => Outcome::clean(format!(
+                "{}\n",
+                serde_json::json!({
+                    "schemaVersion": 1,
+                    "command": "toolchain-provision",
+                    "status": "planned",
+                    "count": declared.len(),
+                    "toolchains": serde_json::Value::from_iter(
+                        declared.iter().map(|(toolchain, _)| toolchain.id.as_str())
+                    ),
+                })
+            )),
+        };
     }
     let mut completed = 0usize;
     for (toolchain, provision) in declared {
@@ -1509,6 +1535,11 @@ mod tests {
             }],
             ..Environment::default()
         };
+        assert_eq!(
+            init(Some(&one), &tree, ".", false, &store, Format::Json).stdout,
+            "{\"command\":\"environment-init\",\"count\":1,\"schemaVersion\":1,\"status\":\"planned\",\"targets\":[\".env.fixture\"]}\n"
+        );
+        assert!(!tree.exists(".env.fixture"));
         assert!(
             init(None, &tree, ".", true, &store, Format::Text)
                 .stderr
@@ -1801,6 +1832,12 @@ mod tests {
         })]);
         let planned = provision(Some(&toolchains), false, &runner, Format::Text);
         assert_eq!(planned.exit_code, 0);
+        assert!(runner.launches.borrow().is_empty());
+        let planned = provision(Some(&toolchains), false, &runner, Format::Json);
+        assert_eq!(
+            planned.stdout,
+            "{\"command\":\"toolchain-provision\",\"count\":2,\"schemaVersion\":1,\"status\":\"planned\",\"toolchains\":[\"first\",\"second\"]}\n"
+        );
         assert!(runner.launches.borrow().is_empty());
 
         let outcome = provision(Some(&toolchains), true, &runner, Format::Text);
