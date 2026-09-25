@@ -32,9 +32,9 @@ Rejected alternatives:
 - Post-write, 2026-09-16: after the complete draft and cold-read repairs, the owner approved the plan as written and
   authorized its formal quality gate plus plan-only delivery.
 - Re-grounding, 2026-09-25: a documentation audit found the plan grounded on paths that no longer exist and its first
-  unit targeting the retired `plan validate` command. The owner chose the minimal resolution: remove that unit,
-  re-ground the harness and Mermaid units on `src/v0_4/harnesses.rs` and `src/markdown/mermaid.rs`, and keep the plan in
-  backlog.
+  unit targeting the retired `plan validate` command. The maintainer applying the audit chose the minimal resolution,
+  pending owner review: remove that unit, re-ground the harness and Mermaid units on `src/v0_4/harnesses.rs` and
+  `src/markdown/mermaid.rs`, and keep the plan in backlog.
 
 ## Scope
 
