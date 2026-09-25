@@ -51,7 +51,7 @@ pub(crate) fn validate(
             Err(reason) => {
                 return Outcome::refusal(
                     format,
-                    ErrorCode::ConfigUnusable,
+                    ErrorCode::RepositoryUnusable,
                     format!("environment staging guard refused: {reason}"),
                 );
             }
@@ -745,7 +745,7 @@ pub(crate) fn validate_toolchains(
     if let Err(reason) = validate_toolchain_policy(toolchains) {
         return Outcome::refusal(
             format,
-            ErrorCode::ToolchainFailed,
+            ErrorCode::ConfigUnusable,
             format!("toolchain policy: {reason}"),
         );
     }
@@ -909,7 +909,7 @@ pub(crate) fn provision(
     if let Err(reason) = validate_toolchain_policy(toolchains) {
         return Outcome::refusal(
             format,
-            ErrorCode::ToolchainFailed,
+            ErrorCode::ConfigUnusable,
             format!("toolchain policy: {reason}"),
         );
     }

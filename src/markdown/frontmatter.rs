@@ -48,7 +48,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, frontmatter: &Frontmatter) -> 
     };
     let corpus = match Corpus::read(tree, config) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::refused("frontmatter", reason),
+        Err(reason) => return Report::unreadable("frontmatter", reason),
     };
 
     let mut report = Report::new("frontmatter", "file");

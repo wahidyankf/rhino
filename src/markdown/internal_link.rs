@@ -70,7 +70,7 @@ pub fn validate(tree: &dyn Tree, config: &Config) -> Report {
     };
     let corpus = match Corpus::read(tree, config) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::refused("internal-link", reason),
+        Err(reason) => return Report::unreadable("internal-link", reason),
     };
 
     let mut report = Report::new("internal-link", "link");

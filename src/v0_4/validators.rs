@@ -61,7 +61,7 @@ pub(crate) fn license(policy: Option<&ConventionsPolicy>, tree: &dyn Tree) -> Re
                 ));
                 continue;
             }
-            Err(reason) => return invalid("license", reason),
+            Err(reason) => return unreadable("license", reason),
         };
         report.scanned(&entry.path);
 
@@ -273,7 +273,7 @@ fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
                 ));
                 continue;
             }
-            Err(reason) => return invalid("readme-index", reason),
+            Err(reason) => return unreadable("readme-index", reason),
         };
         report.scanned(&index);
 
@@ -313,7 +313,7 @@ fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
                     ));
                     continue;
                 }
-                Err(reason) => return invalid("readme-index", reason),
+                Err(reason) => return unreadable("readme-index", reason),
             };
             report.scanned(&path);
             if !text.contains(&annotation.text) {
@@ -375,7 +375,7 @@ fn vendor_policy(policy: &VendorPolicy, tree: &dyn Tree) -> Report {
         let text = match read(tree, &path) {
             Ok(Some(text)) => text,
             Ok(None) => continue,
-            Err(reason) => return invalid("vendor", reason),
+            Err(reason) => return unreadable("vendor", reason),
         };
         report.scanned(&path);
         for term in &policy.forbidden_terms {
@@ -535,7 +535,7 @@ fn traceability_policy(policy: &TraceabilityPolicy, tree: &dyn Tree) -> Report {
                     "the declared traceability artifact is absent",
                 ));
             }
-            Err(reason) => return invalid("traceability", reason),
+            Err(reason) => return unreadable("traceability", reason),
         }
     }
     for relationship in &policy.relationships {
@@ -559,10 +559,15 @@ fn traceability_policy(policy: &TraceabilityPolicy, tree: &dyn Tree) -> Report {
 }
 
 fn undeclared(category: &'static str, path: &str) -> Report {
-    Report::refused(
+    Report::refused_as(
+        crate::errors::ErrorCode::ConfigUndeclared,
         category,
         format!("{path} is not declared, and RHINO holds no default for it"),
     )
+}
+
+fn unreadable(category: &'static str, reason: String) -> Report {
+    Report::unreadable(category, reason)
 }
 
 fn invalid(category: &'static str, reason: impl Into<String>) -> Report {

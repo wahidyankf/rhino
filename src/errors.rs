@@ -16,23 +16,28 @@ use crate::cli::Format;
 /// Every reason this build refuses, in `rhino.area.reason` form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ErrorCode {
-    /// An option or command this build does not recognize.
+    /// A command, option, or option value this build does not recognize.
     ArgsUnrecognized,
-    /// A recognized option given without the value or the partner it needs.
+    /// An option the command needs is absent, an option is missing its value
+    /// or the partner it needs, or two options contradict each other.
     ArgsIncomplete,
-    /// Standard input was selected and could not be read.
+    /// Standard input was selected and could not be read, or does not hold
+    /// what the command reads from it.
     InputUnreadable,
-    /// The repository root could not be established or is unusable.
+    /// The repository root could not be established, or cannot answer what
+    /// the command needs from it, such as a Git index or commit range.
     RepositoryUnusable,
     /// The configuration file is missing, unparseable, or refuses this command.
     ConfigUnusable,
-    /// The configuration parses and declares nothing this command can act on.
+    /// The configuration parses and omits the group or policy this command
+    /// acts on.
     ConfigUndeclared,
-    /// A declared path leaves the repository root, or is not repository-relative.
+    /// A selected or declared path is not repository-relative, climbs out of
+    /// the root, or passes through a filesystem link.
     PathEscapesRoot,
-    /// A declared file the command needs is not there.
+    /// A named file or directory does not exist.
     FileMissing,
-    /// A declared file is there and could not be read.
+    /// A file RHINO had to read exists and could not be read.
     FileUnreadable,
     /// A declared target exists and the command was not authorized to replace it.
     FileExists,

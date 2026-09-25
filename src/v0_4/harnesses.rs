@@ -27,6 +27,9 @@ const SKILLS_ROOT: &str = ".agents/skills/";
 /// Compare every currently visible adapter against the complete desired model.
 /// It deliberately has no write port, so validation cannot repair drift.
 pub(crate) fn validate(harness: Option<&Harness>, tree: &dyn Tree, format: Format) -> Outcome {
+    let Some(harness) = harness else {
+        return undeclared(format);
+    };
     let plan = match plan(harness, tree) {
         Ok(plan) => plan,
         Err(reason) => return refused(format, reason),
@@ -48,6 +51,9 @@ pub(crate) fn generate(
     store: &dyn AdapterStore,
     format: Format,
 ) -> Outcome {
+    let Some(harness) = harness else {
+        return undeclared(format);
+    };
     let plan = match plan(harness, tree) {
         Ok(plan) => plan,
         Err(reason) => return refused(format, reason),
@@ -118,8 +124,7 @@ enum RenderField {
     Sequence(Vec<String>),
 }
 
-fn plan(harness: Option<&Harness>, tree: &dyn Tree) -> Result<Plan, String> {
-    let harness = harness.ok_or_else(|| "harness: no adapter profiles are declared".to_string())?;
+fn plan(harness: &Harness, tree: &dyn Tree) -> Result<Plan, String> {
     if harness.profiles.len() != 3 {
         return Err("harness: exactly three adapter profiles are required".to_string());
     }
@@ -1195,6 +1200,17 @@ fn findings(format: Format, differences: Vec<String>) -> Outcome {
     }
 }
 
+/// An omitted `harness` group, refused the way every other omitted group is:
+/// the configuration declares nothing for adapters, which is not the same as
+/// declaring adapters RHINO then refused to validate or write.
+fn undeclared(format: Format) -> Outcome {
+    Outcome::refusal(
+        format,
+        ErrorCode::ConfigUndeclared,
+        "[harness-adapters] harness: no adapter profiles are declared",
+    )
+}
+
 /// One refusal shape for both formats.
 ///
 /// The JSON form used to carry a `reason` string under a command-specific
@@ -1478,9 +1494,18 @@ mod typed_tests {
             "{}",
             outcome.stderr
         );
-        let no_profiles = generate(None, &tree, &NoAdapterStore, Format::Json);
-        assert_eq!(no_profiles.exit_code, 2);
-        assert!(no_profiles.stderr.contains("refused"));
+        for no_profiles in [
+            generate(None, &tree, &NoAdapterStore, Format::Json),
+            validate(None, &tree, Format::Json),
+        ] {
+            assert_eq!(no_profiles.exit_code, 2);
+            assert!(no_profiles.stderr.contains("\"rhino.config.undeclared\""));
+            assert!(
+                no_profiles
+                    .stderr
+                    .contains("no adapter profiles are declared")
+            );
+        }
     }
 
     #[test]
@@ -1490,7 +1515,7 @@ mod typed_tests {
         let mut wrong_count = complete_harness("read");
         wrong_count.profiles.pop();
         assert!(
-            plan(Some(&wrong_count), &tree)
+            plan(&wrong_count, &tree)
                 .err()
                 .unwrap()
                 .contains("exactly three")
@@ -1499,7 +1524,7 @@ mod typed_tests {
         let mut absent_shape = complete_harness("read");
         absent_shape.canonical = None;
         assert!(
-            plan(Some(&absent_shape), &tree)
+            plan(&absent_shape, &tree)
                 .err()
                 .unwrap()
                 .contains("canonical agent")
@@ -1508,7 +1533,7 @@ mod typed_tests {
         let mut absent_skill_shape = complete_harness("read");
         absent_skill_shape.canonical.as_mut().unwrap().skills = None;
         assert!(
-            plan(Some(&absent_skill_shape), &tree)
+            plan(&absent_skill_shape, &tree)
                 .err()
                 .unwrap()
                 .contains("canonical skill")
@@ -1516,17 +1541,12 @@ mod typed_tests {
 
         let mut empty_id = complete_harness("read");
         empty_id.profiles[1].id.clear();
-        assert!(
-            plan(Some(&empty_id), &tree)
-                .err()
-                .unwrap()
-                .contains("empty id")
-        );
+        assert!(plan(&empty_id, &tree).err().unwrap().contains("empty id"));
 
         let mut duplicate_id = complete_harness("read");
         duplicate_id.profiles[1].id = "alpha".to_string();
         assert!(
-            plan(Some(&duplicate_id), &tree)
+            plan(&duplicate_id, &tree)
                 .err()
                 .unwrap()
                 .contains("duplicated")
@@ -1536,7 +1556,7 @@ mod typed_tests {
         empty_representation.profiles[1].agent_adapter = None;
         empty_representation.profiles[1].skill_adapter = None;
         assert!(
-            plan(Some(&empty_representation), &tree)
+            plan(&empty_representation, &tree)
                 .err()
                 .unwrap()
                 .contains("no native adapter representation")
@@ -1550,7 +1570,7 @@ mod typed_tests {
         invalid_instruction.profiles[1].agent_adapter = None;
         invalid_instruction.profiles[1].skill_adapter = None;
         assert!(
-            plan(Some(&invalid_instruction), &tree)
+            plan(&invalid_instruction, &tree)
                 .err()
                 .unwrap()
                 .contains("invalid instruction")
@@ -1566,19 +1586,14 @@ mod typed_tests {
         for (axis, clear_supported) in semantic_axes {
             let mut incomplete_axis = complete_harness("read");
             clear_supported(&mut incomplete_axis.profiles[1]);
-            assert!(
-                plan(Some(&incomplete_axis), &tree)
-                    .err()
-                    .unwrap()
-                    .contains(axis)
-            );
+            assert!(plan(&incomplete_axis, &tree).err().unwrap().contains(axis));
         }
 
         let mut overlapping = complete_harness("read");
         overlapping.profiles[1].agent_adapter.as_mut().unwrap().path =
             "adapters/alpha/agents/{name}.md".to_string();
         assert!(
-            plan(Some(&overlapping), &tree)
+            plan(&overlapping, &tree)
                 .err()
                 .unwrap()
                 .contains("non-overlapping")
@@ -1900,7 +1915,7 @@ mod typed_tests {
             route: "@{path}".to_string(),
         });
         assert!(
-            plan(Some(&invalid_instruction), &tree)
+            plan(&invalid_instruction, &tree)
                 .err()
                 .unwrap()
                 .contains("invalid instruction")
@@ -1913,7 +1928,7 @@ mod typed_tests {
             "---\nname: another\ndescription: Review changes\ntier: plan\nrequires:\n  - read\ndenies:\n  - network\nconstraints:\n  - offline\n---\nCanonical agent\n",
         );
         assert!(
-            plan(Some(&complete_harness("read")), &tree)
+            plan(&complete_harness("read"), &tree)
                 .err()
                 .unwrap()
                 .contains("does not match its path")
@@ -1925,7 +1940,7 @@ mod typed_tests {
             "---\nname: another\ndescription: Review skill\n---\nCanonical skill\n",
         );
         assert!(
-            plan(Some(&complete_harness("read")), &skill_mismatch)
+            plan(&complete_harness("read"), &skill_mismatch)
                 .err()
                 .unwrap()
                 .contains("does not match its path")

@@ -32,7 +32,8 @@ pub fn validate(tree: &dyn Tree, config: &Config, map: &DirectoryMap, scope: &Sc
                 );
             }
             if !tree.is_directory(selected) {
-                return Report::refused(
+                return Report::refused_as(
+                    crate::errors::ErrorCode::FileMissing,
                     "directory-map",
                     format!("{selected} is not a directory in this repository"),
                 );
@@ -50,7 +51,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, map: &DirectoryMap, scope: &Sc
         for directory in scan::directories(tree, config, path) {
             report.inspected_one();
             if let Err(reason) = inspect(tree, &directory, &mut report) {
-                return Report::refused("directory-map", reason);
+                return Report::unreadable("directory-map", reason);
             }
         }
     }

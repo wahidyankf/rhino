@@ -222,7 +222,9 @@ pub enum Unselectable {
     /// The path passes through a filesystem link, which RHINO never follows,
     /// so it names something outside the repository root.
     Escapes,
-    /// The path could not be read.
+    /// The path names no file.
+    Missing,
+    /// The path names a file that could not be read.
     Unreadable,
 }
 
@@ -236,6 +238,10 @@ impl Unselectable {
             Self::Escapes => (
                 crate::errors::ErrorCode::PathEscapesRoot,
                 format!("{path}: passes through a symbolic link, which RHINO never follows"),
+            ),
+            Self::Missing => (
+                crate::errors::ErrorCode::FileMissing,
+                format!("{path}: does not exist"),
             ),
             Self::Unreadable => (
                 crate::errors::ErrorCode::FileUnreadable,
@@ -266,7 +272,10 @@ impl Scope {
                 } else if tree.passes_through_link(path) {
                     (path.clone(), Err(Unselectable::Escapes))
                 } else {
-                    let text = tree.read(path).map_err(|_| Unselectable::Unreadable);
+                    let text = tree.read(path).map_err(|error| match error {
+                        TreeError::NotFound => Unselectable::Missing,
+                        TreeError::Unreadable(_) | TreeError::NotText => Unselectable::Unreadable,
+                    });
                     (path.clone(), text)
                 }
             })
@@ -314,7 +323,7 @@ mod tests {
             scope.documents(&tree),
             vec![
                 (STDIN.to_string(), Ok("standard input".to_string())),
-                ("missing.md".to_string(), Err(Unselectable::Unreadable))
+                ("missing.md".to_string(), Err(Unselectable::Missing))
             ]
         );
         tree.mark_binary("docs/nested/guide.md");
@@ -341,8 +350,19 @@ mod tests {
                 (STDIN.to_string(), Err(Unselectable::Unreadable)),
             ]
         );
+        tree.write("docs/sealed.md", "# sealed");
+        tree.mark_unreadable("docs/sealed.md");
+        let sealed = Scope {
+            files: vec!["docs/sealed.md".to_string()],
+            ..Scope::default()
+        };
+        assert_eq!(
+            sealed.documents(&tree),
+            vec![("docs/sealed.md".to_string(), Err(Unselectable::Unreadable))]
+        );
         for (reason, code) in [
             (Unselectable::Escapes, "rhino.path.escapes-root"),
+            (Unselectable::Missing, "rhino.file.missing"),
             (Unselectable::Unreadable, "rhino.file.unreadable"),
         ] {
             let refused = reason

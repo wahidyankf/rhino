@@ -12,13 +12,14 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 20] = [
+pub const VOCABULARY: [&str; 21] = [
     "I invoke the CLI with {string}",
     "I run the {string} validator",
     "stderr contains {string}",
     "stdout JSON property {string} is {int}",
     "stdout contains {string}",
     "the configuration file is this text:",
+    "file {string} cannot be opened",
     "the exit code is {int}",
     "the file {string} still contains {string}",
     "the first stdout JSON violation kind is {string}",

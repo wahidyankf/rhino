@@ -30,6 +30,37 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   already did. They used to read the omission as an empty lifecycle and report
   clean. `gates: {}` still declares a repository that runs no gate, and still
   exits `0`.
+- **Error codes now match their published meanings.** The exit status is
+  unchanged in every case below; only `error.code` under `--output json`
+  moves. A caller that branches on these codes should check each one.
+  - An omitted policy on a tree validator, and an omitted `harness` group,
+    report `rhino.config.undeclared`, as `env` and `toolchain` already did.
+    They used to report `rhino.config.unusable` and `rhino.harness.refused`.
+  - A `--file` or `--directory` selection that does not exist reports
+    `rhino.file.missing`. A `--file` that exists and cannot be read still
+    reports `rhino.file.unreadable`. Both used to report something else: an
+    absent `--file` reported `rhino.file.unreadable`, and an absent
+    `--directory` reported `rhino.config.unusable`.
+  - A file the run had to read and could not open reports
+    `rhino.file.unreadable` rather than `rhino.config.unusable`. This covers
+    a Markdown file in the walk, a README a directory map reads, and a path a
+    policy declares.
+  - `gate run --surface` with an unknown surface reports
+    `rhino.args.unrecognized`. Leaving `--surface` out still reports
+    `rhino.args.incomplete`.
+  - A `gate run` input the invocation cannot supply reports by cause: a
+    missing `--base`, `--head`, `--message-file`, or `--push-updates-stdin`
+    reports `rhino.args.incomplete`. A `--base` or `--head` that is not a
+    commit ID reports `rhino.args.unrecognized`. A missing or unreadable
+    message file reports `rhino.file.missing` or `rhino.file.unreadable`. A
+    malformed pre-push update record reports `rhino.input.unreadable`. A Git
+    index, range, or ref the repository cannot resolve reports
+    `rhino.repository.unusable`. All of these used to report
+    `rhino.config.unusable`.
+  - An `environment.staged` guard in a repository with no Git index reports
+    `rhino.repository.unusable` rather than `rhino.config.unusable`.
+  - An inconsistent `toolchains` policy reports `rhino.config.unusable`
+    rather than `rhino.toolchain.failed`.
 
 ### Added
 

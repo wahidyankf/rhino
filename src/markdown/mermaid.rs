@@ -77,7 +77,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Sco
     } else {
         match Corpus::read(tree, config) {
             Ok(corpus) => corpus.into_documents(),
-            Err(reason) => return Report::refused("mermaid", reason),
+            Err(reason) => return Report::unreadable("mermaid", reason),
         }
     };
 

@@ -1741,6 +1741,214 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And the first stdout JSON violation kind is "internal-link-missing"
 
+  Scenario Outline: An omitted policy is refused as undeclared configuration
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      """
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "rhino.config.undeclared"
+
+    Examples:
+      | command                                            |
+      | md\|internal-link\|validate\|--output\|json          |
+      | convention\|license\|validate\|--output\|json        |
+      | governance\|word-budget\|validate\|--output\|json    |
+      | harness\|adapters\|validate\|--output\|json          |
+
+  Scenario: A selected file that does not exist is refused as missing
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: plain-text
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: []
+            edge-colors: []
+            text-colors: []
+      """
+    When I invoke the CLI with "md|mermaid|validate|--file|docs/absent.md|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.missing"
+
+  Scenario: A selected file that cannot be opened is refused as unreadable
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: plain-text
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: []
+            edge-colors: []
+            text-colors: []
+      """
+    And file "docs/sealed.md" cannot be opened
+    When I invoke the CLI with "md|mermaid|validate|--file|docs/sealed.md|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: A selected directory that does not exist is refused as missing
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          directory-map:
+            trees:
+              - path: docs
+      """
+    When I invoke the CLI with "governance|directory-map|validate|--directory|absent|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.missing"
+
+  Scenario: An inspected file that cannot be opened is refused as unreadable
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          internal-link:
+            exclude-sources: []
+      """
+    And file "docs/sealed.md" cannot be opened
+    When I invoke the CLI with "md|internal-link|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: An unknown lifecycle surface is an unrecognized option value
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates: {}
+      """
+    When I invoke the CLI with "gate|run|--surface|nightly|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.args.unrecognized"
+
+  Scenario: A range bound that names no commit is an unrecognized option value
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: changed-files-check
+            type: check
+            inputs:
+              files: { kind: files }
+            command:
+              executable: runner
+              args:
+                - { input: files.paths, expand: repeat }
+            run-on:
+              pre-commit:
+                bind:
+                  files: { source: git-index }
+              pull-request:
+                bind:
+                  files: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    When I invoke the CLI with "gate|run|--surface|pull-request|--base|main|--head|feature|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.args.unrecognized"
+
+  Scenario: A range input the repository cannot answer is refused as an unusable repository
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: changed-files-check
+            type: check
+            inputs:
+              files: { kind: files }
+            command:
+              executable: runner
+              args:
+                - { input: files.paths, expand: repeat }
+            run-on:
+              pre-commit:
+                bind:
+                  files: { source: git-index }
+              pull-request:
+                bind:
+                  files: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    When I invoke the CLI with "gate|run|--surface|pull-request|--base|aaaaaaaa|--head|bbbbbbbb|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.repository.unusable"
+
+  Scenario: A hook message file outside Git's hook boundary is refused as unreadable
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: conventional-commit
+            type: check
+            inputs:
+              message: { kind: commit-message }
+            command:
+              executable: ./check-conventional-commit
+              args:
+                - { input: message.text, expand: single }
+            run-on:
+              commit-msg:
+                bind:
+                  message: { source: hook-message-file }
+              pull-request:
+                bind:
+                  message: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    When I invoke the CLI with "gate|run|--surface|commit-msg|--message-file|message.txt|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: An inconsistent toolchain policy is refused as unusable configuration
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: twice
+            executable: first-tool
+            probe: [--version]
+          - id: twice
+            executable: second-tool
+            probe: [--version]
+      """
+    When I invoke the CLI with "toolchain|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.config.unusable"
+
+  Scenario: A staging guard in a repository with no Git index is refused as an unusable repository
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        staged:
+          forbidden: [".env*"]
+          allowed: []
+      """
+    When I invoke the CLI with "env|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.repository.unusable"
+
   Scenario: Internal-link policy reports a target behind a symbolic link as outside the repository
     Given the configuration file is this text:
       """
