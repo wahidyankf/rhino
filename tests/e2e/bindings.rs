@@ -196,6 +196,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Toolchain provisioning plans as one JSON object",
+    ),
+    (
+        "v0-4-contract",
         "Toolchain validation reports a required unavailable probe without output bytes",
     ),
     (
@@ -229,6 +233,10 @@ pub const BINDINGS: &[Binding] = &[
     (
         "v0-4-contract",
         "Environment initialization refuses a symbolic-link source before writing",
+    ),
+    (
+        "v0-4-contract",
+        "Environment initialization plans as one JSON object",
     ),
     (
         "v0-4-contract",
