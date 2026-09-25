@@ -572,6 +572,48 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "backup destination leaves the repository root"
 
+  Scenario: Environment restore with no declared target completes with a zero count
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment: {}
+      """
+    When I invoke the CLI with "env|restore|--dir|saved|--force|--output|json"
+    Then the exit code is 0
+    And stdout contains "completed"
+    And stdout JSON property "count" is 0
+    And the repository is unchanged by the inspection
+
+  Scenario: Environment initialization reports the targets it created
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: .env.generated
+      """
+    And the repository contains:
+      | path         | content                 |
+      | .env.example | EXAMPLE_KEY=placeholder |
+    When I invoke the CLI with "env|init|--apply|--output|json"
+    Then the exit code is 0
+    And stdout contains "completed"
+    And stdout JSON property "count" is 1
+    And stdout contains ".env.generated"
+
+  Scenario: Environment backup with no eligible file completes with a zero count
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment: {}
+      """
+    When I invoke the CLI with "env|backup|--dir|saved|--output|json"
+    Then the exit code is 0
+    And stdout contains "completed"
+    And stdout JSON property "count" is 0
+    And the repository is unchanged by the inspection
+
   Scenario: Environment backup reports the copy it completed
     Given the configuration file is this text:
       """
@@ -587,6 +629,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|backup|--dir|saved|--output|json"
     Then the exit code is 0
     And stdout contains "completed"
+    And stdout JSON property "count" is 1
 
   Scenario: Text and JSON gate listings share a result envelope
     Given the configuration file is this text:

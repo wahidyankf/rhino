@@ -545,6 +545,7 @@ pub(crate) fn init(
             )),
         };
     }
+    let written: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
     if let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
         return Outcome::refusal(
             format,
@@ -554,9 +555,16 @@ pub(crate) fn init(
     }
     match format {
         Format::Text => Outcome::clean("[environment-init] created declared targets\n"),
-        Format::Json => Outcome::clean(
-            "{\"schemaVersion\":1,\"command\":\"environment-init\",\"status\":\"completed\"}\n",
-        ),
+        Format::Json => Outcome::clean(format!(
+            "{}\n",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "command": "environment-init",
+                "status": "completed",
+                "count": written.len(),
+                "targets": written,
+            })
+        )),
     }
 }
 
@@ -637,28 +645,32 @@ pub(crate) fn backup(
             contents,
         });
     }
-    let copied = !files.is_empty();
-    if copied && let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
+    // `status` names the mode: backup always executes, so it completes even
+    // with nothing to copy. `count` and `files` say what it wrote.
+    let written: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
+    if !files.is_empty()
+        && let Err(error) = store.create(root, &EnvironmentTransaction { files })
+    {
         return Outcome::refusal(
             format,
             ErrorCode::FileUnwritable,
             format!("environment backup refused: {}", error.0),
         );
     }
-    // A group with no eligible file writes nothing, so it stays a plan; a
-    // backup that copied its files reports the copy as completed.
-    let status = if copied { "completed" } else { "planned" };
     match format {
         Format::Text => Outcome::clean(format!(
-            "[environment-backup] {status} declared files into {destination}\n"
+            "[environment-backup] completed {} declared files into {destination}\n",
+            written.len()
         )),
         Format::Json => Outcome::clean(format!(
             "{}\n",
             serde_json::json!({
                 "schemaVersion": 1,
                 "command": "environment-backup",
-                "status": status,
+                "status": "completed",
                 "destination": destination,
+                "count": written.len(),
+                "files": written,
             })
         )),
     }
@@ -747,6 +759,7 @@ pub(crate) fn restore(
             replace: force,
         });
     }
+    let written: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
     if let Err(error) = store.restore(root, &EnvironmentRestoreTransaction { files }) {
         return Outcome::refusal(
             format,
@@ -756,9 +769,16 @@ pub(crate) fn restore(
     }
     match format {
         Format::Text => Outcome::clean("[environment-restore] restored declared targets\n"),
-        Format::Json => Outcome::clean(
-            "{\"schemaVersion\":1,\"command\":\"environment-restore\",\"status\":\"completed\"}\n",
-        ),
+        Format::Json => Outcome::clean(format!(
+            "{}\n",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "command": "environment-restore",
+                "status": "completed",
+                "count": written.len(),
+                "targets": written,
+            })
+        )),
     }
 }
 
@@ -1213,7 +1233,7 @@ mod tests {
         );
         assert_eq!(
             outcome.stdout,
-            "[environment-backup] completed declared files into safe-backups\n"
+            "[environment-backup] completed 1 declared files into safe-backups\n"
         );
         let json = backup(
             Some(&environment),
@@ -1225,7 +1245,7 @@ mod tests {
         );
         assert_eq!(
             json.stdout,
-            "{\"command\":\"environment-backup\",\"destination\":\"json-backups\",\"schemaVersion\":1,\"status\":\"completed\"}\n"
+            "{\"command\":\"environment-backup\",\"count\":1,\"destination\":\"json-backups\",\"files\":[\"json-backups/.env.fixture\"],\"schemaVersion\":1,\"status\":\"completed\"}\n"
         );
         assert!(tree.exists("json-backups/.env.fixture"));
         assert_eq!(
@@ -1280,6 +1300,20 @@ mod tests {
         );
         assert_eq!(outcome.exit_code, 0);
         assert_eq!(tree.read(".env.fixture").unwrap(), "SYNTHETIC=restored\n");
+
+        let json = restore(
+            Some(&environment),
+            &tree,
+            ".",
+            Some("safe-backups"),
+            true,
+            &store,
+            Format::Json,
+        );
+        assert_eq!(
+            json.stdout,
+            "{\"command\":\"environment-restore\",\"count\":1,\"schemaVersion\":1,\"status\":\"completed\",\"targets\":[\".env.fixture\"]}\n"
+        );
     }
 
     #[test]
@@ -1673,10 +1707,9 @@ mod tests {
             .stderr
             .contains("no environment write boundary")
         );
-        assert!(
-            init(Some(&one), &tree, ".", true, &store, Format::Json)
-                .stdout
-                .contains("\"status\":\"completed\"")
+        assert_eq!(
+            init(Some(&one), &tree, ".", true, &store, Format::Json).stdout,
+            "{\"command\":\"environment-init\",\"count\":1,\"schemaVersion\":1,\"status\":\"completed\",\"targets\":[\".env.fixture\"]}\n"
         );
 
         assert!(
@@ -1731,7 +1764,10 @@ mod tests {
         );
         assert_eq!(empty_backup.exit_code, 0);
         assert!(empty_backup.stdout.contains("\"destination\":\"backup\""));
-        assert!(empty_backup.stdout.contains("\"status\":\"planned\""));
+        assert_eq!(
+            empty_backup.stdout,
+            "{\"command\":\"environment-backup\",\"count\":0,\"destination\":\"backup\",\"files\":[],\"schemaVersion\":1,\"status\":\"completed\"}\n"
+        );
         assert_eq!(backup_path(".", ".env.fixture"), ".env.fixture");
         assert_eq!(
             backup_path("backup/", ".env.fixture"),

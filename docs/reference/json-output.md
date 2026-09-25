@@ -93,19 +93,21 @@ repositories is a diff about the repositories.
 ## Operation status documents
 
 The environment and toolchain operations report what they planned or did as one
-object carrying `schemaVersion` `1`, `command`, and `status`. `status` is
-`planned` when the run wrote or launched nothing, and `completed` when it did
-what it reports:
+object carrying `schemaVersion` `1`, `command`, and `status`. `status` names the
+invocation's mode, not its effect. It is `planned` only for the plan-only forms,
+`env init` and `toolchain provision` without `--apply`. Every executing form,
+`--apply`, `env backup`, and `env restore`, reports `completed` when it finishes,
+even when it had nothing to do. `count`, or the listed items, says whether
+anything was written or run:
 
-| Invocation                      | `status`    | Other fields                          |
-| ------------------------------- | ----------- | ------------------------------------- |
-| `env init`                      | `planned`   | `count`, `targets` (repository paths) |
-| `env init --apply`              | `completed` | none                                  |
-| `env backup` (no eligible file) | `planned`   | `destination`                         |
-| `env backup` (files copied)     | `completed` | `destination`                         |
-| `env restore`                   | `completed` | none                                  |
-| `toolchain provision`           | `planned`   | `count`, `toolchains` (IDs)           |
-| `toolchain provision --apply`   | `completed` | `count`                               |
+| Invocation                    | `status`    | Other fields                                    |
+| ----------------------------- | ----------- | ----------------------------------------------- |
+| `env init`                    | `planned`   | `count`, `targets` (repository paths)           |
+| `env init --apply`            | `completed` | `count`, `targets` (paths written)              |
+| `env backup`                  | `completed` | `destination`, `count`, `files` (paths written) |
+| `env restore`                 | `completed` | `count`, `targets` (paths written)              |
+| `toolchain provision`         | `planned`   | `count`, `toolchains` (IDs)                     |
+| `toolchain provision --apply` | `completed` | `count`                                         |
 
 ```console
 $ rhino env init --output json

@@ -124,6 +124,18 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Environment restore with no declared target completes with a zero count",
+    ),
+    (
+        "v0-4-contract",
+        "Environment initialization reports the targets it created",
+    ),
+    (
+        "v0-4-contract",
+        "Environment backup with no eligible file completes with a zero count",
+    ),
+    (
+        "v0-4-contract",
         "Environment backup reports the copy it completed",
     ),
     (
