@@ -54,8 +54,8 @@ this build cannot parse is declined, not reported. Reporting on it would be
 reporting on the tool's own ignorance, and would make every RHINO upgrade a
 potential source of new findings in unchanged files.
 
-**Zero.** A surface that matched no files, a tree with no directories, a roster
-with no harnesses — these pass. But the run says how many it inspected, every
+**Zero.** A surface that matched no files, a tree with no directories — these
+pass. But the run says how many it inspected, every
 time, including when the answer is zero. A clean word-budget run lists every
 path it read:
 

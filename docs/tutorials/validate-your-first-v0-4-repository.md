@@ -3,6 +3,10 @@
 This tutorial creates a minimal repository policy, validates it, introduces one
 broken internal link, and reads the result without relying on a default.
 
+Before you start, put `rhino` on your `PATH`. [Install a pinned
+release](../how-to/install-a-pinned-release.md) explains the download and the
+build from source.
+
 ## 1. Create the files
 
 Create an empty checkout with a document that will contain one local link:
@@ -46,7 +50,8 @@ $ rhino md internal-link validate
 ```
 
 RHINO reports the repository-relative source and target. It never follows a
-path outside the selected repository root.
+path outside the selected repository root. A target reached through a symbolic
+link is reported as outside the repository, never read.
 
 ## 4. Fix the repository
 

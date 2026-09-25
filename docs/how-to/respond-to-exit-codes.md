@@ -57,6 +57,10 @@ do
   status=0
   # shellcheck disable=SC2086
   rhino $command || status=$?
+  # An unusable configuration refuses every later command for the same reason.
+  if [ "$command" = "repo-config validate" ] && [ "$status" -eq 2 ]; then
+    exit 2
+  fi
   # 2 outranks 1: a run that could not happen is worse news than one that found something.
   case "$status:$worst" in
     2:*) worst=2 ;;
@@ -67,8 +71,8 @@ exit "$worst"
 ```
 
 `repo-config validate` runs first on purpose. If the configuration is unusable,
-every other command will exit `2` for the same reason, and one clear message
-beats five copies of it.
+the script stops there with exit `2`: every other command would refuse for the
+same reason, and one clear message beats four copies of it.
 
 ## Tell a finding from a broken invocation without reading the code
 

@@ -133,11 +133,11 @@ edit. Only the prohibition is checked, never the permission.
 
 ## Internal links
 
-| Kind                               | Means                                               |
-| ---------------------------------- | --------------------------------------------------- |
-| `internal-link-missing`            | A local link resolves to nothing in the repository. |
-| `internal-link-outside-repository` | A local link resolves outside the repository root.  |
-| `internal-link-malformed`          | A link's target cannot be interpreted as a path.    |
+| Kind                               | Means                                                                                                            |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `internal-link-missing`            | A local link resolves to nothing in the repository.                                                              |
+| `internal-link-outside-repository` | A local link resolves outside the repository root, or passes through a symbolic link, which RHINO never follows. |
+| `internal-link-malformed`          | A link's target cannot be interpreted as a path.                                                                 |
 
 Fragment-only links (`#section`) and links carrying a scheme (`https:`,
 `mailto:`) are skipped rather than reported — reporting on them is what
@@ -158,11 +158,19 @@ separately, because two short lines are legible where one long line is not.
 
 `mermaid-accessibility` covers colour and description. Colour may be set only
 inside a `classDef`; a `style`, `linkStyle`, or inline colour is reported
-wherever it appears. Every colour a `classDef` sets must be drawn from the
-palette declared for its role — `fill-colors`, `edge-colors`, or
-`text-colors` — and text on a fill must meet the normal-text contrast
-threshold. Under `authoring-rule: rendered`, a diagram that declares no
-`accTitle` or no `accDescr` is reported too.
+wherever it appears. Every colour a `classDef` sets must be a six-digit hex
+value such as `#0173B2`, drawn from the palette declared for its role —
+`fill-colors`, `edge-colors`, or `text-colors`. A class that sets a `fill` must
+also set a `stroke` that differs from the fill, so the shape keeps a visible
+boundary, and a text `color`, so its label does not inherit an unknown one. A
+class that sets only a text colour is reported, because nothing makes it
+legible; a `stroke` alone is a valid outline-only class. Text on a fill must
+meet the normal-text contrast threshold of 4.5:1. That finding carries two
+details: `ratio`, the measured contrast to two decimals, and `threshold`,
+`4.5`. Contrast is measured only when both the fill and the text colour are
+declared, so an undeclared colour is reported once. Under
+`authoring-rule: rendered`, a diagram that declares no `accTitle` or no
+`accDescr` is reported too.
 
 ## License
 

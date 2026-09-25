@@ -52,9 +52,8 @@ refuses the wrong surface/input combination with exit `2`.
 
 A mutation pairs local `apply-index` behavior with CI `verify-clean` behavior.
 RHINO refuses to substitute the mutable working tree for the declared index or
-disposable replay boundary. Environment initialization, adapter generation, and
-toolchain provision likewise require their own reviewed plan and explicit
-`--apply` authorization.
+disposable replay boundary. Environment initialization and toolchain provision
+likewise require their own reviewed plan and explicit `--apply` authorization.
 
 ## 4. Handle results at the caller
 

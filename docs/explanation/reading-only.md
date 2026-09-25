@@ -58,7 +58,11 @@ accepted there.
 **A symbolic link is not followed.** The walk skips links regardless of what
 the scan exclusions say, because following one can leave the repository
 entirely — and a validator that walked out of the tree would report findings
-about files the repository does not contain.
+about files the repository does not contain. The same holds for any path that
+passes through a link, at any component. A `--file` or `--directory` selection
+behind one is refused with `rhino.path.escapes-root`, an internal link whose
+target lies behind one is reported as outside the repository, and a declared
+file behind one is refused as unreadable. None of them is read.
 
 ## What this buys you
 
