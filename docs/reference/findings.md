@@ -252,13 +252,13 @@ followed by ` (<key>)` when the finding is about one key. Under
 `--output json` each entry of `findings` carries `rule`, `path`, and `key`. A key
 is named; a value never is.
 
-| Kind                         | Means                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------ |
-| `declared-but-unread`        | A key a contract declares is read by no detected source.                       |
-| `read-but-undeclared`        | A detected source reads a key no contract declares.                            |
-| `declared-source-unread`     | A path a detector declares cannot be read.                                     |
-| `unsupported-dynamic-access` | A detected source reads a key whose name is computed, reported as `<dynamic>`. |
-| `staged-environment-file`    | An indexed path matches a forbidden staging pattern and no allowed one.        |
+| Kind                         | Means                                                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `declared-but-unread`        | A key a contract declares is read by no detected source.                                                                                                                  |
+| `read-but-undeclared`        | A detected source reads a key no contract declares.                                                                                                                       |
+| `declared-source-unread`     | A path a detector declares does not exist. One that exists and cannot be read, or lies behind a symbolic link, refuses the run with exit `2` and `rhino.file.unreadable`. |
+| `unsupported-dynamic-access` | A detected source reads a key whose name is computed, reported as `<dynamic>`.                                                                                            |
+| `staged-environment-file`    | An indexed path matches a forbidden staging pattern and no allowed one.                                                                                                   |
 
 An allowlist entry can suppress every kind except `staged-environment-file`.
 

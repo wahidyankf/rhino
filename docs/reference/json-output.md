@@ -94,16 +94,18 @@ repositories is a diff about the repositories.
 
 The environment and toolchain operations report what they planned or did as one
 object carrying `schemaVersion` `1`, `command`, and `status`. `status` is
-`planned` or `completed`:
+`planned` when the run wrote or launched nothing, and `completed` when it did
+what it reports:
 
-| Invocation                    | `status`    | Other fields                          |
-| ----------------------------- | ----------- | ------------------------------------- |
-| `env init`                    | `planned`   | `count`, `targets` (repository paths) |
-| `env init --apply`            | `completed` | none                                  |
-| `env backup`                  | `planned`   | `destination`                         |
-| `env restore`                 | `completed` | none                                  |
-| `toolchain provision`         | `planned`   | `count`, `toolchains` (IDs)           |
-| `toolchain provision --apply` | `completed` | `count`                               |
+| Invocation                      | `status`    | Other fields                          |
+| ------------------------------- | ----------- | ------------------------------------- |
+| `env init`                      | `planned`   | `count`, `targets` (repository paths) |
+| `env init --apply`              | `completed` | none                                  |
+| `env backup` (no eligible file) | `planned`   | `destination`                         |
+| `env backup` (files copied)     | `completed` | `destination`                         |
+| `env restore`                   | `completed` | none                                  |
+| `toolchain provision`           | `planned`   | `count`, `toolchains` (IDs)           |
+| `toolchain provision --apply`   | `completed` | `count`                               |
 
 ```console
 $ rhino env init --output json

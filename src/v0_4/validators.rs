@@ -239,6 +239,22 @@ pub(crate) fn directory_map(
     let Some(map) = policy.and_then(|policy| policy.directory_map.as_ref()) else {
         return undeclared("directory-map", "policies.governance.directory-map");
     };
+    // A declared tree outside the root, or behind a link, is not an absent
+    // tree: skipping it would report a clean map nobody inspected.
+    for declared in &map.trees {
+        if !exact_path(&declared.path) {
+            return invalid(
+                "directory-map",
+                format!(
+                    "policies.governance.directory-map.trees: `{}` is not an exact repository-relative path",
+                    declared.path
+                ),
+            );
+        }
+        if tree.passes_through_link(&declared.path) {
+            return behind_link("directory-map", &declared.path);
+        }
+    }
     let config = scan_projection(scan);
     crate::governance::directory_map::validate(tree, &config, map, scope)
 }
@@ -362,6 +378,13 @@ fn vendor_policy(policy: &VendorPolicy, tree: &dyn Tree) -> Report {
             "vendor exception terms and paths must be exact repository-relative paths",
         );
     }
+    if let Some(root) = policy
+        .roots
+        .iter()
+        .find(|root| tree.passes_through_link(root))
+    {
+        return behind_link("vendor", root);
+    }
     let mut report = Report::new("vendor", "file");
     for path in tree.files() {
         if !policy.roots.iter().any(|root| under(&path, root))
@@ -424,6 +447,10 @@ fn layer_policy(policy: &LayerPolicy, tree: &dyn Tree) -> Report {
             "layers",
             "layer order and categories must use unique exact simple names",
         );
+    }
+
+    if tree.passes_through_link(&policy.root) {
+        return behind_link("layers", &policy.root);
     }
 
     let mut report = Report::new("layers", "governance directory");
@@ -568,6 +595,15 @@ fn undeclared(category: &'static str, path: &str) -> Report {
 
 fn unreadable(category: &'static str, reason: String) -> Report {
     Report::unreadable(category, reason)
+}
+
+/// A declared tree behind a filesystem link: never read, and never mistaken
+/// for an absent one.
+fn behind_link(category: &'static str, path: &str) -> Report {
+    Report::unreadable(
+        category,
+        format!("{path}: passes through a symbolic link, which RHINO never follows"),
+    )
 }
 
 fn invalid(category: &'static str, reason: impl Into<String>) -> Report {

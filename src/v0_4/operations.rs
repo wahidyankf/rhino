@@ -46,17 +46,6 @@ pub(crate) fn validate(
                 "environment staging guard allows only exact repository-relative paths",
             );
         }
-        let indexed = match tree.indexed_files() {
-            Ok(indexed) => indexed,
-            Err(reason) => {
-                return Outcome::refusal(
-                    format,
-                    ErrorCode::RepositoryUnusable,
-                    format!("environment staging guard refused: {reason}"),
-                );
-            }
-        };
-        inspected += indexed.len();
         // Both lists in one arm: an unusable pattern is the same refusal
         // whichever list it came from, and two identical arms only meant one
         // of them was never driven.
@@ -70,6 +59,17 @@ pub(crate) fn validate(
                 );
             }
         };
+        let indexed = match tree.indexed_files() {
+            Ok(indexed) => indexed,
+            Err(reason) => {
+                return Outcome::refusal(
+                    format,
+                    ErrorCode::RepositoryUnusable,
+                    format!("environment staging guard refused: {reason}"),
+                );
+            }
+        };
+        inspected += indexed.len();
         for path in indexed
             .into_iter()
             .filter(|path| forbidden.is_match(path) && !allowed.is_match(path))
@@ -99,13 +99,29 @@ pub(crate) fn validate(
             inspected += 1;
             let source = match tree.read(path) {
                 Ok(source) => source,
-                Err(_) => {
+                Err(TreeError::NotFound) => {
                     findings.insert(EnvironmentFinding::new(
                         "declared-source-unread",
                         path.clone(),
                         None,
                     ));
                     continue;
+                }
+                // A source that exists and cannot be read, including one
+                // behind a link, is not an absent source.
+                Err(TreeError::Unreadable(reason)) => {
+                    return Outcome::refusal(
+                        format,
+                        ErrorCode::FileUnreadable,
+                        format!("environment detector source `{path}` is unreadable: {reason}"),
+                    );
+                }
+                Err(TreeError::NotText) => {
+                    return Outcome::refusal(
+                        format,
+                        ErrorCode::FileUnreadable,
+                        format!("environment detector source `{path}` holds no text"),
+                    );
                 }
             };
             let (keys, dynamic) = detector_accesses(detector.language, &source);
@@ -418,6 +434,11 @@ fn clean_validation(inspected: usize, format: Format) -> Outcome {
 fn patterns(patterns: &[String]) -> Result<globset::GlobSet, String> {
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
+        if crate::scan::leaves_root(pattern) {
+            return Err(format!(
+                "path pattern `{pattern}` must be relative to the repository root"
+            ));
+        }
         builder.add(
             Glob::new(pattern)
                 .map_err(|error| format!("invalid path pattern `{pattern}`: {error}"))?,
@@ -616,25 +637,27 @@ pub(crate) fn backup(
             contents,
         });
     }
-    if !files.is_empty()
-        && let Err(error) = store.create(root, &EnvironmentTransaction { files })
-    {
+    let copied = !files.is_empty();
+    if copied && let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
         return Outcome::refusal(
             format,
             ErrorCode::FileUnwritable,
             format!("environment backup refused: {}", error.0),
         );
     }
+    // A group with no eligible file writes nothing, so it stays a plan; a
+    // backup that copied its files reports the copy as completed.
+    let status = if copied { "completed" } else { "planned" };
     match format {
         Format::Text => Outcome::clean(format!(
-            "[environment-backup] planned declared files into {destination}\n"
+            "[environment-backup] {status} declared files into {destination}\n"
         )),
         Format::Json => Outcome::clean(format!(
             "{}\n",
             serde_json::json!({
                 "schemaVersion": 1,
                 "command": "environment-backup",
-                "status": "planned",
+                "status": status,
                 "destination": destination,
             })
         )),
@@ -1189,6 +1212,23 @@ mod tests {
             "SYNTHETIC=value\n"
         );
         assert_eq!(
+            outcome.stdout,
+            "[environment-backup] completed declared files into safe-backups\n"
+        );
+        let json = backup(
+            Some(&environment),
+            &tree,
+            ".",
+            Some("json-backups"),
+            &store,
+            Format::Json,
+        );
+        assert_eq!(
+            json.stdout,
+            "{\"command\":\"environment-backup\",\"destination\":\"json-backups\",\"schemaVersion\":1,\"status\":\"completed\"}\n"
+        );
+        assert!(tree.exists("json-backups/.env.fixture"));
+        assert_eq!(
             backup(
                 Some(&environment),
                 &tree,
@@ -1395,15 +1435,22 @@ mod tests {
             }),
             ..Environment::default()
         };
-        let invalid_index = validate(Some(&invalid_allow), &tree, Format::Text);
-        assert_eq!(invalid_index.exit_code, 2);
-        assert!(invalid_index.stderr.contains("staging guard refused"));
-
-        let mut indexed = MemoryTree::default();
-        indexed.set_indexed_files([".env.fixture"]);
-        let invalid_pattern = validate(Some(&invalid_allow), &indexed, Format::Text);
+        // The policy is checked before the repository is asked for its index,
+        // so an unusable pattern refuses even where no index exists.
+        let invalid_pattern = validate(Some(&invalid_allow), &tree, Format::Text);
         assert_eq!(invalid_pattern.exit_code, 2);
         assert!(invalid_pattern.stderr.contains("invalid path pattern"));
+
+        let usable = Environment {
+            staged: Some(StagedEnvironmentPolicy {
+                forbidden: vec![".env*".to_string()],
+                allowed: Vec::new(),
+            }),
+            ..Environment::default()
+        };
+        let invalid_index = validate(Some(&usable), &tree, Format::Text);
+        assert_eq!(invalid_index.exit_code, 2);
+        assert!(invalid_index.stderr.contains("staging guard refused"));
 
         for environment in [
             Environment {
@@ -1684,6 +1731,7 @@ mod tests {
         );
         assert_eq!(empty_backup.exit_code, 0);
         assert!(empty_backup.stdout.contains("\"destination\":\"backup\""));
+        assert!(empty_backup.stdout.contains("\"status\":\"planned\""));
         assert_eq!(backup_path(".", ".env.fixture"), ".env.fixture");
         assert_eq!(
             backup_path("backup/", ".env.fixture"),
