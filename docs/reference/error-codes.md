@@ -35,6 +35,7 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this table.
 | `rhino.file.missing`              | A named file or directory does not exist.                                                                                                 |
 | `rhino.file.unreadable`           | A file RHINO had to read exists and could not be read.                                                                                    |
 | `rhino.file.exists`               | A file that had to be created is already there.                                                                                           |
+| `rhino.file.unwritable`           | A file that had to be written could not be written.                                                                                       |
 | `rhino.gate.child-not-found`      | A declared gate child was not found.                                                                                                      |
 | `rhino.gate.child-not-executable` | A declared gate child was found and could not be executed.                                                                                |
 | `rhino.gate.child-refused`        | A declared gate child was refused for any other reason.                                                                                   |

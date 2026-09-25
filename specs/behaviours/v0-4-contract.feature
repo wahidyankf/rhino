@@ -1822,6 +1822,60 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "rhino.file.unreadable"
 
+  Scenario: Environment initialization reports a target it cannot write
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: blocked/.env.generated
+      """
+    And the repository contains:
+      | path         | content                 |
+      | .env.example | EXAMPLE_KEY=placeholder |
+      | blocked      | a file, not a directory |
+    When I invoke the CLI with "env|init|--apply|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unwritable"
+    And the file "blocked" still contains "a file, not a directory"
+
+  Scenario: Environment backup reports a destination it cannot write
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: .env.saved
+      """
+    And the repository contains:
+      | path       | content                 |
+      | .env.saved | SAVED_KEY=placeholder   |
+      | blocked    | a file, not a directory |
+    When I invoke the CLI with "env|backup|--dir|blocked|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unwritable"
+    And the file "blocked" still contains "a file, not a directory"
+
+  Scenario: Environment restore reports a target it cannot write
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: blocked/.env.saved
+      """
+    And the repository contains:
+      | path                     | content                 |
+      | saved/blocked/.env.saved | SAVED_KEY=placeholder   |
+      | blocked                  | a file, not a directory |
+    When I invoke the CLI with "env|restore|--dir|saved|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unwritable"
+    And the file "blocked" still contains "a file, not a directory"
+
   Scenario: An unknown lifecycle surface is an unrecognized option value
     Given the configuration file is this text:
       """

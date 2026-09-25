@@ -41,6 +41,8 @@ pub enum ErrorCode {
     FileUnreadable,
     /// A declared target exists and the command was not authorized to replace it.
     FileExists,
+    /// A file RHINO had to write, create, rename, or copy could not be written.
+    FileUnwritable,
     /// A gate child was named and does not exist.
     GateChildNotFound,
     /// A gate child exists and could not be executed.
@@ -70,6 +72,7 @@ impl ErrorCode {
         Self::FileMissing,
         Self::FileUnreadable,
         Self::FileExists,
+        Self::FileUnwritable,
         Self::GateChildNotFound,
         Self::GateChildNotExecutable,
         Self::GateChildRefused,
@@ -91,6 +94,7 @@ impl ErrorCode {
             Self::FileMissing => "rhino.file.missing",
             Self::FileUnreadable => "rhino.file.unreadable",
             Self::FileExists => "rhino.file.exists",
+            Self::FileUnwritable => "rhino.file.unwritable",
             Self::GateChildNotFound => "rhino.gate.child-not-found",
             Self::GateChildNotExecutable => "rhino.gate.child-not-executable",
             Self::GateChildRefused => "rhino.gate.child-refused",
