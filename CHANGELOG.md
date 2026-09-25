@@ -9,6 +9,28 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.6.0] — 2026-09-25
+
+Agent adapters can now carry an agent's skills preload and render a
+per-harness agent set, so a repository migrating hand-authored agents to
+canonical sources can keep each harness's behaviour. Both keys are optional and
+additive. A configuration that declares neither generates byte-identical
+adapters. The version moves in the minor position because RHINO is in `0.x`.
+See [agent lists and selection](docs/reference/v0-4-configuration.md#agent-lists-and-selection).
+
+### Added
+
+- **`lists` on an agent adapter.** Maps a native field to the canonical agent
+  metadata list `skills`, rendered in authored order: a block sequence in
+  `front-matter` format, an array in `toml` format. An agent without the list
+  renders no field. Any other canonical list refuses the configuration.
+- **`agents` on an agent adapter.** Names the canonical agents that profile
+  renders. Its `catalog.json` and `provenance.json` list only those agents,
+  `harness adapters validate` reports any other file under the family root as
+  `stale-adapter`, and a name with no canonical source refuses before any
+  write. Omitted, every canonical agent renders as before.
+- The v2 configuration schema describes both keys.
+
 ## [v0.5.0] — 2026-09-22
 
 RHINO now reports from one closed status vocabulary and one closed error-code
