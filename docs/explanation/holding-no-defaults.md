@@ -48,9 +48,12 @@ nobody chose.
 
 The configuration also has to name every value it enforces. Only `schema` is
 required, and every group is optional, but an omitted group is never a quiet
-pass: the validator that needs it exits `2` and names the missing policy. The
+pass: the leaf that needs it exits `2` and names the missing policy. The
 difference between _this repository declares no Mermaid policy_ and _I forgot to
 configure Mermaid_ stays visible, because neither is ever reported as clean.
+An empty group is different: it is a declaration. `gates: {}` says this
+repository runs no gate, so `gate run` reports clean; leaving `gates` out says
+nothing, so every `gate` leaf exits `2`.
 
 ## Where the rule bends, and where it does not
 

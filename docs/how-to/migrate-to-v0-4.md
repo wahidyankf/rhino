@@ -55,8 +55,10 @@ rhino gate list
 ```
 
 An omitted group makes its leaf refuse with exit `2`; that is evidence of an
-undeclared policy, not a clean result. For operations, review the plan first
-and pass `--apply` only at the explicit mutation boundary.
+undeclared policy, not a clean result. Leaving `gates` out makes both commands
+above exit `2`. An explicitly empty group, such as `gates: {}`, is a
+declaration and reports clean. For operations, review the plan first and pass
+`--apply` only at the explicit mutation boundary.
 
 For one semantic gate that checks Conventional Commit messages, retain one
 `commit-message` input and one command. Bind it to `hook-message-file` at

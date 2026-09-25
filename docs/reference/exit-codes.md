@@ -41,13 +41,17 @@ with the command category. stdout still carries the summary.
 `2` — any of:
 
 - an unrecognized command or option;
-- no command at all, which prints the help text on stderr;
+- no command at all, which prints one line on stderr pointing to
+  `rhino --help`;
 - a flag a leaf does not accept, such as `--dir` on a Markdown command;
 - `--output` with a value other than `text` or `json`;
 - a `--root` that holds no `repo-config.yml`;
 - a `repo-config.yml` that is missing, unreadable, declares no schema, declares
   an unrecognized schema, is malformed, or is semantically inconsistent;
-- a `--file` or `--directory` that names something RHINO cannot read;
+- a group or policy the command needs that the configuration omits;
+- a `--file` or `--directory` that does not exist, cannot be read, or leaves
+  the repository root, including through a symbolic link;
+- a file the run has to read that exists and cannot be opened;
 - a gate child that was refused for any reason other than the two below;
 - an internal failure, which prints `rhino: internal error:` on stderr.
 

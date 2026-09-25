@@ -274,7 +274,9 @@ Inputs are named as `files`, `commit-message`, `commit-range`, or
 are an executable, typed argv mappings, and explicit environment projections;
 they are never a shell string. Use `gate list` to inspect the seven surfaces
 and `gate validate` to check declaration, composition, binding, and projection
-without starting a child.
+without starting a child. An omitted `gates` group makes `gate list`,
+`gate validate`, and `gate run` exit `2`; `gates: {}` declares no gate and
+reports clean.
 
 A `files` input binds `git-index` for a local mutation or `explicit-range` with
 `range: explicit` for a pull-request replay. The latter resolves only changed

@@ -40,6 +40,9 @@ $ rhino md mermaid validate --file docs/../../notes.md
 rhino: `--file docs/../../notes.md` escapes the repository root
 ```
 
+A path that passes through a symbolic link is refused the same way, with exit
+`2`, because RHINO never follows a link out of the root.
+
 ## A diagram you have not saved
 
 `-` reads standard input. Pipe in a Markdown document — the fenced block is

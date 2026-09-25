@@ -16,30 +16,32 @@ person and may be reworded in any release, so a caller must not match on it.
 The exit status stays inside [its own closed vocabulary](./exit-codes.md); the
 code says which of the situations behind a status occurred. Under the default
 text output the same refusal is one `rhino: …` line carrying the message alone.
+A surface with no gates is not a refusal: `gate run` on it reports `clean` and
+exits `0`.
 
 ## The vocabulary
 
 Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this table.
 
-| Code                              | Meaning                                                               |
-| --------------------------------- | --------------------------------------------------------------------- |
-| `rhino.args.unrecognized`         | An unrecognized command, option, or option value.                     |
-| `rhino.args.incomplete`           | An option that takes a value was given none.                          |
-| `rhino.input.unreadable`          | Standard input was selected and could not be read.                    |
-| `rhino.repository.unusable`       | The selected root is missing, is not a directory, or is not usable.   |
-| `rhino.config.unusable`           | `repo-config.yml` is missing, unreadable, malformed, or inconsistent. |
-| `rhino.config.undeclared`         | The configuration declares no policy for what the command needs.      |
-| `rhino.path.escapes-root`         | A selected path is absolute or escapes the selected root.             |
-| `rhino.file.missing`              | A named file does not exist.                                          |
-| `rhino.file.unreadable`           | A named file exists and could not be read.                            |
-| `rhino.file.exists`               | A file that had to be created is already there.                       |
-| `rhino.gate.child-not-found`      | A declared gate child was not found.                                  |
-| `rhino.gate.child-not-executable` | A declared gate child was found and could not be executed.            |
-| `rhino.gate.child-refused`        | A declared gate child was refused for any other reason.               |
-| `rhino.gate.undeclared`           | The selected surface declares no gates.                               |
-| `rhino.toolchain.failed`          | A declared toolchain operation did not complete.                      |
-| `rhino.toolchain.undeclared`      | The configuration declares no toolchain for the request.              |
-| `rhino.harness.refused`           | A declared harness operation was refused.                             |
+| Code                              | Meaning                                                                                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `rhino.args.unrecognized`         | An unrecognized command, option, or option value, such as a `--surface` this build does not know or a `--base` that is not a commit ID.   |
+| `rhino.args.incomplete`           | An option the command needs is absent, an option is missing its value or the partner it needs, or two options contradict each other.      |
+| `rhino.input.unreadable`          | Standard input was selected and could not be read, or does not hold what the command reads from it.                                       |
+| `rhino.repository.unusable`       | The selected root is missing or is not a directory, or cannot answer what the command needs from it, such as a Git index or commit range. |
+| `rhino.config.unusable`           | `repo-config.yml` is missing, unreadable, malformed, or inconsistent.                                                                     |
+| `rhino.config.undeclared`         | The configuration omits the group or policy the command needs.                                                                            |
+| `rhino.path.escapes-root`         | A selected or declared path is absolute, climbs out of the selected root, or passes through a symbolic link.                              |
+| `rhino.file.missing`              | A named file or directory does not exist.                                                                                                 |
+| `rhino.file.unreadable`           | A file RHINO had to read exists and could not be read.                                                                                    |
+| `rhino.file.exists`               | A file that had to be created is already there.                                                                                           |
+| `rhino.gate.child-not-found`      | A declared gate child was not found.                                                                                                      |
+| `rhino.gate.child-not-executable` | A declared gate child was found and could not be executed.                                                                                |
+| `rhino.gate.child-refused`        | A declared gate child was refused for any other reason.                                                                                   |
+| `rhino.gate.undeclared`           | A selected gate declares no executable command.                                                                                           |
+| `rhino.toolchain.failed`          | A declared toolchain operation did not complete.                                                                                          |
+| `rhino.toolchain.undeclared`      | A declared toolchain has no provision declaration for this platform.                                                                      |
+| `rhino.harness.refused`           | A declared harness operation was refused.                                                                                                 |
 
 Adding a code is a breaking change for a caller that treats the vocabulary as
 closed, so it moves the minor version while RHINO stays in `0.x`.

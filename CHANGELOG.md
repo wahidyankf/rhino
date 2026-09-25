@@ -122,8 +122,9 @@ position because RHINO is in `0.x`, where that is where a breaking change goes.
 
 ### Fixed
 
-- **A bare invocation is a usage mistake.** `rhino` with no command prints its
-  help on stderr and exits `2` rather than reporting success.
+- **A bare invocation is a usage mistake.** `rhino` with no command prints one
+  line on stderr pointing to `rhino --help`, and exits `2` rather than
+  reporting success.
 - **A standard-input read failure is reported.** It used to be discarded, so a
   stream that failed halfway through was indistinguishable from an empty one
   and the caller was told its input held no findings.
@@ -150,7 +151,7 @@ position because RHINO is in `0.x`, where that is where a breaking change goes.
   is now read through a no-follow boundary. `env init --apply` returns an invocation refusal and leaves declared
   targets absent when that source is a link.
 
-## [v0.4.0] — 2026-09-20
+## [v0.4.0] — 2026-09-19
 
 Breaking. **New and migrated repositories use the closed grouped
 `rhino/repo-config/v2` contract.** Stable rejects predecessor schemas and has
