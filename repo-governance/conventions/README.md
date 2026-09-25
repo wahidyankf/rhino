@@ -30,6 +30,7 @@ Repository-wide choices, within the [vision](../vision/README.md) and the [princ
 - [Pull request merge](pull-request-merge.md) — the five preconditions that authorize a merge.
 - [Push-hook verification](push-hook-verification.md) — fix the cause; never bypass unauthorized.
 - [Rules](rules.md) — what a rule is, and how must, should, and may are read.
+- [Structure](structure/README.md) — where each kind of artifact adopted from the shared catalog lives.
 - [Task tracking](task-tracking.md) — granular items kept synchronized with the work.
 - [Thematic commits](thematic-commits.md) — one theme per commit, in Conventional Commits form.
 - [Working tree](working-tree.md) — what is ignored, and why every tree-walking tool needs telling separately.

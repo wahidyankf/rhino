@@ -23,9 +23,44 @@
       "digest": "db0cb3c83f3d2d2ac9f8e08204b20baf3823f26f541db907b91652ea2fb46415"
     },
     {
+      "id": "agent/swe-code-checker",
+      "path": ".agents/agents/swe-code-checker.md",
+      "digest": "9aaa4f707870830d122436e0a3f696b35b2be301735fcf1eb84e7e29cf5db395"
+    },
+    {
+      "id": "agent/swe-code-fixer",
+      "path": ".agents/agents/swe-code-fixer.md",
+      "digest": "a8a47afde7c968a0cb73716754df33b4f28586089a2ba0d4920581dc4f9fe8f7"
+    },
+    {
+      "id": "agent/swe-code-maker",
+      "path": ".agents/agents/swe-code-maker.md",
+      "digest": "0dacf13d86e089e5282319e37cd7058130d99137cff5e3e9627e989ebd9a1480"
+    },
+    {
+      "id": "skill/applying-maker-checker-fixer",
+      "path": ".agents/skills/applying-maker-checker-fixer/SKILL.md",
+      "digest": "fe3f74683b48b1cebd6f406f9c1a3bacd64e199b171b7aff8d70fe68acf1990d"
+    },
+    {
+      "id": "skill/assessing-criticality-confidence",
+      "path": ".agents/skills/assessing-criticality-confidence/SKILL.md",
+      "digest": "b08c142baf3a87430b1188ed60ffaafc997180cb6d51b2cbee3a380de541cc85"
+    },
+    {
       "id": "skill/building-command-line-interfaces",
       "path": ".agents/skills/building-command-line-interfaces/SKILL.md",
       "digest": "e424522a1e6dd1f3918028eef815f08cc0b9a970929603603a49340a33eefdf1"
+    },
+    {
+      "id": "skill/developing-applications",
+      "path": ".agents/skills/developing-applications/SKILL.md",
+      "digest": "65812e6b7e0124aa5e113a5cc8fb5105b3a8f43e50f6cb22835de9bea67af6a3"
+    },
+    {
+      "id": "skill/generating-validation-reports",
+      "path": ".agents/skills/generating-validation-reports/SKILL.md",
+      "digest": "24c442303b7ae0145c5a03de789dc9e61aae945c1d2605ca3b5d83756f3c733c"
     },
     {
       "id": "skill/grill-me",
@@ -56,6 +91,16 @@
       "id": "skill/plan-writing-gherkin-criteria",
       "path": ".agents/skills/plan-writing-gherkin-criteria/SKILL.md",
       "digest": "c8f6cbaa5d7a7bf6c13514ddfd6de1c343887b4aa839d4af348e2d3c2b16a29d"
+    },
+    {
+      "id": "skill/programming-rust",
+      "path": ".agents/skills/programming-rust/SKILL.md",
+      "digest": "d892c7203b766765d3f8aa855eae2da89d645a5a84641f2cdc8b1bc210d44550"
+    },
+    {
+      "id": "skill/programming-shell",
+      "path": ".agents/skills/programming-shell/SKILL.md",
+      "digest": "5c630303db968a229e52b76b2c25f21b6c9f01e8eadc5089f26c4090b2ca9b3c"
     },
     {
       "id": "skill/release-cut",
