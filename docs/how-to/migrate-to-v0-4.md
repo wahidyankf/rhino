@@ -23,8 +23,8 @@ policies:
       exclude-sources: []
 ```
 
-Use the immutable schema artifact URL from the qualified release only for an
-editor modeline. Rhino validates local bytes and never fetches that URL.
+Use the immutable schema artifact URL from the release you pin
+(`rhino-repo-config-v2.schema.json`) only for an editor modeline. Rhino validates local bytes and never fetches that URL.
 
 ## 3. Re-express policy by owner
 

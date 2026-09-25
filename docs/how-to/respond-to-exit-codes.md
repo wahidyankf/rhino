@@ -20,8 +20,8 @@ the real problem is a typo in a flag.
 #!/bin/sh
 set -eu
 
-rhino md internal-link validate
-status=$?
+status=0
+rhino md internal-link validate || status=$?
 
 case $status in
   0) ;;
@@ -36,13 +36,9 @@ case $status in
 esac
 ```
 
-With `set -e`, capture the status in the same statement so the shell does not
-exit before you read it:
-
-```sh
-status=0
-rhino md mermaid validate || status=$?
-```
+With `set -e`, capture the status in the same statement, as above. Written as
+`rhino …` followed by `status=$?` on the next line, the shell exits on the
+non-zero status before the `case` ever runs.
 
 ## Run every validator and keep the worst code
 

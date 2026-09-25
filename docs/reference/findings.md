@@ -15,21 +15,26 @@ The `[<category>]` prefix is atomic rather than assembled from the command
 path, so `grep '\[word-budget\]'` gets that validator's output and nothing
 else, however the command was spelled on the way in.
 
-The six commands added in `v0.3.0` report a second shape, frozen by the
-contract more than one implementation validates against:
+`metadata validate` reports a second shape, the one it has used since
+`v0.3.0`:
 
 ```text
-[<category>] <path>:<line>:<column> <rule> <field> <message>
+[<category>] <path>:<line>:<column> <kind>[ <field>] <message>
 ```
 
-`-` stands in for a field the rule does not name, and `1:1` for a finding about
-a path rather than a line. The two shapes coexist deliberately: a consumer's
-stored output may not change because a new command arrived.
+The field is left out when the rule names none, and `1:1` stands for a finding
+about the file rather than one of its lines. The two shapes coexist
+deliberately: a consumer's stored output may not change because a new command
+arrived.
+
+`harness adapters validate`, `env validate`, and `toolchain validate` report a
+third, shorter shape, described in [their own sections](#harness-adapters).
 
 Every finding carries a **kind** — a stable identifier for the rule, not prose.
 The kind is what a consumer filters on, so it is never reworded to improve a
-message. In text output the kind appears inside the message; in JSON it is the
-`kind` field.
+message. In JSON it is the `kind` field of each violation. In text, the second
+shape prints it after the position; the first shape prints only the message, so
+filter on the kind through `--output json`.
 
 ## Word budget
 
@@ -59,9 +64,10 @@ holding nothing beside its README has a complete map.
 
 ## File naming
 
-| Kind              | Means                                                           |
-| ----------------- | --------------------------------------------------------------- |
-| `invalid-md-name` | A governed file is not named in the style its surface declares. |
+| Kind                 | Means                                                                             |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `invalid-md-name`    | A governed file is not named in the style its surface declares.                   |
+| `fragmented-md-name` | A governed file's name ends in `-part-<n>`, `-continuation-<n>`, or `-continued`. |
 
 Detail: `prefix` on a `path-prefixed` surface — the prefix the file's own
 directory encodes to, which is what its name has to begin with.
@@ -102,12 +108,17 @@ establishes the level the rest are measured from.
 
 ## README index
 
-| Kind                   | Means                                                     |
-| ---------------------- | --------------------------------------------------------- |
-| `missing-readme-index` | A directory under a declared tree carries no `README.md`. |
+| Kind                         | Means                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| `missing-readme-index`       | A declared tree has no `README.md`.                                             |
+| `missing-readme-index-child` | A tree declaring `require-direct-children` has a direct child its README omits. |
+| `missing-readme-annotation`  | A declared annotation file is absent, or does not contain its declared text.    |
 
-Presence only. This kind and `missing-readme` are different rules a repository
-chooses between: the directory-map one also wants a `## Directory Map` section.
+Detail: `child` on `missing-readme-index-child` — the child the index does not
+link.
+
+This validator and the directory map are different rules a repository chooses
+between: the directory-map one also wants a `## Directory Map` section.
 
 ## Emoji convention
 
@@ -134,20 +145,62 @@ Fragment-only links (`#section`) and links carrying a scheme (`https:`,
 
 ## Mermaid
 
-| Kind                    | Means                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `mermaid-accessibility` | A colour is undeclared, or is set somewhere the declared palette cannot reach. |
-| `mermaid-legibility`    | A label segment is longer than the declared limit.                             |
+| Kind                     | Means                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `mermaid-accessibility`  | A colour is undeclared, misplaced, or too low in contrast, or an accessible title or description is missing. |
+| `mermaid-legibility`     | A label segment is longer than the declared limit.                                                           |
+| `diagram-authoring-rule` | A repository declaring `authoring-rule: plain-text` carries a Mermaid diagram.                               |
 
 `mermaid-legibility` details: `segment` (`node` or `edge`), `measured`, and
 `limit`. A label is measured **as it is seen**: HTML entities are decoded,
 markup is stripped, and a `<br>` splits a label into segments measured
 separately, because two short lines are legible where one long line is not.
 
-`mermaid-accessibility` covers two rules. Colour may be set only inside a
-`classDef`; a `style`, `linkStyle`, or inline colour is reported wherever it
-appears. And every colour a `classDef` sets must be drawn from the palette
-declared for its role — `fill-colors`, `edge-colors`, or `text-colors`.
+`mermaid-accessibility` covers colour and description. Colour may be set only
+inside a `classDef`; a `style`, `linkStyle`, or inline colour is reported
+wherever it appears. Every colour a `classDef` sets must be drawn from the
+palette declared for its role — `fill-colors`, `edge-colors`, or
+`text-colors` — and text on a fill must meet the normal-text contrast
+threshold. Under `authoring-rule: rendered`, a diagram that declares no
+`accTitle` or no `accDescr` is reported too.
+
+## License
+
+| Kind                          | Means                                                      |
+| ----------------------------- | ---------------------------------------------------------- |
+| `missing-license`             | A declared license path holds no file.                     |
+| `license-identifier-mismatch` | A declared identifier does not appear in the license.      |
+| `license-digest-mismatch`     | The license's SHA-256 digest is not the declared `sha256`. |
+
+Detail: `identifier` on `license-identifier-mismatch` — the identifier that is
+missing.
+
+## Vendor terms
+
+| Kind                    | Means                                                                    |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `forbidden-vendor-term` | A declared forbidden term appears in a file outside its exact exception. |
+
+Detail: `term` — the forbidden term found.
+
+## Governance layers
+
+| Kind                             | Means                                                  |
+| -------------------------------- | ------------------------------------------------------ |
+| `missing-governance-layer`       | A layer the declared order names is absent.            |
+| `unexpected-governance-layer`    | An entry under the layer root is not a declared layer. |
+| `missing-governance-category`    | A category declared for a layer is absent.             |
+| `unexpected-governance-category` | A directory inside a layer is not declared for it.     |
+
+## Traceability
+
+| Kind                                | Means                                                            |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `missing-traceability-artifact`     | A declared artifact's path holds no file.                        |
+| `missing-traceability-relationship` | A declared relationship has no local link from source to target. |
+
+Detail: `target` on `missing-traceability-relationship` — the artifact the
+source does not link.
 
 ## Metadata
 
@@ -166,6 +219,55 @@ matter is:
 
 The schema a document is held to is selected by its path, not declared in the
 document: the path already supplies every identity the schema omits.
+
+## Harness adapters
+
+`harness adapters validate` compares every declared adapter with the bytes
+generation would write. It reports one line per path on stderr, in the shape
+`[harness-adapters] <path>: <kind>`; under `--output json` the `findings` array
+on stdout carries the same `<path>: <kind>` strings.
+
+| Kind                 | Means                                                                       |
+| -------------------- | --------------------------------------------------------------------------- |
+| `missing-adapter`    | An adapter generation would write is absent.                                |
+| `divergent-adapter`  | An adapter exists and differs from what generation would write.             |
+| `stale-adapter`      | A file under a generated family root is not one generation would write.     |
+| `non-text-adapter`   | An adapter path holds bytes that are not text.                              |
+| `unreadable-adapter` | An adapter path cannot be read; the line ends with the reason after a `: `. |
+
+`harness adapters generate` writes exactly the files that clear every kind.
+
+## Environment
+
+`env validate` reports `[environment-validate] <path>: <kind>` on stderr,
+followed by ` (<key>)` when the finding is about one key. Under
+`--output json` each entry of `findings` carries `rule`, `path`, and `key`. A key
+is named; a value never is.
+
+| Kind                         | Means                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `declared-but-unread`        | A key a contract declares is read by no detected source.                       |
+| `read-but-undeclared`        | A detected source reads a key no contract declares.                            |
+| `declared-source-unread`     | A path a detector declares cannot be read.                                     |
+| `unsupported-dynamic-access` | A detected source reads a key whose name is computed, reported as `<dynamic>`. |
+| `staged-environment-file`    | An indexed path matches a forbidden staging pattern and no allowed one.        |
+
+An allowlist entry can suppress every kind except `staged-environment-file`.
+
+## Toolchains
+
+`toolchain validate` reports `[toolchain-validate] <id>: <kind>` on stderr for
+each required toolchain that fails its probe. Under `--output json` each entry
+of `findings` carries `toolchain` and `rule`. The probe's own output is never
+reported.
+
+| Kind               | Means                                                            |
+| ------------------ | ---------------------------------------------------------------- |
+| `unavailable`      | The probe could not be started.                                  |
+| `probe-failed`     | The probe ran and exited non-zero.                               |
+| `version-mismatch` | The probe's parsed output does not match the declared `version`. |
+
+A toolchain that is not `required` reports nothing.
 
 ## Gates
 

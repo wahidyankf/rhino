@@ -8,7 +8,7 @@ the text.
 
 ```console
 $ rhino md internal-link validate --output json
-{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"file","inspected":2,"scanned":["docs/README.md"],"notes":[],"violations":[]}
+{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"link","inspected":1,"scanned":[],"notes":[],"violations":[]}
 ```
 
 Line-delimited on purpose: concatenating several runs gives a stream `jq` can
@@ -57,10 +57,14 @@ nothing reports zero findings and exits `0`, which looks identical to a clean
 repository:
 
 ```sh
-rhino md internal-link validate --output json \
+rhino governance word-budget validate --output json \
   | jq -e '.inspected > 0' > /dev/null \
-  || echo "the internal-link surface matched nothing" >&2
+  || echo "the word-budget surface matched nothing" >&2
 ```
+
+Run this check against a leaf whose subject is a file. Internal-link counts
+links rather than files, so a repository whose files hold no local link reports
+`inspected` as `0` even though every file was read.
 
 `inspected` and `scanned` exist for exactly this. A surface that matched
 nothing and a surface that matched everything both pass, and only the listing

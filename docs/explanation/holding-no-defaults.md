@@ -33,46 +33,39 @@ taste, which is what makes it safe to put in front of a push.
 in one readable file. A maintainer asking "what does this repository enforce?"
 reads it, rather than reading the tool's source and subtracting the overrides.
 
-**Adding a fourth repository is configuration, not code.** The roster loop
-inside RHINO names no harness. A repository with three coding harnesses and a
-repository with none are the same code path with different declarations.
+**Adding a fourth repository is configuration, not code.** Adapter generation
+names no harness. `harness` declares three opaque profiles, and each profile's
+paths, format, and fields come from the configuration. A repository with no
+coding harness omits the group.
 
 ## What the rule costs
 
-Adoption is slower. There is no `rhino init` that guesses, and the first run in
-a new repository is a configuration error rather than a result. That is the
-intended trade: the alternative is a first run that passes for reasons nobody
-chose.
+Adoption is slower. There is no `rhino init` that guesses. The first run in a
+repository without `repo-config.yml` is a configuration error rather than a
+result, and so is a run of any validator whose policy is not declared. That is
+the intended trade: the alternative is a first run that passes for reasons
+nobody chose.
 
-The configuration is also long. Every section is required, including sections a
-repository has nothing in. `harnesses: []` is a required key with a legal empty
-value, because the difference between _this repository has no coding harnesses_
-and _I forgot to configure harnesses_ has to stay visible. A key you may omit
-is a key you may omit by accident.
+The configuration also has to name every value it enforces. Only `schema` is
+required, and every group is optional, but an omitted group is never a quiet
+pass: the validator that needs it exits `2` and names the missing policy. The
+difference between _this repository declares no Mermaid policy_ and _I forgot to
+configure Mermaid_ stays visible, because neither is ever reported as clean.
 
 ## Where the rule bends, and where it does not
 
-It bends for **optional structure**: `canonical.instruction-adapter` may be
-absent, because a repository may genuinely have no file that merely imports the
-instruction. Absent means "there is nothing to route", and every other rule
-still applies in full.
-
-It bends for **keys that follow the roster**: `skills-root` and `agents-root`
-are required when harnesses are declared and refused when they are not. That is
-not a default — it is the schema refusing to accept a declaration that could
-not mean anything.
-
-It bends for **keys that pair with each other**: `required-mcp` and each
-harness's `capability` block are legal only together. A required server no
-harness is checked against, and a capability file no rule reads, are the same
-fault seen from two sides. Neither is required by the presence of a roster,
-because not every repository asks its harnesses to reach a server at all.
+It bends for **optional structure**: a profile's `instruction-adapter`,
+`skill-adapter`, and `agent-adapter` may each be absent, because a harness may
+genuinely have no file that merely imports the instruction, or no adapter of
+that kind to generate. Absent means "there is nothing to generate", and every
+other rule still applies in full.
 
 It does not bend for **values**. There is no fallback limit, no built-in
-palette, no assumed directory. The two string constants inside RHINO —
-`README.md` for the file a directory map lives in, `SKILL.md` for the file a
-skill declares itself in — are the tool's own behaviour, not a consumer's
-layout, and they are the only ones.
+palette, no assumed directory. The fixed names inside RHINO — `README.md` for
+the file a directory map lives in, and the canonical sources adapter generation
+reads, `AGENTS.md`, `.agents/agents/*.md`, and `.agents/skills/*/SKILL.md` —
+are the tool's own behaviour, the input its generator is defined over, not a
+consumer's layout.
 
 ## The test that keeps it honest
 
@@ -86,13 +79,12 @@ repository with three harnesses and no capability server at all still could not
 be described, because a non-empty roster forced `required-mcp` — a claim about
 how one repository is arranged, wearing the clothes of a schema rule.
 
-RHINO has since become that third shape itself. Its roster is no longer
-empty: two harnesses, nine canonical skills, four canonical agents, and no
-capability server at all -- and one of those harnesses declares a skill adapter
-while the other does not, because it reads the canonical directory natively
-and an adapter pointing at a directory a vendor never reads would reconcile
-nothing. Every one of those is a shape the schema had to permit without
-preferring.
+RHINO has since become that third shape itself. Its configuration declares
+three profiles — `claude`, `codex`, and `opencode` — over ten canonical skills,
+four canonical agents, and no capability server at all. Only `claude` declares
+a skill adapter and an instruction adapter; `codex` and `opencode` declare
+agent adapters alone. Every one of those is a shape the schema had to permit
+without preferring.
 
 That is the value of the rule stated as a practice. A tool that holds no
 defaults will still smuggle assumptions in through required keys, and the only

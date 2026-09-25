@@ -11,7 +11,7 @@ command reports.
 
 ```console
 $ rhino md internal-link validate --output json
-{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"file","inspected":2,"scanned":["docs/README.md"],"notes":[],"violations":[]}
+{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"link","inspected":1,"scanned":[],"notes":[],"violations":[]}
 ```
 
 A run with findings, shown wrapped for reading — the real output is one line:
@@ -47,16 +47,16 @@ A run with findings, shown wrapped for reading — the real output is one line:
 
 ## Validation result fields
 
-| Field           | Type             | Meaning                                                                          |
-| --------------- | ---------------- | -------------------------------------------------------------------------------- |
-| `schemaVersion` | number           | `1`. Increments only for a breaking change to this shape.                        |
-| `command`       | string           | The category, matching the `[prefix]` in text output.                            |
-| `exitCode`      | number           | `0` or `1`. Mirrors the process exit code.                                       |
-| `subject`       | string           | What was inspected, singular: `file`, `directory`, `link`, `diagram`, `harness`. |
-| `inspected`     | number           | How many of that subject were looked at. Reported even when zero.                |
-| `scanned`       | array of strings | The paths that were read, sorted, where the subject has one.                     |
-| `notes`         | array of strings | Facts the run established that are not findings — a digest, a canon count.       |
-| `violations`    | array of objects | One entry per finding, sorted by path, then line, then kind.                     |
+| Field           | Type             | Meaning                                                                                                                                            |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion` | number           | `1`. Increments only for a breaking change to this shape.                                                                                          |
+| `command`       | string           | The category, matching the `[prefix]` in text output.                                                                                              |
+| `exitCode`      | number           | `0` or `1`. Mirrors the process exit code.                                                                                                         |
+| `subject`       | string           | What was inspected, singular: `file`, `directory`, `link`, `diagram`, `artifact`, `configuration file`, `license file`, or `governance directory`. |
+| `inspected`     | number           | How many of that subject were looked at. Reported even when zero.                                                                                  |
+| `scanned`       | array of strings | The paths that were read, sorted, where the subject has one.                                                                                       |
+| `notes`         | array of strings | Facts the run established that are not findings — a digest, a canon count.                                                                         |
+| `violations`    | array of objects | One entry per finding, sorted by path, then line, then kind.                                                                                       |
 
 A command may add named measurements as extra top-level number fields. They are
 quantities the run established about the whole inspection, distinct from a
@@ -100,10 +100,11 @@ for cmd in "repo-config validate" "md internal-link validate" \
 done | jq -r '.violations[].kind' | sort | uniq -c | sort -rn
 ```
 
-List the files a validator actually read:
+List the files a validator actually read. `scanned` is filled where the
+subject is a file; internal-link counts links, so its `scanned` is empty:
 
 ```sh
-rhino md internal-link validate --output json | jq -r '.scanned[]'
+rhino governance word-budget validate --output json | jq -r '.scanned[]'
 ```
 
 ## Related

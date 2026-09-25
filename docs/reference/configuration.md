@@ -26,18 +26,18 @@ declares no policy in that area.
 
 ## Groups
 
-| Group                   | Purpose                                                                  |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `repository` and `scan` | Repository-wide declarations and traversal scope.                        |
-| `harness`               | Portable requirements and exactly three opaque adapter profiles.         |
-| `policies.markdown`     | Opt-in frontmatter, internal-link, Mermaid, and README-index policy.     |
-| `policies.governance`   | Configured vendor, layer, and traceability policy.                       |
-| `policies.conventions`  | Configured license placement, identifiers, and digests.                  |
-| `policies.plans`        | Reserved closed policy owner.                                            |
-| `environment`           | Declared example/target pairs, detectors, and staged-path policy.        |
-| `toolchains`            | Declared probes and explicit provision vectors.                          |
-| `gates`                 | Closed lifecycle membership, typed inputs, and declared argv projection. |
-| `extensions`            | Opaque, namespaced mappings that Rhino preserves without interpreting.   |
+| Group                   | Purpose                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `repository` and `scan` | Repository-wide declarations and traversal scope.                                                         |
+| `harness`               | Portable requirements and exactly three opaque adapter profiles.                                          |
+| `policies.markdown`     | Opt-in frontmatter, heading-hierarchy, internal-link, metadata, Mermaid, naming, and README-index policy. |
+| `policies.governance`   | Configured vendor, layer, traceability, word-budget, and directory-map policy.                            |
+| `policies.conventions`  | Configured license placement, identifiers, and digests, and emoji-prohibited surfaces.                    |
+| `policies.plans`        | Reserved closed policy owner.                                                                             |
+| `environment`           | Declared key contracts, example/target pairs, detectors, allowlists, and staged-path policy.              |
+| `toolchains`            | Declared probes and explicit provision vectors.                                                           |
+| `gates`                 | Closed lifecycle membership, typed inputs, and declared argv projection.                                  |
+| `extensions`            | Opaque, namespaced mappings that Rhino preserves without interpreting.                                    |
 
 The [grouped v2 reference](./v0-4-configuration.md) defines each supported
 group, generated schema, offline modeline behavior, and operation boundary.

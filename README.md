@@ -32,11 +32,11 @@ separate, narrow boundaries.
 ## Install
 
 Download a published, immutable release tag and verify its checksum before
-extracting it. The qualified v0.4 release carries one checksum manifest for all
-four supported archives.
+extracting it. Each release carries one checksum manifest for all four
+supported archives.
 
 ```sh
-VERSION=REPLACE_WITH_QUALIFIED_TAG
+VERSION=REPLACE_WITH_RELEASE_TAG
 TARGET=aarch64-apple-darwin
 BASE="https://github.com/wahidyankf/rhino/releases/download/$VERSION"
 
@@ -46,8 +46,11 @@ shasum -a 256 --ignore-missing -c checksums.txt
 tar -xzf "rhino-$TARGET.tar.gz"
 ```
 
-Use only a tag that the release page lists as qualified. The full procedure,
-including the Linux checksum alternative and PATH installation, is in
+Replace the placeholder with a tag from the
+[releases page](https://github.com/wahidyankf/rhino/releases) that is not marked
+`Pre-release`; the one marked `Latest` is the newest. The grouped configuration
+below needs `v0.4.0` or later. The full procedure, including the Linux checksum
+alternative and PATH installation, is in
 [How to install a pinned release](./docs/how-to/install-a-pinned-release.md).
 
 ## Quick start
@@ -114,9 +117,10 @@ the executable Gherkin corpus disagree, the corpus wins.
 
 ## Project status
 
-RHINO is a pre-1.0 product. The planned v0.4 release is breaking by design:
-stable accepts the grouped contract only, rather than carrying an unbounded
-compatibility layer. Published tags and assets are immutable.
+RHINO is a pre-1.0 product released in the `0.x` line, where a breaking change
+moves the minor version; the [changelog](./CHANGELOG.md) records each release.
+Since `v0.4.0`, stable accepts the grouped contract only, rather than carrying
+an unbounded compatibility layer. Published tags and assets are immutable.
 
 Contributor rules for maintainers and automated agents start at
 [AGENTS.md](./AGENTS.md). External contributions are currently closed while the

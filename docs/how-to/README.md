@@ -12,7 +12,7 @@ If you are still learning what RHINO does, start with the
 - [How to migrate from v0.3 to v0.4](./migrate-to-v0-4.md) — replace a legacy RC input with explicit grouped policy before stable.
 - [How to wire RHINO into your gates](./wire-rhino-into-your-gates.md) — run the validators from a hook or a CI job so a breach fails the build.
 - [How to respond to exit codes](./respond-to-exit-codes.md) — treat `1` and `2` as the different problems they are.
-- [How to narrow a run](./narrow-a-run.md) — check one file, one directory, one harness, or standard input.
+- [How to narrow a run](./narrow-a-run.md) — check one file, one directory, standard input, or another repository.
 - [How to consume the JSON output](./consume-the-json-output.md) — read a run programmatically without parsing the human report.
 
 ## Next steps
