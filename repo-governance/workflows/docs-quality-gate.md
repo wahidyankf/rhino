@@ -40,6 +40,12 @@ Return `PASS` only when the ledger is clear and the checks pass; otherwise retur
 
 **Recorded choice: verdict only.** The gate does not audit again after propagation, matching the [rules quality gate](rules-quality-gate.md); a second audit needs a second request. The rejected alternative, repairing to zero findings, repeats the audit while open findings strictly decrease and costs an audit per round. A verdict authorizes no commit or push.
 
+## At Release Cut
+
+[Release cut](release-cut.md) runs the gate with scope `all` twice. The first run happens before the release-prep pull request opens, and that pull request resolves its ledger, so each repair's new prose is audited before the merge rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition.
+
+The gate runs the binary, so it is also a behaviour audit. A row where the document states the intended contract and the binary disagrees is a code defect: fix it through its own pull request before the tag, never by documenting the defect as current behaviour.
+
 ## Why It Runs on Request
 
 Judging whether a document is still true, still needed, and still readable is a reading task. Wired into every change, it produces noise nobody reads or a pass nobody earned; propagation already refreshes each change.
