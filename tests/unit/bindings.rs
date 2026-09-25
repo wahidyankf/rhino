@@ -147,6 +147,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "An omitted lifecycle group is refused rather than read as empty",
+    ),
+    (
+        "v0-4-contract",
         "Harness adapter generation refuses an undeclared grouped profile",
     ),
     (

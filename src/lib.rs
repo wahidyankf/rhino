@@ -221,7 +221,9 @@ pub fn execute_using_with_boundaries(
         ("gate-list", Document::V0_4(document)) => {
             v0_4::gates::list(document.gates.as_ref(), invocation.format)
         }
-        ("gate-validate", Document::V0_4(_)) => v0_4::gates::validate(invocation.format),
+        ("gate-validate", Document::V0_4(document)) => {
+            v0_4::gates::validate(document.gates.as_ref(), invocation.format)
+        }
         ("gate", Document::V0_4(document)) => v0_4::gates::run(
             document.gates.as_ref(),
             &invocation,

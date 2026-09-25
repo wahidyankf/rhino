@@ -17,9 +17,25 @@ use crate::v0_4::config::{
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// An omitted `gates` group is refused, never read as an empty lifecycle.
+///
+/// `gates: {}` is a repository saying it runs no gate; leaving the group out
+/// says nothing at all. Treating the two alike would let a gate surface report
+/// clean for a repository that never declared one, which is the quiet pass
+/// every other omitted group already refuses.
+fn undeclared(format: Format) -> Outcome {
+    Outcome::refusal(
+        format,
+        ErrorCode::ConfigUndeclared,
+        "gates section is not declared, and RHINO holds no default for it",
+    )
+}
+
 /// Render the seven closed surfaces and their declared semantic gate IDs.
 pub(crate) fn list(gates: Option<&Gates>, format: Format) -> Outcome {
-    let gates = gates.cloned().unwrap_or_default();
+    let Some(gates) = gates else {
+        return undeclared(format);
+    };
     let listed: Vec<SurfaceListing> = Surface::ALL
         .iter()
         .map(|surface| SurfaceListing {
@@ -64,7 +80,10 @@ pub(crate) fn list(gates: Option<&Gates>, format: Format) -> Outcome {
 
 /// Parsing has already applied every lifecycle invariant. This leaf gives
 /// adapters a read-only assertion they can call without starting a child.
-pub(crate) fn validate(format: Format) -> Outcome {
+pub(crate) fn validate(gates: Option<&Gates>, format: Format) -> Outcome {
+    if gates.is_none() {
+        return undeclared(format);
+    }
     match format {
         Format::Text => Outcome::clean("[gate] lifecycle configuration is valid\n"),
         Format::Json => Outcome::clean(
@@ -84,6 +103,9 @@ pub(crate) fn run(
     launcher: &dyn Launcher,
     mutations: &dyn MutationRunner,
 ) -> Outcome {
+    let Some(gates) = gates else {
+        return undeclared(invocation.format);
+    };
     let Some(surface) = invocation.surface.as_deref().and_then(surface) else {
         return Outcome::refusal(
             invocation.format,
@@ -110,8 +132,8 @@ pub(crate) fn run(
     let mut completed = Vec::new();
     let mut changed_paths = Vec::new();
     for gate in gates
-        .into_iter()
-        .flat_map(|declared| declared.entries.iter())
+        .entries
+        .iter()
         .filter(|gate| gate.run_on.contains_key(&surface))
     {
         let Some(membership) = gate.run_on.get(&surface) else {
@@ -1059,7 +1081,8 @@ gates:
 
     #[test]
     fn grouped_gate_listing_and_validation_cover_text_and_json_without_a_child() {
-        let listed = list(None, Format::Text);
+        let empty = Gates::default();
+        let listed = list(Some(&empty), Format::Text);
         assert_eq!(listed.exit_code, 0);
         assert!(listed.stdout.contains("[gate] pre-commit: no gates"));
         let json = list(Some(&manual_gate(None)), Format::Json);
@@ -1067,22 +1090,51 @@ gates:
         assert!(json.stdout.contains("\"manual\""));
         assert!(json.stdout.contains("\"check\""));
         assert!(
-            validate(Format::Text)
+            validate(Some(&empty), Format::Text)
                 .stdout
                 .contains("configuration is valid")
         );
         assert!(
-            validate(Format::Json)
+            validate(Some(&empty), Format::Json)
                 .stdout
                 .contains("\"gate\",\"validate\"")
         );
     }
 
     #[test]
+    fn an_omitted_gates_group_is_refused_by_every_leaf_rather_than_read_as_empty() {
+        let tree = MemoryTree::default();
+        let invocation = Invocation {
+            category: "gate",
+            surface: Some("manual".to_string()),
+            format: Format::Json,
+            ..Invocation::default()
+        };
+        for outcome in [
+            list(None, Format::Json),
+            validate(None, Format::Json),
+            run(
+                None,
+                &invocation,
+                &tree,
+                None,
+                &CapturingLauncher::default(),
+                &NoMutationRunner,
+            ),
+        ] {
+            assert_eq!(outcome.exit_code, 2);
+            assert!(outcome.stdout.is_empty());
+            assert!(outcome.stderr.contains("\"rhino.config.undeclared\""));
+            assert!(outcome.stderr.contains("gates section is not declared"));
+        }
+    }
+
+    #[test]
     fn grouped_gate_run_refuses_invalid_invocation_or_missing_command_before_a_child() {
         let tree = MemoryTree::default();
+        let empty = Gates::default();
         let no_surface = run(
-            None,
+            Some(&empty),
             &Invocation::default(),
             &tree,
             None,
@@ -1093,7 +1145,7 @@ gates:
         assert!(no_surface.stderr.contains("--surface"));
 
         let half_range = run(
-            None,
+            Some(&empty),
             &Invocation {
                 category: "gate",
                 surface: Some("manual".to_string()),

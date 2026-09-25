@@ -18,6 +18,19 @@ additive. A configuration that declares neither generates byte-identical
 adapters. The version moves in the minor position because RHINO is in `0.x`.
 See [agent lists and selection](docs/reference/v0-4-configuration.md#agent-lists-and-selection).
 
+This release also brings the binary back in line with its published contract
+where the two had drifted. Those corrections change what some invocations
+report, so read **Changed — breaking** before upgrading a pinned version.
+
+### Changed — breaking
+
+- **An omitted `gates` group is refused.** `gate list`, `gate validate`, and
+  `gate run` now exit `2` with `rhino.config.undeclared` when the
+  configuration leaves the `gates` group out, as every other omitted group
+  already did. They used to read the omission as an empty lifecycle and report
+  clean. `gates: {}` still declares a repository that runs no gate, and still
+  exits `0`.
+
 ### Added
 
 - **`lists` on an agent adapter.** Maps a native field to the canonical agent
