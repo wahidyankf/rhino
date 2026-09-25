@@ -1,6 +1,6 @@
 # Command line
 
-Every command except `version` reads `repo-config.yml` from the selected
+Every command except `version` and `help` reads `repo-config.yml` from the selected
 repository root. `rhino/repo-config/v2` is the active grouped v0.4 contract.
 An omitted policy group is refused by the leaf that needs it; RHINO does not
 invent a policy or route an old command through a replacement.
@@ -19,6 +19,7 @@ invent a policy or route an old command through a replacement.
 | Governance       | `governance word-budget validate`, `governance directory-map validate`, `governance vendor validate`, `governance layers validate`, `governance traceability validate` |
 | Conventions      | `convention emoji validate`, `convention license validate`                                                                                                             |
 | Build identity   | `version`, `version --json`                                                                                                                                            |
+| Help             | `help`, `help <command path>`                                                                                                                                          |
 
 `gate run` accepts only a declared closed surface: `pre-commit`, `commit-msg`,
 `pre-push`, `pull-request`, `main`, `scheduled`, or `manual`. Its configuration
@@ -33,6 +34,8 @@ and toolchain provision use their own explicit boundaries.
 
 | Option                               | Accepted by                         | Meaning                                                         |
 | ------------------------------------ | ----------------------------------- | --------------------------------------------------------------- |
+| `-h`, `--help`                       | Every command                       | Print help for the command path given, on stdout, and exit `0`. |
+| `-V`, `--version`                    | Every command                       | Print the release identity, as `version` does, and exit `0`.    |
 | `--root <path>`                      | Every command                       | Select a repository root.                                       |
 | `--output <text\|json>`              | Every command                       | Select text or JSON rendering.                                  |
 | `--quiet`, `--verbose`, `--no-color` | Every command                       | Presentation-only compatibility options.                        |

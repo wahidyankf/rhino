@@ -29,7 +29,7 @@ of information as no finding at all.
 ## A finding has a kind, and the kind is a contract
 
 Every finding carries a stable identifier — `word-limit-exceeded`,
-`missing-map-entry`, `agent-prompt-divergence`. The kind is what a consumer
+`missing-map-entry`, `stale-adapter`. The kind is what a consumer
 filters on, so it is never reworded to improve a message. The message is prose
 and exists to be improved.
 
@@ -71,10 +71,13 @@ nothing". Both exit `0`. Only one of them means anything.
 
 ## Why the same shape for every validator
 
-One finding type, one printer, one exit-code mapping, shared by all five
-validators. The alternative — five nearly-identical result types and five
-nearly-identical printers — drifts apart one fix at a time until a caller has
-to know which validator produced a line before it can read it.
+One finding type, one printer, one exit-code mapping, shared by every tree
+validator: the configuration, Markdown, metadata, governance, and convention
+leaves. The alternative — a nearly-identical result type and printer per
+validator — drifts apart one fix at a time until a caller has to know which
+validator produced a line before it can read it. The harness-adapter,
+environment, and toolchain validators still print one shorter line of their
+own, described in [Findings](../reference/findings.md#harness-adapters).
 
 The category prefix is atomic rather than assembled from the command path, so
 `grep '\[word-budget\]'` gets that validator's output and nothing else,

@@ -1,7 +1,7 @@
 # How to narrow a run to one file or tree
 
 You want RHINO's answer about part of a repository — one diagram you are
-editing, one documentation tree, one coding harness — without waiting for or
+editing, one documentation tree, another checkout — without waiting for or
 reading the whole thing.
 
 Narrowing asks a smaller question. It never gives a quieter answer to the same
@@ -9,7 +9,8 @@ one: a narrowed run reports every finding it inspects.
 
 ## One file, or several
 
-`--file` replaces the declared surface for the commands that read files:
+`--file` replaces the declared surface of `md mermaid validate`, the only
+command that accepts it:
 
 ```sh
 rhino md mermaid validate --file docs/architecture.md
@@ -21,12 +22,22 @@ It is repeatable, and the paths are inspected together:
 rhino md mermaid validate --file docs/one.md --file docs/two.md
 ```
 
+Any other command refuses it with exit `2` rather than ignoring it:
+
+```console
+$ rhino md internal-link validate --file docs/README.md
+rhino: `--file` is not accepted by `md internal-link validate`
+```
+
 Paths are **repository-relative**. An absolute path is refused, because the
-answer would then depend on where the command ran:
+answer would then depend on where the command ran, and so is a path whose `..`
+segments climb out of the root:
 
 ```console
 $ rhino md mermaid validate --file /etc/hosts
 rhino: `--file /etc/hosts` is absolute, and a selection is relative to the repository root
+$ rhino md mermaid validate --file docs/../../notes.md
+rhino: `--file docs/../../notes.md` escapes the repository root
 ```
 
 ## A diagram you have not saved
@@ -62,7 +73,7 @@ naming nothing is a mistake in the invocation, not a fact about the repository:
 
 ```console
 $ rhino governance directory-map validate --directory README.md
-[directory-map] README.md is not a directory in this repository
+rhino: [directory-map] README.md is not a directory in this repository
 ```
 
 ## A different repository entirely
@@ -78,8 +89,9 @@ rhino md internal-link validate --root ../other-repo
 The selected root brings its own `repo-config.yml`, its own surfaces, and its
 own scan exclusions. A root holding no configuration is exit `2`.
 
-`--root` may not leave the repository it names: a path containing `..` inside
-the value is refused.
+`--root` names the repository rather than a selection inside it, so any
+directory is accepted, `..` included. The containment rule applies to the
+`--file`, `--directory`, and `--dir` values chosen inside that root.
 
 ## What narrowing does not change
 

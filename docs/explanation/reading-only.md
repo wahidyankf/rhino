@@ -48,10 +48,12 @@ certainly there. Any test whose success condition is "found nothing" needs one.
 
 Two rules keep a run inside the repository it was pointed at.
 
-**A path leaving the root is refused.** A `--root`, `--file`, or `--directory`
-containing `..` is an invocation error, not a path to resolve. So is an
-absolute path: a selection is relative to the repository root, or the answer
-would depend on where the command ran.
+**A path leaving the root is refused.** A `--file`, `--directory`, or `--dir`
+value whose `..` segments climb out of the root is an invocation error, not a
+path to resolve. So is an absolute one: a selection is relative to the
+repository root, or the answer would depend on where the command ran. `--root`
+itself is not a selection; it names the repository, so any directory is
+accepted there.
 
 **A symbolic link is not followed.** The walk skips links regardless of what
 the scan exclusions say, because following one can leave the repository

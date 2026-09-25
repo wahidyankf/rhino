@@ -78,6 +78,11 @@ position because RHINO is in `0.x`, where that is where a breaking change goes.
   which nothing consumed.
 - **`--help` places `--json` on the leaf that accepts it** rather than in the
   global options block, and publishes every status RHINO can report.
+
+## [v0.4.2] — 2026-09-20
+
+### Fixed
+
 - **Generated harness adapters are formatter-stable.** YAML scalar values that require quoting now use YAML literal
   blocks, and generated catalog and provenance JSON uses stable pretty formatting. Regeneration no longer rewrites
   consumer formatter output.

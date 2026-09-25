@@ -14,7 +14,7 @@ the archive for your platform and the checksum, then verify **before**
 extracting:
 
 ```sh
-VERSION=REPLACE_WITH_QUALIFIED_TAG
+VERSION=REPLACE_WITH_RELEASE_TAG
 TARGET=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 BASE=https://github.com/wahidyankf/rhino/releases/download/$VERSION
 
@@ -26,6 +26,11 @@ curl -fsSLO "$BASE/checksums.txt"
 # shasum on macOS, sha256sum on Linux.
 shasum -a 256 --ignore-missing -c checksums.txt
 ```
+
+Replace `REPLACE_WITH_RELEASE_TAG` with a tag the releases page does not mark
+`Pre-release`; the one marked `Latest` is the newest. A pre-release is a
+candidate, not a build to pin. A grouped `rhino/repo-config/v2` configuration
+needs `v0.4.0` or later.
 
 Verifying afterwards tells you what you already ran. Verify first.
 
