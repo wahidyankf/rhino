@@ -115,8 +115,14 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   `declared-source-unread` now means only that the source does not exist.
 - **`env backup` reports the copy it made.** After copying the declared files
   it reported `"status":"planned"` and the text line `planned declared files`.
-  It now reports `completed`. A policy with no eligible file writes nothing and
-  still reports `planned`.
+  It now reports `completed`, the `count` of files written, and the written
+  `files`, and its text line reads `completed <count> declared files`. A policy
+  with no eligible file also reports `completed`, with a `count` of `0`.
+  `status` names the invocation's mode, not its effect. Only `env init` and
+  `toolchain provision` without `--apply` report `planned`. Every executing form
+  reports `completed` when it finishes, and `env init --apply` and
+  `env restore` now also carry `count` and the written `targets`, so a caller
+  can tell whether anything was written.
 
 ## [v0.5.0] — 2026-09-22
 
