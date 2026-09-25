@@ -15,7 +15,7 @@ Its purpose is semantic review. The static behaviour check proves a binding exis
 
 Inspect one scenario at a time. Do not substitute scenario counts, a grep heuristic, or a green test run for the inspection.
 
-1. Inventory the corpus and expand every `Scenario Outline` example into its executable scenarios.
+1. Inventory the corpus and expand every `Scenario Outline` example into its executable scenarios. An `Examples` cell holding the command-line `|` argument separator must escape it as `\|`; unescaped, the row silently runs only its first word and still passes.
 2. Create one review row per expanded scenario and applicable adapter. Record feature, scenario, adapter, binding location, and one of `PASS`, `EXEMPT`, or `FAIL`.
 3. For each non-exempt row, trace the whole Given–When–Then path:
    - **Given** establishes the stated precondition through a real fixture or an injected double, in a root the test created.

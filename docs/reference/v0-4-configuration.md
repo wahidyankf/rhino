@@ -165,7 +165,10 @@ both leaves every generated file byte-identical.
   configuration. The generator renders the list in the order the canonical
   source wrote it: as a block sequence in `front-matter` format, or as an
   array in `toml` format. An agent with no list, or an empty one, renders no
-  field.
+  field. The projection covers every agent the adapter renders, with no
+  per-agent opt-out, so adding `lists` to a profile gives each
+  already-generated agent that declares `skills` the new field at the next
+  `harness adapters generate`.
 - `agents` lists the canonical agent names a profile renders. Only those agents
   render for that profile, its `catalog.json` and `provenance.json` list only
   them, and `harness adapters validate` reports every other file under that
