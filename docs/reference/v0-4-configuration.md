@@ -154,6 +154,54 @@ families and exact files as one recoverable transaction. An unrepresentable
 requirement, malformed source metadata, invalid native representation, or
 conflicting output refuses before any write.
 
+### Agent lists and selection
+
+Two optional agent-adapter keys carry more of an agent into a profile. Omitting
+both leaves every generated file byte-identical.
+
+- `lists` maps a native field to a canonical agent metadata list. The only
+  projectable list is `skills`; `capabilities` and `constraints` reach native
+  output through translations instead, and any other value refuses the
+  configuration. The generator renders the list in the order the canonical
+  source wrote it: as a block sequence in `front-matter` format, or as an
+  array in `toml` format. An agent with no list, or an empty one, renders no
+  field.
+- `agents` lists the canonical agent names a profile renders. Only those agents
+  render for that profile, its `catalog.json` and `provenance.json` list only
+  them, and `harness adapters validate` reports every other file under that
+  family root as `stale-adapter`. A name with no canonical source refuses
+  before any write. When `agents` is omitted, every canonical agent renders.
+
+Neither key applies to a skill adapter; declaring one there refuses.
+
+```yaml
+agent-adapter:
+  path: adapters/alpha/agents/{name}.md
+  format: front-matter
+  route-field: body
+  route: "Read {path} completely."
+  identity: { name: name }
+  lists: { skills: skills }
+  agents: [reviewer]
+```
+
+With a canonical agent declaring `skills` as `zeta-check` then `alpha-check`,
+that adapter renders:
+
+```markdown
+---
+name: reviewer
+skills:
+  - zeta-check
+  - alpha-check
+---
+
+Read .agents/agents/reviewer.md completely.
+```
+
+The same list projected by a `toml` adapter as `lists: { preload: skills }`
+renders `preload = ["zeta-check", "alpha-check"]`.
+
 ## Environment files and toolchains
 
 `environment.examples` declares public example-source and local-target path

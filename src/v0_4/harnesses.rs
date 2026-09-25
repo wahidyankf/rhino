@@ -107,12 +107,15 @@ struct Metadata {
     grants: BTreeSet<String>,
     denials: BTreeSet<String>,
     constraints: BTreeSet<String>,
+    /// Every canonical list in authored order, keyed by its front-matter key.
+    lists: BTreeMap<String, Vec<String>>,
 }
 
 enum RenderField {
     Scalar(String),
     Members(Vec<String>),
     Entries(BTreeMap<String, String>),
+    Sequence(Vec<String>),
 }
 
 fn plan(harness: Option<&Harness>, tree: &dyn Tree) -> Result<Plan, String> {
@@ -126,6 +129,9 @@ fn plan(harness: Option<&Harness>, tree: &dyn Tree) -> Result<Plan, String> {
         harness.canonical.as_ref(),
     )?;
     let sources = discover(tree, harness.canonical.as_ref(), &harness.profiles)?;
+    for profile in &harness.profiles {
+        require_selected_sources(profile, &sources)?;
+    }
 
     let mut desired = BTreeMap::new();
     for profile in &harness.profiles {
@@ -280,8 +286,23 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
             "profile `{profile}` projects a tier into a skill adapter"
         ));
     }
+    if !agent && !adapter.lists.is_empty() {
+        return Err(format!(
+            "profile `{profile}` projects an agent list into a skill adapter"
+        ));
+    }
+    if !agent && adapter.agents.is_some() {
+        return Err(format!(
+            "profile `{profile}` selects agents in a skill adapter"
+        ));
+    }
     let mut direct_fields = BTreeSet::new();
-    for field in adapter.identity.keys().chain(adapter.fixed.keys()) {
+    for field in adapter
+        .identity
+        .keys()
+        .chain(adapter.fixed.keys())
+        .chain(adapter.lists.keys())
+    {
         if field.trim().is_empty() || !direct_fields.insert(field.as_str()) {
             return Err(format!(
                 "profile `{profile}` repeats or omits an adapter field"
@@ -494,6 +515,8 @@ fn render_profile(
     sources: &[Source],
     desired: &mut BTreeMap<String, String>,
 ) -> Result<(), String> {
+    let selected = selected_sources(profile, sources);
+    let sources = selected.as_slice();
     if let Some(adapter) = &profile.instruction_adapter {
         let instruction = sources
             .iter()
@@ -512,6 +535,56 @@ fn render_profile(
         render_family(profile, adapter, SourceKind::Skill, sources, desired)?;
     }
     Ok(())
+}
+
+/// A selection naming an agent with no canonical source fails closed, rather
+/// than rendering fewer agents than the repository asked for.
+fn require_selected_sources(profile: &Profile, sources: &[Source]) -> Result<(), String> {
+    for name in agent_selection(profile).unwrap_or_default() {
+        if !sources
+            .iter()
+            .any(|source| agent_name(source) == Some(name.as_str()))
+        {
+            return Err(format!(
+                "profile `{}` selects agent `{name}` with no canonical source",
+                profile.id
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The sources one profile renders: every source, less any canonical agent its
+/// agent adapter does not select. Both of the profile's catalogs read this set.
+fn selected_sources(profile: &Profile, sources: &[Source]) -> Vec<Source> {
+    let selection = agent_selection(profile);
+    sources
+        .iter()
+        .filter(|source| match (agent_name(source), selection) {
+            (Some(name), Some(names)) => names.iter().any(|selected| selected == name),
+            _ => true,
+        })
+        .cloned()
+        .collect()
+}
+
+/// The agent names a profile's agent adapter selects, when it declares any.
+fn agent_selection(profile: &Profile) -> Option<&[String]> {
+    profile
+        .agent_adapter
+        .as_ref()
+        .and_then(|adapter| adapter.agents.as_deref())
+}
+
+/// A canonical agent's name; every other source kind has none.
+fn agent_name(source: &Source) -> Option<&str> {
+    match source.kind {
+        SourceKind::Agent => source
+            .metadata
+            .as_ref()
+            .map(|metadata| metadata.name.as_str()),
+        _ => None,
+    }
 }
 
 fn render_family(
@@ -568,6 +641,15 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
     }
     for (field, value) in &adapter.fixed {
         add_scalar(&mut fields, field, value.clone())?;
+    }
+    for (field, key) in &adapter.lists {
+        if let Some(values) = metadata
+            .lists
+            .get(key.key())
+            .filter(|values| !values.is_empty())
+        {
+            add_field(&mut fields, field, RenderField::Sequence(values.clone()))?;
+        }
     }
     if let (Some(tier), Some(tier_fields)) = (&metadata.tier, &adapter.tier_fields)
         && let Some(mapping) = profile.tiers.get(tier)
@@ -714,7 +796,8 @@ impl CanonicalShape for CanonicalAgent {
 
 enum CanonicalValue {
     Scalar(String),
-    List(BTreeSet<String>),
+    /// Authored order is kept, because a projected list is rendered as written.
+    List(Vec<String>),
 }
 
 fn parse_metadata(
@@ -736,6 +819,13 @@ fn parse_metadata(
         grants: optional_list(&fields, shape.grants_field(), path)?,
         denials: optional_list(&fields, shape.denials_field(), path)?,
         constraints: optional_list(&fields, shape.constraints_field(), path)?,
+        lists: fields
+            .iter()
+            .filter_map(|(key, value)| match value {
+                CanonicalValue::List(values) => Some((key.clone(), values.clone())),
+                CanonicalValue::Scalar(_) => None,
+            })
+            .collect(),
     })
 }
 
@@ -789,7 +879,7 @@ fn parse_front_matter(
             }
             CanonicalValue::Scalar(parts.join(" ").trim().to_string())
         } else if raw.is_empty() {
-            let mut members = BTreeSet::new();
+            let mut members = Vec::new();
             while index < header.len() && header[index].starts_with(char::is_whitespace) {
                 let member = header[index].trim();
                 let Some(member) = member.strip_prefix("- ") else {
@@ -797,11 +887,13 @@ fn parse_front_matter(
                         "canonical source `{path}` has a non-list metadata value"
                     ));
                 };
-                if member.trim().is_empty() || !members.insert(unquote(member)) {
+                let unquoted = unquote(member);
+                if member.trim().is_empty() || members.contains(&unquoted) {
                     return Err(format!(
                         "canonical source `{path}` has an invalid metadata list"
                     ));
                 }
+                members.push(unquoted);
                 index += 1;
             }
             CanonicalValue::List(members)
@@ -859,7 +951,7 @@ fn optional_list(
     };
     match fields.get(field) {
         None => Ok(BTreeSet::new()),
-        Some(CanonicalValue::List(values)) => Ok(values.clone()),
+        Some(CanonicalValue::List(values)) => Ok(values.iter().cloned().collect()),
         Some(_) => Err(format!(
             "canonical source `{path}` has a non-list `{field}` metadata field"
         )),
@@ -871,10 +963,16 @@ fn add_scalar(
     field: &str,
     value: String,
 ) -> Result<(), String> {
-    if fields
-        .insert(field.to_string(), RenderField::Scalar(value))
-        .is_some()
-    {
+    add_field(fields, field, RenderField::Scalar(value))
+}
+
+/// Place one whole native field, refusing a second writer of the same field.
+fn add_field(
+    fields: &mut BTreeMap<String, RenderField>,
+    field: &str,
+    value: RenderField,
+) -> Result<(), String> {
+    if fields.insert(field.to_string(), value).is_some() {
         return Err(format!("adapter output repeats field `{field}`"));
     }
     Ok(())
@@ -941,6 +1039,12 @@ fn render_front_matter(
                     render_yaml_field(&mut output, key, value, "  ");
                 }
             }
+            RenderField::Sequence(values) => {
+                output.push_str(&format!("{field}:\n"));
+                for value in values {
+                    output.push_str(&format!("  - {}\n", yaml_item(value)));
+                }
+            }
         }
     }
     output.push_str("---\n\n");
@@ -964,6 +1068,10 @@ fn render_toml(fields: &BTreeMap<String, RenderField>) -> Result<String, String>
                 for (key, value) in entries {
                     output.push_str(&format!("{key} = {}\n", toml_scalar(value)));
                 }
+            }
+            RenderField::Sequence(values) => {
+                let array = values.iter().cloned().map(toml::Value::String).collect();
+                output.push_str(&format!("{field} = {}\n", toml::Value::Array(array)));
             }
         }
     }
@@ -997,6 +1105,15 @@ fn yaml_scalar(value: &str) -> YamlScalar<'_> {
         YamlScalar::Plain(value)
     } else {
         YamlScalar::Literal
+    }
+}
+
+/// One block-sequence item: plain when YAML reads it back unchanged, otherwise
+/// a double-quoted scalar, whose JSON spelling YAML also accepts.
+fn yaml_item(value: &str) -> String {
+    match yaml_scalar(value) {
+        YamlScalar::Plain(value) => value.to_string(),
+        YamlScalar::Literal => serde_json::to_string(value).expect("a string always serializes"),
     }
 }
 
@@ -1095,7 +1212,8 @@ fn refused(format: Format, reason: String) -> Outcome {
 #[cfg(test)]
 mod typed_tests {
     use super::super::config::{
-        Canonical, CanonicalAgent, CanonicalDocument, InstructionAdapter, Tier, TierFields,
+        Canonical, CanonicalAgent, CanonicalDocument, CanonicalList, InstructionAdapter, Tier,
+        TierFields,
     };
     use super::*;
     use crate::runtime::{MemoryAdapterStore, MemoryTree, NoAdapterStore, Tree};
@@ -1142,6 +1260,8 @@ mod typed_tests {
             ]),
             fixed: BTreeMap::new(),
             tier_fields: None,
+            lists: BTreeMap::new(),
+            agents: None,
             absent: Vec::new(),
             translations: Vec::new(),
         }
@@ -1693,6 +1813,7 @@ mod typed_tests {
                 grants: BTreeSet::new(),
                 denials: BTreeSet::from(["repo-write".to_string()]),
                 constraints: BTreeSet::new(),
+                lists: BTreeMap::new(),
             }),
         };
         let mut denial_adapter = adapter(
@@ -1877,6 +1998,7 @@ mod typed_tests {
                 grants: BTreeSet::new(),
                 denials: BTreeSet::new(),
                 constraints: BTreeSet::new(),
+                lists: BTreeMap::new(),
             }),
         };
         let mut absent = adapter(
@@ -1966,5 +2088,89 @@ mod typed_tests {
             entries: BTreeMap::from([("network".to_string(), "deny".to_string())]),
         };
         assert!(add_translation(&mut conflicts, &entries).is_err());
+    }
+
+    #[test]
+    fn list_projection_refuses_skill_adapters_and_repeated_fields() {
+        let mut skill = adapter(
+            "adapters/test/skills/{name}/SKILL.md",
+            AdapterFormat::FrontMatter,
+            "body",
+        );
+        skill.lists = BTreeMap::from([("skills".to_string(), CanonicalList::Skills)]);
+        assert!(
+            validate_adapter("test", &skill, false)
+                .unwrap_err()
+                .contains("agent list into a skill adapter")
+        );
+        let mut repeated = adapter(
+            "adapters/test/agents/{name}.md",
+            AdapterFormat::FrontMatter,
+            "body",
+        );
+        repeated.lists = BTreeMap::from([("name".to_string(), CanonicalList::Skills)]);
+        assert!(
+            validate_adapter("test", &repeated, true)
+                .unwrap_err()
+                .contains("repeats")
+        );
+    }
+
+    #[test]
+    fn list_projection_keeps_authored_order_and_omits_an_empty_list() {
+        assert_eq!(yaml_item("review"), "review");
+        assert_eq!(yaml_item("needs: quotes"), "\"needs: quotes\"");
+        let mut fields = BTreeMap::new();
+        add_field(
+            &mut fields,
+            "skills",
+            RenderField::Sequence(vec!["zeta".to_string(), "alpha".to_string()]),
+        )
+        .unwrap();
+        assert_eq!(
+            render_front_matter(&fields, "route").unwrap(),
+            "---\nskills:\n  - zeta\n  - alpha\n---\n\nroute\n"
+        );
+        assert_eq!(
+            render_toml(&fields).unwrap(),
+            "skills = [\"zeta\", \"alpha\"]\n"
+        );
+
+        let parsed = parse_metadata(
+            "agent.md",
+            "---\nname: reviewer\ndescription: Review changes\nskills:\n---\n",
+            canonical().agents.as_ref().unwrap(),
+        )
+        .unwrap();
+        let source = Source {
+            id: "agent/reviewer".to_string(),
+            path: ".agents/agents/reviewer.md".to_string(),
+            digest: digest("reviewer"),
+            kind: SourceKind::Agent,
+            metadata: Some(parsed),
+        };
+        let mut listing = adapter(
+            "adapters/test/agents/{name}.md",
+            AdapterFormat::FrontMatter,
+            "body",
+        );
+        listing.lists = BTreeMap::from([("skills".to_string(), CanonicalList::Skills)]);
+        let rendered = render_adapter(&profile("test", "read"), &listing, &source).unwrap();
+        assert!(!rendered.contains("skills"), "{rendered}");
+    }
+
+    #[test]
+    fn agent_selection_refuses_a_skill_adapter() {
+        let mut skill = adapter(
+            "adapters/test/skills/{name}/SKILL.md",
+            AdapterFormat::FrontMatter,
+            "body",
+        );
+        skill.agents = Some(vec!["reviewer".to_string()]);
+        assert!(
+            validate_adapter("test", &skill, false)
+                .unwrap_err()
+                .contains("selects agents in a skill adapter")
+        );
     }
 }

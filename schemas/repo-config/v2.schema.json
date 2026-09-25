@@ -10,6 +10,13 @@
           },
           "type": "array"
         },
+        "agents": {
+          "description": "The canonical agents this profile renders. When omitted, every\ncanonical agent renders.",
+          "items": {
+            "type": "string"
+          },
+          "type": ["array", "null"]
+        },
         "fixed": {
           "additionalProperties": {
             "type": "string"
@@ -23,6 +30,13 @@
           "additionalProperties": {
             "$ref": "#/$defs/Identity"
           },
+          "type": "object"
+        },
+        "lists": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CanonicalList"
+          },
+          "description": "Native fields that carry a canonical metadata list, keyed by native\nfield and rendered in the order the canonical source wrote the list.",
           "type": "object"
         },
         "path": {
@@ -167,6 +181,11 @@
       },
       "required": ["name", "description"],
       "type": "object"
+    },
+    "CanonicalList": {
+      "description": "A canonical agent metadata list an adapter may project verbatim. The agent\nschema's other lists, `capabilities` and `constraints`, reach native output\nonly through translations, so they are not projectable here.",
+      "enum": ["skills"],
+      "type": "string"
     },
     "CiMutation": {
       "enum": ["verify-clean"],

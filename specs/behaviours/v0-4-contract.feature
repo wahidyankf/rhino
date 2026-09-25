@@ -928,6 +928,202 @@ Feature: Rhino v0.4 contracts
     And stderr contains "profile `beta` cannot represent required capability `write`"
     And the repository is unchanged by the inspection
 
+  Scenario: Agent adapters project a declared canonical list
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              lists: {skills: skills}
+          - id: beta
+            agent-adapter:
+              path: adapters/beta/agents/{name}.toml
+              format: toml
+              route-field: developer_instructions
+              route: Read {path} completely.
+              identity: {name: name}
+              lists: {preload: skills}
+          - id: gamma
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+      """
+    And the repository contains:
+      | path                       | content                                                                                           |
+      | AGENTS.md                  | Canonical instruction                                                                             |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\nskills:\n  - zeta-check\n  - alpha-check\n---\nCanonical agent |
+      | .agents/agents/writer.md   | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                               |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" is exactly:
+      """
+      ---
+      name: reviewer
+      skills:
+        - zeta-check
+        - alpha-check
+      ---
+
+      Read .agents/agents/reviewer.md completely.
+      """
+    And the generated adapter at "adapters/beta/agents/reviewer.toml" is exactly:
+      """
+      developer_instructions = "Read .agents/agents/reviewer.md completely."
+      name = "reviewer"
+      preload = ["zeta-check", "alpha-check"]
+      """
+    And the generated adapter at "adapters/alpha/agents/writer.md" does not contain "skills"
+
+  Scenario: An adapter list naming a disallowed key refuses
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", lists: {tools: capabilities}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\ncapabilities:\n  - repository-read\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 2
+    And stderr contains "unknown variant `capabilities`"
+    And the repository is unchanged by the inspection
+
+  Scenario: An adapter without lists renders unchanged
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.toml", format: toml, route-field: developer_instructions, route: "Read {path} completely.", identity: {name: name, description: description}}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\nskills:\n  - zeta-check\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" is exactly:
+      """
+      ---
+      description: Review changes
+      name: reviewer
+      ---
+
+      Read .agents/agents/reviewer.md completely.
+      """
+    And the generated adapter at "adapters/beta/agents/reviewer.toml" is exactly:
+      """
+      description = "Review changes"
+      developer_instructions = "Read .agents/agents/reviewer.md completely."
+      name = "reviewer"
+      """
+
+  Scenario: A profile renders only its selected agents
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, agents: [reviewer]}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/writer.md   | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent    |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "name: reviewer"
+    And no generated adapter exists at "adapters/alpha/agents/writer.md"
+    And the generated adapter at "adapters/alpha/agents/catalog.json" does not contain "writer"
+    And the generated adapter at "adapters/alpha/agents/provenance.json" does not contain "writer"
+    And the generated adapter at "adapters/beta/agents/writer.md" contains "name: writer"
+
+  Scenario: A selected agent without a canonical source refuses
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", agents: [reviewer, ghost]}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 2
+    And stderr contains "profile `alpha` selects agent `ghost` with no canonical source"
+    And the repository is unchanged by the inspection
+
+  Scenario: A file outside the selection is stale
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", agents: [reviewer]}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                            | content                                                             |
+      | AGENTS.md                       | Canonical instruction                                               |
+      | .agents/agents/reviewer.md      | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/writer.md        | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent    |
+      | adapters/alpha/agents/writer.md | Previously generated adapter                                        |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 1
+    And stderr contains "adapters/alpha/agents/writer.md: stale-adapter"
+
   Scenario: Toolchain provisioning requires an explicit apply contract
     Given the configuration file is this text:
       """

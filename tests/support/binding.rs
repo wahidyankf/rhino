@@ -2422,6 +2422,31 @@ Body.
                 None => Outcome::Failed(format!("no generated adapter exists at `{path}`")),
             }
         }
+        "the generated adapter at {string} is exactly:" => {
+            // Exact bytes rather than a substring: field order, list order,
+            // and the absence of any extra line are all part of the claim.
+            let path = matched.string(0);
+            let Some(body) = step.docstring.as_deref() else {
+                return Outcome::Failed("the sentence promised a document".to_string());
+            };
+            let expected = format!("{body}\n");
+            match world.files.get(path) {
+                Some(contents) => expect(
+                    *contents == expected,
+                    format!(
+                        "generated adapter `{path}` differs\nexpected: {expected}\ncontents: {contents}"
+                    ),
+                ),
+                None => Outcome::Failed(format!("no generated adapter exists at `{path}`")),
+            }
+        }
+        "no generated adapter exists at {string}" => {
+            let path = matched.string(0);
+            expect(
+                !world.files.contains_key(path),
+                format!("a generated adapter exists at `{path}`"),
+            )
+        }
         "the file {string} still contains {string}" => {
             let path = matched.string(0);
             let expected = matched.string(1);

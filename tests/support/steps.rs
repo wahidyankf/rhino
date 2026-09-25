@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 17] = [
+pub const VOCABULARY: [&str; 19] = [
     "I invoke the CLI with {string}",
     "I run the {string} validator",
     "stderr contains {string}",
@@ -24,6 +24,8 @@ pub const VOCABULARY: [&str; 17] = [
     "the first stdout JSON violation kind is {string}",
     "the generated adapter at {string} contains {string}",
     "the generated adapter at {string} does not contain {string}",
+    "the generated adapter at {string} is exactly:",
+    "no generated adapter exists at {string}",
     "the last adapter generation changes the repository",
     "the last adapter generation makes no repository change",
     "the repository contains:",
