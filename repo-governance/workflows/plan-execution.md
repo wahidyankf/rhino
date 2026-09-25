@@ -22,14 +22,13 @@ Use this only after an explicit direction to execute one formal plan. Its job is
 
 ## Complete and Archive
 
-1. Run [plan execution check](plan-execution-check.md) once every substantive item is terminal, and record its verdict. Archival is blocked, not warned, by an unresolved criterion, an unproven cleanup, or an unrouted learning.
-2. Require an explicit direction for a fresh completion run of the quality gate, and continue only on `PASS`. Do not start it from here.
-3. Tear down what the plan created — its worktree, its local branch, and that branch on `origin` — once every delivery unit that used the worktree has landed. A failed run keeps its worktree and records why. Record proof of each removal.
-4. Give every dormant conditional a dated, evidenced `Not triggered` disposition; never claim execution of something that never ran. The plan stays in progress while any required outcome, activated conditional, gate, or human action remains.
-5. Archive through the sequence [knowledge capture and archival](../conventions/plans/008-knowledge-capture-and-archival.md) fixes, using the final checkpoint's local date for both the README `Completed` field and the destination folder. Refuse an existing destination: never merge, overwrite, or add a suffix. Committing and pushing need their own [authorization](../conventions/commit-authorization.md).
+1. Run [plan execution check](plan-execution-check.md) once every substantive item is terminal, and record its verdict. It alone closes the plan; the quality gate judges plans, not delivered work. Archival is blocked, not warned, by an unresolved criterion, an unproven cleanup, or an unrouted learning.
+2. Tear down what the plan created — its worktree, its local branch, and that branch on `origin` — once every delivery unit that used the worktree has landed. A failed run keeps its worktree and records why. Record proof of each removal.
+3. Give every dormant conditional a dated, evidenced `Not triggered` disposition; never claim execution of something that never ran. The plan stays in progress while any required outcome, activated conditional, gate, or human action remains.
+4. Archive through the sequence [knowledge capture and archival](../conventions/plans/008-knowledge-capture-and-archival.md) fixes, using the final checkpoint's local date for both the README `Completed` field and the destination folder. Refuse an existing destination: never merge, overwrite, or add a suffix. Committing and pushing need their own [authorization](../conventions/commit-authorization.md).
 
 ## Recovery
 
 At any pause the plan itself carries enough state to resume: the current checkout, the last terminal gate, the next unresolved item, and any bounded budget already partly spent. A resumed session continues a budget; it never resets one.
 
-Interrupted work stays accurately in progress and resumes only after a directed fresh quality-gate `PASS`. If archival verification fails, restore the folder, its status, and both maps. Never leave a plan split across two stages, and never archive incomplete work.
+Interrupted work stays accurately in progress and resumes from its recorded state; only a material plan change needs a fresh directed quality-gate `PASS`. If archival verification fails, restore the folder, its status, and both maps. Never leave a plan split across two stages, and never archive incomplete work.
