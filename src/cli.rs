@@ -137,7 +137,7 @@ pub const LEAVES: &[Leaf] = &[
         path: &["env", "backup"],
         category: "environment-backup",
         accepts: &[Accepts::BackupDirectory],
-        summary: "Plan a declared environment backup into an explicit destination.",
+        summary: "Copy declared environment targets into an explicit backup destination.",
     },
     Leaf {
         path: &["env", "validate"],

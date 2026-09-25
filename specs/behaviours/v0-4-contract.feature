@@ -572,6 +572,22 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "backup destination leaves the repository root"
 
+  Scenario: Environment backup reports the copy it completed
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        examples:
+          - source: .env.example
+            target: .env.saved
+      """
+    And the repository contains:
+      | path       | content               |
+      | .env.saved | SAVED_KEY=placeholder |
+    When I invoke the CLI with "env|backup|--dir|saved|--output|json"
+    Then the exit code is 0
+    And stdout contains "completed"
+
   Scenario: Text and JSON gate listings share a result envelope
     Given the configuration file is this text:
       """
@@ -2112,6 +2128,104 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "governance|directory-map|validate|--directory|docs/outside|--output|json"
     Then the exit code is 2
     And stderr contains "rhino.path.escapes-root"
+
+  Scenario Outline: A declared directory-map tree outside the repository root is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          directory-map:
+            trees:
+              - path: <path>
+      """
+    When I invoke the CLI with "governance|directory-map|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.config.unusable"
+    And stderr contains "policies.governance.directory-map.trees"
+
+    Examples:
+      | path       |
+      | ../outside |
+      | /etc       |
+
+  Scenario Outline: A declared glob outside the repository root is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      <group>
+      """
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "rhino.config.unusable"
+    And stderr contains "<key>"
+
+    Examples:
+      | group                                                                                                        | command                                           | key                              |
+      | policies: {markdown: {naming: {surfaces: [], exempt: ["../**"]}}}                                            | md\|naming\|validate\|--output\|json              | md-naming.exempt                 |
+      | policies: {markdown: {internal-link: {exclude-sources: ["/generated/**"]}}}                                  | md\|internal-link\|validate\|--output\|json       | md-internal-link.exclude-sources |
+      | policies: {conventions: {emoji: {prohibited: [{glob: "../**/*.md"}]}}}                                       | convention\|emoji\|validate\|--output\|json       | convention-emoji.prohibited      |
+      | policies: {governance: {word-budget: {count: letters-and-digits, surfaces: [{glob: "/docs/**", fail: 10}]}}} | governance\|word-budget\|validate\|--output\|json | governance-word-budget.surfaces  |
+      | environment: {staged: {forbidden: ["../.env*"]}}                                                             | env\|validate\|--output\|json                     | environment staging guard        |
+
+  Scenario: A declared directory-map tree behind a symbolic link is refused rather than skipped
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          directory-map:
+            trees:
+              - path: mapped
+      """
+    And the repository contains a symbolic link at "mapped" to a directory outside it holding "README.md"
+    When I invoke the CLI with "governance|directory-map|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: A declared vendor root behind a symbolic link is refused rather than skipped
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          vendor:
+            roots: [vendored]
+            forbidden-terms: [MIT]
+      """
+    And the repository contains a symbolic link at "vendored" to a directory outside it holding "held.md"
+    When I invoke the CLI with "governance|vendor|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: A declared layer root behind a symbolic link is refused rather than skipped
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          layers:
+            root: governance
+            order: []
+      """
+    And the repository contains a symbolic link at "governance" to a directory outside it holding "held.md"
+    When I invoke the CLI with "governance|layers|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: A declared environment source behind a symbolic link is refused rather than reported unread
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        detectors:
+          - language: rust
+            paths: [linked/main.rs]
+      """
+    And the repository contains a symbolic link at "linked" to a directory outside it holding "main.rs"
+    When I invoke the CLI with "env|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
 
   Scenario: Mermaid policy accepts a declared plain-text repository with no diagrams
     Given the configuration file is this text:

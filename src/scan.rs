@@ -118,6 +118,14 @@ pub fn glob_set<'a>(
 ) -> Result<GlobSet, String> {
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
+        // Every path a walk yields is repository-relative, so an absolute or
+        // climbing pattern can never match: it would be a policy that quietly
+        // governs nothing.
+        if leaves_root(pattern) {
+            return Err(format!(
+                "{key}: `{pattern}` must be relative to the repository root"
+            ));
+        }
         let glob = GlobBuilder::new(pattern)
             .case_insensitive(true)
             .build()
@@ -125,6 +133,11 @@ pub fn glob_set<'a>(
         builder.add(glob);
     }
     builder.build().map_err(|error| format!("{key}: {error}"))
+}
+
+/// Whether a declared pattern or path is absolute or climbs out of the root.
+pub fn leaves_root(pattern: &str) -> bool {
+    pattern.starts_with('/') || pattern.split('/').any(|segment| segment == "..")
 }
 
 /// The file a directory documents itself in.

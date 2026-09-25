@@ -125,6 +125,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Environment backup reports the copy it completed",
+    ),
+    (
+        "v0-4-contract",
         "Text and JSON gate listings share a result envelope",
     ),
     ("v0-4-contract", "Retired gate aliases are unknown"),
@@ -399,6 +403,30 @@ pub const BINDINGS: &[Binding] = &[
     (
         "v0-4-contract",
         "A selected directory behind a symbolic link escapes the repository root",
+    ),
+    (
+        "v0-4-contract",
+        "A declared directory-map tree outside the repository root is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A declared glob outside the repository root is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A declared directory-map tree behind a symbolic link is refused rather than skipped",
+    ),
+    (
+        "v0-4-contract",
+        "A declared vendor root behind a symbolic link is refused rather than skipped",
+    ),
+    (
+        "v0-4-contract",
+        "A declared layer root behind a symbolic link is refused rather than skipped",
+    ),
+    (
+        "v0-4-contract",
+        "A declared environment source behind a symbolic link is refused rather than reported unread",
     ),
     (
         "v0-4-contract",

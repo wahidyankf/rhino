@@ -102,6 +102,21 @@ report, so read **Changed — breaking** before upgrading a pinned version.
   one object on one line, with `status` `planned`, the planned `count`, and
   the planned `targets` or `toolchains`. Text output is unchanged. See
   [operation status documents](docs/reference/json-output.md#operation-status-documents).
+- **A declared path outside the root or behind a symbolic link is never a
+  quiet pass.** A directory-map tree that was absolute or climbed out of the
+  root matched nothing, so the run exited `0`. So did a naming exemption, an
+  internal-link source exclusion, an emoji prohibition, a word-budget or other
+  surface glob, or a staged-environment pattern that did the same. Each now
+  refuses with exit `2` and `rhino.config.unusable`, naming the setting and
+  the value, as a license path already did. A directory-map tree, vendor root, or layer root
+  behind a symbolic link was skipped as if absent. It now refuses with exit `2`
+  and `rhino.file.unreadable`. An environment detector source that exists and
+  cannot be read, including one behind a link, refuses the same way.
+  `declared-source-unread` now means only that the source does not exist.
+- **`env backup` reports the copy it made.** After copying the declared files
+  it reported `"status":"planned"` and the text line `planned declared files`.
+  It now reports `completed`. A policy with no eligible file writes nothing and
+  still reports `planned`.
 
 ## [v0.5.0] — 2026-09-22
 
