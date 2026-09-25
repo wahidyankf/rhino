@@ -501,10 +501,36 @@ pub(crate) struct Adapter {
         skip_serializing_if = "Option::is_none"
     )]
     pub(crate) tier_fields: Option<TierFields>,
+    /// Native fields that carry a canonical metadata list, keyed by native
+    /// field and rendered in the order the canonical source wrote the list.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) lists: BTreeMap<String, CanonicalList>,
+    /// The canonical agents this profile renders. When omitted, every
+    /// canonical agent renders.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) agents: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) absent: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) translations: Vec<Translation>,
+}
+
+/// A canonical agent metadata list an adapter may project verbatim. The agent
+/// schema's other lists, `capabilities` and `constraints`, reach native output
+/// only through translations, so they are not projectable here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum CanonicalList {
+    Skills,
+}
+
+impl CanonicalList {
+    /// The canonical front-matter key that holds the list.
+    pub(crate) const fn key(self) -> &'static str {
+        match self {
+            Self::Skills => "skills",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

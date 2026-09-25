@@ -162,6 +162,27 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Agent adapters project a declared canonical list",
+    ),
+    (
+        "v0-4-contract",
+        "An adapter list naming a disallowed key refuses",
+    ),
+    (
+        "v0-4-contract",
+        "An adapter without lists renders unchanged",
+    ),
+    (
+        "v0-4-contract",
+        "A profile renders only its selected agents",
+    ),
+    (
+        "v0-4-contract",
+        "A selected agent without a canonical source refuses",
+    ),
+    ("v0-4-contract", "A file outside the selection is stale"),
+    (
+        "v0-4-contract",
         "Toolchain provisioning requires an explicit apply contract",
     ),
     (
