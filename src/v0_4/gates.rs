@@ -106,10 +106,16 @@ pub(crate) fn run(
     let Some(gates) = gates else {
         return undeclared(invocation.format);
     };
+    // Absent and unknown are different mistakes: one leaves out an option the
+    // command needs, the other gives it a value this build does not know.
     let Some(surface) = invocation.surface.as_deref().and_then(surface) else {
+        let code = match invocation.surface {
+            None => ErrorCode::ArgsIncomplete,
+            Some(_) => ErrorCode::ArgsUnrecognized,
+        };
         return Outcome::refusal(
             invocation.format,
-            ErrorCode::ArgsIncomplete,
+            code,
             format!(
                 "`--surface` must name one of {}",
                 Surface::ALL
@@ -142,10 +148,10 @@ pub(crate) fn run(
         let resolved = match resolve_inputs(gate, membership.bind.iter(), invocation, tree, stdin) {
             Ok(Some(inputs)) => inputs,
             Ok(None) => continue,
-            Err(reason) => {
+            Err((code, reason)) => {
                 return Outcome::refusal(
                     invocation.format,
-                    ErrorCode::ConfigUnusable,
+                    code,
                     format!("gate `{}`: {reason}", gate.id),
                 );
             }
@@ -381,7 +387,19 @@ fn resolve_inputs<'a>(
     invocation: &Invocation,
     tree: &dyn Tree,
     stdin: Option<&str>,
-) -> Result<Option<BTreeMap<String, ResolvedInput>>, String> {
+) -> Result<Option<BTreeMap<String, ResolvedInput>>, (ErrorCode, String)> {
+    // Each failure names what went wrong in the closed vocabulary: an option
+    // the invocation left out, a value it gave that is not a commit, a file it
+    // named, standard input, or a Git answer the repository could not give.
+    // None of them is a fault in the configuration, which is already valid.
+    let incomplete = |reason: &str| (ErrorCode::ArgsIncomplete, reason.to_string());
+    let not_commits = || {
+        (
+            ErrorCode::ArgsUnrecognized,
+            "requires hexadecimal commit IDs for `--base` and `--head`".to_string(),
+        )
+    };
+    let git = |reason: String| (ErrorCode::RepositoryUnusable, reason);
     let mut resolved = BTreeMap::new();
     for (name, binding) in bindings {
         let input = gate
@@ -394,18 +412,17 @@ fn resolve_inputs<'a>(
                 let (Some(base), Some(head)) =
                     (invocation.base.as_deref(), invocation.head.as_deref())
                 else {
-                    return Err(
-                        "requires both `--base` and `--head` for an explicit file range"
-                            .to_string(),
-                    );
+                    return Err(incomplete(
+                        "requires both `--base` and `--head` for an explicit file range",
+                    ));
                 };
                 if !is_commit(base) || !is_commit(head) {
-                    return Err(
-                        "requires hexadecimal commit IDs for `--base` and `--head`".to_string()
-                    );
+                    return Err(not_commits());
                 }
                 let paths = tree.changed_files(base, head).map_err(|reason| {
-                    format!("cannot read changed files for the explicit range: {reason}")
+                    git(format!(
+                        "cannot read changed files for the explicit range: {reason}"
+                    ))
                 })?;
                 ResolvedInput::Files(paths)
             }
@@ -414,14 +431,23 @@ fn resolve_inputs<'a>(
             }
             (InputKind::CommitMessage, InputSource::HookMessageFile) => {
                 let Some(path) = invocation.message_file.as_deref() else {
-                    return Err("requires `--message-file` for a commit-message input".to_string());
+                    return Err(incomplete(
+                        "requires `--message-file` for a commit-message input",
+                    ));
                 };
                 let message = tree.hook_message_file(path).map_err(|error| match error {
-                    TreeError::NotFound => format!("message file `{path}` does not exist"),
-                    TreeError::Unreadable(reason) => {
-                        format!("message file `{path}` cannot be read: {reason}")
-                    }
-                    TreeError::NotText => format!("message file `{path}` is not text"),
+                    TreeError::NotFound => (
+                        ErrorCode::FileMissing,
+                        format!("message file `{path}` does not exist"),
+                    ),
+                    TreeError::Unreadable(reason) => (
+                        ErrorCode::FileUnreadable,
+                        format!("message file `{path}` cannot be read: {reason}"),
+                    ),
+                    TreeError::NotText => (
+                        ErrorCode::FileUnreadable,
+                        format!("message file `{path}` is not text"),
+                    ),
                 })?;
                 ResolvedInput::CommitMessage(message)
             }
@@ -429,18 +455,17 @@ fn resolve_inputs<'a>(
                 let (Some(base), Some(head)) =
                     (invocation.base.as_deref(), invocation.head.as_deref())
                 else {
-                    return Err(
-                        "requires both `--base` and `--head` for an explicit commit range"
-                            .to_string(),
-                    );
+                    return Err(incomplete(
+                        "requires both `--base` and `--head` for an explicit commit range",
+                    ));
                 };
                 if !is_commit(base) || !is_commit(head) {
-                    return Err(
-                        "requires hexadecimal commit IDs for `--base` and `--head`".to_string()
-                    );
+                    return Err(not_commits());
                 }
                 let messages = tree.commit_messages(base, head).map_err(|reason| {
-                    format!("cannot read commit messages for the explicit range: {reason}")
+                    git(format!(
+                        "cannot read commit messages for the explicit range: {reason}"
+                    ))
                 })?;
                 ResolvedInput::CommitMessage(messages)
             }
@@ -448,15 +473,12 @@ fn resolve_inputs<'a>(
                 let (Some(base), Some(head)) =
                     (invocation.base.as_deref(), invocation.head.as_deref())
                 else {
-                    return Err(
-                        "requires both `--base` and `--head` for an explicit commit range"
-                            .to_string(),
-                    );
+                    return Err(incomplete(
+                        "requires both `--base` and `--head` for an explicit commit range",
+                    ));
                 };
                 if !is_commit(base) || !is_commit(head) {
-                    return Err(
-                        "requires hexadecimal commit IDs for `--base` and `--head`".to_string()
-                    );
+                    return Err(not_commits());
                 }
                 ResolvedInput::CommitRange {
                     base: base.to_string(),
@@ -465,29 +487,37 @@ fn resolve_inputs<'a>(
             }
             (InputKind::CommitRange, InputSource::PushUpdates) => {
                 if !invocation.push_updates_stdin {
-                    return Err(
-                        "requires `--push-updates-stdin` for a push-update range".to_string()
-                    );
+                    return Err(incomplete(
+                        "requires `--push-updates-stdin` for a push-update range",
+                    ));
                 }
-                let (base, head) =
-                    match parse_push_range(stdin.unwrap_or_default(), binding.fallback.as_deref())?
-                    {
-                        PushRange::Range { base, head } => (base, head),
-                        PushRange::NewRef { fallback, head } => (
-                            tree.resolve_git_ref(&fallback).map_err(|reason| {
-                                format!("cannot resolve push fallback `{fallback}`: {reason}")
-                            })?,
-                            head,
-                        ),
-                        PushRange::Deleted => return Ok(None),
-                    };
+                let parsed =
+                    parse_push_range(stdin.unwrap_or_default(), binding.fallback.as_deref())
+                        .map_err(|reason| (ErrorCode::InputUnreadable, reason))?;
+                let (base, head) = match parsed {
+                    PushRange::Range { base, head } => (base, head),
+                    PushRange::NewRef { fallback, head } => (
+                        tree.resolve_git_ref(&fallback).map_err(|reason| {
+                            git(format!(
+                                "cannot resolve push fallback `{fallback}`: {reason}"
+                            ))
+                        })?,
+                        head,
+                    ),
+                    PushRange::Deleted => return Ok(None),
+                };
                 ResolvedInput::CommitRange { base, head }
             }
             (InputKind::Files, InputSource::GitIndex) => ResolvedInput::Files(
                 tree.indexed_files()
-                    .map_err(|reason| format!("cannot resolve the Git index: {reason}"))?,
+                    .map_err(|reason| git(format!("cannot resolve the Git index: {reason}")))?,
             ),
-            _ => return Err("has an invalid typed input binding".to_string()),
+            _ => {
+                return Err((
+                    ErrorCode::ConfigUnusable,
+                    "has an invalid typed input binding".to_string(),
+                ));
+            }
         };
         resolved.insert(name.clone(), value);
     }
@@ -1433,7 +1463,7 @@ gates:
         assert!(
             outcome
                 .stderr
-                .contains("\"code\":\"rhino.config.unusable\"")
+                .contains("\"code\":\"rhino.file.unreadable\"")
         );
         assert!(outcome.stderr.contains("gate `message`"));
         assert!(launcher.calls.borrow().is_empty());
@@ -1706,6 +1736,7 @@ gates:
         assert!(
             resolve_inputs(&gate, message.iter(), &Invocation::default(), &tree, None)
                 .unwrap_err()
+                .1
                 .contains("--message-file")
         );
         let absent_message_file = Invocation {
@@ -1716,7 +1747,14 @@ gates:
         assert!(
             resolve_inputs(&gate, message.iter(), &absent_message_file, &tree, None)
                 .unwrap_err()
+                .1
                 .contains("does not exist")
+        );
+        assert_eq!(
+            resolve_inputs(&gate, message.iter(), &absent_message_file, &tree, None)
+                .unwrap_err()
+                .0,
+            ErrorCode::FileMissing
         );
 
         let explicit_message = BTreeMap::from([(
@@ -1745,6 +1783,7 @@ gates:
                 None
             )
             .unwrap_err()
+            .1
             .contains("both `--base`")
         );
         let absent_range_messages = Invocation {
@@ -1761,6 +1800,7 @@ gates:
                 None
             )
             .unwrap_err()
+            .1
             .contains("cannot read commit messages")
         );
 
@@ -1779,6 +1819,7 @@ gates:
         assert!(
             resolve_inputs(&gate, explicit.iter(), &Invocation::default(), &tree, None)
                 .unwrap_err()
+                .1
                 .contains("both `--base`")
         );
         let invalid_commit = Invocation {
@@ -1789,11 +1830,13 @@ gates:
         assert!(
             resolve_inputs(&gate, explicit.iter(), &invalid_commit, &tree, None)
                 .unwrap_err()
+                .1
                 .contains("hexadecimal")
         );
         assert!(
             resolve_inputs(&gate, explicit_message.iter(), &invalid_commit, &tree, None)
                 .unwrap_err()
+                .1
                 .contains("hexadecimal")
         );
 
@@ -1808,6 +1851,7 @@ gates:
         assert!(
             resolve_inputs(&gate, push.iter(), &Invocation::default(), &tree, None)
                 .unwrap_err()
+                .1
                 .contains("--push-updates-stdin")
         );
         assert!(matches!(
@@ -1868,13 +1912,40 @@ gates:
                 None
             )
             .unwrap_err()
+            .1
             .contains("both `--base`")
         );
         assert!(
             resolve_inputs(&gate, explicit_files.iter(), &invalid_commit, &tree, None)
                 .unwrap_err()
+                .1
                 .contains("hexadecimal")
         );
+        for (bound, invocation, code) in [
+            (
+                &explicit_files,
+                &Invocation::default(),
+                ErrorCode::ArgsIncomplete,
+            ),
+            (
+                &explicit_files,
+                &invalid_commit,
+                ErrorCode::ArgsUnrecognized,
+            ),
+            (&push, &Invocation::default(), ErrorCode::ArgsIncomplete),
+            (
+                &explicit_message,
+                &absent_range_messages,
+                ErrorCode::RepositoryUnusable,
+            ),
+        ] {
+            assert_eq!(
+                resolve_inputs(&gate, bound.iter(), invocation, &tree, None)
+                    .unwrap_err()
+                    .0,
+                code
+            );
+        }
         let unavailable_file_range = Invocation {
             base: Some("ccccccc".to_string()),
             head: Some("ddddddd".to_string()),
@@ -1889,6 +1960,7 @@ gates:
                 None
             )
             .unwrap_err()
+            .1
             .contains("cannot read changed files")
         );
         assert_eq!(

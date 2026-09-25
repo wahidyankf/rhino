@@ -397,6 +397,14 @@ impl Report {
         Self::refused_as(crate::errors::ErrorCode::ConfigUnusable, category, message)
     }
 
+    /// A run that could not read a file it had to: a document the walk
+    /// selected, or a path the configuration declared, that exists and cannot
+    /// be opened. That is a fact about the tree, not about the configuration,
+    /// so it carries its own code rather than the configuration one.
+    pub fn unreadable(category: &'static str, message: impl AsRef<str>) -> Self {
+        Self::refused_as(crate::errors::ErrorCode::FileUnreadable, category, message)
+    }
+
     /// A refusal carrying a code other than the configuration one.
     ///
     /// The default exists because almost every refusal a validator reaches is

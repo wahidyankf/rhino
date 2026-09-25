@@ -86,7 +86,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, metadata: &Metadata) -> Report
     };
     let corpus = match Corpus::read(tree, config) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::refused("metadata", reason),
+        Err(reason) => return Report::unreadable("metadata", reason),
     };
 
     let mut report = Report::new("metadata", "file");

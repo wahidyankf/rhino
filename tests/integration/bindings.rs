@@ -321,6 +321,50 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "An omitted policy is refused as undeclared configuration",
+    ),
+    (
+        "v0-4-contract",
+        "A selected file that does not exist is refused as missing",
+    ),
+    (
+        "v0-4-contract",
+        "A selected file that cannot be opened is refused as unreadable",
+    ),
+    (
+        "v0-4-contract",
+        "A selected directory that does not exist is refused as missing",
+    ),
+    (
+        "v0-4-contract",
+        "An inspected file that cannot be opened is refused as unreadable",
+    ),
+    (
+        "v0-4-contract",
+        "An unknown lifecycle surface is an unrecognized option value",
+    ),
+    (
+        "v0-4-contract",
+        "A range bound that names no commit is an unrecognized option value",
+    ),
+    (
+        "v0-4-contract",
+        "A range input the repository cannot answer is refused as an unusable repository",
+    ),
+    (
+        "v0-4-contract",
+        "A hook message file outside Git's hook boundary is refused as unreadable",
+    ),
+    (
+        "v0-4-contract",
+        "An inconsistent toolchain policy is refused as unusable configuration",
+    ),
+    (
+        "v0-4-contract",
+        "A staging guard in a repository with no Git index is refused as an unusable repository",
+    ),
+    (
+        "v0-4-contract",
         "Internal-link policy reports a target behind a symbolic link as outside the repository",
     ),
     (

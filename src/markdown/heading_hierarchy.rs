@@ -32,7 +32,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, headings: &HeadingHierarchy) -
     };
     let corpus = match Corpus::read(tree, config) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::refused("heading-hierarchy", reason),
+        Err(reason) => return Report::unreadable("heading-hierarchy", reason),
     };
 
     let mut report = Report::new("heading-hierarchy", "file");

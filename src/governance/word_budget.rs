@@ -42,7 +42,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, budget: &WordBudget) -> Report
     };
     let corpus = match Corpus::read(tree, config) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::refused("word-budget", reason),
+        Err(reason) => return Report::unreadable("word-budget", reason),
     };
 
     let mut report = Report::new("word-budget", "file");
