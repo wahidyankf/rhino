@@ -24,6 +24,13 @@ pub fn validate(tree: &dyn Tree, config: &Config, map: &DirectoryMap, scope: &Sc
     // directories would be the wrong answer to the wrong question.
     let trees: Vec<String> = match &scope.directory {
         Some(selected) => {
+            if tree.passes_through_link(selected) {
+                return Report::refused_as(
+                    crate::errors::ErrorCode::PathEscapesRoot,
+                    "directory-map",
+                    format!("{selected} passes through a symbolic link, which RHINO never follows"),
+                );
+            }
             if !tree.is_directory(selected) {
                 return Report::refused(
                     "directory-map",
@@ -335,6 +342,22 @@ mod tests {
             .exit_code,
             2
         );
+
+        let mut linked = tree.clone();
+        linked.write("docs/outside/README.md", "# held");
+        linked.mark_link("docs/outside");
+        let escaped = validate(
+            &linked,
+            &Config::default(),
+            &map(&["docs"]),
+            &Scope {
+                directory: Some("docs/outside".to_string()),
+                ..Scope::default()
+            },
+        )
+        .render(Format::Json);
+        assert_eq!(escaped.exit_code, 2);
+        assert!(escaped.stderr.contains("rhino.path.escapes-root"));
 
         tree.mark_unreadable("docs/README.md");
         assert_eq!(

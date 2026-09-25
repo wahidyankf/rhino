@@ -92,12 +92,9 @@ pub fn inspect(tree: &dyn Tree, budget: &WordBudget, scope: &Scope) -> Report {
 
     let mut total = 0usize;
     for (path, content) in scope.documents(tree) {
-        let Some(text) = content else {
-            return Report::refused_as(
-                crate::errors::ErrorCode::FileUnreadable,
-                "word-count",
-                format!("{path}: cannot be read"),
-            );
+        let text = match content {
+            Ok(text) => text,
+            Err(unselectable) => return unselectable.refusal("word-count", &path),
         };
         let words = count(&text, budget.count);
         total += words;

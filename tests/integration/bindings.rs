@@ -321,6 +321,22 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "Internal-link policy reports a target behind a symbolic link as outside the repository",
+    ),
+    (
+        "v0-4-contract",
+        "A declared file behind a symbolic link is refused rather than read",
+    ),
+    (
+        "v0-4-contract",
+        "A selected file behind a symbolic link escapes the repository root",
+    ),
+    (
+        "v0-4-contract",
+        "A selected directory behind a symbolic link escapes the repository root",
+    ),
+    (
+        "v0-4-contract",
         "Mermaid policy accepts a declared plain-text repository with no diagrams",
     ),
     (

@@ -52,6 +52,11 @@ pub struct Run {
 /// content behind it where that is readable.
 pub type Observation = BTreeMap<String, Option<String>>;
 
+/// What a file reached only through a link out of the repository holds. It
+/// names the MIT identifier, so a license policy that followed the link would
+/// find exactly what it looks for and report clean.
+pub const OUTSIDE_CONTENT: &str = "# Held outside the repository\n\nMIT\n";
+
 /// The immediate entries of the process working directory.
 ///
 /// Included because `rhino::execute` runs *in this process* at the unit and
@@ -378,6 +383,10 @@ pub struct World<D> {
     /// Paths that are filesystem links. No tree reports them, which is the
     /// point: following one can leave the repository.
     pub links: BTreeSet<String>,
+    /// Directory links that lead out of the repository, each to a directory
+    /// holding the one named file. The file is real, so a tree that followed
+    /// the link would find it; what a scenario proves is that nothing does.
+    pub outside_links: BTreeMap<String, String>,
     /// Directories the repository holds that contain no file at any depth.
     ///
     /// Modelled explicitly because a tree derived from its files cannot hold
@@ -417,6 +426,7 @@ impl<D> World<D> {
             vanished: &self.vanished,
             binary: &self.binary,
             links: &self.links,
+            outside_links: &self.outside_links,
             empty_directories: &self.empty_directories,
             stdin: self.stdin.as_deref(),
             gate_outcomes: &self.gate_outcomes,
@@ -470,6 +480,7 @@ pub struct Repository<'a> {
     pub vanished: &'a BTreeSet<String>,
     pub binary: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
+    pub outside_links: &'a BTreeMap<String, String>,
     pub empty_directories: &'a BTreeSet<String>,
     pub stdin: Option<&'a str>,
     /// The gate children this repository is to answer with, in declaration

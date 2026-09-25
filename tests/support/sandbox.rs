@@ -24,6 +24,10 @@ const CHILD_MARKER: &str = crate::binding::CHILD_MARKER;
 
 pub struct Sandbox {
     root: PathBuf,
+    /// Directories this sandbox made beside its root for links to lead out
+    /// to. Created and removed by the sandbox itself, so a scenario about
+    /// leaving the repository still touches nothing it did not create.
+    outside: Vec<PathBuf>,
 }
 
 impl Sandbox {
@@ -50,7 +54,10 @@ impl Sandbox {
         // mean a scenario inspecting files it never declared.
         std::fs::create_dir(&root).expect("the sandbox root is new and creatable");
 
-        let sandbox = Self { root };
+        let mut sandbox = Self {
+            root,
+            outside: Vec::new(),
+        };
         for (path, content) in repository.files {
             sandbox.write(path, content);
         }
@@ -65,6 +72,9 @@ impl Sandbox {
         }
         for path in repository.links {
             sandbox.link(path);
+        }
+        for (link, held) in repository.outside_links {
+            sandbox.link_outside(link, held);
         }
         // Created after the files, so a directory a scenario declared empty is
         // empty however the paths happened to sort.
@@ -164,6 +174,23 @@ exit {code}
         std::os::unix::fs::symlink("/dev/null", &target).expect("the link is creatable");
     }
 
+    /// Link a directory inside the repository to one beside it, holding one
+    /// real file. A tree that followed the link would read that file.
+    fn link_outside(&mut self, link: &str, held: &str) {
+        let mut name = self.root.as_os_str().to_owned();
+        name.push(format!("-outside-{}", self.outside.len()));
+        let outside = PathBuf::from(name);
+        std::fs::create_dir(&outside).expect("the outside directory is new and creatable");
+        std::fs::write(outside.join(held), crate::world::OUTSIDE_CONTENT)
+            .expect("the outside file is writable");
+        let target = self.root.join(link);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).expect("the link's parent directory is creatable");
+        }
+        std::os::unix::fs::symlink(&outside, &target).expect("the link is creatable");
+        self.outside.push(outside);
+    }
+
     /// Make a written file unreadable, so opening it fails the way a
     /// permission-denied file fails in a real repository.
     fn seal(&self, path: &str) {
@@ -195,6 +222,9 @@ impl Drop for Sandbox {
         // a passing scenario into a failing one, or mask why a failing one
         // failed.
         let _ = std::fs::remove_dir_all(&self.root);
+        for outside in &self.outside {
+            let _ = std::fs::remove_dir_all(outside);
+        }
     }
 }
 

@@ -183,6 +183,12 @@ fn resolve(tree: &dyn Tree, source: &str, target: &str) -> Option<Fault> {
     }
 
     let resolved = segments.join("/");
+    // A target behind a filesystem link is never followed. Where the link
+    // leads is not this repository's to answer for, so the target is reported
+    // as outside it rather than as missing.
+    if tree.passes_through_link(&resolved) {
+        return Some(Fault::Outside);
+    }
     if resolved.is_empty() || tree.exists(&resolved) {
         None
     } else {
@@ -237,6 +243,14 @@ mod tests {
             Some(Fault::Missing)
         ));
         assert!(resolve(&tree, "docs/readme.md", "").is_none());
+
+        let mut linked = MemoryTree::default();
+        linked.write("docs/outside/held.md", "# held");
+        linked.mark_link("docs/outside");
+        assert!(matches!(
+            resolve(&linked, "docs/readme.md", "outside/held.md"),
+            Some(Fault::Outside)
+        ));
         assert_eq!(Fault::Malformed.kind(), "internal-link-malformed");
         assert!(Fault::Outside.message("../outside").contains("outside"));
     }
