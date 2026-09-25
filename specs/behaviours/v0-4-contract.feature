@@ -677,6 +677,22 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|run|--surface|pull-request|--base|aaaaaaaa|--head|bbbbbbbb"
     Then the exit code is 0
 
+  Scenario Outline: An omitted lifecycle group is refused rather than read as empty
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      """
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "rhino.config.undeclared"
+    And stderr contains "gates section is not declared"
+
+    Examples:
+      | command                                          |
+      | gate\|list\|--output\|json                       |
+      | gate\|validate\|--output\|json                   |
+      | gate\|run\|--surface\|pre-commit\|--output\|json |
+
   Scenario: Harness adapter generation refuses an undeclared grouped profile
     Given the configuration file is this text:
       """
