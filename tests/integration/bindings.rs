@@ -291,6 +291,26 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "README index in every-directory mode accepts a complete tree",
+    ),
+    (
+        "v0-4-contract",
+        "README index in every-directory mode reports a nested directory with no index",
+    ),
+    (
+        "v0-4-contract",
+        "README index in every-directory mode reports a nested index that omits a Markdown file",
+    ),
+    (
+        "v0-4-contract",
+        "README index in every-directory mode reports an index link that resolves to nothing",
+    ),
+    (
+        "v0-4-contract",
+        "README index with direct children required still inspects only the declared root",
+    ),
+    (
+        "v0-4-contract",
         "README index refuses an escaping exclusion",
     ),
     (

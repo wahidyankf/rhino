@@ -1579,6 +1579,105 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "md|readme-index|validate"
     Then the exit code is 0
 
+  Scenario: README index in every-directory mode accepts a complete tree
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          readme-index:
+            trees:
+              - path: docs
+                require-direct-children: every-directory
+      """
+    And the repository contains:
+      | path                  | content                                                                        |
+      | docs/README.md        | # Docs\n\n- [Guide](guide.md)\n- [Topics](topics/README.md)\n- [Area](area.md) |
+      | docs/guide.md         | # Guide                                                                        |
+      | docs/logo.txt         | not an index target                                                            |
+      | docs/topics/README.md | # Topics\n\n- [Page](page.md)                                                  |
+      | docs/topics/page.md   | # Page                                                                         |
+      | docs/area.md          | # Area                                                                         |
+      | docs/area/README.md   | # Area index                                                                   |
+    When I invoke the CLI with "md|readme-index|validate"
+    Then the exit code is 0
+
+  Scenario: README index in every-directory mode reports a nested directory with no index
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          readme-index:
+            trees:
+              - path: docs
+                require-direct-children: every-directory
+      """
+    And the repository contains:
+      | path                | content                       |
+      | docs/README.md      | # Docs\n\n- [Topics](topics/) |
+      | docs/topics/page.md | # Page                        |
+    When I invoke the CLI with "md|readme-index|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "missing-readme-index"
+
+  Scenario: README index in every-directory mode reports a nested index that omits a Markdown file
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          readme-index:
+            trees:
+              - path: docs
+                require-direct-children: every-directory
+      """
+    And the repository contains:
+      | path                  | content                                |
+      | docs/README.md        | # Docs\n\n- [Topics](topics/README.md) |
+      | docs/topics/README.md | # Topics                               |
+      | docs/topics/page.md   | # Page                                 |
+    When I invoke the CLI with "md|readme-index|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "missing-readme-index-child"
+
+  Scenario: README index in every-directory mode reports an index link that resolves to nothing
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          readme-index:
+            trees:
+              - path: docs
+                require-direct-children: every-directory
+      """
+    And the repository contains:
+      | path           | content                                          |
+      | docs/README.md | # Docs\n\n- [Guide](guide.md)\n- [Gone](gone.md) |
+      | docs/guide.md  | # Guide                                          |
+    When I invoke the CLI with "md|readme-index|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "missing-readme-index-target"
+
+  Scenario: README index with direct children required still inspects only the declared root
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          readme-index:
+            trees:
+              - path: docs
+                require-direct-children: true
+      """
+    And the repository contains:
+      | path                | content                                          |
+      | docs/README.md      | # Docs\n\n- [Topics](topics/)\n- [Gone](gone.md) |
+      | docs/topics/page.md | # Page                                           |
+    When I invoke the CLI with "md|readme-index|validate"
+    Then the exit code is 0
+
   Scenario: README index refuses an escaping exclusion
     Given the configuration file is this text:
       """
