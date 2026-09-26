@@ -1692,6 +1692,28 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And the first stdout JSON violation kind is "missing-readme-index-target"
 
+  Scenario: README index in every-directory mode skips a directory the scan excludes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories: [generated]
+      policies:
+        markdown:
+          readme-index:
+            trees:
+              - path: docs
+                require-direct-children: every-directory
+      """
+    And the repository contains:
+      | path                         | content                    |
+      | docs/README.md               | # Docs\n\n- [Guide](guide.md) |
+      | docs/guide.md                | # Guide                    |
+      | docs/generated/page.md       | # Generated                |
+      | docs/generated/deep/other.md | # Deeper                   |
+    When I invoke the CLI with "md|readme-index|validate"
+    Then the exit code is 0
+
   Scenario: README index with direct children required still inspects only the declared root
     Given the configuration file is this text:
       """

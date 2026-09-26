@@ -99,7 +99,8 @@ that file must itself be linked. Other files are not required. Every relative
 link in each index must name a file or directory the repository holds; an
 external address, an absolute path, an anchor alone, or a path climbing above
 the repository root is not checked. An exclusion removes that child and
-everything under it from the walk.
+everything under it from the walk, and so does a directory
+`scan.exclude-directories` names, at any depth and in either child mode.
 
 ```yaml
 policies:

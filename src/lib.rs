@@ -359,6 +359,7 @@ pub fn execute_using_with_boundaries(
                 .policies
                 .as_ref()
                 .and_then(|policies| policies.markdown.as_ref()),
+            document.scan.as_ref(),
             tree,
         )
         .render(invocation.format),

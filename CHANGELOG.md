@@ -61,7 +61,8 @@ pinned version.
   subdirectory that has its own index; a Markdown file named after a
   subdirectory, beside it, also covers that subdirectory. An index link that
   resolves to nothing in the repository is reported as
-  `missing-readme-index-target` and exits `1`. `true` and `false` keep their
+  `missing-readme-index-target` and exits `1`. A directory
+  `scan.exclude-directories` names is skipped. `true` and `false` keep their
   meaning, so an existing configuration behaves as before. The v2
   configuration schema describes the value. See
   [README index completeness](docs/reference/v0-4-configuration.md#readme-index-completeness).
@@ -85,6 +86,10 @@ pinned version.
   chains, which Rust 1.85 rejects, so a source build on 1.85 through 1.87
   failed. The chains are rewritten, and the crate, its tests, and `xtask` now
   check on Rust 1.85.
+- **`md readme-index validate` honours `scan.exclude-directories`.** With
+  `require-direct-children: true`, a direct child directory the scan excludes
+  had to be linked from the index like any other; it is now skipped, as every
+  other scan-based Markdown leaf skips it.
 - **A JSON gate run counts the paths it changed.** The `gate run` result
   document's `summary.changed` was always `0`, even beside a `changes` list
   naming the paths a mutation gate changed. It now carries the length of

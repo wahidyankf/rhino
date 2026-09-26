@@ -311,6 +311,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "README index in every-directory mode skips a directory the scan excludes",
+    ),
+    (
+        "v0-4-contract",
         "README index with direct children required still inspects only the declared root",
     ),
     (
