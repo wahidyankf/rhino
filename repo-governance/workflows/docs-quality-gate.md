@@ -2,14 +2,15 @@
 
 Run only when someone explicitly names this gate or directs its documentation audit, or when [release cut](release-cut.md) runs it with scope `all`. A change or a [docs propagation](docs-propagation.md) run never authorizes it alone.
 
-Produce one read-only verdict with a finite ledger of stale, obsolete, misplaced, and unreadable documents. This gate never edits a document and never starts another gate run. Docs propagation is the only writer and the mandatory continuation for any finding.
+Audit read-only and record a finite ledger of stale, obsolete, misplaced, and unreadable documents, repeating after each propagation until two consecutive audits are clean. This gate never edits a document and never starts another run itself; its caller does. Docs propagation is the only writer and the mandatory continuation for any finding.
 
 ## Inputs and Snapshot
 
 - `scope` — `change`, the documents one change affects, or `all`, the whole document set docs propagation defines.
 - `change` — the revision range or working-tree change; required when `scope` is `change`.
+- `max-iterations` — the ceiling on audits; default `7`.
 
-Freeze the scope, the Git revision, and the uncommitted paths. A material external change returns `INPUT_CHANGED` with the ledger kept; it never restarts the gate.
+Each audit freezes the scope, the Git revision, and the uncommitted paths. A material external change, never propagation's own repairs, returns `INPUT_CHANGED` with the ledger kept; it never restarts the gate.
 
 ## Audit
 
@@ -34,15 +35,20 @@ Formatting, links, directory maps, and word budgets belong to deterministic chec
 
 ## Results and Handoff
 
-Return `PASS` only when the ledger is clear and the checks pass; otherwise return `NEEDS_PROPAGATION` with the ledger. A finding only the owner can decide, such as a specification that disagrees with the implementation, is asked through [grill-me](../../.agents/skills/grill-me/SKILL.md).
+An audit is clean only when the ledger is clear and the checks pass; otherwise the gate hands its ledger to docs propagation. A finding only the owner can decide, such as a specification that disagrees with the implementation, is asked through [grill-me](../../.agents/skills/grill-me/SKILL.md).
 
-`NEEDS_PROPAGATION` is a handoff, never a blocked result: the caller runs docs propagation with the ledger without another request, then reports propagation's result.
+The handoff is never a blocked result: without another request, the caller runs docs propagation with the ledger, then audits again with the same scope and a fresh snapshot. Results:
 
-**Recorded choice: verdict only.** The gate does not audit again after propagation, matching the [rules quality gate](rules-quality-gate.md); a second audit needs a second request. The rejected alternative, repairing to zero findings, repeats the audit while open findings strictly decrease and costs an audit per round. A verdict authorizes no commit or push.
+- `PASS` — two consecutive clean audits;
+- `PARTIAL` — open findings stopped strictly decreasing, or `max-iterations` audits ran; each remaining finding gets a durable owner: fixed, a plan idea or backlog item, or grill-me;
+- `INPUT_CHANGED` — as above; and
+- `FAIL` — an audit or propagation could not run.
+
+**Recorded choice: repair to zero findings**, bounded by `max-iterations`. Verdict only, rejected, ends after one propagation. The [rules quality gate](rules-quality-gate.md) keeps its own verdict-only contract. A result authorizes no commit or push.
 
 ## At Release Cut
 
-[Release cut](release-cut.md) runs the gate with scope `all` twice. The first run happens before the release-prep pull request opens, and that pull request resolves its ledger, so each repair's new prose is audited before the merge rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition.
+[Release cut](release-cut.md) runs the gate with scope `all` twice. The first run happens before the release-prep pull request opens, and that pull request carries its repairs, so each repair's new prose is re-audited before the merge rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition and must pass without a repair, since a repair changes the commit; a finding stops the release until a new pull request lands its repairs.
 
 The gate runs the binary, so it is also a behaviour audit. A row where the document states the intended contract and the binary disagrees is a code defect: fix it through its own pull request before the tag, never by documenting the defect as current behaviour.
 

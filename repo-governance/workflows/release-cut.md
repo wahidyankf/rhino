@@ -10,7 +10,7 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 - Local `main` equals `origin/main`, reconciled after the last merge by the [integration path](../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
 - The quick gate and `cargo xtask schema --check` pass on that exact commit.
-- `CHANGELOG.md` describes this version; the [docs quality gate](docs-quality-gate.md#at-release-cut) with scope `all` passed before the release-prep pull request and passes on this commit; any other verdict stops the release.
+- `CHANGELOG.md` describes this version; the [docs quality gate](docs-quality-gate.md#at-release-cut) with scope `all` passed before the release-prep pull request and passes on this commit; any other result stops the release.
 
 ## Size Rehearsal
 
