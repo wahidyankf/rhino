@@ -83,8 +83,8 @@ be described, because a non-empty roster forced `required-mcp` — a claim about
 how one repository is arranged, wearing the clothes of a schema rule.
 
 RHINO has since become that third shape itself. Its configuration declares
-three profiles — `claude`, `codex`, and `opencode` — over ten canonical skills,
-four canonical agents, and no capability server at all. Only `claude` declares
+three profiles — `claude`, `codex`, and `opencode` — over its canonical skills
+and agents, and no capability server at all. Only `claude` declares
 a skill adapter and an instruction adapter; `codex` and `opencode` declare
 agent adapters alone. Every one of those is a shape the schema had to permit
 without preferring.

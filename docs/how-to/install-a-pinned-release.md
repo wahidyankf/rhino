@@ -38,8 +38,14 @@ Verifying afterwards tells you what you already ran. Verify first.
 
 ```sh
 tar -xzf "rhino-$TARGET.tar.gz"
+mkdir -p "$HOME/.local/bin"
 install -m 0755 rhino "$HOME/.local/bin/rhino"
 ```
+
+`$HOME/.local/bin` has to be on your `PATH` for the next command to find
+`rhino`. If `command -v rhino` prints nothing, add
+`export PATH="$HOME/.local/bin:$PATH"` to your shell's startup file and open a
+new shell.
 
 Confirm the build is the one you pinned:
 

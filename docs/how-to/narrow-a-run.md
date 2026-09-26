@@ -41,7 +41,10 @@ rhino: `--file docs/../../notes.md` escapes the repository root
 ```
 
 A path that passes through a symbolic link is refused the same way, with exit
-`2`, because RHINO never follows a link out of the root.
+`2` and `rhino.path.escapes-root`, even when the link's target lies inside the
+root: a `--file` or `--directory` selection never follows a link. Only a
+declared surface glob follows one, and only to a target inside the root; see
+[why RHINO validation only reads](../explanation/reading-only.md#what-it-cannot-reach).
 
 ## A diagram you have not saved
 

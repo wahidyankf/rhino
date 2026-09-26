@@ -1,11 +1,15 @@
 # JSON output
 
-Grouped-v2 validation leaves emit the result envelope below. Operations may
-emit a command-specific [status document](#operation-status-documents); callers
+The tree validation leaves — the `md`, `governance`, `convention`, `metadata`,
+and `repo-config` validators — emit the result envelope below. Operations emit
+a [status document](#operation-status-documents), and the harness, environment,
+toolchain, and gate commands emit the
+[documents of their own](#other-command-documents) listed further down. Callers
 must validate the selected leaf's contract rather than assuming every command
 emits `violations`.
 
-Every command accepts `--output json` and writes **one object on one line**.
+Every command except `help` accepts `--output json` and writes **one object on
+one line**; `help` prints its text whatever the format.
 Line-delimited rather than pretty-printed, so the output pipes through `grep`
 and `jq` alike and so "every stdout line is a result" stays true whatever the
 command reports.
@@ -84,7 +88,10 @@ goes to stderr, in both formats. A caller can parse stdout without first
 checking whether a run happened.
 
 **Findings are on stderr in text output and inside the object in JSON.** In
-JSON, stderr stays empty on exit `0` and `1`.
+JSON, stderr stays empty on exit `0` and `1`, with one exception: `gate run`
+still writes one progress line per gate to stderr, such as
+`[gate] fails reported a finding at manual`, because progress is a diagnostic
+and never part of the result.
 
 **Ordering is stable.** `scanned` and `violations` are sorted, so two runs over
 one repository produce byte-identical output and a diff between two
@@ -112,6 +119,27 @@ anything was written or run:
 ```console
 $ rhino env init --output json
 {"command":"environment-init","count":1,"schemaVersion":1,"status":"planned","targets":[".env.generated"]}
+```
+
+## Other command documents
+
+Each of these is one object on one line carrying `schemaVersion` `1`. Its
+`command` names the leaf, and the exit code carries the verdict.
+
+| Command                                    | `command`              | Other fields                                                                                         |
+| ------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `harness adapters validate` and `generate` | `harness-adapters`     | `status` `clean` with `message`, or `findings` with `findings` (`<path>: <kind>` strings)            |
+| `env validate`                             | `environment-validate` | `exitCode`, and `inspected` when clean or `findings` (objects with `rule`, `path`, `key`) when not   |
+| `toolchain validate`                       | `toolchain-validate`   | `exitCode`, and `inspected` when clean or `findings` (objects with `toolchain`, `rule`) when not     |
+| `gate list`                                | `["gate","list"]`      | `result`, `surfaces` (each a `surface` and its `gates`)                                              |
+| `gate validate`                            | `["gate","validate"]`  | `result`                                                                                             |
+| `gate run`                                 | `["gate","run"]`       | `result`, `findings`, `changes`, `metadata`, `summary` (`findings`, `changed`, and `scanned` counts) |
+
+[Findings](./findings.md) describes each finding kind these documents carry.
+
+```console
+$ rhino gate validate --output json
+{"schemaVersion":1,"command":["gate","validate"],"result":"clean"}
 ```
 
 ## Using the validation result envelope
