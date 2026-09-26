@@ -506,8 +506,9 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     // absolute, or escaping value is a fault in the command line rather than a
     // repository with nothing in it, and reporting it as the latter would print
     // a clean result for a directory nobody inspected.
-    if let Some(selected) = &directory
-        && let Some(reason) = not_repository_relative(selected)
+    if let Some((selected, reason)) = directory
+        .as_deref()
+        .and_then(|selected| not_repository_relative(selected).map(|reason| (selected, reason)))
     {
         return Err(refusing(
             format,
@@ -518,10 +519,8 @@ pub fn parse(arguments: &[String]) -> Result<Parsed, Refusal> {
     // The same rule for `--file`, and for the same reason. An absolute path
     // silently reinterpreted as a repository-relative one inspects a file the
     // caller did not name.
-    for selected in &files {
-        if selected != STDIN
-            && let Some(reason) = not_repository_relative(selected)
-        {
+    for selected in files.iter().filter(|selected| *selected != STDIN) {
+        if let Some(reason) = not_repository_relative(selected) {
             return Err(refusing(
                 format,
                 ErrorCode::PathEscapesRoot,

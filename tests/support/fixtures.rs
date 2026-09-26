@@ -241,8 +241,10 @@ fn base(declaration: &Declaration) -> BTreeMap<String, String> {
             // Declared beside the adapter rather than globally, because the
             // fields are this harness's vocabulary and a second harness names
             // them its own way.
-            if let Some((model, effort)) = &declaration.tier_fields
-                && !declaration.omit_agent_adapters
+            if let Some((model, effort)) = declaration
+                .tier_fields
+                .as_ref()
+                .filter(|_| !declaration.omit_agent_adapters)
             {
                 entry = entry.replace(
                     ", agent-adapter: {",

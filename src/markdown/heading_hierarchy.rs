@@ -72,9 +72,7 @@ fn inspect(path: &str, text: &str, rules: &HeadingHierarchy, report: &mut Report
     // either `missing-h1`'s business or nobody's.
     let mut previous: Option<usize> = None;
     for (line, level) in &found {
-        if let Some(above) = previous
-            && *level > above + rules.max_level_jump
-        {
+        if let Some(above) = previous.filter(|above| *level > above + rules.max_level_jump) {
             report.found(
                 Finding::new(
                     "heading-level-jump",

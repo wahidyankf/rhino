@@ -729,7 +729,7 @@ fn probe(id: &str) -> Option<Outcome> {
                 let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
                 let observed = invoke(&borrowed, &[]);
                 if let Some(code) = member(&observed.stderr, "error.code")
-                    && !published.iter().any(|known| known == code)
+                    .filter(|code| !published.iter().any(|known| known == code))
                 {
                     outside.push(format!(
                         "`{}` reported unpublished `{code}`",

@@ -76,10 +76,10 @@ pub(crate) fn generate(
         Ok(markers) => markers,
         Err(refusal) => return refusal,
     };
-    if !differences(tree, &plan).is_empty()
-        && let Err(error) = store.replace(&tree.root(), &plan.transaction)
-    {
-        return refused(format, error.0);
+    if !differences(tree, &plan).is_empty() {
+        if let Err(error) = store.replace(&tree.root(), &plan.transaction) {
+            return refused(format, error.0);
+        }
     }
     // Generation owns only its families and exact files, so it cannot clear
     // a marker elsewhere; it writes what it owns and reports the rest.
@@ -432,11 +432,11 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
             ));
         }
     }
-    if let Some(fields) = &adapter.tier_fields
-        && (fields.model.trim().is_empty()
+    if adapter.tier_fields.as_ref().is_some_and(|fields| {
+        fields.model.trim().is_empty()
             || fields.effort.trim().is_empty()
-            || fields.model == fields.effort)
-    {
+            || fields.model == fields.effort
+    }) {
         return Err(format!("profile `{profile}` has invalid tier fields"));
     }
     Ok(root)
@@ -750,9 +750,11 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
             add_field(&mut fields, field, RenderField::Sequence(values.clone()))?;
         }
     }
-    if let (Some(tier), Some(tier_fields)) = (&metadata.tier, &adapter.tier_fields)
-        && let Some(mapping) = profile.tiers.get(tier)
-    {
+    let mapping = metadata
+        .tier
+        .as_ref()
+        .and_then(|tier| profile.tiers.get(tier));
+    if let (Some(mapping), Some(tier_fields)) = (mapping, &adapter.tier_fields) {
         add_scalar(&mut fields, &tier_fields.model, mapping.model.clone())?;
         add_scalar(&mut fields, &tier_fields.effort, mapping.effort.clone())?;
     }

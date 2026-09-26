@@ -118,9 +118,7 @@ fn inspect(path: &str, text: &str, surface: &FrontmatterSurface, report: &mut Re
     // that is absent is `require`'s business, and reporting it twice would make
     // one fault read as two.
     for (key, permitted) in &surface.values {
-        if let Some(entry) = held(key)
-            && !permitted.contains(&entry.value)
-        {
+        if let Some(entry) = held(key).filter(|entry| !permitted.contains(&entry.value)) {
             report.found(
                 Finding::new(
                     "invalid-frontmatter-value",
@@ -134,9 +132,7 @@ fn inspect(path: &str, text: &str, surface: &FrontmatterSurface, report: &mut Re
     }
 
     for key in &surface.iso_date {
-        if let Some(entry) = held(key)
-            && !is_iso_date(&entry.value)
-        {
+        if let Some(entry) = held(key).filter(|entry| !is_iso_date(&entry.value)) {
             report.found(
                 Finding::new(
                     "invalid-frontmatter-value",
