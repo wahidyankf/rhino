@@ -10,9 +10,10 @@ harness, tree, or threshold defaults.
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 RHINO validates declared Markdown, governance, lifecycle, harness, environment,
-and toolchain policy. Validators read local files only: they do not write,
-spawn, or connect to a network. Declared gates and explicit operations use
-separate, narrow boundaries.
+and toolchain policy. Tree validators read local files only: they do not write,
+spawn, or connect to a network. `env validate` asks Git for the staged paths
+when a staging guard is declared, and `toolchain validate` runs each declared
+probe. Declared gates and explicit operations use separate, narrow boundaries.
 
 ## Highlights
 

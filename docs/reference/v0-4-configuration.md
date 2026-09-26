@@ -208,6 +208,69 @@ families and exact files as one recoverable transaction. An unrepresentable
 requirement, malformed source metadata, invalid native representation, or
 conflicting output refuses before any write.
 
+### Tiers, absent fields, and capability translations
+
+These optional keys shape an agent adapter's native fields beyond identity and
+`fixed` values. Every refusal below exits `2` with `rhino.harness.refused`
+before any write.
+
+**Tiers.** `canonical.agents.tier` names the canonical front-matter key that
+holds an agent's tier, such as `tier: plan`. A profile's `tiers` maps each tier
+name to a `model` and an `effort` value, and its agent adapter's `tier-fields`
+names the two native fields that receive them. An agent whose tier the profile
+maps gets both fields; an agent with no tier, or a tier the profile does not
+map, gets neither. `tier-fields` in a skill adapter, or with an empty or
+repeated field name, is refused.
+
+```yaml
+harness:
+  canonical:
+    agents:
+      {
+        name: name,
+        description: description,
+        tier: tier,
+        grants: requires,
+        denials: denies,
+        constraints: constraints,
+      }
+  profiles:
+    - id: alpha
+      agent-adapter:
+        # path, format, route-field, route, and identity as above
+        tier-fields: { model: model, effort: effort }
+      tiers:
+        plan: { model: large-model, effort: high }
+```
+
+**Absent fields.** An adapter's `absent` lists native fields its output must
+never carry, such as `absent: [model, effort]` for a harness that has no such
+setting. A render that would write one refuses, naming the canonical source.
+
+**Capability translations.** An adapter's `translations` project canonical
+capabilities into native fields. Each entry has:
+
+| Key                                       | Meaning                                                                                                                                                                            |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `when`                                    | `always`, or `requires`, `denies`, or `constrains`: the entry applies when the agent's grants, denials, or constraints list (as `canonical.agents` names them) holds `capability`. |
+| `capability`                              | The capability to look for. Required for every `when` except `always`, and refused with `always`.                                                                                  |
+| `field`                                   | The native field written. It must not repeat an identity, `fixed`, or `lists` field.                                                                                               |
+| `members`, `absent-members`, or `entries` | Exactly one of the three. `members` adds values to a list field; `absent-members` removes values other entries added; `entries` adds keys to a map field.                          |
+
+Applying entries accumulate in declaration order. A `members` field renders as
+one comma-separated value, and an `entries` field as a nested map in front
+matter or a table in TOML. Removals run after every addition, and removing
+members from a field no applying entry wrote is refused. One field cannot mix
+member and map entries.
+
+```yaml
+translations:
+  - { when: always, field: tools, members: [Read] }
+  - { when: requires, capability: shell, field: tools, members: [Bash] }
+  - { when: denies, capability: shell, field: tools, absent-members: [Bash] }
+  - { when: always, field: permission, entries: { read: allow } }
+```
+
 ### Agent lists and selection
 
 Two optional agent-adapter keys carry more of an agent into a profile. Omitting

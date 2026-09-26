@@ -88,10 +88,11 @@ goes to stderr, in both formats. A caller can parse stdout without first
 checking whether a run happened.
 
 **Findings are on stderr in text output and inside the object in JSON.** In
-JSON, stderr stays empty on exit `0` and `1`, with one exception: `gate run`
-still writes one progress line per gate to stderr, such as
-`[gate] fails reported a finding at manual`, because progress is a diagnostic
-and never part of the result.
+JSON, stderr stays empty on exit `0` and `1`, with one exception: when a gate
+reports a finding, `gate run` exits `1` and writes one line to stderr naming
+that gate, such as `[gate] fails reported a finding at manual`, because it is a
+diagnostic and never part of the result. Per-gate progress such as
+`[gate] ok passed` appears only in text output, on stdout.
 
 **Ordering is stable.** `scanned` and `violations` are sorted, so two runs over
 one repository produce byte-identical output and a diff between two
