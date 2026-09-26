@@ -31,6 +31,20 @@ the commits behind any release, see its
   refused. A glob that matches nothing still exits `0`, and every other read
   still never follows a link.
 
+### Added
+
+- **`marker-surfaces` under `harness`, and the `stale-marker` finding.** An
+  optional list of globs naming files outside every adapter family, such as a
+  harness settings file. `harness adapters validate` and
+  `harness adapters generate` report a matched file holding a
+  `Rhino generated` line as `stale-marker` and exit `1`: no RHINO release
+  writes that marker, so a region labelled as RHINO output there is owned by
+  nothing and could drift unchecked. Generation still writes its adapters
+  first. A file under a family root or at an exact adapter path is never
+  inspected. Omitted, nothing is inspected, so an existing configuration
+  behaves as before. The v2 configuration schema describes the key. See
+  [marker surfaces](docs/reference/v0-4-configuration.md#marker-surfaces).
+
 ## [v0.6.0] — 2026-09-25
 
 Agent adapters can now carry an agent's skills preload and render a

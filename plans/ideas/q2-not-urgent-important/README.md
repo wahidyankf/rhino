@@ -6,5 +6,4 @@ Add one kebab-case Markdown file per idea, in the shape [the index](../README.md
 
 ## Directory Map
 
-- [Own or refuse Codex agent registrations](own-or-refuse-codex-agent-registrations.md) decides whether RHINO
-  generates Codex agent registrations or reports a generated-region marker it does not own.
+This quadrant holds no idea yet, so this README has no siblings to map.

@@ -204,6 +204,18 @@ pub const BINDINGS: &[Binding] = &[
     ("v0-4-contract", "A file outside the selection is stale"),
     (
         "v0-4-contract",
+        "Harness adapter validation reports a generated marker no adapter writes",
+    ),
+    (
+        "v0-4-contract",
+        "Harness adapter generation writes its adapters and reports a generated marker it does not own",
+    ),
+    (
+        "v0-4-contract",
+        "A declared marker surface holding no generated marker is clean",
+    ),
+    (
+        "v0-4-contract",
         "Toolchain provisioning requires an explicit apply contract",
     ),
     (

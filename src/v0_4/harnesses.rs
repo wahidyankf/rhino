@@ -16,6 +16,7 @@ use crate::runtime::{
     AdapterFile, AdapterStore, AdapterTransaction, Tree, TreeError, adapter_exact_paths,
     adapter_roots, normal_adapter_path, under_root,
 };
+use crate::scan;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -34,7 +35,12 @@ pub(crate) fn validate(harness: Option<&Harness>, tree: &dyn Tree, format: Forma
         Ok(plan) => plan,
         Err(reason) => return refused(format, reason),
     };
-    let differences = differences(tree, &plan);
+    let mut differences = differences(tree, &plan);
+    match stale_markers(harness, tree, &plan, format) {
+        Ok(markers) => differences.extend(markers),
+        Err(refusal) => return refusal,
+    }
+    differences.sort();
     if differences.is_empty() {
         clean(format, "canonical adapter validation is clean")
     } else {
@@ -58,12 +64,93 @@ pub(crate) fn generate(
         Ok(plan) => plan,
         Err(reason) => return refused(format, reason),
     };
+    // Read before anything is written, so a marker surface that cannot be
+    // read refuses the run before generation acts.
+    let markers = match stale_markers(harness, tree, &plan, format) {
+        Ok(markers) => markers,
+        Err(refusal) => return refusal,
+    };
     if !differences(tree, &plan).is_empty()
         && let Err(error) = store.replace(&tree.root(), &plan.transaction)
     {
         return refused(format, error.0);
     }
-    clean(format, "canonical adapter generation is current")
+    // Generation owns only its families and exact files, so it cannot clear
+    // a marker elsewhere; it writes what it owns and reports the rest.
+    if markers.is_empty() {
+        clean(format, "canonical adapter generation is current")
+    } else {
+        findings(format, markers)
+    }
+}
+
+/// The phrase that claims a file, or a region of one, as RHINO output.
+///
+/// Matched case-insensitively on any line. RHINO writes it nowhere, so a
+/// file outside every adapter family that carries it tells a maintainer the
+/// region is machine-owned when nothing owns it.
+const GENERATED_MARKER: &str = "rhino generated";
+
+/// Every declared marker-surface file that claims RHINO generation and that
+/// generation does not write, as `stale-marker` findings.
+///
+/// A file generation owns -- one it writes, or any file under a family root
+/// or at an exact adapter path -- is never a stale marker: the adapter
+/// comparison already reports it.
+fn stale_markers(
+    harness: &Harness,
+    tree: &dyn Tree,
+    plan: &Plan,
+    format: Format,
+) -> Result<Vec<String>, Outcome> {
+    if harness.marker_surfaces.is_empty() {
+        return Ok(Vec::new());
+    }
+    let surfaces = scan::Surfaces::compile(
+        "harness.marker-surfaces",
+        harness.marker_surfaces.iter().map(String::as_str),
+    )
+    .map_err(|reason| {
+        crate::report::Report::refused_as(ErrorCode::ConfigUnusable, "harness-adapters", reason)
+            .render(format)
+    })?;
+    let reached = surfaces
+        .files(tree, &crate::config::Config::default())
+        .map_err(|unreachable| unreachable.refusal("harness-adapters").render(format))?;
+    let mut stale = Vec::new();
+    for scan::Reached { path, source } in reached {
+        if surfaces.governing(&path).is_none()
+            || plan.desired.contains_key(&path)
+            || plan.transaction.exact_paths.contains(&path)
+            || plan
+                .transaction
+                .roots
+                .iter()
+                .any(|root| under_root(&path, root))
+        {
+            continue;
+        }
+        let text = match tree.read(&source) {
+            Ok(text) => text,
+            // Gone since the walk, or not text: neither can carry a marker.
+            Err(TreeError::NotFound | TreeError::NotText) => continue,
+            Err(TreeError::Unreadable(reason)) => {
+                return Err(crate::report::Report::refused_as(
+                    ErrorCode::FileUnreadable,
+                    "harness-adapters",
+                    format!("{path}: {reason}"),
+                )
+                .render(format));
+            }
+        };
+        if text
+            .lines()
+            .any(|line| line.to_ascii_lowercase().contains(GENERATED_MARKER))
+        {
+            stale.push(format!("{path}: stale-marker"));
+        }
+    }
+    Ok(stale)
 }
 
 struct Plan {
@@ -1311,6 +1398,7 @@ mod typed_tests {
                 profile("beta", capability),
                 profile("gamma", capability),
             ],
+            marker_surfaces: Vec::new(),
         }
     }
 
@@ -1459,6 +1547,90 @@ mod typed_tests {
         let outcome = validate(Some(&invalid), &tree, Format::Text);
         assert_eq!(outcome.exit_code, 2);
         assert!(outcome.stderr.contains("invalid adapter path"));
+    }
+
+    #[test]
+    fn a_marker_generation_does_not_write_is_stale_and_an_owned_one_is_not() {
+        let tree = canonical_tree();
+        let mut harness = complete_harness("read");
+        harness.marker_surfaces = vec![
+            "settings/*.toml".to_string(),
+            "adapters/**/*.md".to_string(),
+        ];
+        tree.write(
+            "settings/config.toml",
+            "[agents]\n# RHINO GENERATED: agents\n",
+        );
+        tree.write("settings/plain.toml", "[agents]\n");
+        tree.write("adapters/alpha/agents/manual.md", "Rhino generated\n");
+        let store = MemoryAdapterStore::new(&tree);
+        let generated = generate(Some(&harness), &tree, &store, Format::Json);
+        assert_eq!(generated.exit_code, 1);
+        assert!(
+            generated
+                .stdout
+                .contains("settings/config.toml: stale-marker")
+        );
+        assert!(!generated.stdout.contains("plain.toml"));
+        assert!(!generated.stdout.contains("manual.md: stale-marker"));
+        assert!(tree.read("adapters/alpha/agents/reviewer.md").is_ok());
+
+        let validated = validate(Some(&harness), &tree, Format::Text);
+        assert_eq!(validated.exit_code, 1);
+        assert!(
+            validated
+                .stderr
+                .contains("settings/config.toml: stale-marker")
+        );
+    }
+
+    #[test]
+    fn marker_surfaces_refuse_a_climbing_glob_an_unreadable_file_and_an_escaping_link() {
+        let harness_with = |glob: &str| {
+            let mut harness = complete_harness("read");
+            harness.marker_surfaces = vec![glob.to_string()];
+            harness
+        };
+        let refused = |harness: &Harness, tree: &MemoryTree| {
+            let outcome = validate(Some(harness), tree, Format::Json);
+            assert_eq!(outcome.exit_code, 2);
+            outcome.stderr
+        };
+
+        let tree = canonical_tree();
+        assert!(refused(&harness_with("../*.toml"), &tree).contains("rhino.config.unusable"));
+
+        let mut sealed = canonical_tree();
+        sealed.write("settings/config.toml", "sealed");
+        sealed.mark_unreadable("settings/config.toml");
+        assert!(
+            refused(&harness_with("settings/*.toml"), &sealed).contains("rhino.file.unreadable")
+        );
+
+        let mut escaping = canonical_tree();
+        escaping.write("settings/config.toml", "outside");
+        escaping.mark_link("settings");
+        let store = MemoryAdapterStore::new(&escaping);
+        let generated = generate(
+            Some(&harness_with("settings/*.toml")),
+            &escaping,
+            &store,
+            Format::Json,
+        );
+        assert_eq!(generated.exit_code, 2);
+        assert!(generated.stderr.contains("rhino.path.escapes-root"));
+        // Refused before generation wrote anything.
+        assert!(escaping.read("adapters/alpha/agents/reviewer.md").is_err());
+
+        let mut binary = canonical_tree();
+        binary.write("settings/config.toml", "bytes");
+        binary.mark_binary("settings/config.toml");
+        let outcome = validate(
+            Some(&harness_with("settings/*.toml")),
+            &binary,
+            Format::Text,
+        );
+        assert!(!outcome.stderr.contains("stale-marker"));
     }
 
     #[test]

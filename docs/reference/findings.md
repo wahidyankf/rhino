@@ -235,15 +235,19 @@ generation would write. It reports one line per path on stderr, in the shape
 `[harness-adapters] <path>: <kind>`; under `--output json` the `findings` array
 on stdout carries the same `<path>: <kind>` strings.
 
-| Kind                 | Means                                                                       |
-| -------------------- | --------------------------------------------------------------------------- |
-| `missing-adapter`    | An adapter generation would write is absent.                                |
-| `divergent-adapter`  | An adapter exists and differs from what generation would write.             |
-| `stale-adapter`      | A file under a generated family root is not one generation would write.     |
-| `non-text-adapter`   | An adapter path holds bytes that are not text.                              |
-| `unreadable-adapter` | An adapter path cannot be read; the line ends with the reason after a `: `. |
+| Kind                 | Means                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `missing-adapter`    | An adapter generation would write is absent.                                                                              |
+| `divergent-adapter`  | An adapter exists and differs from what generation would write.                                                           |
+| `stale-adapter`      | A file under a generated family root is not one generation would write.                                                   |
+| `non-text-adapter`   | An adapter path holds bytes that are not text.                                                                            |
+| `unreadable-adapter` | An adapter path cannot be read; the line ends with the reason after a `: `.                                               |
+| `stale-marker`       | A file `harness.marker-surfaces` declares claims `Rhino generated` output, and no adapter family or exact path covers it. |
 
-`harness adapters generate` writes exactly the files that clear every kind.
+`harness adapters generate` writes exactly the files that clear every kind but
+`stale-marker`. Generation owns no file a marker surface names, so it still
+writes its adapters, then reports each stale marker and exits `1`; remove the
+marker, or the region it labels, by hand.
 
 ## Environment
 

@@ -396,6 +396,16 @@ pub struct Harness {
     pub(crate) requirements: Requirements,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) profiles: Vec<Profile>,
+    /// Globs naming files outside every adapter family that adapter
+    /// validation inspects for a `Rhino generated` marker. Generation never
+    /// writes such a file, so a marker there claims an ownership nothing
+    /// holds, and is reported as `stale-marker`.
+    #[serde(
+        default,
+        rename = "marker-surfaces",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub(crate) marker_surfaces: Vec<String>,
 }
 
 /// The field vocabulary the repository uses in canonical front matter. Rhino

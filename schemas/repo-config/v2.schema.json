@@ -675,6 +675,13 @@
             }
           ]
         },
+        "marker-surfaces": {
+          "description": "Globs naming files outside every adapter family that adapter\nvalidation inspects for a `Rhino generated` marker. Generation never\nwrites such a file, so a marker there claims an ownership nothing\nholds, and is reported as `stale-marker`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "profiles": {
           "items": {
             "$ref": "#/$defs/Profile"

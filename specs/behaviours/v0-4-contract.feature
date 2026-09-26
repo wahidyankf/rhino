@@ -1199,6 +1199,81 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And stderr contains "adapters/alpha/agents/writer.md: stale-adapter"
 
+  Scenario: Harness adapter validation reports a generated marker no adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        marker-surfaces: [".codex/config.toml"]
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .codex/config.toml         | [agents]\n# Rhino generated: codex agents\n                         |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 1
+    And stderr contains ".codex/config.toml: stale-marker"
+
+  Scenario: Harness adapter generation writes its adapters and reports a generated marker it does not own
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        marker-surfaces: [".codex/config.toml"]
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .codex/config.toml         | [agents]\n# Rhino generated: codex agents\n                         |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 1
+    And stderr contains ".codex/config.toml: stale-marker"
+    And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "name: reviewer"
+
+  Scenario: A declared marker surface holding no generated marker is clean
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        marker-surfaces: [".codex/config.toml"]
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .codex/config.toml         | [agents]\nmax_threads = 4\n                                         |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+
   Scenario: Toolchain provisioning requires an explicit apply contract
     Given the configuration file is this text:
       """
