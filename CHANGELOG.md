@@ -40,8 +40,8 @@ the commits behind any release, see its
   `Rhino generated` line as `stale-marker` and exit `1`: no RHINO release
   writes that marker, so a region labelled as RHINO output there is owned by
   nothing and could drift unchecked. Generation still writes its adapters
-  first. A file under a family root or at an exact adapter path is never
-  inspected. Omitted, nothing is inspected, so an existing configuration
+  first. A file under a family root or at an exact adapter path, or in a
+  directory `scan.exclude-directories` names, is never inspected. Omitted, nothing is inspected, so an existing configuration
   behaves as before. The v2 configuration schema describes the key. See
   [marker surfaces](docs/reference/v0-4-configuration.md#marker-surfaces).
 

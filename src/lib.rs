@@ -232,12 +232,19 @@ pub fn execute_using_with_boundaries(
             launcher,
             mutations,
         ),
-        ("harness-adapters-validate", Document::V0_4(document)) => {
-            v0_4::harnesses::validate(document.harness.as_ref(), tree, invocation.format)
-        }
-        ("harness-adapters-generate", Document::V0_4(document)) => {
-            v0_4::harnesses::generate(document.harness.as_ref(), tree, adapters, invocation.format)
-        }
+        ("harness-adapters-validate", Document::V0_4(document)) => v0_4::harnesses::validate(
+            document.harness.as_ref(),
+            document.scan.as_ref(),
+            tree,
+            invocation.format,
+        ),
+        ("harness-adapters-generate", Document::V0_4(document)) => v0_4::harnesses::generate(
+            document.harness.as_ref(),
+            document.scan.as_ref(),
+            tree,
+            adapters,
+            invocation.format,
+        ),
         ("environment-backup", Document::V0_4(document)) => v0_4::operations::backup(
             document.environment.as_ref(),
             tree,

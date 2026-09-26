@@ -259,7 +259,7 @@ pub(crate) fn directory_map(
     crate::governance::directory_map::validate(tree, &config, map, scope)
 }
 
-fn scan_projection(scan: Option<&Scan>) -> Config {
+pub(crate) fn scan_projection(scan: Option<&Scan>) -> Config {
     Config {
         scan: scan.map(|scan| crate::config::Scan {
             exclude_directories: scan.exclude_directories.clone(),

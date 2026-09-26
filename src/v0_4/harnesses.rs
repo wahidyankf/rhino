@@ -7,7 +7,7 @@
 
 use super::config::{
     Adapter, AdapterFormat, Canonical, CanonicalAgent, CanonicalDocument, Harness, Identity,
-    Profile, Requirements, Translation, When,
+    Profile, Requirements, Scan, Translation, When,
 };
 use crate::Outcome;
 use crate::cli::Format;
@@ -27,7 +27,12 @@ const SKILLS_ROOT: &str = ".agents/skills/";
 
 /// Compare every currently visible adapter against the complete desired model.
 /// It deliberately has no write port, so validation cannot repair drift.
-pub(crate) fn validate(harness: Option<&Harness>, tree: &dyn Tree, format: Format) -> Outcome {
+pub(crate) fn validate(
+    harness: Option<&Harness>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+    format: Format,
+) -> Outcome {
     let Some(harness) = harness else {
         return undeclared(format);
     };
@@ -36,7 +41,7 @@ pub(crate) fn validate(harness: Option<&Harness>, tree: &dyn Tree, format: Forma
         Err(reason) => return refused(format, reason),
     };
     let mut differences = differences(tree, &plan);
-    match stale_markers(harness, tree, &plan, format) {
+    match stale_markers(harness, scan, tree, &plan, format) {
         Ok(markers) => differences.extend(markers),
         Err(refusal) => return refusal,
     }
@@ -53,6 +58,7 @@ pub(crate) fn validate(harness: Option<&Harness>, tree: &dyn Tree, format: Forma
 /// store is even referenced.
 pub(crate) fn generate(
     harness: Option<&Harness>,
+    scan: Option<&Scan>,
     tree: &dyn Tree,
     store: &dyn AdapterStore,
     format: Format,
@@ -66,7 +72,7 @@ pub(crate) fn generate(
     };
     // Read before anything is written, so a marker surface that cannot be
     // read refuses the run before generation acts.
-    let markers = match stale_markers(harness, tree, &plan, format) {
+    let markers = match stale_markers(harness, scan, tree, &plan, format) {
         Ok(markers) => markers,
         Err(refusal) => return refusal,
     };
@@ -99,6 +105,7 @@ const GENERATED_MARKER: &str = "rhino generated";
 /// comparison already reports it.
 fn stale_markers(
     harness: &Harness,
+    scan: Option<&Scan>,
     tree: &dyn Tree,
     plan: &Plan,
     format: Format,
@@ -115,7 +122,7 @@ fn stale_markers(
             .render(format)
     })?;
     let reached = surfaces
-        .files(tree, &crate::config::Config::default())
+        .files(tree, &super::validators::scan_projection(scan))
         .map_err(|unreachable| unreachable.refusal("harness-adapters").render(format))?;
     let mut stale = Vec::new();
     for scan::Reached { path, source } in reached {
@@ -1491,7 +1498,7 @@ mod typed_tests {
             .insert("mode".to_string(), "subagent".to_string());
         let store = MemoryAdapterStore::new(&tree);
 
-        let first = generate(Some(&harness), &tree, &store, Format::Text);
+        let first = generate(Some(&harness), None, &tree, &store, Format::Text);
         assert_eq!(first.exit_code, 0, "{}", first.stderr);
         assert_eq!(tree.read("CLAUDE.md").unwrap(), "@AGENTS.md\n");
         assert!(
@@ -1516,10 +1523,13 @@ mod typed_tests {
         );
         let after_first = tree.files();
 
-        let second = generate(Some(&harness), &tree, &store, Format::Text);
+        let second = generate(Some(&harness), None, &tree, &store, Format::Text);
         assert_eq!(second, first);
         assert_eq!(tree.files(), after_first);
-        assert_eq!(validate(Some(&harness), &tree, Format::Text).exit_code, 0);
+        assert_eq!(
+            validate(Some(&harness), None, &tree, Format::Text).exit_code,
+            0
+        );
     }
 
     #[test]
@@ -1528,7 +1538,7 @@ mod typed_tests {
         let mut loss = complete_harness("write");
         loss.profiles[1].supports.capabilities.clear();
         let store = MemoryAdapterStore::new(&tree);
-        let outcome = generate(Some(&loss), &tree, &store, Format::Text);
+        let outcome = generate(Some(&loss), None, &tree, &store, Format::Text);
         assert_eq!(outcome.exit_code, 2);
         assert!(
             outcome
@@ -1544,7 +1554,7 @@ mod typed_tests {
         let mut invalid = complete_harness("read");
         invalid.profiles[1].agent_adapter.as_mut().unwrap().path =
             ".agents/agents/{name}.md".to_string();
-        let outcome = validate(Some(&invalid), &tree, Format::Text);
+        let outcome = validate(Some(&invalid), None, &tree, Format::Text);
         assert_eq!(outcome.exit_code, 2);
         assert!(outcome.stderr.contains("invalid adapter path"));
     }
@@ -1564,7 +1574,7 @@ mod typed_tests {
         tree.write("settings/plain.toml", "[agents]\n");
         tree.write("adapters/alpha/agents/manual.md", "Rhino generated\n");
         let store = MemoryAdapterStore::new(&tree);
-        let generated = generate(Some(&harness), &tree, &store, Format::Json);
+        let generated = generate(Some(&harness), None, &tree, &store, Format::Json);
         assert_eq!(generated.exit_code, 1);
         assert!(
             generated
@@ -1575,13 +1585,35 @@ mod typed_tests {
         assert!(!generated.stdout.contains("manual.md: stale-marker"));
         assert!(tree.read("adapters/alpha/agents/reviewer.md").is_ok());
 
-        let validated = validate(Some(&harness), &tree, Format::Text);
+        let validated = validate(Some(&harness), None, &tree, Format::Text);
         assert_eq!(validated.exit_code, 1);
         assert!(
             validated
                 .stderr
                 .contains("settings/config.toml: stale-marker")
         );
+    }
+
+    #[test]
+    fn a_marker_surface_skips_what_the_scan_excludes() {
+        let tree = canonical_tree();
+        let mut harness = complete_harness("read");
+        harness.marker_surfaces = vec!["**/*.toml".to_string()];
+        tree.write("vendor/x.toml", "# Rhino generated\n");
+        let mut linked = tree.clone();
+        linked.write("vendor/out/y.toml", "outside");
+        linked.mark_link("vendor/out");
+        let scan = Scan {
+            exclude_directories: vec!["vendor".to_string()],
+        };
+        let outcome = validate(Some(&harness), Some(&scan), &tree, Format::Text);
+        assert!(
+            !outcome.stderr.contains("stale-marker"),
+            "{}",
+            outcome.stderr
+        );
+        let outcome = validate(Some(&harness), Some(&scan), &linked, Format::Json);
+        assert_ne!(outcome.exit_code, 2, "{}", outcome.stderr);
     }
 
     #[test]
@@ -1592,7 +1624,7 @@ mod typed_tests {
             harness
         };
         let refused = |harness: &Harness, tree: &MemoryTree| {
-            let outcome = validate(Some(harness), tree, Format::Json);
+            let outcome = validate(Some(harness), None, tree, Format::Json);
             assert_eq!(outcome.exit_code, 2);
             outcome.stderr
         };
@@ -1613,6 +1645,7 @@ mod typed_tests {
         let store = MemoryAdapterStore::new(&escaping);
         let generated = generate(
             Some(&harness_with("settings/*.toml")),
+            None,
             &escaping,
             &store,
             Format::Json,
@@ -1627,6 +1660,7 @@ mod typed_tests {
         binary.mark_binary("settings/config.toml");
         let outcome = validate(
             Some(&harness_with("settings/*.toml")),
+            None,
             &binary,
             Format::Text,
         );
@@ -1640,7 +1674,7 @@ mod typed_tests {
         let store = MemoryAdapterStore::new(&tree);
         tree.write("adapters/gamma/settings.json", "user-owned\n");
         assert_eq!(
-            generate(Some(&harness), &tree, &store, Format::Text).exit_code,
+            generate(Some(&harness), None, &tree, &store, Format::Text).exit_code,
             0
         );
         assert_eq!(
@@ -1648,7 +1682,7 @@ mod typed_tests {
             "user-owned\n"
         );
         tree.write("adapters/alpha/agents/manual.md", "handwritten\n");
-        let outcome = validate(Some(&harness), &tree, Format::Text);
+        let outcome = validate(Some(&harness), None, &tree, Format::Text);
         assert_eq!(outcome.exit_code, 1);
         assert!(outcome.stderr.contains("manual.md: stale-adapter"));
     }
@@ -1659,7 +1693,7 @@ mod typed_tests {
         tree.write(ROOT_INSTRUCTION, "Canonical instruction\n");
         tree.write(".agents/agents/reviewer.md", "no front matter\n");
         let harness = complete_harness("read");
-        let outcome = validate(Some(&harness), &tree, Format::Json);
+        let outcome = validate(Some(&harness), None, &tree, Format::Json);
         assert_eq!(outcome.exit_code, 2);
         assert!(
             outcome.stderr.contains("leading front matter"),
@@ -1667,8 +1701,8 @@ mod typed_tests {
             outcome.stderr
         );
         for no_profiles in [
-            generate(None, &tree, &NoAdapterStore, Format::Json),
-            validate(None, &tree, Format::Json),
+            generate(None, None, &tree, &NoAdapterStore, Format::Json),
+            validate(None, None, &tree, Format::Json),
         ] {
             assert_eq!(no_profiles.exit_code, 2);
             assert!(no_profiles.stderr.contains("\"rhino.config.undeclared\""));
@@ -2048,27 +2082,27 @@ mod typed_tests {
 
         let mut tree = canonical_tree();
         let harness = complete_harness("read");
-        let no_store = generate(Some(&harness), &tree, &NoAdapterStore, Format::Text);
+        let no_store = generate(Some(&harness), None, &tree, &NoAdapterStore, Format::Text);
         assert_eq!(no_store.exit_code, 2);
         assert!(no_store.stderr.contains("write boundary"));
 
-        let missing_json = validate(Some(&harness), &tree, Format::Json);
+        let missing_json = validate(Some(&harness), None, &tree, Format::Json);
         assert_eq!(missing_json.exit_code, 1);
         assert!(missing_json.stdout.contains("missing-adapter"));
 
         let store = MemoryAdapterStore::new(&tree);
         assert_eq!(
-            generate(Some(&harness), &tree, &store, Format::Text).exit_code,
+            generate(Some(&harness), None, &tree, &store, Format::Text).exit_code,
             0
         );
         tree.write("adapters/alpha/agents/reviewer.md", "divergent\n");
-        let divergent = validate(Some(&harness), &tree, Format::Text);
+        let divergent = validate(Some(&harness), None, &tree, Format::Text);
         assert!(divergent.stderr.contains("divergent-adapter"));
         tree.mark_binary("adapters/beta/agents/reviewer.md");
-        let binary = validate(Some(&harness), &tree, Format::Text);
+        let binary = validate(Some(&harness), None, &tree, Format::Text);
         assert!(binary.stderr.contains("non-text-adapter"));
         tree.mark_unreadable("adapters/gamma/agents/reviewer.md");
-        let unreadable = validate(Some(&harness), &tree, Format::Text);
+        let unreadable = validate(Some(&harness), None, &tree, Format::Text);
         assert!(unreadable.stderr.contains("unreadable-adapter"));
         assert!(clean(Format::Json, "current").stdout.contains("clean"));
         assert!(
