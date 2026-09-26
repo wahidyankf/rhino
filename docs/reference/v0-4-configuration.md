@@ -56,6 +56,25 @@ read their respective `policies.markdown` sub-policies. `convention emoji
 validate` reads `policies.conventions.emoji`. These grouped projections retain
 the existing scanner, findings, and no-default behavior.
 
+### Surface globs and symbolic links
+
+A surface glob — a word-budget, front-matter, heading-hierarchy, naming, or
+metadata surface, or an emoji prohibition — follows a symbolic link it reaches
+when the link's target lies inside the repository root. The file is reported by
+the path the glob matched, such as `gov/rules.md` for a `gov/**/*.md` surface
+where `gov` links to `governance`. A glob reaches a link when the link sits at
+or under the glob's literal prefix, the segments before its first wildcard, or
+when that prefix passes through the link.
+
+A reached link that leads outside the root refuses the run with exit `2` and
+`rhino.path.escapes-root`. One that loops back into a directory it is already
+inside, or whose target does not exist, refuses with `rhino.file.unreadable`.
+A link no surface glob reaches is neither followed nor refused, and a link in a
+directory `scan.exclude-directories` names is never considered. A glob that
+matches nothing still exits `0`. Every other read, including internal-link
+targets, `--file` and `--directory` selections, and exact declared paths, still
+never follows a link.
+
 `policies.plans` is a closed owner boundary. It carries no v0.4 command in this
 release, so an empty group is not a request to run a legacy plan validator.
 

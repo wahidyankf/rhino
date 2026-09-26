@@ -51,7 +51,15 @@ pub fn validate(tree: &dyn Tree, config: &Config, naming: &Naming) -> Report {
 
     // Names are read, not opened. A validator about filenames that refused an
     // unreadable file would be refusing on a fact it never needed.
-    for path in scan::markdown_files(tree, config) {
+    let reached = match globs.files(tree, config) {
+        Ok(reached) => reached,
+        Err(unreachable) => return unreachable.refusal("naming"),
+    };
+    for path in reached
+        .into_iter()
+        .map(|reached| reached.path)
+        .filter(|path| scan::is_markdown(path))
+    {
         // Checked before the surfaces and through the exemptions, because this
         // is not a style. An exemption says "this file does not follow the
         // declared style", not "this file may be half a document", and a
@@ -221,6 +229,20 @@ mod tests {
             style,
             separator: separator.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn a_naming_surface_refuses_an_escaping_link_it_reaches() {
+        let mut tree = MemoryTree::default();
+        tree.write("linked/held.md", "# held");
+        tree.mark_link("linked");
+        let naming = Naming {
+            surfaces: vec![surface("linked/**/*.md", NameStyle::KebabCase, None)],
+            exempt: Vec::new(),
+        };
+        let refused = validate(&tree, &Config::default(), &naming).render(Format::Json);
+        assert_eq!(refused.exit_code, 2);
+        assert!(refused.stderr.contains("rhino.path.escapes-root"));
     }
 
     #[test]

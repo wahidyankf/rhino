@@ -135,12 +135,12 @@ RHINO owns no persistent store. Its inputs are the declared configuration and th
 
 ## Boundaries
 
-| Boundary        | Where it is                                              | How it is held                                                                  |
-| --------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Process         | The `rhino` executable's argument and exit-code contract | Observed by the E2E adapter, which sees nothing else                            |
-| Filesystem      | The port trait in `runtime`                              | Substituted wholesale by the unit adapter                                       |
-| Host process    | Launcher and toolchain-runner ports in `runtime`         | Declared typed argv only; no shell or output report                             |
-| Repository root | Every resolved path                                      | Escapes by `..`, absolute path, or link are refused or reported, never followed |
-| Trust           | The inspected tree is untrusted input                    | Linear-time matching only; no backtracking engine                               |
+| Boundary        | Where it is                                              | How it is held                                                                                                                                  |
+| --------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Process         | The `rhino` executable's argument and exit-code contract | Observed by the E2E adapter, which sees nothing else                                                                                            |
+| Filesystem      | The port trait in `runtime`                              | Substituted wholesale by the unit adapter                                                                                                       |
+| Host process    | Launcher and toolchain-runner ports in `runtime`         | Declared typed argv only; no shell or output report                                                                                             |
+| Repository root | Every resolved path                                      | Escapes by `..`, absolute path, or link are refused or reported, never followed; a surface glob follows a link only to a target inside the root |
+| Trust           | The inspected tree is untrusted input                    | Linear-time matching only; no backtracking engine                                                                                               |
 
 The trust boundary is the one most easily lost. RHINO matches patterns against Markdown a repository committed, so a pattern engine that can backtrack catastrophically would let content hang the gate. That is why the regex engine is chosen for its linear-time guarantee and why three patterns are hand-written parsers rather than being made to fit a more expressive engine.

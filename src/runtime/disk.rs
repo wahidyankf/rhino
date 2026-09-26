@@ -9,9 +9,9 @@
 
 use super::{
     AdapterError, AdapterStore, AdapterTransaction, EnvironmentError, EnvironmentStore,
-    EnvironmentTransaction, Launch, LaunchError, Launched, Launcher, Mutated, MutationError,
-    MutationLaunch, MutationRunner, ToolchainError, ToolchainLaunch, ToolchainResult,
-    ToolchainRunner, Tree, TreeError,
+    EnvironmentTransaction, Launch, LaunchError, Launched, Launcher, LinkTarget, Mutated,
+    MutationError, MutationLaunch, MutationRunner, ToolchainError, ToolchainLaunch,
+    ToolchainResult, ToolchainRunner, Tree, TreeError,
 };
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -86,6 +86,29 @@ impl DiskTree {
                 }
             } else if let Ok(relative) = path.strip_prefix(&self.root) {
                 found.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+
+    /// Every link the file walk skips, repository-relative, without
+    /// descending into one.
+    fn walk_links(&self, directory: &Path, found: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.is_symlink() {
+                found.push(path);
+            } else if metadata.is_dir()
+                && !self
+                    .excluded_directories
+                    .contains(&entry.file_name().to_string_lossy().into_owned())
+            {
+                self.walk_links(&path, found);
             }
         }
     }
@@ -247,6 +270,37 @@ impl Tree for DiskTree {
         self.walk(&self.root, &mut found);
         found.sort();
         found
+    }
+
+    /// Each link's target, canonicalized by the operating system. Asking
+    /// where a link leads reads no file behind it; only a target that
+    /// canonicalizes under the canonical root is inside the repository.
+    fn links(&self) -> Vec<(String, LinkTarget)> {
+        let mut found = Vec::new();
+        self.walk_links(&self.root, &mut found);
+        let root = std::fs::canonicalize(&self.root).unwrap_or_else(|_| self.root.clone());
+        let mut links: Vec<(String, LinkTarget)> = found
+            .into_iter()
+            .filter_map(|path| {
+                let relative = path
+                    .strip_prefix(&self.root)
+                    .ok()?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let target = match std::fs::canonicalize(&path) {
+                    Ok(resolved) => match resolved.strip_prefix(&root) {
+                        Ok(inside) => {
+                            LinkTarget::Within(inside.to_string_lossy().replace('\\', "/"))
+                        }
+                        Err(_) => LinkTarget::Outside,
+                    },
+                    Err(_) => LinkTarget::Unresolved,
+                };
+                Some((relative, target))
+            })
+            .collect();
+        links.sort_by(|left, right| left.0.cmp(&right.0));
+        links
     }
 
     fn indexed_files(&self) -> Result<Vec<String>, String> {

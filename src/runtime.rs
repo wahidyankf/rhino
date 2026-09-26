@@ -33,6 +33,18 @@ pub enum TreeError {
     NotText,
 }
 
+/// Where a filesystem link leads, answered without reading through it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LinkTarget {
+    /// A repository-relative path inside the root; empty for the root itself.
+    Within(String),
+    /// A path outside the repository root.
+    Outside,
+    /// Nothing the port can name: the target is missing, or resolving it
+    /// loops.
+    Unresolved,
+}
+
 /// What one gate child was asked to do.
 ///
 /// Every field is stated by the runner rather than inherited from the process
@@ -351,6 +363,14 @@ pub trait Tree {
     /// directories and filesystem links already dropped.
     fn files(&self) -> Vec<String>;
 
+    /// Every filesystem link the walk dropped, repository-relative and
+    /// sorted, with where each one leads.
+    ///
+    /// Only a declared surface glob asks: it follows a link whose target
+    /// stays inside the root and refuses one that does not. A link behind
+    /// another link is not listed, because the walk never reached it.
+    fn links(&self) -> Vec<(String, LinkTarget)>;
+
     /// The staged paths selected by the Git index, never by a mutable working
     /// tree. A tree with no Git snapshot capability must refuse the request;
     /// returning `files()` here would quietly widen a mutation boundary.
@@ -495,7 +515,9 @@ pub struct MemoryTree {
     unreadable: BTreeSet<String>,
     vanished: BTreeSet<String>,
     binary: BTreeSet<String>,
-    links: BTreeSet<String>,
+    /// Each filesystem link, with the repository-relative path it leads to,
+    /// or `None` for one that leads out of the repository.
+    links: BTreeMap<String, Option<String>>,
     empty: BTreeSet<String>,
     indexed: Option<Vec<String>>,
     changed_files: BTreeMap<(String, String), Vec<String>>,
@@ -539,10 +561,22 @@ impl MemoryTree {
         self.binary.insert(path.trim_start_matches('/').to_string());
     }
 
-    /// A filesystem link. Never reported, because following one can leave the
-    /// repository entirely.
+    /// A filesystem link that leads out of the repository. Never reported,
+    /// because following one leaves the repository entirely.
     pub fn mark_link(&mut self, path: &str) {
-        self.links.insert(path.trim_start_matches('/').to_string());
+        self.links
+            .insert(path.trim_start_matches('/').to_string(), None);
+    }
+
+    /// A filesystem link to another path in the same repository.
+    ///
+    /// The walk still does not report what lies behind it; only a declared
+    /// surface asks where it leads.
+    pub fn mark_link_to(&mut self, path: &str, target: &str) {
+        self.links.insert(
+            path.trim_start_matches('/').to_string(),
+            Some(target.trim_matches('/').to_string()),
+        );
     }
 
     /// A directory the repository holds and no file lives under.
@@ -608,6 +642,42 @@ impl MemoryTree {
     /// input does not become a general file-read capability.
     pub fn set_hook_message_file(&mut self, path: &str) {
         self.hook_message_file = Some(path.to_string());
+    }
+
+    /// Where a link leads once every link on the way is resolved, the way a
+    /// filesystem canonicalizes a path. A target that holds nothing, or a
+    /// chain that never ends, is unresolved.
+    fn resolve_link(&self, link: &str) -> LinkTarget {
+        let mut current = link.to_string();
+        for _ in 0..=self.links.len() {
+            let Some((through, target)) = self
+                .links
+                .iter()
+                .find(|(held, _)| current == **held || current.starts_with(&format!("{held}/")))
+            else {
+                return if self.holds(&current) {
+                    LinkTarget::Within(current)
+                } else {
+                    LinkTarget::Unresolved
+                };
+            };
+            let Some(target) = target else {
+                return LinkTarget::Outside;
+            };
+            let rest = &current[through.len()..];
+            current = format!("{target}{rest}").trim_matches('/').to_string();
+        }
+        LinkTarget::Unresolved
+    }
+
+    /// Whether a path names a file or a directory this tree holds.
+    fn holds(&self, path: &str) -> bool {
+        let prefix = normalise_directory(path);
+        self.files
+            .borrow()
+            .keys()
+            .any(|held| held == path || held.starts_with(&prefix))
+            || self.empty.contains(path)
     }
 
     fn replace_adapter_files(&self, transaction: &AdapterTransaction) -> Result<(), AdapterError> {
@@ -755,7 +825,7 @@ impl Tree for MemoryTree {
 
     fn read_no_follow(&self, path: &str) -> Result<String, TreeError> {
         let path = path.trim_start_matches('/');
-        if self.links.contains(path) {
+        if self.links.contains_key(path) {
             return Err(TreeError::Unreadable(format!("{path} is a symbolic link")));
         }
         self.read(path)
@@ -764,7 +834,7 @@ impl Tree for MemoryTree {
     fn passes_through_link(&self, path: &str) -> bool {
         let path = path.trim_matches('/');
         self.links
-            .iter()
+            .keys()
             .any(|link| path == link || path.starts_with(&format!("{link}/")))
     }
 
@@ -774,6 +844,20 @@ impl Tree for MemoryTree {
             .keys()
             .filter(|path| !self.passes_through_link(path))
             .cloned()
+            .collect()
+    }
+
+    fn links(&self) -> Vec<(String, LinkTarget)> {
+        self.links
+            .keys()
+            .filter(|link| {
+                // A link the walk could only reach through another link.
+                !self
+                    .links
+                    .keys()
+                    .any(|other| link.starts_with(&format!("{other}/")))
+            })
+            .map(|link| (link.clone(), self.resolve_link(link)))
             .collect()
     }
 
@@ -876,7 +960,23 @@ impl Tree for MemoryTree {
             ),
             unreadable: strip(&self.unreadable),
             vanished: strip(&self.vanished),
-            links: strip(&self.links),
+            // A link keeps its target only while the target is still inside
+            // the new root; from there, anything else is outside.
+            links: self
+                .links
+                .iter()
+                .filter_map(|(link, target)| {
+                    let target = target.as_ref().and_then(|target| {
+                        if format!("{target}/") == prefix {
+                            Some(String::new())
+                        } else {
+                            target.strip_prefix(&prefix).map(str::to_string)
+                        }
+                    });
+                    link.strip_prefix(&prefix)
+                        .map(|rest| (rest.to_string(), target))
+                })
+                .collect(),
             indexed: self.indexed.as_ref().map(|paths| {
                 paths
                     .iter()
@@ -1054,6 +1154,10 @@ mod tests {
             vec!["docs/guide.md".to_string()]
         }
 
+        fn links(&self) -> Vec<(String, LinkTarget)> {
+            Vec::new()
+        }
+
         fn excluding(&self, _: &[String]) -> Box<dyn Tree> {
             Box::new(self.clone())
         }
@@ -1130,6 +1234,7 @@ mod tests {
         );
 
         let tree = ReadOnlyTree;
+        assert!(tree.links().is_empty());
         assert!(tree.indexed_files().is_err());
         assert!(tree.changed_files("aaaaaaa", "bbbbbbb").is_err());
         assert!(tree.resolve_git_ref("main").is_err());
@@ -1152,6 +1257,41 @@ mod tests {
         assert!(tree.is_directory("docs"));
         assert!(!tree.exists("absent"));
         assert!(!tree.passes_through_link("docs/guide.md"));
+    }
+
+    #[test]
+    fn memory_tree_resolves_link_chains_and_keeps_targets_under_a_new_root() {
+        let mut tree = MemoryTree::default();
+        tree.write("root/real/a.md", "# a");
+        tree.mark_directory("root/empty");
+        tree.mark_link_to("root/first", "root/second");
+        tree.mark_link_to("root/second", "root/real");
+        tree.mark_link_to("root/away", "root/outward");
+        tree.mark_link("root/outward");
+        tree.mark_link_to("root/ping", "root/pong");
+        tree.mark_link_to("root/pong", "root/ping");
+        tree.mark_link_to("root/blank", "root/empty");
+        tree.mark_link_to("root/self", "root");
+        tree.mark_link_to("root/real/inner", "outside-root");
+        tree.mark_link("root/outward/behind");
+        let links: BTreeMap<String, LinkTarget> = tree.links().into_iter().collect();
+        assert_eq!(
+            links["root/first"],
+            LinkTarget::Within("root/real".to_string())
+        );
+        assert_eq!(links["root/away"], LinkTarget::Outside);
+        assert_eq!(links["root/ping"], LinkTarget::Unresolved);
+        assert_eq!(
+            links["root/blank"],
+            LinkTarget::Within("root/empty".to_string())
+        );
+        assert!(!links.contains_key("root/outward/behind"));
+
+        let rooted = tree.rooted_at("root").unwrap();
+        let rooted: BTreeMap<String, LinkTarget> = rooted.links().into_iter().collect();
+        assert_eq!(rooted["self"], LinkTarget::Within(String::new()));
+        assert_eq!(rooted["real/inner"], LinkTarget::Outside);
+        assert_eq!(rooted["first"], LinkTarget::Within("real".to_string()));
     }
 
     #[test]

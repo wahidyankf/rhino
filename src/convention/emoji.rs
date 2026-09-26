@@ -16,7 +16,7 @@ use crate::runtime::{Tree, TreeError};
 use crate::scan;
 
 pub fn validate(tree: &dyn Tree, config: &Config, emoji: &Emoji) -> Report {
-    let prohibited = match scan::glob_set(
+    let prohibited = match scan::Surfaces::compile(
         "convention-emoji.prohibited",
         emoji.prohibited.iter().map(|surface| surface.glob.as_str()),
     ) {
@@ -26,11 +26,15 @@ pub fn validate(tree: &dyn Tree, config: &Config, emoji: &Emoji) -> Report {
 
     let mut report = Report::new("emoji", "file");
 
-    for path in scan::files(tree, config) {
-        if !prohibited.is_match(&path) {
+    let reached = match prohibited.files(tree, config) {
+        Ok(reached) => reached,
+        Err(unreachable) => return unreachable.refusal("emoji"),
+    };
+    for scan::Reached { path, source } in reached {
+        if prohibited.governing(&path).is_none() {
             continue;
         }
-        let text = match tree.read(&path) {
+        let text = match tree.read(&source) {
             Ok(text) => text,
             // A file that vanished between the walk and the read is not this
             // repository's policy being violated.
@@ -141,6 +145,29 @@ mod tests {
         for character in ['—', '©', '+', 'A'] {
             assert!(!is_emoji(character), "{character}");
         }
+    }
+
+    #[test]
+    fn a_prohibited_surface_follows_an_in_root_link_and_refuses_an_escaping_one() {
+        let mut tree = MemoryTree::default();
+        tree.write("config/a.json", "held \u{1F98F}\n");
+        tree.mark_link_to("linked", "config");
+        let followed =
+            validate(&tree, &Config::default(), &policy("linked/**/*.json")).render(Format::Json);
+        assert_eq!(followed.exit_code, 1);
+        assert!(
+            followed.stdout.contains("\"linked/a.json\""),
+            "{}",
+            followed.stdout
+        );
+
+        let mut escaping = MemoryTree::default();
+        escaping.write("linked/a.json", "held");
+        escaping.mark_link("linked");
+        let refused = validate(&escaping, &Config::default(), &policy("linked/**/*.json"))
+            .render(Format::Json);
+        assert_eq!(refused.exit_code, 2);
+        assert!(refused.stderr.contains("rhino.path.escapes-root"));
     }
 
     #[test]

@@ -387,6 +387,10 @@ pub struct World<D> {
     /// holding the one named file. The file is real, so a tree that followed
     /// the link would find it; what a scenario proves is that nothing does.
     pub outside_links: BTreeMap<String, String>,
+    /// Links whose target is another repository-relative path, each keyed by
+    /// the link and naming its target. A surface glob follows one; every
+    /// other read still refuses to.
+    pub inside_links: BTreeMap<String, String>,
     /// Directories the repository holds that contain no file at any depth.
     ///
     /// Modelled explicitly because a tree derived from its files cannot hold
@@ -427,6 +431,7 @@ impl<D> World<D> {
             binary: &self.binary,
             links: &self.links,
             outside_links: &self.outside_links,
+            inside_links: &self.inside_links,
             empty_directories: &self.empty_directories,
             stdin: self.stdin.as_deref(),
             gate_outcomes: &self.gate_outcomes,
@@ -481,6 +486,7 @@ pub struct Repository<'a> {
     pub binary: &'a BTreeSet<String>,
     pub links: &'a BTreeSet<String>,
     pub outside_links: &'a BTreeMap<String, String>,
+    pub inside_links: &'a BTreeMap<String, String>,
     pub empty_directories: &'a BTreeSet<String>,
     pub stdin: Option<&'a str>,
     /// The gate children this repository is to answer with, in declaration

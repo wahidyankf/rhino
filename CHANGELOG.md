@@ -9,6 +9,28 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## Unreleased
+
+### Changed — breaking
+
+- **A surface glob follows a symbolic link inside the repository.** A
+  word-budget, front-matter, heading-hierarchy, naming, or metadata surface,
+  or an emoji prohibition, whose glob passed through a symbolic link matched
+  nothing and exited `0`, so the files it was declared to govern were never
+  read. A glob now follows a link it reaches when the link's target resolves
+  inside the repository root, and reports each file by the path the glob
+  matched. A configuration that passed by inspecting nothing can now report
+  findings. See
+  [surface globs and symbolic links](docs/reference/v0-4-configuration.md#surface-globs-and-symbolic-links).
+- **A surface glob refuses a link it cannot follow.** A reached link whose
+  target lies outside the root refuses with exit `2` and
+  `rhino.path.escapes-root`. One that loops back into a directory it is
+  already inside, or whose target does not exist, refuses with exit `2` and
+  `rhino.file.unreadable`. A link no surface glob reaches, or one in a
+  directory `scan.exclude-directories` names, is neither followed nor
+  refused. A glob that matches nothing still exits `0`, and every other read
+  still never follows a link.
+
 ## [v0.6.0] — 2026-09-25
 
 Agent adapters can now carry an agent's skills preload and render a

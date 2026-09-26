@@ -307,6 +307,12 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 .insert(matched.string(0).to_string(), matched.string(1).to_string());
             Outcome::Passed
         }
+        "the repository contains a symbolic link at {string} to {string} inside it" => {
+            world
+                .inside_links
+                .insert(matched.string(0).to_string(), matched.string(1).to_string());
+            Outcome::Passed
+        }
         "the repository declares the front-matter surface {string} requiring {string}" => {
             let required: Vec<&str> = matched.string(1).split(',').map(str::trim).collect();
             push_frontmatter_surface(

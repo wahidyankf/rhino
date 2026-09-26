@@ -442,6 +442,26 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "A surface glob follows a symbolic link whose target stays inside the repository",
+    ),
+    (
+        "v0-4-contract",
+        "A surface glob behind a symbolic link that leaves the repository is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A symbolic-link cycle under a surface glob is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A symbolic link no surface glob reaches is neither followed nor refused",
+    ),
+    (
+        "v0-4-contract",
+        "A surface glob that matches nothing still passes",
+    ),
+    (
+        "v0-4-contract",
         "Mermaid policy accepts a declared plain-text repository with no diagrams",
     ),
     (

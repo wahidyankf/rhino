@@ -50,6 +50,9 @@ impl Driver for UnitDriver {
             tree.write(&format!("{link}/{held}"), world::OUTSIDE_CONTENT);
             tree.mark_link(link);
         }
+        for (link, target) in repository.inside_links {
+            tree.mark_link_to(link, target);
+        }
         for path in repository.empty_directories {
             tree.mark_directory(path);
         }

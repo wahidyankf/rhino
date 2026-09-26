@@ -55,14 +55,23 @@ repository root, or the answer would depend on where the command ran. `--root`
 itself is not a selection; it names the repository, so any directory is
 accepted there.
 
-**A symbolic link is not followed.** The walk skips links regardless of what
-the scan exclusions say, because following one can leave the repository
-entirely — and a validator that walked out of the tree would report findings
-about files the repository does not contain. The same holds for any path that
-passes through a link, at any component. A `--file` or `--directory` selection
-behind one is refused with `rhino.path.escapes-root`, an internal link whose
-target lies behind one is reported as outside the repository, and a declared
-file behind one is refused as unreadable. None of them is read.
+**A symbolic link is followed only inside the root, and only by a surface
+glob.** The walk skips links regardless of what the scan exclusions say,
+because following one can leave the repository entirely — and a validator that
+walked out of the tree would report findings about files the repository does
+not contain. The same holds for any path that passes through a link, at any
+component. A `--file` or `--directory` selection behind one is refused with
+`rhino.path.escapes-root`, an internal link whose target lies behind one is
+reported as outside the repository, and a declared file behind one is refused
+as unreadable. None of them is read.
+
+A declared surface glob is the one exception, because a glob that silently
+matched nothing behind a link would report a policy it never checked. It asks
+where a link it reaches leads, without reading through it, and follows the
+link only when the target resolves inside the root. A link that leads out, or
+loops, refuses the run instead of being skipped. The
+[configuration reference](../reference/v0-4-configuration.md#surface-globs-and-symbolic-links)
+states the rule.
 
 ## What this buys you
 
