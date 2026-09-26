@@ -31,8 +31,8 @@ set -eu
 rhino gate run --surface pre-commit
 ```
 
-The declared gate receives only the inputs its configuration binds. Do not add
-`-- "$@"`: v0.4 rejects arguments after `--` so a hook cannot replace a typed
+The declared gate's arguments and environment carry only the inputs its
+configuration binds. Do not add `-- "$@"`: v0.4 rejects arguments after `--` so a hook cannot replace a typed
 command with unreviewed argv.
 
 A pull-request caller supplies its immutable range only when the declared
@@ -45,8 +45,11 @@ rhino gate run --surface pull-request --base "$BASE_SHA" --head "$HEAD_SHA"
 For `commit-msg`, pass Git's hook path with `--message-file`. Rhino confirms it
 is the current worktree's canonical `COMMIT_EDITMSG` file before reading it;
 this works in linked worktrees and refuses another external path. For
-`pre-push`, pass update records only with `--push-updates-stdin`. The command
-refuses the wrong surface/input combination with exit `2`.
+`pre-push`, pass update records only with `--push-updates-stdin`. Rhino reads
+standard input only when that flag is given, and then also hands the records,
+unmodified, to each gate child's standard input. Without it, Rhino never reads
+or waits on standard input, and each child's standard input is empty. The
+command refuses the wrong surface/input combination with exit `2`.
 
 ## 3. Keep mutations explicit
 
