@@ -4,9 +4,9 @@
 governance catalog. One assertion per obligation, each with the invocation that exercises it, the observation that
 satisfies it, the source it rests on, and its verification status.
 
-This copy deliberately names the convention rather than linking it: the convention is not adopted into this repository
-yet, and a link to a document that is not here would be a broken link rather than a reference. When it is adopted, the
-link replaces this paragraph.
+This repository has adopted that convention as
+[the command-line interface convention](../../../repo-governance/conventions/command-line-interface.md), which states the
+obligations these assertions check.
 
 ## Directory Map
 
