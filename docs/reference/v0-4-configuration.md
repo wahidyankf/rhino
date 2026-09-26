@@ -78,6 +78,41 @@ never follows a link.
 `policies.plans` is a closed owner boundary. It carries no v0.4 command in this
 release, so an empty group is not a request to run a legacy plan validator.
 
+### README index completeness
+
+`md readme-index validate` reads `policies.markdown.readme-index.trees`. Each
+entry names an exact `path` and may list `annotations` and `exclusions`, both
+relative to that path. `require-direct-children` chooses how much of the tree
+its indexes must cover:
+
+| Value             | What the validator requires                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `false` (default) | The declared directory has a `README.md`.                                                                                       |
+| `true`            | That `README.md` also links every direct child of the declared directory.                                                       |
+| `every-directory` | The declared directory and every directory under it have a `README.md` that links its direct children, and every link resolves. |
+
+Under `every-directory`, each index must link every Markdown file beside it and
+every subdirectory that has its own `README.md`. A subdirectory counts as linked
+when the index links the directory itself or its `README.md`, or when a
+Markdown file named after it sits beside it, such as `area.md` beside `area/`;
+that file must itself be linked. Other files are not required. Every relative
+link in each index must name a file or directory the repository holds; an
+external address, an absolute path, an anchor alone, or a path climbing above
+the repository root is not checked. An exclusion removes that child and
+everything under it from the walk.
+
+```yaml
+policies:
+  markdown:
+    readme-index:
+      trees:
+        - path: docs
+          require-direct-children: every-directory
+```
+
+A tree that omits the key, or sets `true` or `false`, is checked exactly as
+before. The findings are in [the findings reference](findings.md#readme-index).
+
 ## Canonical adapter profiles
 
 `harness` declares the portable requirements and exactly three opaque profiles.

@@ -233,6 +233,21 @@
       },
       "type": "object"
     },
+    "DirectChildren": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/DirectChildrenMode"
+        }
+      ],
+      "description": "Which README indexes of a declared tree must link their direct children.\n\n`false`, the default, requires no child link. `true` requires the declared\ndirectory's own index to link every direct child. `every-directory`\nrequires a `README.md` in the declared directory and every directory under\nit, each linking its direct Markdown files and each direct subdirectory that\ncarries an index, and every relative link in those indexes to resolve."
+    },
+    "DirectChildrenMode": {
+      "enum": ["every-directory"],
+      "type": "string"
+    },
     "DirectoryMap": {
       "additionalProperties": false,
       "properties": {
@@ -1252,8 +1267,8 @@
           "type": "string"
         },
         "require-direct-children": {
-          "default": false,
-          "type": "boolean"
+          "$ref": "#/$defs/DirectChildren",
+          "default": false
         }
       },
       "required": ["path"],

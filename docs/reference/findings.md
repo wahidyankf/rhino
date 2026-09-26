@@ -108,14 +108,20 @@ establishes the level the rest are measured from.
 
 ## README index
 
-| Kind                         | Means                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------- |
-| `missing-readme-index`       | A declared tree has no `README.md`.                                             |
-| `missing-readme-index-child` | A tree declaring `require-direct-children` has a direct child its README omits. |
-| `missing-readme-annotation`  | A declared annotation file is absent, or does not contain its declared text.    |
+| Kind                          | Means                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `missing-readme-index`        | A declared tree has no `README.md`; under `every-directory`, a directory in the tree has none. |
+| `missing-readme-index-child`  | A tree declaring `require-direct-children` has a direct child its README omits.                |
+| `missing-readme-index-target` | Under `every-directory`, an index links a relative path the repository does not hold.          |
+| `missing-readme-annotation`   | A declared annotation file is absent, or does not contain its declared text.                   |
 
 Detail: `child` on `missing-readme-index-child` — the child the index does not
-link.
+link. `target` on `missing-readme-index-target` — the repository-relative path
+the link resolves to.
+
+Under `every-directory`, each index reports its own omissions, so a nested
+directory's missing child is reported against that directory's `README.md`. See
+[README index completeness](v0-4-configuration.md#readme-index-completeness).
 
 This validator and the directory map are different rules a repository chooses
 between: the directory-map one also wants a `## Directory Map` section.

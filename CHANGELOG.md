@@ -15,7 +15,8 @@ A declared surface glob can no longer pass by reading nothing behind a
 symbolic link: it follows a link whose target stays inside the repository and
 refuses one it cannot follow. Harness adapter validation can also report a
 `Rhino generated` marker that no adapter family owns, so a region labelled as
-RHINO output cannot drift unchecked. The version moves in the minor position
+RHINO output cannot drift unchecked. A README index tree can now require a
+complete index in every directory it holds. The version moves in the minor position
 because RHINO is in `0.x`; read **Changed — breaking** before upgrading a
 pinned version.
 
@@ -52,6 +53,18 @@ pinned version.
   directory `scan.exclude-directories` names, is never inspected. Omitted, nothing is inspected, so an existing configuration
   behaves as before. The v2 configuration schema describes the key. See
   [marker surfaces](docs/reference/v0-4-configuration.md#marker-surfaces).
+- **`require-direct-children: every-directory`, and the
+  `missing-readme-index-target` finding.** A README index tree can set
+  `require-direct-children` to `every-directory`. `md readme-index validate`
+  then requires a `README.md` in the declared directory and every directory
+  under it. Each index must link every Markdown file beside it and every
+  subdirectory that has its own index; a Markdown file named after a
+  subdirectory, beside it, also covers that subdirectory. An index link that
+  resolves to nothing in the repository is reported as
+  `missing-readme-index-target` and exits `1`. `true` and `false` keep their
+  meaning, so an existing configuration behaves as before. The v2
+  configuration schema describes the value. See
+  [README index completeness](docs/reference/v0-4-configuration.md#readme-index-completeness).
 
 ## [v0.6.0] — 2026-09-25
 

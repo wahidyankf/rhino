@@ -9,8 +9,8 @@ use crate::report::{Detail, Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::scan::Scope;
 use crate::v0_4::config::{
-    ConventionsPolicy, GovernancePolicy, LayerPolicy, MarkdownPolicy, ReadmeIndexPolicy, Scan,
-    TraceabilityPolicy, VendorPolicy,
+    ConventionsPolicy, DirectChildren, DirectChildrenMode, GovernancePolicy, LayerPolicy,
+    MarkdownPolicy, ReadmeIndexPolicy, ReadmeIndexTree, Scan, TraceabilityPolicy, VendorPolicy,
 };
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -277,39 +277,17 @@ fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
                 "README index tree paths and exclusions must be exact paths relative to the repository",
             );
         }
-        let index = format!("{}/README.md", declared.path);
-        let contents = match read(tree, &index) {
-            Ok(Some(contents)) => contents,
-            Ok(None) => {
-                report.inspected_one();
-                report.found(Finding::new(
-                    "missing-readme-index",
-                    &index,
-                    "the declared directory has no README index",
-                ));
-                continue;
-            }
-            Err(reason) => return unreadable("readme-index", reason),
+        let indexed = if declared.require_direct_children
+            == DirectChildren::Mode(DirectChildrenMode::EveryDirectory)
+        {
+            complete_index(declared, tree, &mut report)
+        } else {
+            root_index(declared, tree, &mut report)
         };
-        report.scanned(&index);
-
-        if declared.require_direct_children {
-            let linked = markdown_targets(&index, &contents);
-            for child in tree.children(&declared.path) {
-                if child == index || excluded(&child, &declared.path, &declared.exclusions) {
-                    continue;
-                }
-                if !linked.contains(&child) {
-                    report.found(
-                        Finding::new(
-                            "missing-readme-index-child",
-                            &index,
-                            "the declared README index omits a direct child",
-                        )
-                        .with("child", Detail::Text(child)),
-                    );
-                }
-            }
+        match indexed {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(reason) => return unreadable("readme-index", reason),
         }
 
         for annotation in &declared.annotations {
@@ -342,6 +320,132 @@ fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
         }
     }
     report
+}
+
+/// The declared directory's own index, with its direct children when `true`
+/// requires them. It answers whether that index exists, because an absent one
+/// leaves no annotation to check.
+fn root_index(
+    declared: &ReadmeIndexTree,
+    tree: &dyn Tree,
+    report: &mut Report,
+) -> Result<bool, String> {
+    let index = format!("{}/README.md", declared.path);
+    let contents = match read(tree, &index)? {
+        Some(contents) => contents,
+        None => {
+            report.inspected_one();
+            report.found(Finding::new(
+                "missing-readme-index",
+                &index,
+                "the declared directory has no README index",
+            ));
+            return Ok(false);
+        }
+    };
+    report.scanned(&index);
+
+    if declared.require_direct_children == DirectChildren::Declared(true) {
+        let linked = markdown_targets(&index, &contents);
+        for child in tree.children(&declared.path) {
+            if child == index || excluded(&child, &declared.path, &declared.exclusions) {
+                continue;
+            }
+            if !linked.contains(&child) {
+                report.found(
+                    Finding::new(
+                        "missing-readme-index-child",
+                        &index,
+                        "the declared README index omits a direct child",
+                    )
+                    .with("child", Detail::Text(child)),
+                );
+            }
+        }
+    }
+    Ok(true)
+}
+
+/// `every-directory`: the declared directory and every directory under it,
+/// outside the exclusions, carry a `README.md` that links each direct Markdown
+/// file and each direct subdirectory holding an index, and whose relative links
+/// all resolve. A subdirectory is also linked through its index or through a
+/// sibling `<name>.md` beside it, which must itself be linked. It answers
+/// whether the declared directory's own index exists, as `root_index` does.
+fn complete_index(
+    declared: &ReadmeIndexTree,
+    tree: &dyn Tree,
+    report: &mut Report,
+) -> Result<bool, String> {
+    let mut indexed = false;
+    let mut pending = vec![declared.path.clone()];
+    while let Some(directory) = pending.pop() {
+        let index = format!("{directory}/README.md");
+        let children: Vec<String> = tree
+            .children(&directory)
+            .into_iter()
+            .filter(|child| !excluded(child, &declared.path, &declared.exclusions))
+            .collect();
+        pending.extend(
+            children
+                .iter()
+                .filter(|child| tree.is_directory(child))
+                .cloned(),
+        );
+        let Some(contents) = read(tree, &index)? else {
+            report.inspected_one();
+            report.found(Finding::new(
+                "missing-readme-index",
+                &index,
+                "a directory in the declared tree has no README index",
+            ));
+            continue;
+        };
+        report.scanned(&index);
+        indexed |= directory == declared.path;
+        let linked = markdown_targets(&index, &contents);
+        for target in linked.iter().filter(|target| !present(tree, target)) {
+            report.found(
+                Finding::new(
+                    "missing-readme-index-target",
+                    &index,
+                    "a README index link resolves to nothing in the repository",
+                )
+                .with("target", Detail::Text(target.clone())),
+            );
+        }
+        for child in children.iter().filter(|child| **child != index) {
+            let (required, covered) = if tree.is_directory(child) {
+                (
+                    present(tree, &format!("{child}/README.md")),
+                    linked.contains(child)
+                        || linked.contains(&format!("{child}/README.md"))
+                        || present(tree, &format!("{child}.md")),
+                )
+            } else {
+                (
+                    child.to_ascii_lowercase().ends_with(".md"),
+                    linked.contains(child),
+                )
+            };
+            if required && !covered {
+                report.found(
+                    Finding::new(
+                        "missing-readme-index-child",
+                        &index,
+                        "a README index in the declared tree omits a direct child",
+                    )
+                    .with("child", Detail::Text(child.clone())),
+                );
+            }
+        }
+    }
+    Ok(indexed)
+}
+
+/// A path the repository holds as a file, readable or not, or as a directory.
+fn present(tree: &dyn Tree, path: &str) -> bool {
+    !matches!(tree.read(path), Err(TreeError::NotFound)) || tree.is_directory(path)
 }
 
 pub(crate) fn vendor(policy: Option<&GovernancePolicy>, tree: &dyn Tree) -> Report {
@@ -901,7 +1005,7 @@ mod tests {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
                     path: "../docs".to_string(),
-                    require_direct_children: false,
+                    require_direct_children: DirectChildren::Declared(false),
                     annotations: Vec::new(),
                     exclusions: Vec::new(),
                 }],
@@ -917,7 +1021,7 @@ mod tests {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
                     path: "docs".to_string(),
-                    require_direct_children: true,
+                    require_direct_children: DirectChildren::Declared(true),
                     annotations: vec![ReadmeAnnotation {
                         path: "guide.md".to_string(),
                         text: "annotated".to_string(),
@@ -932,7 +1036,7 @@ mod tests {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
                     path: "absent".to_string(),
-                    require_direct_children: false,
+                    require_direct_children: DirectChildren::Declared(false),
                     annotations: Vec::new(),
                     exclusions: Vec::new(),
                 }],
@@ -1150,7 +1254,7 @@ mod tests {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
                     path: "docs".to_string(),
-                    require_direct_children: false,
+                    require_direct_children: DirectChildren::Declared(false),
                     annotations: Vec::new(),
                     exclusions: Vec::new(),
                 }],
@@ -1169,7 +1273,7 @@ mod tests {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
                     path: "docs".to_string(),
-                    require_direct_children: false,
+                    require_direct_children: DirectChildren::Declared(false),
                     annotations: vec![
                         ReadmeAnnotation {
                             path: "missing.md".to_string(),
@@ -1196,7 +1300,7 @@ mod tests {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
                     path: "docs".to_string(),
-                    require_direct_children: false,
+                    require_direct_children: DirectChildren::Declared(false),
                     annotations: vec![ReadmeAnnotation {
                         path: "../outside".to_string(),
                         text: "required".to_string(),
@@ -1315,5 +1419,72 @@ mod tests {
             .exit_code,
             2
         );
+    }
+
+    fn every_directory(exclusions: &[&str], annotations: Vec<ReadmeAnnotation>) -> MarkdownPolicy {
+        MarkdownPolicy {
+            readme_index: Some(ReadmeIndexPolicy {
+                trees: vec![ReadmeIndexTree {
+                    path: "docs".to_string(),
+                    require_direct_children: DirectChildren::Mode(
+                        DirectChildrenMode::EveryDirectory,
+                    ),
+                    annotations,
+                    exclusions: exclusions.iter().map(ToString::to_string).collect(),
+                }],
+            }),
+            ..MarkdownPolicy::default()
+        }
+    }
+
+    #[test]
+    fn every_directory_checks_each_index_its_children_and_its_targets() {
+        let mut tree = MemoryTree::default();
+        tree.write(
+            "docs/README.md",
+            "[Guide](guide.md) [Area](area.md) [Plain](plain) [Image](image.png) [Up](../top.md) [Site](https://example.org) [Here](#top)",
+        );
+        tree.write("docs/guide.md", "# Guide");
+        tree.write("docs/area.md", "# Area");
+        tree.write("docs/area/README.md", "# Area");
+        tree.write("docs/plain/README.md", "# Plain");
+        tree.write("docs/notes.txt", "not required");
+        tree.write("docs/image.png", "");
+        tree.mark_binary("docs/image.png");
+        tree.write("docs/bare/page.txt", "no index is required of the parent");
+        tree.write("docs/skipped/page.md", "# Excluded");
+        tree.write("top.md", "# Top");
+        let policy = every_directory(&["skipped"], Vec::new());
+        let reported = outcome(readme_index(Some(&policy), &tree));
+        assert_eq!(reported.exit_code, 1);
+        assert!(reported.stderr.contains("docs/bare/README.md"));
+        assert!(!reported.stderr.contains("skipped"));
+        assert!(!reported.stderr.contains("omits a direct child"));
+        assert!(!reported.stderr.contains("resolves to nothing"));
+
+        tree.write("docs/bare/README.md", "# Bare [Lost](lost.md)");
+        let reported = outcome(readme_index(Some(&policy), &tree));
+        assert_eq!(reported.exit_code, 1);
+        assert!(reported.stderr.contains("resolves to nothing"));
+        assert!(reported.stderr.contains("omits a direct child"));
+
+        let absent = MemoryTree::default();
+        let annotated = every_directory(
+            &[],
+            vec![ReadmeAnnotation {
+                path: "guide.md".to_string(),
+                text: "annotated".to_string(),
+            }],
+        );
+        let reported = outcome(readme_index(Some(&annotated), &absent));
+        assert_eq!(reported.exit_code, 1);
+        assert!(!reported.stderr.contains("annotation"));
+
+        let mut unreadable = MemoryTree::default();
+        unreadable.write("docs/README.md", "[Sub](sub/README.md)");
+        unreadable.write("docs/sub/README.md", "# Sub");
+        unreadable.mark_unreadable("docs/sub/README.md");
+        let refused = outcome(readme_index(Some(&policy), &unreadable));
+        assert_eq!(refused.exit_code, 2);
     }
 }

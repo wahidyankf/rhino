@@ -121,11 +121,37 @@ pub(crate) struct ReadmeIndexPolicy {
 pub(crate) struct ReadmeIndexTree {
     pub(crate) path: String,
     #[serde(default)]
-    pub(crate) require_direct_children: bool,
+    pub(crate) require_direct_children: DirectChildren,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) annotations: Vec<ReadmeAnnotation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) exclusions: Vec<String>,
+}
+
+/// Which README indexes of a declared tree must link their direct children.
+///
+/// `false`, the default, requires no child link. `true` requires the declared
+/// directory's own index to link every direct child. `every-directory`
+/// requires a `README.md` in the declared directory and every directory under
+/// it, each linking its direct Markdown files and each direct subdirectory that
+/// carries an index, and every relative link in those indexes to resolve.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub(crate) enum DirectChildren {
+    Declared(bool),
+    Mode(DirectChildrenMode),
+}
+
+impl Default for DirectChildren {
+    fn default() -> Self {
+        Self::Declared(false)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum DirectChildrenMode {
+    EveryDirectory,
 }
 
 /// Exact text a named README must carry. It is a declared index annotation,
