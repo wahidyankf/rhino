@@ -9,7 +9,15 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## Unreleased
+## [v0.7.0] — 2026-09-26
+
+A declared surface glob can no longer pass by reading nothing behind a
+symbolic link: it follows a link whose target stays inside the repository and
+refuses one it cannot follow. Harness adapter validation can also report a
+`Rhino generated` marker that no adapter family owns, so a region labelled as
+RHINO output cannot drift unchecked. The version moves in the minor position
+because RHINO is in `0.x`; read **Changed — breaking** before upgrading a
+pinned version.
 
 ### Changed — breaking
 
