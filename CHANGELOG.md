@@ -66,6 +66,15 @@ pinned version.
   configuration schema describes the value. See
   [README index completeness](docs/reference/v0-4-configuration.md#readme-index-completeness).
 
+### Fixed
+
+- **A pre-push run reads its update records wherever `--root` or `--output`
+  appears.** `rhino --root . gate run --surface pre-push --push-updates-stdin`,
+  or the same command with `--output json` first, never read standard input
+  and refused with exit `2` and `rhino.input.unreadable`, although a flag may
+  come before or after the command path. Standard input is now read whenever
+  the parsed command is a `pre-push` gate run or selects `--file -`.
+
 ## [v0.6.0] — 2026-09-25
 
 Agent adapters can now carry an agent's skills preload and render a

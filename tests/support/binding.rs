@@ -503,6 +503,13 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
             );
             Outcome::Passed
         }
+        "the standard input is:" => {
+            let Some(text) = step.docstring.clone() else {
+                return Outcome::Failed("the sentence promised a document".to_string());
+            };
+            world.stdin = Some(text);
+            Outcome::Passed
+        }
         "the configuration file is this text:" => {
             // Written verbatim rather than rendered, because what these
             // scenarios are about is the shape of the file's first lines --

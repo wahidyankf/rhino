@@ -11,6 +11,7 @@
 //! fails is refused instead of being passed on as an empty document.
 #![forbid(unsafe_code)]
 
+use rhino::cli::Parsed;
 use rhino::runtime::{
     DiskAdapterStore, DiskEnvironmentStore, DiskMutationRunner, DiskToolchainRunner, DiskTree,
     ProcessLauncher,
@@ -194,15 +195,18 @@ fn format_of(arguments: &[String]) -> rhino::cli::Format {
 /// `pre-push` receives Git update records on standard input; reading from a
 /// terminal for every other gate would block a local or scheduled run before a
 /// declared child can start.
+///
+/// The command line is read by the parser that runs it, because a flag such
+/// as `--root` may come before the command path. Matching the raw arguments
+/// missed `rhino --root . gate run`, which then saw no update record at all.
+/// An invocation the parser refuses reads nothing: it is refused before any
+/// leaf could use the input.
 fn wants_stdin(arguments: &[String]) -> bool {
-    let is_pre_push = arguments.starts_with(&["gate".to_string(), "run".to_string()])
-        && arguments
-            .windows(2)
-            .any(|pair| pair == ["--surface", "pre-push"]);
-    is_pre_push
-        || arguments
-            .windows(2)
-            .any(|pair| pair[0] == "--file" && pair[1] == "-")
+    let Ok(Parsed::Run(invocation)) = rhino::cli::parse(arguments) else {
+        return false;
+    };
+    (invocation.category == "gate" && invocation.surface.as_deref() == Some("pre-push"))
+        || invocation.files.iter().any(|file| file == "-")
 }
 
 /// Standard input, or the reason it could not be read.

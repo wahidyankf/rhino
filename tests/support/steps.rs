@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 22] = [
+pub const VOCABULARY: [&str; 23] = [
     "I invoke the CLI with {string}",
     "I run the {string} validator",
     "stderr contains {string}",
@@ -34,6 +34,7 @@ pub const VOCABULARY: [&str; 22] = [
     "the repository contains a symbolic link at {string} to a directory outside it holding {string}",
     "the repository contains a symbolic link at {string} to {string} inside it",
     "the repository is unchanged by the inspection",
+    "the standard input is:",
     "the two runs are byte-identical",
 ];
 

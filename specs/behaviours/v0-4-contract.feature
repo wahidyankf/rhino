@@ -409,6 +409,38 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|validate"
     Then the exit code is 0
 
+  Scenario: A pre-push run reads its update records when a global flag precedes the command
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: range-check
+            type: check
+            inputs:
+              range: { kind: commit-range }
+            command:
+              executable: runner
+              args:
+                - { input: range.base, expand: single }
+            run-on:
+              pre-push:
+                bind:
+                  range: { source: push-updates, fallback: refs/remotes/origin/main }
+              pull-request:
+                bind:
+                  range: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    And the standard input is:
+      """
+      refs/heads/deleted 0000000000000000000000000000000000000000 refs/heads/deleted aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      """
+    When I invoke the CLI with "--root|.|gate|run|--surface|pre-push|--push-updates-stdin|--output|json"
+    Then the exit code is 0
+
   Scenario: Unresolved typed input projections are refused
     Given the configuration file is this text:
       """

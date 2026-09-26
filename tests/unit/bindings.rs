@@ -81,6 +81,10 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "A pre-push run reads its update records when a global flag precedes the command",
+    ),
+    (
+        "v0-4-contract",
         "Unresolved typed input projections are refused",
     ),
     (
