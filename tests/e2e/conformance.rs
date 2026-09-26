@@ -97,6 +97,31 @@ fn invoke(arguments: &[&str], env: &[(&str, &str)]) -> Observed {
     }
 }
 
+/// Run with a standard input that is open and never written, answering the
+/// status if the process ends within a bound and `None` if it is still
+/// waiting, in which case it is killed.
+fn completes_with_open_stdin(arguments: &[&str]) -> Option<i32> {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rhino"))
+        .args(arguments)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("the built executable is runnable");
+    // Held, not dropped: dropping it would close the stream and end any read.
+    let _held = child.stdin.take();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while std::time::Instant::now() < deadline {
+        if let Some(status) = child.try_wait().expect("the child can be polled") {
+            return Some(status.code().unwrap_or(-1));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    None
+}
+
 /// Provoke a closed pipe by closing the read end **before** reading anything,
 /// so the child's first write meets a reader that is already gone.
 ///
@@ -535,13 +560,25 @@ fn probe(id: &str) -> Option<Outcome> {
             // stdin is /dev/null here; a leaf that insisted on reading it would
             // still have to terminate, so the observation is that it does.
             let observed = invoke(&["gate", "list"], &[]);
-            if observed.status() == 0 {
-                Outcome::Passed
-            } else {
-                Outcome::Failed(format!(
+            if observed.status() != 0 {
+                return Some(Outcome::Failed(format!(
                     "a run selecting no standard input did not complete: exit {}",
                     observed.status()
-                ))
+                )));
+            }
+            // A pre-push run is the one gate surface that may read standard
+            // input, and only when `--push-updates-stdin` selects it. Held open
+            // and never written, the stream is a caller at a terminal: a run
+            // that read it without the flag would wait for an end that never
+            // comes.
+            let root = absent_child_repository();
+            let root = root.to_string_lossy();
+            match completes_with_open_stdin(&["gate", "run", "--surface", "pre-push", "--root", &root]) {
+                Some(_) => Outcome::Passed,
+                None => Outcome::Failed(
+                    "`gate run --surface pre-push` without `--push-updates-stdin` waited on an open standard input"
+                        .to_string(),
+                ),
             }
         }
 

@@ -32,23 +32,23 @@ and toolchain provision use their own explicit boundaries.
 
 ## Options
 
-| Option                               | Accepted by                         | Meaning                                                         |
-| ------------------------------------ | ----------------------------------- | --------------------------------------------------------------- |
-| `-h`, `--help`                       | Every command                       | Print help for the command path given, on stdout, and exit `0`. |
-| `-V`, `--version`                    | Every command                       | Print the release identity, as `version` does, and exit `0`.    |
-| `--root <path>`                      | Every command                       | Select a repository root.                                       |
-| `--output <text\|json>`              | Every command                       | Select text or JSON rendering.                                  |
-| `--quiet`, `--verbose`, `--no-color` | Every command                       | Presentation-only compatibility options.                        |
-| `--file <path>`                      | `md mermaid validate`               | Repeatable repository-relative input; `-` reads standard input. |
-| `--directory <path>`                 | `governance directory-map validate` | Replace the legacy directory-map tree selection.                |
-| `--dir <path>`                       | `env backup`, `env restore`         | Required repository-relative backup directory.                  |
-| `--apply`                            | `env init`, `toolchain provision`   | Authorize the declared mutation after planning.                 |
-| `--force`                            | `env restore`                       | Authorize replacement after a recoverable backup plan.          |
-| `--surface <name>`                   | `gate run`                          | Select one closed lifecycle surface.                            |
-| `--message-file <path>`              | `gate run` at `commit-msg`          | Pass Git's current `COMMIT_EDITMSG` hook path only.             |
-| `--push-updates-stdin`               | `gate run` at `pre-push`            | Read Git update records from standard input.                    |
-| `--base <sha> --head <sha>`          | `gate run` at `pull-request`        | Supply the immutable pull-request range.                        |
-| `--json`                             | `version`                           | Shorthand for `--output json`.                                  |
+| Option                               | Accepted by                         | Meaning                                                                        |
+| ------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------ |
+| `-h`, `--help`                       | Every command                       | Print help for the command path given, on stdout, and exit `0`.                |
+| `-V`, `--version`                    | Every command                       | Print the release identity, as `version` does, and exit `0`.                   |
+| `--root <path>`                      | Every command                       | Select a repository root.                                                      |
+| `--output <text\|json>`              | Every command                       | Select text or JSON rendering.                                                 |
+| `--quiet`, `--verbose`, `--no-color` | Every command                       | Presentation-only compatibility options.                                       |
+| `--file <path>`                      | `md mermaid validate`               | Repeatable repository-relative input; `-` reads standard input.                |
+| `--directory <path>`                 | `governance directory-map validate` | Replace the legacy directory-map tree selection.                               |
+| `--dir <path>`                       | `env backup`, `env restore`         | Required repository-relative backup directory.                                 |
+| `--apply`                            | `env init`, `toolchain provision`   | Authorize the declared mutation after planning.                                |
+| `--force`                            | `env restore`                       | Authorize replacement after a recoverable backup plan.                         |
+| `--surface <name>`                   | `gate run`                          | Select one closed lifecycle surface.                                           |
+| `--message-file <path>`              | `gate run` at `commit-msg`          | Pass Git's current `COMMIT_EDITMSG` hook path only.                            |
+| `--push-updates-stdin`               | `gate run` at `pre-push`            | Read Git update records from standard input, and hand them to each gate child. |
+| `--base <sha> --head <sha>`          | `gate run` at `pull-request`        | Supply the immutable pull-request range.                                       |
+| `--json`                             | `version`                           | Shorthand for `--output json`.                                                 |
 
 A flag a leaf does not accept is an invocation error. Repository-relative paths
 cannot be absolute or escape the selected root.

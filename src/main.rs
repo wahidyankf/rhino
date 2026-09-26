@@ -191,10 +191,11 @@ fn format_of(arguments: &[String]) -> rhino::cli::Format {
 
 /// Whether this invocation reads the real standard input.
 ///
-/// A `--file -` selection asks for it. Of the closed lifecycle surfaces, only
-/// `pre-push` receives Git update records on standard input; reading from a
-/// terminal for every other gate would block a local or scheduled run before a
-/// declared child can start.
+/// A `--file -` selection asks for it, and so does `--push-updates-stdin`,
+/// which only a `pre-push` gate run accepts: Git hands that hook its update
+/// records on standard input. Nothing else selects the stream, so a run by hand
+/// from a terminal, including a `pre-push` run without the flag, never waits on
+/// it before a declared child can start.
 ///
 /// The command line is read by the parser that runs it, because a flag such
 /// as `--root` may come before the command path. Matching the raw arguments
@@ -205,8 +206,7 @@ fn wants_stdin(arguments: &[String]) -> bool {
     let Ok(Parsed::Run(invocation)) = rhino::cli::parse(arguments) else {
         return false;
     };
-    (invocation.category == "gate" && invocation.surface.as_deref() == Some("pre-push"))
-        || invocation.files.iter().any(|file| file == "-")
+    invocation.push_updates_stdin || invocation.files.iter().any(|file| file == "-")
 }
 
 /// Standard input, or the reason it could not be read.
