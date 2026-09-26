@@ -22,7 +22,8 @@ curl -fsSLO "$BASE/rhino-$TARGET.tar.gz"
 curl -fsSLO "$BASE/checksums.txt"
 
 # One file records every platform's digest, so `--ignore-missing` checks the
-# archive you fetched instead of failing over the three you did not.
+# archive you fetched instead of failing over the files it lists that you did
+# not fetch.
 # shasum on macOS, sha256sum on Linux.
 shasum -a 256 --ignore-missing -c checksums.txt
 ```
