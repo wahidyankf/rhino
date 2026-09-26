@@ -205,7 +205,8 @@ adapter validation to inspect. A matched file with a line containing
 generation writes that phrase or such a file, so `harness adapters validate`
 and `harness adapters generate` report it as `stale-marker` and exit `1`. A
 file under a declared family root or at an exact adapter path is never
-inspected here, because the adapter comparison already covers it. A glob that
+inspected here, because the adapter comparison already covers it, and neither is a file in a directory
+`scan.exclude-directories` names. A glob that
 climbs out of the root refuses with `rhino.config.unusable`, a matched file
 that cannot be read refuses with `rhino.file.unreadable`, and a file holding no
 text is skipped. Like every surface glob, a marker surface follows a symbolic
