@@ -30,9 +30,9 @@ pub fn validate(tree: &dyn Tree, config: &Config, headings: &HeadingHierarchy) -
         Ok(surfaces) => surfaces,
         Err(reason) => return Report::refused("heading-hierarchy", reason),
     };
-    let corpus = match Corpus::read(tree, config) {
+    let corpus = match Corpus::reached(tree, config, &surfaces) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::unreadable("heading-hierarchy", reason),
+        Err(unreachable) => return unreachable.refusal("heading-hierarchy"),
     };
 
     let mut report = Report::new("heading-hierarchy", "file");

@@ -52,6 +52,8 @@ with the command category. stdout still carries the summary.
 - a `--file` or `--directory` that does not exist, cannot be read, or leaves
   the repository root, including through a symbolic link;
 - a file the run has to read that exists and cannot be opened;
+- a symbolic link a declared surface glob reaches that leads outside the
+  repository root, loops back into itself, or leads to nothing;
 - a file the run has to write that cannot be written;
 - a gate child that was refused for any reason other than the two below;
 - an internal failure, which prints `rhino: internal error:` on stderr.

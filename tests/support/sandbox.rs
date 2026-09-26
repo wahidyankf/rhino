@@ -76,6 +76,9 @@ impl Sandbox {
         for (link, held) in repository.outside_links {
             sandbox.link_outside(link, held);
         }
+        for (link, target) in repository.inside_links {
+            sandbox.link_inside(link, target);
+        }
         // Created after the files, so a directory a scenario declared empty is
         // empty however the paths happened to sort.
         for path in repository.empty_directories {
@@ -189,6 +192,18 @@ exit {code}
         }
         std::os::unix::fs::symlink(&outside, &target).expect("the link is creatable");
         self.outside.push(outside);
+    }
+
+    /// Link a path to another path in the same repository, relative to the
+    /// link's own directory, the way a repository commits one.
+    fn link_inside(&self, link: &str, target: &str) {
+        let at = self.root.join(link);
+        if let Some(parent) = at.parent() {
+            std::fs::create_dir_all(parent).expect("the link's parent directory is creatable");
+        }
+        let depth = link.split('/').count() - 1;
+        let relative = format!("{}{target}", "../".repeat(depth));
+        std::os::unix::fs::symlink(relative, &at).expect("the link is creatable");
     }
 
     /// Make a written file unreadable, so opening it fails the way a

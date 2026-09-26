@@ -12,7 +12,9 @@
 //! file it could not open would report a clean repository it never read.
 
 use crate::config::Config;
-use crate::runtime::{Tree, TreeError};
+use crate::errors::ErrorCode;
+use crate::report::Report;
+use crate::runtime::{LinkTarget, Tree, TreeError};
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use std::collections::BTreeSet;
 
@@ -47,6 +49,47 @@ impl Corpus {
                 // because its name says Markdown; a name that says text over
                 // bytes that are not is a fault to report, not to work around.
                 Err(TreeError::NotText) => return Err(format!("{path}: holds no text")),
+            }
+        }
+
+        Ok(Self { documents })
+    }
+
+    /// The repository's Markdown, plus every Markdown file a declared surface
+    /// reaches through a link whose target stays inside the root.
+    ///
+    /// A followed file is named by the path the surface matched and read from
+    /// the path its bytes live at, so a finding points where the repository
+    /// declared it would.
+    pub fn reached(
+        tree: &dyn Tree,
+        config: &Config,
+        surfaces: &Surfaces,
+    ) -> Result<Self, Unreachable> {
+        let mut documents = Vec::new();
+
+        for reached in surfaces.files(tree, config)? {
+            if !is_markdown(&reached.path) {
+                continue;
+            }
+            match tree.read(&reached.source) {
+                Ok(text) => documents.push(Document {
+                    path: reached.path,
+                    text,
+                }),
+                Err(TreeError::NotFound) => {}
+                Err(TreeError::Unreadable(reason)) => {
+                    return Err(Unreachable::unreadable(format!(
+                        "{}: {reason}",
+                        reached.path
+                    )));
+                }
+                Err(TreeError::NotText) => {
+                    return Err(Unreachable::unreadable(format!(
+                        "{}: holds no text",
+                        reached.path
+                    )));
+                }
             }
         }
 
@@ -179,14 +222,183 @@ pub fn directories(tree: &dyn Tree, config: &Config, root: &str) -> Vec<String> 
 /// matching entry wins -- so the rule lives here once rather than in each of
 /// them. A third section stating it the other way round would be a repository
 /// policy that changed meaning depending on which command read it.
-pub struct Surfaces(GlobSet);
+pub struct Surfaces {
+    globs: GlobSet,
+    patterns: Vec<String>,
+}
+
+/// One file a declared surface reaches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reached {
+    /// The path the surface names it by, through any link it followed.
+    pub path: String,
+    /// Where its bytes are read: the same path unless a link was followed.
+    pub source: String,
+}
+
+/// Why a declared surface could not be walked, as the refusal it becomes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Unreachable {
+    code: ErrorCode,
+    message: String,
+}
+
+impl Unreachable {
+    fn unreadable(message: String) -> Self {
+        Self {
+            code: ErrorCode::FileUnreadable,
+            message,
+        }
+    }
+
+    /// The refusal a leaf reports, with exit `2`.
+    pub fn refusal(self, category: &'static str) -> Report {
+        Report::refused_as(self.code, category, self.message)
+    }
+}
 
 impl Surfaces {
     pub fn compile<'a>(
         key: &str,
         globs: impl IntoIterator<Item = &'a str>,
     ) -> Result<Self, String> {
-        glob_set(key, globs).map(Self)
+        let patterns: Vec<String> = globs.into_iter().map(str::to_string).collect();
+        glob_set(key, patterns.iter().map(String::as_str)).map(|globs| Self { globs, patterns })
+    }
+
+    /// Every file these surfaces may govern, in path order: each file the
+    /// walk lists, and each governed file behind a link a surface reaches.
+    ///
+    /// A link a surface reaches is followed when its target stays inside the
+    /// root. One that leads outside refuses with `rhino.path.escapes-root`,
+    /// and one that loops or leads nowhere refuses with
+    /// `rhino.file.unreadable`: a surface that silently read nothing there
+    /// would report a clean policy it never checked. A link no surface
+    /// reaches is neither followed nor refused, so an unrelated link cannot
+    /// stop a run.
+    pub fn files(&self, tree: &dyn Tree, config: &Config) -> Result<Vec<Reached>, Unreachable> {
+        let walked = files(tree, config);
+        let links: Vec<(String, LinkTarget)> = tree
+            .links()
+            .into_iter()
+            .filter(|(link, _)| !is_excluded(&format!("{link}/"), config.excluded()))
+            .collect();
+        let mut reached: Vec<Reached> = walked
+            .iter()
+            .map(|path| Reached {
+                path: path.clone(),
+                source: path.clone(),
+            })
+            .collect();
+        for (link, target) in &links {
+            if self.reaches(link) {
+                let mut chain = vec![link.as_str()];
+                self.follow(
+                    &walked,
+                    &links,
+                    config,
+                    link,
+                    target,
+                    &mut chain,
+                    &mut reached,
+                )?;
+            }
+        }
+        reached.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(reached)
+    }
+
+    /// Follow one link from the path a surface reached it at.
+    ///
+    /// `chain` holds every link already followed on the way here. Meeting one
+    /// of them again is a cycle, which would otherwise never end.
+    #[allow(clippy::too_many_arguments)]
+    fn follow<'a>(
+        &self,
+        walked: &[String],
+        links: &'a [(String, LinkTarget)],
+        config: &Config,
+        at: &str,
+        target: &LinkTarget,
+        chain: &mut Vec<&'a str>,
+        reached: &mut Vec<Reached>,
+    ) -> Result<(), Unreachable> {
+        let target = match target {
+            LinkTarget::Within(target) => target,
+            LinkTarget::Outside => {
+                return Err(Unreachable {
+                    code: ErrorCode::PathEscapesRoot,
+                    message: format!(
+                        "{at}: a declared surface reaches a symbolic link that leads outside the repository root"
+                    ),
+                });
+            }
+            LinkTarget::Unresolved => {
+                return Err(Unreachable::unreadable(format!(
+                    "{at}: a declared surface reaches a symbolic link whose target cannot be resolved"
+                )));
+            }
+        };
+        let prefix = normalise(target);
+        let admit = |path: String, source: &str, reached: &mut Vec<Reached>| {
+            if self.governing(&path).is_some() && !is_excluded(&path, config.excluded()) {
+                reached.push(Reached {
+                    path,
+                    source: source.to_string(),
+                });
+            }
+        };
+        for source in walked {
+            if source == target {
+                admit(at.to_string(), source, reached);
+            } else if let Some(rest) = source.strip_prefix(&prefix) {
+                admit(format!("{at}/{rest}"), source, reached);
+            }
+        }
+        for (link, next) in links {
+            let Some(rest) = link.strip_prefix(&prefix) else {
+                continue;
+            };
+            let path = format!("{at}/{rest}");
+            if !self.reaches(&path) || is_excluded(&format!("{path}/"), config.excluded()) {
+                continue;
+            }
+            if chain.contains(&link.as_str()) {
+                return Err(Unreachable::unreadable(format!(
+                    "{path}: a declared surface reaches a symbolic-link cycle"
+                )));
+            }
+            chain.push(link);
+            self.follow(walked, links, config, &path, next, chain, reached)?;
+            chain.pop();
+        }
+        Ok(())
+    }
+
+    /// Whether any surface could match a path at or under `path`.
+    ///
+    /// Judged by each glob's literal prefix -- the segments before its first
+    /// wildcard -- because a link's contents are unknown until it is
+    /// followed. A glob with a wildcard reaches every path that agrees with
+    /// its literal prefix as far as both go; a glob with none reaches only
+    /// the path it names and the directories on the way to it.
+    fn reaches(&self, path: &str) -> bool {
+        let at: Vec<&str> = path.split('/').collect();
+        self.patterns.iter().any(|pattern| {
+            let segments: Vec<&str> = pattern.split('/').collect();
+            let literal: Vec<&str> = segments
+                .iter()
+                .take_while(|segment| !segment.contains(['*', '?', '[', '{', '\\']))
+                .copied()
+                .collect();
+            let wild = literal.len() < segments.len();
+            let common = literal.len().min(at.len());
+            let agree = literal[..common]
+                .iter()
+                .zip(&at[..common])
+                .all(|(declared, walked)| declared.eq_ignore_ascii_case(walked));
+            agree && (wild || at.len() <= literal.len())
+        })
     }
 
     /// The index of the surface that governs a path, or `None` when no declared
@@ -196,7 +408,18 @@ impl Surfaces {
     /// file, the later declaration is the more specific intent, which is how a
     /// repository says "this tree, except that one file".
     pub fn governing(&self, path: &str) -> Option<usize> {
-        self.0.matches(path).into_iter().max()
+        self.globs.matches(path).into_iter().max()
+    }
+}
+
+/// A directory as a prefix: `""` for the root, otherwise with one trailing
+/// separator, so a sibling whose name merely starts the same way never
+/// matches.
+fn normalise(directory: &str) -> String {
+    if directory.is_empty() {
+        String::new()
+    } else {
+        format!("{directory}/")
     }
 }
 
@@ -384,5 +607,141 @@ mod tests {
             assert_eq!(refused.exit_code, 2);
             assert!(refused.stderr.contains(code), "{}", refused.stderr);
         }
+    }
+
+    fn reached_paths(
+        surfaces: &Surfaces,
+        tree: &MemoryTree,
+        config: &Config,
+    ) -> Vec<(String, String)> {
+        surfaces
+            .files(tree, config)
+            .unwrap()
+            .into_iter()
+            .map(|reached| (reached.path, reached.source))
+            .collect()
+    }
+
+    #[test]
+    fn a_surface_follows_an_in_root_link_to_a_directory_a_file_and_a_nested_link() {
+        let mut tree = MemoryTree::default();
+        tree.write("governance/a.md", "# a");
+        tree.write("governance/deeper/b.md", "# b");
+        tree.write("notes/c.md", "# c");
+        tree.write("single.md", "# single");
+        tree.mark_link_to("gov", "governance");
+        tree.mark_link_to("governance/notes", "notes");
+        tree.mark_link_to("alias.md", "single.md");
+        let config = Config::default();
+        let surfaces = Surfaces::compile("test", ["gov/**/*.md", "alias.md"]).unwrap();
+        let reached = reached_paths(&surfaces, &tree, &config);
+        for (path, source) in [
+            ("alias.md", "single.md"),
+            ("gov/a.md", "governance/a.md"),
+            ("gov/deeper/b.md", "governance/deeper/b.md"),
+            ("gov/notes/c.md", "notes/c.md"),
+            ("governance/a.md", "governance/a.md"),
+        ] {
+            assert!(
+                reached.contains(&(path.to_string(), source.to_string())),
+                "{path} from {source} in {reached:?}"
+            );
+        }
+        // A followed file no surface governs is not admitted.
+        assert!(
+            !reached
+                .iter()
+                .any(|(path, _)| path == "governance/notes/c.md")
+        );
+
+        let corpus = Corpus::reached(&tree, &config, &surfaces).unwrap();
+        assert!(
+            corpus
+                .documents()
+                .iter()
+                .any(|document| document.path == "gov/notes/c.md" && document.text == "# c")
+        );
+    }
+
+    #[test]
+    fn a_surface_refuses_a_link_it_reaches_that_escapes_loops_or_leads_nowhere() {
+        let config = Config::default();
+        let surfaces = Surfaces::compile("test", ["docs/**/*.md"]).unwrap();
+        let code = |tree: &MemoryTree| {
+            let refused = surfaces
+                .files(tree, &config)
+                .unwrap_err()
+                .refusal("word-budget")
+                .render(crate::cli::Format::Json);
+            assert_eq!(refused.exit_code, 2);
+            refused.stderr
+        };
+
+        let mut escaping = MemoryTree::default();
+        escaping.write("docs/outside/held.md", "# held");
+        escaping.mark_link("docs/outside");
+        assert!(code(&escaping).contains("rhino.path.escapes-root"));
+
+        let mut looping = MemoryTree::default();
+        looping.write("docs/a.md", "# a");
+        looping.mark_link_to("docs/loop", "docs");
+        assert!(code(&looping).contains("symbolic-link cycle"));
+
+        let mut dangling = MemoryTree::default();
+        dangling.write("docs/a.md", "# a");
+        dangling.mark_link_to("docs/gone", "missing");
+        assert!(code(&dangling).contains("rhino.file.unreadable"));
+
+        let mut unreadable = MemoryTree::default();
+        unreadable.write("held/a.md", "# a");
+        unreadable.write("held/b.md", "# b");
+        unreadable.mark_link_to("docs", "held");
+        unreadable.mark_unreadable("held/a.md");
+        let Err(refused) = Corpus::reached(&unreadable, &config, &surfaces) else {
+            panic!("an unreadable followed file refuses");
+        };
+        assert_eq!(refused.code, ErrorCode::FileUnreadable);
+        let mut binary = MemoryTree::default();
+        binary.write("held/a.md", "# a");
+        binary.write("held/b.md", "# b");
+        binary.mark_link_to("docs", "held");
+        binary.mark_vanished("held/a.md");
+        binary.mark_binary("held/b.md");
+        let Err(binary) = Corpus::reached(&binary, &config, &surfaces) else {
+            panic!("a followed file holding no text refuses");
+        };
+        assert!(
+            binary.message.contains("holds no text"),
+            "{}",
+            binary.message
+        );
+    }
+
+    #[test]
+    fn a_link_no_surface_reaches_or_the_scan_excludes_is_neither_followed_nor_refused() {
+        let mut tree = MemoryTree::default();
+        tree.write("docs/a.md", "# a");
+        tree.write("vendor/outside/held.md", "# held");
+        tree.mark_link("vendor/outside");
+        tree.write("generated/loop/x.md", "# x");
+        tree.mark_link_to("docs/generated", "docs");
+        tree.mark_link_to("docs/linked", "docs/a.md");
+        let config = Config {
+            scan: Some(crate::config::Scan {
+                exclude_directories: vec!["generated".to_string()],
+            }),
+            ..Config::default()
+        };
+        let surfaces = Surfaces::compile("test", ["docs/**/*.md", "exact/path.md"]).unwrap();
+        let reached = reached_paths(&surfaces, &tree, &config);
+        assert!(reached.contains(&("docs/a.md".to_string(), "docs/a.md".to_string())));
+        // The link to a file is reached, followed, and governed by no surface.
+        assert!(!reached.iter().any(|(path, _)| path == "docs/linked"));
+
+        assert!(surfaces.reaches("docs"));
+        assert!(surfaces.reaches("DOCS/deeper"));
+        assert!(surfaces.reaches("exact"));
+        assert!(!surfaces.reaches("exact/path.md/below"));
+        assert!(!surfaces.reaches("vendor/outside"));
     }
 }

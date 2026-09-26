@@ -2270,6 +2270,104 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "rhino.file.unreadable"
 
+  Scenario Outline: A surface glob follows a symbolic link whose target stays inside the repository
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      <group>
+      """
+    And the repository contains:
+      | path   | content   |
+      | <held> | <content> |
+    And the repository contains a symbolic link at "linked" to "held" inside it
+    When I invoke the CLI with "<command>"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "<kind>"
+
+    Examples:
+      | group                                                                                                                 | held              | content                 | command                                           | kind                          |
+      | policies: {governance: {word-budget: {count: letters-and-digits, surfaces: [{glob: "linked/**/*.md", fail: 3}]}}}     | held/long.md      | one two three four five | governance\|word-budget\|validate\|--output\|json | word-limit-exceeded           |
+      | policies: {markdown: {heading-hierarchy: {surfaces: [{glob: "linked/**/*.md"}], single-h1: true, max-level-jump: 1}}} | held/twice.md     | # One\n\n# Two\n        | md\|heading-hierarchy\|validate\|--output\|json   | multiple-h1                   |
+      | policies: {markdown: {frontmatter: {surfaces: [{glob: "linked/**/*.md", require: [title]}]}}}                         | held/untitled.md  | # Untitled\n            | md\|frontmatter\|validate\|--output\|json         | missing-frontmatter-key       |
+      | policies: {markdown: {naming: {surfaces: [{glob: "linked/**/*.md", style: kebab-case}], exempt: []}}}                 | held/Not_Kebab.md | # Name\n                | md\|naming\|validate\|--output\|json              | invalid-md-name               |
+      | policies: {markdown: {metadata: {surfaces: [{glob: "linked/**/*.md", schema: governance}]}}}                          | held/bare.md      | # Bare\n                | metadata\|validate\|--output\|json                | metadata-required-key-missing |
+
+  Scenario: A surface glob behind a symbolic link that leaves the repository is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          word-budget:
+            count: letters-and-digits
+            surfaces:
+              - glob: "linked/**/*.md"
+                fail: 3
+      """
+    And the repository contains a symbolic link at "linked" to a directory outside it holding "held.md"
+    When I invoke the CLI with "governance|word-budget|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.path.escapes-root"
+
+  Scenario: A symbolic-link cycle under a surface glob is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          word-budget:
+            count: letters-and-digits
+            surfaces:
+              - glob: "docs/**/*.md"
+                fail: 3
+      """
+    And the repository contains:
+      | path         | content   |
+      | docs/next.md | one two   |
+    And the repository contains a symbolic link at "docs/loop" to "docs" inside it
+    When I invoke the CLI with "governance|word-budget|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.file.unreadable"
+
+  Scenario: A symbolic link no surface glob reaches is neither followed nor refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          word-budget:
+            count: letters-and-digits
+            surfaces:
+              - glob: "docs/**/*.md"
+                fail: 3
+      """
+    And the repository contains:
+      | path         | content   |
+      | docs/next.md | one two   |
+    And the repository contains a symbolic link at "vendor/outside" to a directory outside it holding "held.md"
+    When I invoke the CLI with "governance|word-budget|validate|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "inspected" is 1
+
+  Scenario: A surface glob that matches nothing still passes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          word-budget:
+            count: letters-and-digits
+            surfaces:
+              - glob: "absent/**/*.md"
+                fail: 3
+      """
+    And the repository contains:
+      | path         | content                 |
+      | docs/long.md | one two three four five |
+    When I invoke the CLI with "governance|word-budget|validate|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "inspected" is 0
+
   Scenario: Mermaid policy accepts a declared plain-text repository with no diagrams
     Given the configuration file is this text:
       """

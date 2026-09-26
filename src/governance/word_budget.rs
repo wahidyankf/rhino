@@ -40,9 +40,9 @@ pub fn validate(tree: &dyn Tree, config: &Config, budget: &WordBudget) -> Report
         Ok(globs) => globs,
         Err(reason) => return Report::refused("word-budget", reason),
     };
-    let corpus = match Corpus::read(tree, config) {
+    let corpus = match Corpus::reached(tree, config, &globs) {
         Ok(corpus) => corpus,
-        Err(reason) => return Report::unreadable("word-budget", reason),
+        Err(unreachable) => return unreachable.refusal("word-budget"),
     };
 
     let mut report = Report::new("word-budget", "file");

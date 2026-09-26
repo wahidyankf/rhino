@@ -300,7 +300,11 @@ Some situations look like findings and are not.
 - **A fenced block whose diagram declaration RHINO cannot parse.** Reporting on
   syntax the tool does not understand would be reporting on its own ignorance.
 - **A surface, tree, or roster that matched nothing.** Zero is a real answer.
-  The run reports what it inspected so zero stays visible.
+  The run reports what it inspected so zero stays visible. A symbolic link
+  never produces that zero: a surface glob follows a link it reaches to a
+  target inside the root and refuses one it cannot, as the
+  [configuration reference](v0-4-configuration.md#surface-globs-and-symbolic-links)
+  describes.
 
 ## Related
 
