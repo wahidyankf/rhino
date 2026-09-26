@@ -357,7 +357,7 @@ fn run_outcome(
                     "summary": {
                         "scanned": completed.len(),
                         "findings": if exit_code == 1 { 1 } else { 0 },
-                        "changed": 0,
+                        "changed": changes.len(),
                     },
                     "findings": [],
                     "changes": changes,
@@ -1622,6 +1622,22 @@ gates:
                 .stdout
                 .contains("preserved unstaged docs/unstaged.md")
         );
+        // The summary counts the paths the run reports as changed, so a
+        // caller reading only the summary is not told a mutation did nothing.
+        let json = run(
+            Some(&mutation),
+            &Invocation {
+                format: Format::Json,
+                ..pre_commit.clone()
+            },
+            &tree,
+            None,
+            &CapturingLauncher::default(),
+            &TerminalMutations(MutationResult::Changed),
+        );
+        assert_eq!(json.exit_code, 0);
+        assert!(json.stdout.contains("\"changes\":[\"docs/changed.md\"]"));
+        assert!(json.stdout.contains("\"changed\":1"));
         let finding = run(
             Some(&mutation),
             &pre_commit,
