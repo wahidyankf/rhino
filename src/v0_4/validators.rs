@@ -42,8 +42,10 @@ pub(crate) fn license(policy: Option<&ConventionsPolicy>, tree: &dyn Tree) -> Re
         if policy.exclusions.iter().any(|path| path == &entry.path) {
             continue;
         }
-        if let Some(digest) = &entry.sha256
-            && !is_sha256(digest)
+        if entry
+            .sha256
+            .as_deref()
+            .is_some_and(|digest| !is_sha256(digest))
         {
             return invalid(
                 "license",

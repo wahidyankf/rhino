@@ -648,14 +648,14 @@ pub(crate) fn backup(
     // `status` names the mode: backup always executes, so it completes even
     // with nothing to copy. `count` and `files` say what it wrote.
     let written: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
-    if !files.is_empty()
-        && let Err(error) = store.create(root, &EnvironmentTransaction { files })
-    {
-        return Outcome::refusal(
-            format,
-            ErrorCode::FileUnwritable,
-            format!("environment backup refused: {}", error.0),
-        );
+    if !files.is_empty() {
+        if let Err(error) = store.create(root, &EnvironmentTransaction { files }) {
+            return Outcome::refusal(
+                format,
+                ErrorCode::FileUnwritable,
+                format!("environment backup refused: {}", error.0),
+            );
+        }
     }
     match format {
         Format::Text => Outcome::clean(format!(

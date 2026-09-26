@@ -72,14 +72,19 @@ pinned version.
   appears.** `rhino --root . gate run --surface pre-push --push-updates-stdin`,
   or the same command with `--output json` first, never read standard input
   and refused with exit `2` and `rhino.input.unreadable`, although a flag may
-  come before or after the command path. Standard input is now read whenever
-  the parsed command is a `pre-push` gate run or selects `--file -`.
+  come before or after the command path. The parsed command, not the raw
+  argument order, now decides whether standard input is read.
 - **A pre-push run reads standard input only when `--push-updates-stdin`
   selects it.** `gate run --surface pre-push` read standard input to its end
   with or without the flag, so a run by hand from a terminal waited for input
   nobody meant to give. Without the flag it now never reads or waits on
   standard input, and each gate child's standard input is empty. With it, each
   child still receives the update records unmodified.
+- **RHINO builds on its declared minimum Rust version again.** `Cargo.toml`
+  and the README declare Rust 1.85, but the source used `if let … && let …`
+  chains, which Rust 1.85 rejects, so a source build on 1.85 through 1.87
+  failed. The chains are rewritten, and the crate, its tests, and `xtask` now
+  check on Rust 1.85.
 - **A JSON gate run counts the paths it changed.** The `gate run` result
   document's `summary.changed` was always `0`, even beside a `changes` list
   naming the paths a mutation gate changed. It now carries the length of

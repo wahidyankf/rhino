@@ -256,9 +256,7 @@ fn class_definition(line: usize, rest: &str, mermaid: &Mermaid) -> Vec<Finding> 
     };
 
     for (role, value) in [("fill", fill), ("stroke", stroke), ("color", text_color)] {
-        if let Some(value) = value
-            && !is_six_digit_hex(value)
-        {
+        if let Some(value) = value.filter(|value| !is_six_digit_hex(value)) {
             refuse(format!(
                 "`{role}:{value}` is not a six-digit hex color, so it cannot be compared with the declared palette"
             ));
@@ -546,10 +544,12 @@ fn flow_labels(line: &str) -> Vec<(Segment, String)> {
     remainder.push_str(rest);
 
     // A text edge writes its label between the dashes: `A -- label --> B`.
-    if let Some((head, tail)) = remainder.split_once("-- ")
-        && let Some((label, _)) = tail.split_once("-->")
-        && !head.contains("-->")
-    {
+    let label = remainder
+        .split_once("-- ")
+        .filter(|(head, _)| !head.contains("-->"))
+        .and_then(|(_, tail)| tail.split_once("-->"))
+        .map(|(label, _)| label);
+    if let Some(label) = label {
         found.push((Segment::Edge, label.trim().to_string()));
     }
 
