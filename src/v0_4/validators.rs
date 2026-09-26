@@ -175,11 +175,19 @@ pub(crate) fn mermaid(
     crate::markdown::mermaid::validate(tree, &config, mermaid, scope)
 }
 
-pub(crate) fn readme_index(policy: Option<&MarkdownPolicy>, tree: &dyn Tree) -> Report {
+/// `scan.exclude-directories` applies here as in every scan-based Markdown
+/// leaf: a directory it names, at any depth, is neither required to carry an
+/// index nor required as a child of one.
+pub(crate) fn readme_index(
+    policy: Option<&MarkdownPolicy>,
+    scan: Option<&Scan>,
+    tree: &dyn Tree,
+) -> Report {
     let Some(policy) = policy.and_then(|policy| policy.readme_index.as_ref()) else {
         return undeclared("readme-index", "policies.markdown.readme-index");
     };
-    readme_index_policy(policy, tree)
+    let skipped = scan.map_or(&[][..], |scan| scan.exclude_directories.as_slice());
+    readme_index_policy(policy, skipped, tree)
 }
 
 /// Project the declared file-name surface into the established name reader.
@@ -270,7 +278,7 @@ pub(crate) fn scan_projection(scan: Option<&Scan>) -> Config {
     }
 }
 
-fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
+fn readme_index_policy(policy: &ReadmeIndexPolicy, skipped: &[String], tree: &dyn Tree) -> Report {
     let mut report = Report::new("readme-index", "directory");
     for declared in &policy.trees {
         if !exact_path(&declared.path) || declared.exclusions.iter().any(|path| !exact_path(path)) {
@@ -282,9 +290,9 @@ fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
         let indexed = if declared.require_direct_children
             == DirectChildren::Mode(DirectChildrenMode::EveryDirectory)
         {
-            complete_index(declared, tree, &mut report)
+            complete_index(declared, skipped, tree, &mut report)
         } else {
-            root_index(declared, tree, &mut report)
+            root_index(declared, skipped, tree, &mut report)
         };
         match indexed {
             Ok(true) => {}
@@ -329,6 +337,7 @@ fn readme_index_policy(policy: &ReadmeIndexPolicy, tree: &dyn Tree) -> Report {
 /// leaves no annotation to check.
 fn root_index(
     declared: &ReadmeIndexTree,
+    skipped: &[String],
     tree: &dyn Tree,
     report: &mut Report,
 ) -> Result<bool, String> {
@@ -350,7 +359,10 @@ fn root_index(
     if declared.require_direct_children == DirectChildren::Declared(true) {
         let linked = markdown_targets(&index, &contents);
         for child in tree.children(&declared.path) {
-            if child == index || excluded(&child, &declared.path, &declared.exclusions) {
+            if child == index
+                || excluded(&child, &declared.path, &declared.exclusions)
+                || scan_skipped(&child, skipped, tree)
+            {
                 continue;
             }
             if !linked.contains(&child) {
@@ -376,6 +388,7 @@ fn root_index(
 /// whether the declared directory's own index exists, as `root_index` does.
 fn complete_index(
     declared: &ReadmeIndexTree,
+    skipped: &[String],
     tree: &dyn Tree,
     report: &mut Report,
 ) -> Result<bool, String> {
@@ -386,7 +399,10 @@ fn complete_index(
         let children: Vec<String> = tree
             .children(&directory)
             .into_iter()
-            .filter(|child| !excluded(child, &declared.path, &declared.exclusions))
+            .filter(|child| {
+                !excluded(child, &declared.path, &declared.exclusions)
+                    && !scan_skipped(child, skipped, tree)
+            })
             .collect();
         pending.extend(
             children
@@ -443,6 +459,17 @@ fn complete_index(
         }
     }
     Ok(indexed)
+}
+
+/// Whether `scan.exclude-directories` removes a child: a directory it names,
+/// or anything beneath one.
+fn scan_skipped(child: &str, skipped: &[String], tree: &dyn Tree) -> bool {
+    let probe = if tree.is_directory(child) {
+        format!("{child}/README.md")
+    } else {
+        child.to_string()
+    };
+    crate::scan::is_excluded(&probe, skipped)
 }
 
 /// A path the repository holds as a file, readable or not, or as a directory.
@@ -1001,7 +1028,7 @@ mod tests {
         tree.write("portable/allowed.md", "vendor-name\n");
         tree.write("bindings/ignored.md", "vendor-name\n");
 
-        assert_eq!(outcome(readme_index(None, &tree)).exit_code, 2);
+        assert_eq!(outcome(readme_index(None, None, &tree)).exit_code, 2);
         assert_eq!(outcome(vendor(None, &tree)).exit_code, 2);
         let invalid_readme = MarkdownPolicy {
             readme_index: Some(ReadmeIndexPolicy {
@@ -1015,7 +1042,7 @@ mod tests {
             ..MarkdownPolicy::default()
         };
         assert_eq!(
-            outcome(readme_index(Some(&invalid_readme), &tree)).exit_code,
+            outcome(readme_index_test(Some(&invalid_readme), &tree)).exit_code,
             2
         );
 
@@ -1033,7 +1060,10 @@ mod tests {
             }),
             ..MarkdownPolicy::default()
         };
-        assert_eq!(outcome(readme_index(Some(&readme), &tree)).exit_code, 0);
+        assert_eq!(
+            outcome(readme_index_test(Some(&readme), &tree)).exit_code,
+            0
+        );
         let missing_index = MarkdownPolicy {
             readme_index: Some(ReadmeIndexPolicy {
                 trees: vec![ReadmeIndexTree {
@@ -1046,7 +1076,7 @@ mod tests {
             ..MarkdownPolicy::default()
         };
         assert_eq!(
-            outcome(readme_index(Some(&missing_index), &tree)).exit_code,
+            outcome(readme_index_test(Some(&missing_index), &tree)).exit_code,
             1
         );
 
@@ -1264,7 +1294,7 @@ mod tests {
             ..MarkdownPolicy::default()
         };
         assert_eq!(
-            outcome(readme_index(Some(&index_policy), &unreadable_index)).exit_code,
+            outcome(readme_index_test(Some(&index_policy), &unreadable_index)).exit_code,
             2
         );
 
@@ -1291,7 +1321,8 @@ mod tests {
             }),
             ..MarkdownPolicy::default()
         };
-        let annotation_outcome = outcome(readme_index(Some(&missing_annotation), &annotations));
+        let annotation_outcome =
+            outcome(readme_index_test(Some(&missing_annotation), &annotations));
         assert_eq!(annotation_outcome.exit_code, 1);
         assert!(
             annotation_outcome
@@ -1313,7 +1344,7 @@ mod tests {
             ..MarkdownPolicy::default()
         };
         assert_eq!(
-            outcome(readme_index(Some(&invalid_annotation), &annotations)).exit_code,
+            outcome(readme_index_test(Some(&invalid_annotation), &annotations)).exit_code,
             2
         );
 
@@ -1423,6 +1454,10 @@ mod tests {
         );
     }
 
+    fn readme_index_test(policy: Option<&MarkdownPolicy>, tree: &dyn Tree) -> Report {
+        readme_index(policy, None, tree)
+    }
+
     fn every_directory(exclusions: &[&str], annotations: Vec<ReadmeAnnotation>) -> MarkdownPolicy {
         MarkdownPolicy {
             readme_index: Some(ReadmeIndexPolicy {
@@ -1457,7 +1492,7 @@ mod tests {
         tree.write("docs/skipped/page.md", "# Excluded");
         tree.write("top.md", "# Top");
         let policy = every_directory(&["skipped"], Vec::new());
-        let reported = outcome(readme_index(Some(&policy), &tree));
+        let reported = outcome(readme_index_test(Some(&policy), &tree));
         assert_eq!(reported.exit_code, 1);
         assert!(reported.stderr.contains("docs/bare/README.md"));
         assert!(!reported.stderr.contains("skipped"));
@@ -1465,7 +1500,7 @@ mod tests {
         assert!(!reported.stderr.contains("resolves to nothing"));
 
         tree.write("docs/bare/README.md", "# Bare [Lost](lost.md)");
-        let reported = outcome(readme_index(Some(&policy), &tree));
+        let reported = outcome(readme_index_test(Some(&policy), &tree));
         assert_eq!(reported.exit_code, 1);
         assert!(reported.stderr.contains("resolves to nothing"));
         assert!(reported.stderr.contains("omits a direct child"));
@@ -1478,7 +1513,7 @@ mod tests {
                 text: "annotated".to_string(),
             }],
         );
-        let reported = outcome(readme_index(Some(&annotated), &absent));
+        let reported = outcome(readme_index_test(Some(&annotated), &absent));
         assert_eq!(reported.exit_code, 1);
         assert!(!reported.stderr.contains("annotation"));
 
@@ -1486,7 +1521,43 @@ mod tests {
         unreadable.write("docs/README.md", "[Sub](sub/README.md)");
         unreadable.write("docs/sub/README.md", "# Sub");
         unreadable.mark_unreadable("docs/sub/README.md");
-        let refused = outcome(readme_index(Some(&policy), &unreadable));
+        let refused = outcome(readme_index_test(Some(&policy), &unreadable));
         assert_eq!(refused.exit_code, 2);
+    }
+
+    #[test]
+    fn scan_exclusions_remove_children_in_both_child_modes() {
+        let tree = MemoryTree::default();
+        tree.write("docs/README.md", "[Guide](guide.md)");
+        tree.write("docs/guide.md", "# Guide");
+        tree.write("docs/generated/page.md", "# Generated");
+        tree.write("docs/generated/README.md", "# Generated");
+        let scan = Scan {
+            exclude_directories: vec!["generated".to_string()],
+        };
+        for mode in [
+            DirectChildren::Declared(true),
+            DirectChildren::Mode(DirectChildrenMode::EveryDirectory),
+        ] {
+            let policy = MarkdownPolicy {
+                readme_index: Some(ReadmeIndexPolicy {
+                    trees: vec![ReadmeIndexTree {
+                        path: "docs".to_string(),
+                        require_direct_children: mode,
+                        annotations: Vec::new(),
+                        exclusions: Vec::new(),
+                    }],
+                }),
+                ..MarkdownPolicy::default()
+            };
+            assert_eq!(
+                outcome(readme_index(Some(&policy), Some(&scan), &tree)).exit_code,
+                0
+            );
+            assert_eq!(
+                outcome(readme_index(Some(&policy), None, &tree)).exit_code,
+                1
+            );
+        }
     }
 }
