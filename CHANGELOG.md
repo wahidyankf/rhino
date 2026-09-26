@@ -74,6 +74,10 @@ pinned version.
   and refused with exit `2` and `rhino.input.unreadable`, although a flag may
   come before or after the command path. Standard input is now read whenever
   the parsed command is a `pre-push` gate run or selects `--file -`.
+- **A JSON gate run counts the paths it changed.** The `gate run` result
+  document's `summary.changed` was always `0`, even beside a `changes` list
+  naming the paths a mutation gate changed. It now carries the length of
+  `changes`.
 
 ## [v0.6.0] — 2026-09-25
 
