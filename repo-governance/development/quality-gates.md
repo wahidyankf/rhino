@@ -28,7 +28,7 @@ The scheduled workflow runs every adapter, including the slow ones. It is not a 
 
 ## The Server Gate
 
-[`pr-quality-gate.yml`](../../.github/workflows/pr-quality-gate.yml) mirrors the hook contract for pull requests, and is a superset of it: it adds `cargo deny check` and a repository-wide Prettier pass that `lint-staged` structurally cannot perform, because `lint-staged` only ever sees staged paths.
+[`pr-quality-gate.yml`](../../.github/workflows/pr-quality-gate.yml) mirrors the hook contract for pull requests, and is a superset of it: it adds `cargo deny check`, a repository-wide Prettier pass that `lint-staged` structurally cannot perform, because `lint-staged` only ever sees staged paths, and a workspace check on the `rust-version` that `Cargo.toml` declares, because every other gate builds with the newer pinned toolchain and would never notice a language feature the declared minimum lacks.
 
 Its `Public safety` job screens what a local hook cannot see: the branch name and the pull request's own title and body, which are written on a hosted service after the last commit was made. It runs on a clean machine, which is the one condition a hook can never observe.
 
