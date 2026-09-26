@@ -59,7 +59,7 @@ the existing scanner, findings, and no-default behavior.
 ### Surface globs and symbolic links
 
 A surface glob — a word-budget, front-matter, heading-hierarchy, naming, or
-metadata surface, or an emoji prohibition — follows a symbolic link it reaches
+metadata surface, an emoji prohibition, or a harness marker surface — follows a symbolic link it reaches
 when the link's target lies inside the repository root. The file is reported by
 the path the glob matched, such as `gov/rules.md` for a `gov/**/*.md` surface
 where `gov` links to `governance`. A glob reaches a link when the link sits at
@@ -195,6 +195,27 @@ both leaves every generated file byte-identical.
   before any write. When `agents` is omitted, every canonical agent renders.
 
 Neither key applies to a skill adapter; declaring one there refuses.
+
+### Marker surfaces
+
+`marker-surfaces` is an optional list of globs under `harness` naming files
+outside every adapter family, such as a harness's own settings file, for
+adapter validation to inspect. A matched file with a line containing
+`Rhino generated`, in any letter case, claims to be RHINO output. No adapter
+generation writes that phrase or such a file, so `harness adapters validate`
+and `harness adapters generate` report it as `stale-marker` and exit `1`. A
+file under a declared family root or at an exact adapter path is never
+inspected here, because the adapter comparison already covers it. A glob that
+climbs out of the root refuses with `rhino.config.unusable`, a matched file
+that cannot be read refuses with `rhino.file.unreadable`, and a file holding no
+text is skipped. Like every surface glob, a marker surface follows a symbolic
+link only as [surface globs and symbolic links](#surface-globs-and-symbolic-links)
+describes. Omitted, nothing is inspected.
+
+```yaml
+harness:
+  marker-surfaces: [".codex/config.toml"]
+```
 
 ```yaml
 agent-adapter:
