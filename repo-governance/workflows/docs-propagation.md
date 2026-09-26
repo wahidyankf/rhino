@@ -1,6 +1,6 @@
 # Docs Propagation
 
-Carry one change into every human-facing document it affects, in one bounded pass. Apply this workflow automatically before committing a change that alters what a document's reader relies on, when a document is added, moved, or deleted, or when an explicitly requested [docs quality gate](docs-quality-gate.md) returns `NEEDS_PROPAGATION`. No separate instruction is required. Propagation is the only writer of documents; edits inside one run start no second one.
+Carry one change into every human-facing document it affects, in one bounded pass. Apply this workflow automatically before committing a change that alters what a document's reader relies on, when a document is added, moved, or deleted, or when an explicitly requested [docs quality gate](docs-quality-gate.md) hands over its ledger, after which that gate audits again. No separate instruction is required. Propagation is the only writer of documents; edits inside one run start no second one.
 
 ## The Document Set
 
