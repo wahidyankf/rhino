@@ -11,7 +11,7 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [a public contract](repo-governance/development/public-contract.md); moving is major-version work.
 - Tree validators are read-only, network-free, process-free, and path-contained. Declared gate children, toolchain
   probes/provision, and adapter generation use separate narrow boundaries. `#![forbid(unsafe_code)]` and those
-  boundaries are [enforced by tests](repo-governance/development/software-quality-enforcement.md), not documentation.
+  boundaries are [enforced by tests](repo-governance/development/software-quality-enforcement.md).
 
 ## Specifications
 
@@ -50,11 +50,10 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [ask last](repo-governance/conventions/last-resort-questions.md), and name files in
   [lowercase kebab-case](repo-governance/conventions/file-naming.md).
 - Plans are working records under [`plans/`](plans/README.md), never architecture: the
-  [plans convention](repo-governance/conventions/plans.md) with its
-  [modules](repo-governance/conventions/plans/README.md), the
+  [plans convention](repo-governance/conventions/plans.md),
   [local additions](repo-governance/conventions/plan-lifecycle.md),
   [specification changes](repo-governance/conventions/plan-specification-changes.md), and
-  [the validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
+  [validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
 - The plan [quality gate](repo-governance/workflows/plan-quality-gate.md) needs explicit request; the
   [execution check](repo-governance/workflows/plan-execution-check.md) blocks archival.
 
@@ -69,7 +68,9 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
 - Make [thematic commits](repo-governance/conventions/thematic-commits.md) when
   [authorized](repo-governance/conventions/commit-authorization.md). Never commit prohibited
   [data](repo-governance/conventions/public-repository-data-safety.md); [public safety](scripts/public-safety/README.md)
-  gates every surface first and has no bypass, and still cannot judge what is deliberately public. Fix
+  gates every surface first without bypass; before each push the
+  [leak review](repo-governance/workflows/pr-leak-review.md) reads every outgoing commit, and every merge needs its
+  posted exact-head `pass` (`leak-review` status). Fix
   [hook failures](repo-governance/conventions/push-hook-verification.md) at the cause. Keep
   [working tree](repo-governance/conventions/working-tree.md) clean and
   [poll GitHub](repo-governance/conventions/github-polling.md) every three minutes.

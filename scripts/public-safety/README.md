@@ -45,12 +45,20 @@ anything to would pass by default.
 
 ## Where it runs here
 
-| Surface      | Screened                                    |
-| ------------ | ------------------------------------------- |
-| `commit-msg` | the commit message, before commitlint       |
-| `pre-commit` | the staged content and names, before format |
-| `pre-push`   | the tracked tree, then the branch name      |
-| pull request | the tree, the branch, the title and body    |
+| Surface      | Screened                                                    |
+| ------------ | ----------------------------------------------------------- |
+| `commit-msg` | the commit message, before commitlint                       |
+| `pre-commit` | the staged content and names, before format                 |
+| `pre-push`   | the tracked tree and the branch name, then the pushed range |
+| pull request | the tree, the range, the branch, the title and body         |
+
+A range is screened commit by commit, never as its final files: a value one commit adds and the next deletes is still in
+every clone. `check.sh` reads it from `PUBLIC_SAFETY_BASE` and `PUBLIC_SAFETY_HEAD`, which `repo-config.yml` binds to
+Git's pushed ref updates at `pre-push` and to the review range on a pull request. Each commit contributes its message
+and only the lines it added, at the line numbers they occupy, labelled `<commit>/<path>:<line>`; a merge contributes
+what it resolved beyond the automatic merge. Content the range did not add is not screened again. The screen matches
+shapes; the [leak review](../../repo-governance/workflows/pr-leak-review.md) reads context, and neither replaces the
+other.
 
 The tracked tree is screened at `pre-push` and in CI rather than at `pre-commit`. A full-tree credential scan costs
 about twenty seconds; paid on every commit it buys nothing that is not already paid before anything leaves the machine,

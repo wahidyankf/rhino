@@ -28,4 +28,13 @@ run() {
 	out=$("$WRAPPER" --surface commit --text "reachable at $address" 2>&1)
 	rc=$?
 	assert_exit 1 "$rc" "exit code for a private address under the shipped shape set" || return 1
+
+	# A Windows home directory names an account exactly as /Users does.
+	local windows_path
+	windows_path=$(printf '%s:\\%s\\%s\\checkout' C Users "$SYNTHETIC_NAME")
+	out=$("$WRAPPER" --surface commit --text "built in $windows_path" 2>&1)
+	rc=$?
+	assert_exit 1 "$rc" "exit code for a Windows home path under the shipped shape set" || return 1
+	assert_contains "finding maintainer-path" "$out" "diagnostic" || return 1
+	assert_absent "$SYNTHETIC_NAME" "$out" "diagnostic" || return 1
 }

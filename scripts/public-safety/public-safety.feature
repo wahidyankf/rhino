@@ -59,7 +59,7 @@ Feature: Public output is screened before it leaves the repository
       And the credential value, the raw JSON, and every scanner stream are absent
 
     Scenario: A generic private shape blocks
-      Given outbound content carrying an absolute maintainer home path or a private address
+      Given outbound content carrying an absolute maintainer home path, Unix or Windows, or a private address
       When the wrapper runs
       Then it exits 1 for the shape class that matched
 
@@ -75,3 +75,14 @@ Feature: Public output is screened before it leaves the repository
       When the wrapper runs with clean content
       Then it exits 0
       And a surface outside the set is a scan error rather than a default
+
+  Rule: History is outbound, not only the final tree
+
+    Scenario: A pushed range is screened commit by commit
+      Given a range one of whose commits adds a maintainer home path that a later commit deletes
+      When the range is screened at pre-push or on a pull request
+      Then it exits 1 and names the commit, the file, and the line
+      And each commit message in the range is screened
+      And content the range did not add is not screened again
+      And a merge contributes only what it resolved beyond the automatic merge
+      And a range missing its base or its head is a scan error

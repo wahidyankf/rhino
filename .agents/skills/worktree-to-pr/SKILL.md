@@ -26,15 +26,16 @@ One worktree per task, reused for every delivery unit. A second `git worktree ad
 1. `git fetch origin && git rebase origin/main`. Never auto-stash, never auto-resolve. Read the whole incoming diff when
    the sync brings commits in.
 2. Commit thematically, with authorization.
-3. `git push`. The `pre-push` hook runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped
-   the work: retry the same invocation once it clears, never bypass.
+3. Pass the push leak review of every outgoing commit, then `git push`. The `pre-push` hook screens the pushed range
+   commit by commit and runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped the work:
+   retry the same invocation once it clears, never bypass.
 4. `gh pr create --draft --base main --title "<type>: <subject>" --body-file <path>`.
 5. `gh pr checks <number>` — at most once every three minutes. Use the interval for independent work.
 6. Repair a failing job at its cause. Never weaken the gate.
 7. `gh pr ready <number>` **re-triggers the whole gate** — the workflow listens for `ready_for_review`. Wait for that
    run, not the previous one.
-8. Verify the five merge preconditions, including the data-safety review of the exact head, then
-   `gh pr merge <number> --rebase`.
+8. Verify the five merge preconditions, including a posted leak review `pass` for the exact head and its `leak-review`
+   status, then `gh pr merge <number> --rebase --match-head-commit <head>`.
 9. Next unit starts at step 1, in the same worktree.
 
 ## When the last unit has landed

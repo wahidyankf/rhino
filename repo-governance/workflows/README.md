@@ -20,7 +20,9 @@ without one of them has not finished.
   asserts.
 - [Dev artifact clean-up](dev-artifact-clean-up.md) — removing the artifacts one piece of work created, and nothing
   else.
-- [PR leak review](pr-leak-review.md) — the posted, current-head review a merge requires.
+- [PR leak review](pr-leak-review.md) — the private review before every push and the posted, current-head review a merge
+  requires.
+- [PR leak review modules](pr-leak-review/README.md) — leak classes, the push review, and enforcement, in reading order.
 - [Plan backlog grooming](plan-backlog-grooming.md) — whether each queued plan is still true of this repository.
 - [Plan execution](plan-execution.md) — executing one formal plan while keeping its records true.
 - [Plan execution check](plan-execution-check.md) — the fixed-order review that stands between finished work and
