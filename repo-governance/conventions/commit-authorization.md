@@ -1,6 +1,7 @@
 # Commit Authorization
 
-Commit and push only when the user has authorized it, or when an approved plan step authorizes it.
+Commit and push only when the user has authorized it, when an approved plan step authorizes it, or when an adopted
+[upstream tool defects](../development/upstream-tool-defects.md) standard lands a defect's brief or bug-fix plan.
 
 ## Requirements
 

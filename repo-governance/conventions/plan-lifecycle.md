@@ -19,6 +19,10 @@ Writing a plan into this repository requires an explicit user request. Designing
 harness planning mode, authorizes neither the folder nor the commit that would carry it. See
 [commit authorization](commit-authorization.md).
 
+The one standing request is an adopted [Upstream Tool Defects](../development/upstream-tool-defects.md) standard, this
+repository's or a consumer's: it covers writing and landing a defect's idea brief, or a blocking defect's
+[bug-fix plan](plans/010-bug-fix-plan.md), at the tool's owner.
+
 ## Scope
 
 This repository plans only work it can deliver alone. Work that spans repositories is planned where it is coordinated
