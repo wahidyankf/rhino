@@ -42,8 +42,10 @@ as a policy violation.
 maintainer for a race is blaming them for the tool's timing.
 
 **Syntax RHINO does not understand.** A fenced block whose diagram declaration this build cannot parse is declined, not
-reported. Reporting on it would be reporting on the tool's own ignorance, and would make every RHINO upgrade a potential
-source of new findings in unchanged files.
+reported, unless the repository declared `allowed-types`. Reporting on it would be reporting on the tool's own
+ignorance, and would make every RHINO upgrade a potential source of new findings in unchanged files. A repository that
+declares the list has said which types it renders, so an unlisted type is reported and a listed one is judged by the
+checks that need no grammar; see [Mermaid findings](../reference/findings.md#mermaid).
 
 **Zero.** A surface that matched no files, a tree with no directories — these pass. But the run says how many it
 inspected, every time, including when the answer is zero. A clean word-budget run lists every path it read:

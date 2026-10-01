@@ -47,6 +47,27 @@ not the policy a repository declared.
 sub-policies. `convention emoji validate` reads `policies.conventions.emoji`. These grouped projections retain the
 existing scanner, findings, and no-default behavior.
 
+### Mermaid policy
+
+`policies.markdown.mermaid` configures `md mermaid validate`. Every key below except the required ones is optional, and
+a configuration that omits an optional key behaves as it did before that key existed.
+
+- `authoring-rule` (`rendered` or `plain-text`, absent by default): the one rule for conceptual diagrams.
+- `node-label-graphemes`, `edge-label-graphemes` (integers, required): the longest visible label segment.
+- `fill-colors`, `edge-colors`, `text-colors` (hex lists, required): the declared fills, outlines, and text colours.
+- `exclude` (glob list, absent by default): paths the Mermaid scan leaves out. Declared, it replaces
+  `scan.exclude-directories` for this command.
+- `require-default-class` (boolean, `false`): require a complete `classDef default` where the renderer applies one.
+- `allowed-types` (name list, absent by default): the permitted diagram types. Declared, every type is judged and an
+  unlisted one is refused.
+- `forbid-theme-overrides` (boolean, `false`): refuse initialization directives and front-matter themes.
+- `canvas-colors` (hex list, empty by default): the canvases a filled class must stay visible against.
+
+`canvas-colors` takes six-digit hex colours only, and an invalid `exclude` glob is a configuration fault: either makes
+the command refuse with the unreadable-input exit code instead of reporting findings. Declaring `allowed-types` also
+reads a colour by what it is assigned to and refuses a sequence-diagram `box` that names a colour. The checks and
+finding details are in [Findings](findings.md#mermaid).
+
 ### Surface globs and symbolic links
 
 A surface glob — a word-budget, front-matter, heading-hierarchy, naming, or metadata surface, an emoji prohibition, or a
