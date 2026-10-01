@@ -16,7 +16,7 @@
   - Required behavior: Exclude valid numeric entity spans from colour-token recognition while label decoding remains
     unchanged
 
-All three statements are [Repo-grounded] in `main` at `b691fae` (`v0.6.0`), each reproduced with the release binary:
+All three statements hold in `main` at `b691fae` (`v0.6.0`), each reproduced with the release binary:
 
 - With `fixed: { model: sonnet }` beside `tier-fields: { model: model, effort: effort }` and no canonical agent
   declaring a tier, `harness adapters generate` wrote `model: sonnet` into every agent adapter and
@@ -35,9 +35,9 @@ adapter with the bytes generation would write; the configuration path above is t
 
 Add the declared `tier-fields` model and effort names to the set `validate_adapter` already uses for repeated direct
 fields, so `identity`, `fixed`, `lists`, or a translation naming either one refuses the configuration with exit `2` and
-names the profile. [Judgment call] A configuration refusal, not a new finding kind: the fault is in `repo-config.yml`,
-the neighbouring field-collision rule already refuses, and the refusal fires before any write in both `validate` and
-`generate`. A profile that declares no `tier-fields` is unaffected.
+names the profile. A configuration refusal, not a new finding kind: the fault is in `repo-config.yml`, the neighbouring
+field-collision rule already refuses, and the refusal fires before any write in both `validate` and `generate`. A
+profile that declares no `tier-fields` is unaffected.
 
 ### Mermaid source roles
 

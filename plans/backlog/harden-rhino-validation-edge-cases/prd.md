@@ -2,9 +2,8 @@
 
 ## Product Overview
 
-[Repo-grounded] RHINO already generates and validates harness adapters and validates Mermaid accessibility and
-legibility. This plan closes two edge cases without changing the commands, configuration schema, finding kinds, or exit
-classes.
+RHINO already generates and validates harness adapters and validates Mermaid accessibility and legibility. This plan
+closes two edge cases without changing the commands, configuration schema, finding kinds, or exit classes.
 
 ## Personas
 

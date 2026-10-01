@@ -4,7 +4,7 @@ Status: Backlog
 
 ## Context
 
-[Repo-grounded] Two current validator boundaries produce incorrect answers on valid repository input:
+Two current validator boundaries produce incorrect answers on valid repository input:
 
 - a harness profile's `fixed` adapter field may name the same native field as its `tier-fields`, so every canonical
   agent that declares no tier silently receives a model or effort, and harness adapter validation reports clean; and
@@ -16,8 +16,8 @@ keeps one investigation and convergence record while delivering two independentl
 
 ## Decision
 
-[Judgment call] Use one formal plan with two delivery units. Separate plans would repeat the same validation,
-specification, and release-readiness framing; one combined code change would make independent defects share a rollback.
+Use one formal plan with two delivery units. Separate plans would repeat the same validation, specification, and
+release-readiness framing; one combined code change would make independent defects share a rollback.
 
 Rejected alternatives:
 
@@ -59,9 +59,8 @@ Out of scope:
 
 ## Dependencies
 
-- [Repo-grounded] `specs/` remains the canonical behavior source; its whole corpus is
-  `specs/behaviours/v0-4-contract.feature`.
-- [Repo-grounded] `cargo xtask test-quick` and `cargo xtask self-validate` are the local completion gates.
+- `specs/` remains the canonical behavior source; its whole corpus is `specs/behaviours/v0-4-contract.feature`.
+- `cargo xtask test-quick` and `cargo xtask self-validate` are the local completion gates.
 
 ## Directory Map
 

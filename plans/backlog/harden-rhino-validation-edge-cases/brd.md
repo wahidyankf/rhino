@@ -13,9 +13,9 @@ invalid, and an undeclared adapter decision must not pass silently.
 
 ## Desired Outcomes
 
-- [Repo-grounded] Harness adapter validation refuses a configuration that would give a no-tier canonical agent an
-  adapter model or effort.
-- [Repo-grounded] Mermaid inspection distinguishes metadata, visible labels, entities, and colour declarations.
+- Harness adapter validation refuses a configuration that would give a no-tier canonical agent an adapter model or
+  effort.
+- Mermaid inspection distinguishes metadata, visible labels, entities, and colour declarations.
 - Each correction is independently reviewable, reversible, and green on RHINO's complete gates.
 
 ## Success Measures
