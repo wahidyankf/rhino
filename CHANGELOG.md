@@ -9,6 +9,30 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [Unreleased]
+
+`md mermaid validate` gains five optional keys under `policies.markdown.mermaid`. A configuration that declares none of
+them validates exactly as it did in `v0.7.0`, so the version moves in the minor position and nothing breaks.
+
+### Added
+
+- **`exclude`.** Path globs the Mermaid scan leaves out, replacing `scan.exclude-directories` for that command alone, so
+  an archived tree can leave the diagram check without leaving the link or metadata checks.
+- **`require-default-class`.** Reports a flowchart, class, entity-relationship, or requirement diagram with no complete
+  `classDef default`.
+- **`allowed-types`.** Reports a diagram type outside the declared list, and applies the title, description, colour, and
+  theme checks to a listed type RHINO cannot parse. A label such as `PR #123` is no longer read as a colour once the
+  key is declared.
+- **`forbid-theme-overrides`.** Reports an initialization directive or a front-matter theme.
+- **`canvas-colors`.** Reports a filled class whose fill and outline both fall below 3:1 against a declared canvas,
+  with the measured `ratio`, the `threshold`, and the `canvas`.
+
+### Fixed
+
+- **Accessible prose is not a label.** `accTitle` and `accDescr`, on one line or in a `{ ... }` block, are no longer
+  measured by `mermaid-legibility`, so a description that mentions `(parenthesised)` text is not reported as an
+  over-long node label. This removes findings and adds none.
+
 ## [v0.7.0] — 2026-09-26
 
 A declared surface glob can no longer pass by reading nothing behind a
