@@ -7,6 +7,10 @@ ships no repository, organization, harness, tree, or threshold defaults.
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)](#install)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
+<p align="center">
+  <img src="./.github/rhino-project-illustration.png" alt="RHINO mascot illustration" width="320">
+</p>
+
 RHINO validates declared Markdown, governance, lifecycle, harness, environment, and toolchain policy. Tree validators
 read local files only: they do not write, spawn, or connect to a network. `env validate` asks Git for the staged paths
 when a staging guard is declared, and `toolchain validate` runs each declared probe. Declared gates and explicit
