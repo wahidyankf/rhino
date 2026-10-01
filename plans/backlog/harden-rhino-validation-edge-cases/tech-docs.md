@@ -2,17 +2,26 @@
 
 ## Current Boundaries
 
-| Concern                 | Current behavior                                                                                                                                                                                                 | Required behavior                                                                                       |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| No-tier canonical agent | `src/v0_4/harnesses.rs::validate_adapter` checks `identity`, `fixed`, and `lists` for repeated fields but not against `tier-fields`, so `render_adapter` writes a fixed `model` or `effort` into a no-tier agent | Refuse any direct or translation field that names a declared tier field, before any adapter is written  |
-| Mermaid metadata        | `src/markdown/mermaid.rs::colors` and `::legibility` iterate every diagram line, `accTitle` and `accDescr` included                                                                                              | Classify `accTitle` and single-line or braced `accDescr` as metadata before content inspection          |
-| Numeric entities        | `src/markdown/mermaid.rs::contains_color` reads the digits of `&#123;` or `&#128640;` as a colour                                                                                                                | Exclude valid numeric entity spans from colour-token recognition while label decoding remains unchanged |
+- **No-tier canonical agent**
+  - Current behavior: `src/v0_4/harnesses.rs::validate_adapter` checks `identity`, `fixed`, and `lists` for repeated
+    fields but not against `tier-fields`, so `render_adapter` writes a fixed `model` or `effort` into a no-tier agent
+  - Required behavior: Refuse any direct or translation field that names a declared tier field, before any adapter is
+    written
+- **Mermaid metadata**
+  - Current behavior: `src/markdown/mermaid.rs::colors` and `::legibility` iterate every diagram line, `accTitle` and
+    `accDescr` included
+  - Required behavior: Classify `accTitle` and single-line or braced `accDescr` as metadata before content inspection
+- **Numeric entities**
+  - Current behavior: `src/markdown/mermaid.rs::contains_color` reads the digits of `&#123;` or `&#128640;` as a colour
+  - Required behavior: Exclude valid numeric entity spans from colour-token recognition while label decoding remains
+    unchanged
 
 All three statements are [Repo-grounded] in `main` at `b691fae` (`v0.6.0`), each reproduced with the release binary:
 
-- With `fixed: { model: sonnet }` beside `tier-fields: { model: model, effort: effort }` and no canonical agent declaring
-  a tier, `harness adapters generate` wrote `model: sonnet` into every agent adapter and `harness adapters validate`
-  exited `0`. With one tiered agent present, generation instead refused late with ``adapter output repeats field `model` ``.
+- With `fixed: { model: sonnet }` beside `tier-fields: { model: model, effort: effort }` and no canonical agent
+  declaring a tier, `harness adapters generate` wrote `model: sonnet` into every agent adapter and
+  `harness adapters validate` exited `0`. With one tiered agent present, generation instead refused late with
+  ``adapter output repeats field `model` ``.
 - `accTitle:`, single-line `accDescr:`, and braced `accDescr` prose containing a parenthesized clause each produced a
   `mermaid-legibility` node-label finding, and a label containing `&#123;` produced "color is declared outside a
   classDef". A hexadecimal entity such as `&#x1F680;` did not, because `x` ends the digit run.
@@ -67,8 +76,8 @@ gate, exact-head PR, merge, and reconciled-main tasks in Phases 1–2 prove it.
 - New `Real diagram content remains enforced`: a real out-of-class colour and overlong visible label are validated, and
   both existing findings remain observable. `[AC-05]`
 - Preserve every existing harness-adapter and Mermaid scenario unchanged, including
-  `Typed harness profiles render native agent and skill adapters`, `Agent adapters project a declared canonical list`, and both `Mermaid policy`
-  scenarios.
+  `Typed harness profiles render native agent and skill adapters`, `Agent adapters project a declared canonical list`,
+  and both `Mermaid policy` scenarios.
 - Bindings: `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs`.
 - Steps: `tests/support/binding.rs` holds the shared step vocabulary; the RED item records any step it adds.
 - Proof: `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`, then the

@@ -1,8 +1,7 @@
 # Schemas
 
-Checked-in editor artifacts generated from Rhino's typed configuration models.
-They are versioned with the binary so a consumer can validate offline and pin
-the exact release it adopts.
+Checked-in editor artifacts generated from Rhino's typed configuration models. They are versioned with the binary so a
+consumer can validate offline and pin the exact release it adopts.
 
 ## Directory Map
 

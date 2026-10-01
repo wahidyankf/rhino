@@ -23,10 +23,12 @@ doing something different. Declaring a single interpreter removes that whole cla
 
 Which interpreter is an adopter decision:
 
-| Option                                                      | Gains                                                                        | Costs                                                                                                   |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Bash, with `set -euo pipefail` (default)                    | a widely installed shell with arrays and a flag that fails a broken pipeline | missing from some minimal images and systems, where it has to be installed first                        |
-| another declared interpreter, with its strict-mode settings | fits a platform where Bash is unavailable or unwanted                        | contributors learn a second dialect's failure rules, and the strict-mode table needs its own equivalent |
+- **Bash, with `set -euo pipefail` (default)**
+  - Gains: a widely installed shell with arrays and a flag that fails a broken pipeline
+  - Costs: missing from some minimal images and systems, where it has to be installed first
+- **another declared interpreter, with its strict-mode settings**
+  - Gains: fits a platform where Bash is unavailable or unwanted
+  - Costs: contributors learn a second dialect's failure rules, and the strict-mode table needs its own equivalent
 
 ## Strict Mode
 

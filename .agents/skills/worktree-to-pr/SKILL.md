@@ -5,7 +5,9 @@ description: Take a change from a task worktree to merged on main through a pull
 
 # Worktree to Pull Request
 
-`main` refuses direct pushes for every actor, with no bypass. This is the procedure that gets a change there. The rules behind each step live in [the workflow](../../../repo-governance/workflows/worktree-to-pull-request.md); this file is the sequence.
+`main` refuses direct pushes for every actor, with no bypass. This is the procedure that gets a change there. The rules
+behind each step live in [the workflow](../../../repo-governance/workflows/worktree-to-pull-request.md); this file is
+the sequence.
 
 ## Once per task
 
@@ -21,19 +23,24 @@ One worktree per task, reused for every delivery unit. A second `git worktree ad
 
 ## Per delivery unit
 
-1. `git fetch origin && git rebase origin/main`. Never auto-stash, never auto-resolve. Read the whole incoming diff when the sync brings commits in.
+1. `git fetch origin && git rebase origin/main`. Never auto-stash, never auto-resolve. Read the whole incoming diff when
+   the sync brings commits in.
 2. Commit thematically, with authorization.
-3. `git push`. The `pre-push` hook runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped the work: retry the same invocation once it clears, never bypass.
+3. `git push`. The `pre-push` hook runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped
+   the work: retry the same invocation once it clears, never bypass.
 4. `gh pr create --draft --base main --title "<type>: <subject>" --body-file <path>`.
 5. `gh pr checks <number>` — at most once every three minutes. Use the interval for independent work.
 6. Repair a failing job at its cause. Never weaken the gate.
-7. `gh pr ready <number>` **re-triggers the whole gate** — the workflow listens for `ready_for_review`. Wait for that run, not the previous one.
-8. Verify the five merge preconditions, including the data-safety review of the exact head, then `gh pr merge <number> --rebase`.
+7. `gh pr ready <number>` **re-triggers the whole gate** — the workflow listens for `ready_for_review`. Wait for that
+   run, not the previous one.
+8. Verify the five merge preconditions, including the data-safety review of the exact head, then
+   `gh pr merge <number> --rebase`.
 9. Next unit starts at step 1, in the same worktree.
 
 ## When the last unit has landed
 
-Confirm nothing is unpushed and nothing is running, then remove the worktree, delete the local branch, and delete it on `origin`. Keep a worktree whose run failed, and say so.
+Confirm nothing is unpushed and nothing is running, then remove the worktree, delete the local branch, and delete it on
+`origin`. Keep a worktree whose run failed, and say so.
 
 ## Refusals
 

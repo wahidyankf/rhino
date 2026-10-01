@@ -1,82 +1,68 @@
 # Why RHINO exists
 
-A repository accumulates rules faster than it accumulates ways to check them.
-Instruction files grow past the length anyone reads. Directory maps drift from
-the directories they describe. Links rot. Diagrams pick colours that some
-readers cannot distinguish. Coding harnesses acquire their own copies of one
-canonical instruction, and the copies diverge.
+A repository accumulates rules faster than it accumulates ways to check them. Instruction files grow past the length
+anyone reads. Directory maps drift from the directories they describe. Links rot. Diagrams pick colours that some
+readers cannot distinguish. Coding harnesses acquire their own copies of one canonical instruction, and the copies
+diverge.
 
-None of these are bugs. All of them are the kind of decay that a reviewer
-notices on a good day and misses on a busy one.
+None of these are bugs. All of them are the kind of decay that a reviewer notices on a good day and misses on a busy
+one.
 
 ## The problem RHINO was extracted from
 
-RHINO's validators started as part of a larger repository, written for that
-repository. They worked. Then a second repository wanted them, and the trouble
-started — not with the checking logic, which was fine, but with everything the
+RHINO's validators started as part of a larger repository, written for that repository. They worked. Then a second
+repository wanted them, and the trouble started — not with the checking logic, which was fine, but with everything the
 logic knew without being told.
 
-It knew which directories held governed documents. It knew how long an
-instruction file could be. It knew which harness directories existed and what
-they were called. Every one of those was a fact about one repository, compiled
-into a tool that was about to be pointed at a different one.
+It knew which directories held governed documents. It knew how long an instruction file could be. It knew which harness
+directories existed and what they were called. Every one of those was a fact about one repository, compiled into a tool
+that was about to be pointed at a different one.
 
-The failure mode is worse than a crash. A validator with a wrong assumption
-does not fail — it passes. The surface it was told to check does not exist in
-the new repository, so it checks nothing, finds nothing, and reports a clean
-run. Everyone concludes the repository is in good shape.
+The failure mode is worse than a crash. A validator with a wrong assumption does not fail — it passes. The surface it
+was told to check does not exist in the new repository, so it checks nothing, finds nothing, and reports a clean run.
+Everyone concludes the repository is in good shape.
 
-So RHINO exists to be the same checks with **nothing known in advance**. Every
-value it enforces is declared by the repository being checked. See [why RHINO
-holds no defaults](./holding-no-defaults.md) for what that buys and costs.
+So RHINO exists to be the same checks with **nothing known in advance**. Every value it enforces is declared by the
+repository being checked. See [why RHINO holds no defaults](./holding-no-defaults.md) for what that buys and costs.
 
 ## What it checks
 
-RHINO exposes only checks a repository can configure without product defaults.
-The selected groups catch decay that otherwise stays invisible until someone is
-already lost.
+RHINO exposes only checks a repository can configure without product defaults. The selected groups catch decay that
+otherwise stays invisible until someone is already lost.
 
-**Word budgets.** An instruction file nobody finishes reading is an instruction
-file that is not in force. A declared limit turns "this is getting long" into a
-number the repository agreed to.
+**Word budgets.** An instruction file nobody finishes reading is an instruction file that is not in force. A declared
+limit turns "this is getting long" into a number the repository agreed to.
 
-**Directory maps.** A reader who opens a directory should see what is in it
-without listing the filesystem. A map that has drifted from the tree is worse
-than no map, because it is believed.
+**Directory maps.** A reader who opens a directory should see what is in it without listing the filesystem. A map that
+has drifted from the tree is worse than no map, because it is believed.
 
-**Internal links.** A link that does not resolve is a reference the reader
-cannot follow, and rot is silent — the page still renders.
+**Internal links.** A link that does not resolve is a reference the reader cannot follow, and rot is silent — the page
+still renders.
 
-**Mermaid diagrams.** A label too long to read and a palette that collapses
-under colour vision deficiency both produce a diagram that technically exists
-and practically does not.
+**Mermaid diagrams.** A label too long to read and a palette that collapses under colour vision deficiency both produce
+a diagram that technically exists and practically does not.
 
-**Harness adapters.** A grouped configuration declares three opaque profiles
-from one canonical source and each profile's native representation. Validation
-detects divergent generated bytes and generation replaces only declared adapter
-families and exact instruction-adapter files as one transaction.
+**Harness adapters.** A grouped configuration declares three opaque profiles from one canonical source and each
+profile's native representation. Validation detects divergent generated bytes and generation replaces only declared
+adapter families and exact instruction-adapter files as one transaction.
 
-**Governance and lifecycle.** Vendor vocabulary, layer order, traceability, and
-closed lifecycle gates are configuration, not compiled organization policy. A
-repository declares every root, relationship, input, argv token, and boundary
-that Rhino may use.
+**Governance and lifecycle.** Vendor vocabulary, layer order, traceability, and closed lifecycle gates are
+configuration, not compiled organization policy. A repository declares every root, relationship, input, argv token, and
+boundary that Rhino may use.
 
-**Environment and toolchains.** A repository names public examples, local
-targets, detector paths, probes, and provision vectors. Operations plan first,
-then require explicit authorization to change anything.
+**Environment and toolchains.** A repository names public examples, local targets, detector paths, probes, and provision
+vectors. Operations plan first, then require explicit authorization to change anything.
 
 ## What it is not
 
-**Not a linter.** It has no opinion about your prose, your code, or your
-formatting. It checks structural claims a repository makes about itself.
+**Not a linter.** It has no opinion about your prose, your code, or your formatting. It checks structural claims a
+repository makes about itself.
 
-**Not a general fixer.** Validators read and report. The distinct adapter,
-environment, and toolchain operations plan first and require explicit authority
-because the correct resolution remains a maintainer decision.
+**Not a general fixer.** Validators read and report. The distinct adapter, environment, and toolchain operations plan
+first and require explicit authority because the correct resolution remains a maintainer decision.
 
-**Not a service.** No daemon, no network, no state between runs. A single
-binary, a directory walk, and an exit code. See [why RHINO only
-reads](./reading-only.md).
+**Not a service.** No daemon, no network, no state between runs. A single binary, a directory walk, and an exit code.
+See [why RHINO only reads](./reading-only.md).
 
 ## Related
 

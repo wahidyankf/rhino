@@ -39,11 +39,15 @@ Language-neutral standards apply to every project. Stack rules come from the sta
 read from the repository's local copies, as [Stack Packs](../../repo-governance/conventions/structure/stack-packs.md)
 resolves them; see [Stack Standards](../../repo-governance/development/quality/stacks/README.md).
 
-| Recorded for a stack     | The checker also applies                      | Trade-off                                                          |
-| ------------------------ | --------------------------------------------- | ------------------------------------------------------------------ |
-| a catalog stack standard | that standard                                 | shared, reviewed choices; the adopter keeps pace with the standard |
-| a local standard         | the local standard                            | fits the repository's own choices; nobody outside reviews them     |
-| nothing recorded         | no stack rule, reporting the missing decision | no rule is invented; stack-specific defects go unreported          |
+- **a catalog stack standard**
+  - The checker also applies: that standard
+  - Trade-off: shared, reviewed choices; the adopter keeps pace with the standard
+- **a local standard**
+  - The checker also applies: the local standard
+  - Trade-off: fits the repository's own choices; nobody outside reviews them
+- **nothing recorded**
+  - The checker also applies: no stack rule, reporting the missing decision
+  - Trade-off: no rule is invented; stack-specific defects go unreported
 
 ## What It Checks
 

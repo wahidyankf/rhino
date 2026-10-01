@@ -8,8 +8,8 @@ Status: Backlog
 
 - a harness profile's `fixed` adapter field may name the same native field as its `tier-fields`, so every canonical
   agent that declares no tier silently receives a model or effort, and harness adapter validation reports clean; and
-- Mermaid colour and label readers inspect accessibility metadata as diagram content, treating parenthesized
-  `accTitle` or `accDescr` prose as a node label and a decimal numeric HTML entity as a colour.
+- Mermaid colour and label readers inspect accessibility metadata as diagram content, treating parenthesized `accTitle`
+  or `accDescr` prose as a node label and a decimal numeric HTML entity as a colour.
 
 The defects share RHINO's deterministic validation surface, but they do not depend on one another. The plan therefore
 keeps one investigation and convergence record while delivering two independently releasable pull requests.

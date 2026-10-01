@@ -1,10 +1,14 @@
 # Documentation Architecture
 
-`docs/` holds documentation about using and understanding RHINO. `repo-governance/` holds the rules for working in this repository. A document belongs to exactly one of them, and the test is the reader: someone consuming the tool, or someone changing this repository.
+`docs/` holds documentation about using and understanding RHINO. `repo-governance/` holds the rules for working in this
+repository. A document belongs to exactly one of them, and the test is the reader: someone consuming the tool, or
+someone changing this repository.
 
-Do not copy governance, the README, or specifications into `docs/` to populate it. Link to the canonical document instead.
+Do not copy governance, the README, or specifications into `docs/` to populate it. Link to the canonical document
+instead.
 
-Markdown under `docs/` is exempt from the [governance word budget](directory-maps.md#word-budget). Reference pages are sized by the surface they describe.
+Markdown under `docs/` is exempt from the [governance word budget](directory-maps.md#word-budget). Reference pages are
+sized by the surface they describe.
 
 ## Diátaxis Categories
 
@@ -15,12 +19,19 @@ Organize `docs/` by the [Diátaxis framework](https://diataxis.fr/):
 - `reference/` — information-oriented description, accurate and consultable during work.
 - `explanation/` — understanding-oriented discussion of context, reasons, and design.
 
-Classify by the reader need a document primarily serves. When material spans categories, keep one primary document in the best-fitting one and link to the others rather than blending them. Each category `README.md` states its purpose and indexes the documents directly inside it.
+Classify by the reader need a document primarily serves. When material spans categories, keep one primary document in
+the best-fitting one and link to the others rather than blending them. Each category `README.md` states its purpose and
+indexes the documents directly inside it.
 
 ## Truthfulness
 
-Every command and transcript shown in `docs/` must have been executed against the current build. Where running one would touch a production or shared system, publish, spend, need a secret, or be irreversible, the page says plainly that it was not exercised instead of showing output. [Docs propagation](../workflows/docs-propagation.md) keeps pages true with every change. A page that contradicts the [specification corpus](../development/specification-maintenance.md) is a defect in the page, not a difference of opinion — the corpus is what the tool is specified to do.
+Every command and transcript shown in `docs/` must have been executed against the current build. Where running one would
+touch a production or shared system, publish, spend, need a secret, or be irreversible, the page says plainly that it
+was not exercised instead of showing output. [Docs propagation](../workflows/docs-propagation.md) keeps pages true with
+every change. A page that contradicts the [specification corpus](../development/specification-maintenance.md) is a
+defect in the page, not a difference of opinion — the corpus is what the tool is specified to do.
 
 ## Directory Maps
 
-Every directory under `docs/` carries a `README.md` with a `## Directory Map`, under the [directory-map convention](directory-maps.md). The same validator enforces documentation and governance maps together.
+Every directory under `docs/` carries a `README.md` with a `## Directory Map`, under the
+[directory-map convention](directory-maps.md). The same validator enforces documentation and governance maps together.

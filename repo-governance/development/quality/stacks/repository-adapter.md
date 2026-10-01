@@ -48,22 +48,62 @@ A catalog owner with no local counterpart stays named in the adopted text withou
 
 ## Adopter Decisions
 
-| Source                        | Decision            | Choice                                                                   | Reason                                                  |
-| ----------------------------- | ------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------- |
-| `swe-code-maker`              | stack skill loading | read on demand                                                           | a new stack needs no agent edit                         |
-| software quality enforcement  | coverage floor      | 99% of lines over the validator modules, in the unit run                 | local floor; two exclusions are proved end to end       |
-| quality gates                 | task runner         | `cargo xtask` behind `npm run test:quick`                                | gate automation stays typed and tested; no task graph   |
-| `rust-standards.md`           | edition             | 2024 in every manifest                                                   | current; nothing to migrate                             |
-| `rust-standards.md`           | unit test placement | deviation: the unit adapter lives in `tests/unit`                        | one behaviour corpus runs through three adapters        |
-| `rust-standards.md`           | lint table          | gap: flags and `clippy.toml` only; no `pedantic` or `unwrap_used` denial | review applies the rule; the code work comes later      |
-| `rust-standards.md`           | unsafe code         | gap: `#![forbid(unsafe_code)]` per crate root, not the manifest lint     | the local rule stays; test targets are not yet covered  |
-| `rust-standards.md`           | async runtime       | not applicable                                                           | no async code                                           |
-| `001-code-shape-and-security` | security libraries  | not applicable                                                           | no secret, transport, or query                          |
-| `shell-scripts.md`            | interpreter         | Bash; deviation: the pinned `./hippo` wrapper is POSIX `sh`              | it runs before any toolchain                            |
-| `shell-scripts.md`            | strict mode         | deviation: the public-safety scripts and the hook test runner omit `-e`  | each handles every child status explicitly              |
-| `shell-standards.md`          | static analysis     | gap: ShellCheck covers only `./hippo` and the public-safety scripts      | wiring the rest is later work; the rule is not weakened |
-| `shell-standards.md`          | format              | gap: no shell formatter gate                                             | as above                                                |
-| `shell-standards.md`          | test tool           | plain shell runners and the behaviour corpus                             | no shell test dependency to pin                         |
+- `swe-code-maker`
+  - Decision: stack skill loading
+  - Choice: read on demand
+  - Reason: a new stack needs no agent edit
+- **software quality enforcement**
+  - Decision: coverage floor
+  - Choice: 99% of lines over the validator modules, in the unit run
+  - Reason: local floor; two exclusions are proved end to end
+- **quality gates**
+  - Decision: task runner
+  - Choice: `cargo xtask` behind `npm run test:quick`
+  - Reason: gate automation stays typed and tested; no task graph
+- `rust-standards.md`
+  - Decision: edition
+  - Choice: 2024 in every manifest
+  - Reason: current; nothing to migrate
+- `rust-standards.md`
+  - Decision: unit test placement
+  - Choice: deviation: the unit adapter lives in `tests/unit`
+  - Reason: one behaviour corpus runs through three adapters
+- `rust-standards.md`
+  - Decision: lint table
+  - Choice: gap: flags and `clippy.toml` only; no `pedantic` or `unwrap_used` denial
+  - Reason: review applies the rule; the code work comes later
+- `rust-standards.md`
+  - Decision: unsafe code
+  - Choice: gap: `#![forbid(unsafe_code)]` per crate root, not the manifest lint
+  - Reason: the local rule stays; test targets are not yet covered
+- `rust-standards.md`
+  - Decision: async runtime
+  - Choice: not applicable
+  - Reason: no async code
+- `001-code-shape-and-security`
+  - Decision: security libraries
+  - Choice: not applicable
+  - Reason: no secret, transport, or query
+- `shell-scripts.md`
+  - Decision: interpreter
+  - Choice: Bash; deviation: the pinned `./hippo` wrapper is POSIX `sh`
+  - Reason: it runs before any toolchain
+- `shell-scripts.md`
+  - Decision: strict mode
+  - Choice: deviation: the public-safety scripts and the hook test runner omit `-e`
+  - Reason: each handles every child status explicitly
+- `shell-standards.md`
+  - Decision: static analysis
+  - Choice: gap: ShellCheck covers only `./hippo` and the public-safety scripts
+  - Reason: wiring the rest is later work; the rule is not weakened
+- `shell-standards.md`
+  - Decision: format
+  - Choice: gap: no shell formatter gate
+  - Reason: as above
+- `shell-standards.md`
+  - Decision: test tool
+  - Choice: plain shell runners and the behaviour corpus
+  - Reason: no shell test dependency to pin
 
 ## Project Applicability
 

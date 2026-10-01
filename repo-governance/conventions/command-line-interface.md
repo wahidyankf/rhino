@@ -71,12 +71,12 @@ Each module names the defaults it has to correct.
 
 The convention asks each adopter to record which of its own tools sits at which tier. This repository's are:
 
-| Surface                                       | Tier     | Why                                                              |
-| --------------------------------------------- | -------- | ---------------------------------------------------------------- |
-| `rhino`, built here                           | Full bar | A product surface a person and a gate both call directly         |
-| `./hippo` and `./ferret`                      | Floor    | Wrappers invoked from a shell; each `exec`s the tool it installs |
-| `.husky/commit-msg`, `pre-commit`, `pre-push` | Floor    | Git invokes them and branches on what they return                |
-| `scripts/*.sh`                                | Floor    | Shipped scripts a gate or a hook calls                           |
+| Surface                                   | Tier     | Why                                                       |
+| ----------------------------------------- | -------- | --------------------------------------------------------- |
+| `rhino`, built here                       | Full bar | A product surface a person and a gate both call directly  |
+| `./hippo` and `./ferret`                  | Floor    | Shell-invoked wrappers; each `exec`s the tool it installs |
+| `.husky/{commit-msg,pre-commit,pre-push}` | Floor    | Git invokes them and branches on what they return         |
+| `scripts/*.sh`                            | Floor    | Shipped scripts a gate or a hook calls                    |
 
 `rhino` starts gate children, so it additionally owes the supervisor statuses `126` and `127`. The wrappers start the
 tool they install and return `125` when they refuse; no other surface here starts another program.
