@@ -30,7 +30,7 @@ and nothing breaks.
 
 ### Fixed
 
-- **Accessible prose is not a label.** `accTitle` and `accDescr`, on one line or in a `{ ... }` block, are no longer
+- **Accessible prose is not a label.** `accTitle:` and `accDescr:` on one line, and a multi-line `{ ... }` block, are no longer
   measured by `mermaid-legibility`, so a description that mentions `(parenthesised)` text is not reported as an
   over-long node label. This removes findings and adds none.
 
