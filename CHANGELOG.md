@@ -9,7 +9,7 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.8.0] — 2026-10-01
 
 `md mermaid validate` gains five optional keys under `policies.markdown.mermaid`. A configuration that declares none of
 them validates exactly as it did in `v0.7.0`, so the version moves in the minor position and nothing breaks.
