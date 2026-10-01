@@ -154,6 +154,23 @@ decimals, and `threshold`, `4.5`. Contrast is measured only when both the fill a
 undeclared colour is reported once. Under `authoring-rule: rendered`, a diagram that declares no `accTitle` or no
 `accDescr` is reported too.
 
+Five optional keys add checks and change none of the above while they are absent:
+
+- `exclude` lists path globs the Mermaid scan leaves out. Declared, it replaces `scan.exclude-directories` for this
+  command only, and a `--file` selection naming an excluded path is skipped.
+- `require-default-class: true` reports a flowchart, class, entity-relationship, or requirement diagram that declares no
+  `classDef default`, or one that omits `fill`, `stroke`, or `color`. A state diagram is never asked for one because the
+  renderer ignores it.
+- `allowed-types` lists the diagram types the repository renders, by the first word of the declaration. A type outside
+  the list is reported as `mermaid-accessibility`, and a listed type RHINO cannot parse still receives the checks that
+  need no grammar: accessible title and description, colour outside a class, and a theme override. Declaring the key
+  also reads a colour by what it is assigned to, so `fixes PR #123` in a label is not a colour.
+- `forbid-theme-overrides: true` reports each `%%{init}%%` directive and each front-matter `theme`, `themeVariables`, or
+  `themeCSS` line.
+- `canvas-colors` lists the canvases, as six-digit hex colours, that a filled class must stay visible against. A class
+  whose fill and outline both measure below 3:1 against a canvas is reported with `ratio`, `threshold` (`3.0`), and
+  `canvas`. The larger of the fill and outline ratios counts, so a pale fill with a black outline passes on white.
+
 ## License
 
 | Kind                          | Means                                                      |
