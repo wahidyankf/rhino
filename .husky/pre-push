@@ -5,9 +5,11 @@ set -e
 # The last local moment before anything reaches the remote, which for a public
 # repository is the moment publication begins.
 #
-# Git supplies the ref updates on stdin and the dispatcher passes them through,
-# so the safety gate sees the refs and the commit messages this push would
-# publish. Git's own arguments are deliberately not forwarded: arguments after
+# Git supplies the ref updates on stdin, and `--push-updates-stdin` is what lets
+# the dispatcher read them: without it a push-update range is refused rather
+# than guessed. The range gate then screens every commit this push would
+# publish -- each one's additions, names, and message -- not only the tree it
+# ends at. Git's own arguments are deliberately not forwarded: arguments after
 # `--` reach every gate on the surface, and nothing declared here takes a remote
 # name or a URL.
 #
@@ -16,4 +18,4 @@ set -e
 # guard HIPPO; RHINO has no such constraint, so it does not exempt itself. Exit
 # 124 means a limit stopped the work and the reason on stderr says which:
 # retry, never bypass.
-exec cargo run --quiet --bin rhino -- gate run --surface pre-push
+exec cargo run --quiet --bin rhino -- gate run --surface pre-push --push-updates-stdin

@@ -12,9 +12,11 @@
 # Classes: maintainer-path, internal-host, private-address, private-topology,
 # credential-assignment.
 
-# An absolute path into somebody's home directory. It names the machine the work
-# was done on and, usually, the person who did it.
+# An absolute path into somebody's home directory, under /Users, /home, or a
+# Windows drive's Users directory. It names the machine the work was done on
+# and, usually, the person who did it. A `~/` path names neither.
 maintainer-path regex /(Users|home)/[A-Za-z][A-Za-z0-9._-]*/
+maintainer-path regex (^|[^A-Za-z0-9_.-])[A-Za-z]:[\\/]Users[\\/][A-Za-z][A-Za-z0-9._-]*[\\/]
 
 # A hostname in a private or site-local namespace. The trailing class excludes
 # `_` so an identifier such as `local_categories` is not a hostname.

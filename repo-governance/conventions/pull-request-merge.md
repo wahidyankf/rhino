@@ -13,12 +13,12 @@ All five must hold at the moment of merge:
 - **Exact-head quality gate.** The `Quality gate` check from
   [`pr-quality-gate.yml`](../../.github/workflows/pr-quality-gate.yml) is green for the pull request's current head SHA
   against its current base. A run against an earlier head or a different base is stale evidence and authorizes nothing.
-- **Posted leak review of that same head.** One [leak review](../workflows/pr-leak-review.md) is posted on the pull
-  request, names the head it read, and reports `pass` against the
-  [data-safety convention](public-repository-data-safety.md). Pin the head SHA before reading. A push that moves the
+- **Posted leak review of that same head.** Every push that built the branch first passed the
+  [push review](../workflows/pr-leak-review/002-push-review.md) of each outgoing commit. One
+  [leak review](../workflows/pr-leak-review.md) by the repository owner is posted on the pull request, names the head it
+  read, and reports `pass`, and the required `leak-review` status on that head reads `success`. A push that moves the
   head voids the result; review the new head once rather than accumulating a streak of clean runs. Report a finding by
-  category, location, and remediation, never by repeating the value. An inspection nobody posted is not this
-  precondition.
+  class, location, and remediation, never by repeating the value. An inspection nobody posted is not this precondition.
 - **Branch currency.** The branch is current with `main`, brought forward by rebase, and GitHub reports no conflict.
 - **Conversations.** Every review conversation is resolved, or dismissed by the user.
 - **Surface gates.** Every gate the changed behaviour requires has a passing terminal result. When no reachable
@@ -26,11 +26,11 @@ All five must hold at the moment of merge:
 
 ## What Safety Means Here
 
-A pull request is safe when two of those hold: its diff leaks nothing, and the `Quality gate` check passes on its exact
-head. Nothing else stands between a change and the trunk. The ruleset requires no approving review, because the sole
-maintainer cannot approve their own pull request and requiring one would block every merge. No human reads every line
-before merge, and these preconditions stand in for the reviewer. The other three are integration hygiene, not the safety
-claim.
+A pull request is safe when two of those hold: no commit in it leaks anything, and the `Quality gate` check passes on
+its exact head. Nothing else stands between a change and the trunk. The ruleset requires no approving review, because
+the sole maintainer cannot approve their own pull request and requiring one would block every merge. No human reads
+every line before merge, and these preconditions stand in for the reviewer. The other three are integration hygiene, not
+the safety claim.
 
 This is why the testing practices carry weight rather than ceremony. Whatever the gate does not exercise, nothing
 checks. [Test-driven development](../development/test-driven-development.md), the
