@@ -872,6 +872,7 @@ mod tests {
                 fill_colors: Vec::new(),
                 edge_colors: Vec::new(),
                 text_colors: Vec::new(),
+                ..Mermaid::default()
             }),
             ..MarkdownPolicy::default()
         }

@@ -36,9 +36,26 @@ impl Corpus {
     /// findings are reported in the order files are read, and a report whose
     /// order changed between runs could not be diffed.
     pub fn read(tree: &dyn Tree, config: &Config) -> Result<Self, String> {
-        let mut documents = Vec::new();
+        Self::read_paths(tree, markdown_files(tree, config))
+    }
 
-        for path in markdown_files(tree, config) {
+    /// Read every Markdown file except those a declared glob set removes.
+    ///
+    /// The shared scan exclusions are *not* consulted: a validator that declares
+    /// its own exclusions has replaced them, and applying both would hide
+    /// whatever the validator meant to inspect.
+    pub fn read_excluding(tree: &dyn Tree, excluded: &GlobSet) -> Result<Self, String> {
+        let paths = tree
+            .files()
+            .into_iter()
+            .filter(|path| is_markdown(path) && !excluded.is_match(path))
+            .collect();
+        Self::read_paths(tree, paths)
+    }
+
+    fn read_paths(tree: &dyn Tree, paths: Vec<String>) -> Result<Self, String> {
+        let mut documents = Vec::new();
+        for path in paths {
             match tree.read(&path) {
                 Ok(text) => documents.push(Document { path, text }),
                 // A file that vanished between the walk and the read is not

@@ -14,7 +14,7 @@ use crate::config::{AuthoringRule, Config, Mermaid};
 use crate::markdown::{Fenced, fenced_blocks};
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::Tree;
-use crate::scan::{Corpus, Document, Scope};
+use crate::scan::{Corpus, Document, Scope, glob_set};
 use unicode_segmentation::UnicodeSegmentation;
 
 const ACCESSIBILITY: &str = "mermaid-accessibility";
@@ -33,6 +33,11 @@ enum Kind {
     Entity,
     Requirement,
     Block,
+    /// A syntax this build cannot parse that the repository declared allowed.
+    ///
+    /// Only the checks that need no grammar apply to it: the accessible title
+    /// and description, colour outside a class, and a theme override.
+    Other,
 }
 
 fn kind_of(declaration: &str) -> Option<Kind> {
@@ -54,6 +59,8 @@ fn kind_of(declaration: &str) -> Option<Kind> {
 /// diagram, which exists nowhere.
 struct Diagram {
     kind: Kind,
+    /// The first word of the declaration, which is the diagram's type.
+    declaration: String,
     lines: Vec<(usize, String)>,
 }
 
@@ -64,9 +71,35 @@ pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Sco
     // A selection is inspected exactly as given, in the order given, and is
     // never widened back to the declared surface: a caller who named two files
     // asked about two files.
+    let excluded = match mermaid
+        .exclude
+        .as_deref()
+        .map(|globs| glob_set("md-mermaid.exclude", globs.iter().map(String::as_str)))
+    {
+        Some(Ok(set)) => Some(set),
+        Some(Err(reason)) => return Report::unreadable("mermaid", reason),
+        None => None,
+    };
+    if let Some(canvas) = mermaid
+        .canvas_colors
+        .iter()
+        .find(|canvas| !is_six_digit_hex(canvas))
+    {
+        return Report::unreadable(
+            "mermaid",
+            format!("md-mermaid.canvas-colors: `{canvas}` is not a six-digit hex color"),
+        );
+    }
+
     let selected: Vec<Document> = if scope.is_narrowed() {
         let mut selected = Vec::new();
         for (path, content) in scope.documents(tree) {
+            // A selection naming an excluded path is skipped, not refused: a
+            // pre-commit run hands over every staged path, and a move into an
+            // archive stages files the repository has declared out of scope.
+            if excluded.as_ref().is_some_and(|set| set.is_match(&path)) {
+                continue;
+            }
             let text = match content {
                 Ok(text) => text,
                 Err(unselectable) => return unselectable.refusal("mermaid", &path),
@@ -75,7 +108,11 @@ pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Sco
         }
         selected
     } else {
-        match Corpus::read(tree, config) {
+        let corpus = match &excluded {
+            Some(set) => Corpus::read_excluding(tree, set),
+            None => Corpus::read(tree, config),
+        };
+        match corpus {
             Ok(corpus) => corpus.into_documents(),
             Err(reason) => return Report::unreadable("mermaid", reason),
         }
@@ -103,7 +140,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Sco
                 );
                 continue;
             }
-            let Some(diagram) = read(&block) else {
+            let Some(diagram) = read(&block, mermaid.allowed_types.is_some()) else {
                 continue;
             };
             inspected += 1;
@@ -122,10 +159,10 @@ pub fn validate(tree: &dyn Tree, config: &Config, mermaid: &Mermaid, scope: &Sco
 /// Declining covers both a block with no diagram declaration and one whose
 /// declaration this build cannot parse. Neither is a finding: reporting on
 /// syntax the tool does not understand would be reporting on its own ignorance.
-fn read(block: &Fenced<'_>) -> Option<Diagram> {
+fn read(block: &Fenced<'_>, judge_every_type: bool) -> Option<Diagram> {
     let mut lines: Vec<(usize, String)> = Vec::new();
     let mut in_front_matter = false;
-    let mut kind = None;
+    let mut found: Option<(Kind, String)> = None;
 
     for (number, text) in &block.lines {
         let trimmed = text.trim();
@@ -137,22 +174,63 @@ fn read(block: &Fenced<'_>) -> Option<Diagram> {
             lines.push((*number, (*text).to_string()));
             continue;
         }
-        if kind.is_none() && !in_front_matter && !trimmed.is_empty() && !trimmed.starts_with("%%") {
+        if found.is_none() && !in_front_matter && !trimmed.is_empty() && !trimmed.starts_with("%%")
+        {
             let declaration = trimmed.split_whitespace().next().unwrap_or(trimmed);
-            kind = Some(kind_of(declaration)?);
+            // A repository that declared its allowed types has asked for every
+            // diagram to be judged, so a syntax this build cannot parse is
+            // still a diagram -- one the grammar-free checks can read.
+            let kind = match kind_of(declaration) {
+                Some(kind) => kind,
+                None if judge_every_type => Kind::Other,
+                None => return None,
+            };
+            found = Some((kind, declaration.to_string()));
         }
         lines.push((*number, (*text).to_string()));
     }
 
-    Some(Diagram { kind: kind?, lines })
+    let (kind, declaration) = found?;
+    Some(Diagram {
+        kind,
+        declaration,
+        lines,
+    })
 }
 
 fn inspect(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
+    // An undeclared type is refused alone: the other checks would be judging a
+    // diagram the repository has said may not be there.
+    if let Some(finding) = undeclared_type(diagram, mermaid) {
+        return vec![finding];
+    }
     let mut findings = accessibility(diagram, mermaid);
     findings.extend(colors(diagram, mermaid));
+    findings.extend(default_class(diagram, mermaid));
+    findings.extend(theme_overrides(diagram, mermaid));
     findings.extend(legibility(diagram, mermaid));
     findings.sort_by_key(|finding| finding.line);
     findings
+}
+
+/// The type allowlist: a type outside a declared list is refused, never skipped.
+fn undeclared_type(diagram: &Diagram, mermaid: &Mermaid) -> Option<Finding> {
+    let allowed = mermaid.allowed_types.as_ref()?;
+    if allowed.contains(&diagram.declaration) {
+        return None;
+    }
+    let line = diagram.lines.first().map_or(1, |(number, _)| *number);
+    Some(
+        Finding::new(
+            ACCESSIBILITY,
+            "",
+            format!(
+                "diagram type `{}` is not in the declared allowed types, so this repository does not render it",
+                diagram.declaration
+            ),
+        )
+        .at_line(line),
+    )
 }
 
 /// The accessible title and description a rendered repository requires.
@@ -201,6 +279,10 @@ fn accessibility(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
 /// rather than checked against the declared sets.
 fn colors(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
     let mut findings = Vec::new();
+    // Declaring the allowed types opts in to reading a colour by what it is
+    // assigned to, so a label such as `PR #123` is prose and not a hex colour.
+    // Without the declaration the broader `v0.7` reading stands unchanged.
+    let strict = mermaid.allowed_types.is_some();
 
     for (number, text) in &diagram.lines {
         let trimmed = text.trim();
@@ -213,7 +295,7 @@ fn colors(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
 
         if let Some(rest) = trimmed.strip_prefix("classDef ") {
             findings.extend(class_definition(*number, rest, mermaid));
-        } else if contains_color(trimmed) {
+        } else if contains_color(trimmed, strict) || (strict && colors_a_box(trimmed)) {
             findings.push(Finding::new(
                 ACCESSIBILITY,
                 "",
@@ -222,6 +304,94 @@ fn colors(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
         }
     }
 
+    findings
+}
+
+/// The roles a `classDef default` must set for every node to be legible with no
+/// class of its own.
+const DEFAULT_CLASS_ROLES: [&str; 3] = ["fill", "stroke", "color"];
+
+/// Whether the renderer applies `classDef default` to a diagram of this kind.
+///
+/// It does in flowcharts, class, entity-relationship, and requirement diagrams.
+/// A state diagram ignores it, so demanding one there would demand dead text.
+fn applies_default_class(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Flow | Kind::Class | Kind::Entity | Kind::Requirement
+    )
+}
+
+fn default_class(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
+    if !mermaid.require_default_class || !applies_default_class(diagram.kind) {
+        return Vec::new();
+    }
+    let line = diagram.lines.first().map_or(1, |(number, _)| *number);
+    let declared = diagram.lines.iter().find_map(|(_, text)| {
+        text.trim()
+            .strip_prefix("classDef default ")
+            .map(str::to_string)
+    });
+    let Some(declared) = declared else {
+        return vec![Finding::new(
+            ACCESSIBILITY,
+            "",
+            "declares no `classDef default`, so every unclassed node takes a colour the palette never chose",
+        )
+        .at_line(line)];
+    };
+    DEFAULT_CLASS_ROLES
+        .iter()
+        .filter(|role| {
+            !declared.split(',').any(|assignment| {
+                assignment
+                    .split_once(':')
+                    .is_some_and(|(name, _)| name.trim() == **role)
+            })
+        })
+        .map(|role| {
+            Finding::new(
+                ACCESSIBILITY,
+                "",
+                format!("`classDef default` sets no `{role}`, so unclassed nodes fall back to an unchosen one"),
+            )
+            .at_line(line)
+        })
+        .collect()
+}
+
+/// An initialization directive or a front-matter theme, each refused on its own
+/// line. Either one replaces the renderer's automatic light and dark switching
+/// with colours the palette never saw.
+fn theme_overrides(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
+    if !mermaid.forbid_theme_overrides {
+        return Vec::new();
+    }
+    let mut findings = Vec::new();
+    let mut in_front_matter = false;
+    for (number, text) in &diagram.lines {
+        let trimmed = text.trim();
+        if trimmed == "---" {
+            in_front_matter = !in_front_matter;
+            continue;
+        }
+        let directive = trimmed.starts_with("%%{")
+            && (trimmed.contains("init") || trimmed.contains("initialize"));
+        let front_matter = in_front_matter
+            && ["theme:", "themeVariables:", "themeCSS:"]
+                .iter()
+                .any(|key| trimmed.starts_with(key));
+        if directive || front_matter {
+            findings.push(
+                Finding::new(
+                    ACCESSIBILITY,
+                    "",
+                    "a theme override replaces the renderer's light and dark switching with colours the palette never measured",
+                )
+                .at_line(*number),
+            );
+        }
+    }
     findings
 }
 
@@ -341,7 +511,57 @@ fn class_definition(line: usize, rest: &str, mermaid: &Mermaid) -> Vec<Finding> 
         (None, None, None) => {}
     }
 
+    findings.extend(canvas_findings(line, fill, stroke, mermaid));
     findings
+}
+
+/// The WCAG 2 threshold for a graphical object against what is adjacent to it.
+const NON_TEXT_CONTRAST: f64 = 3.0;
+
+/// A filled class must stay visible on every declared canvas.
+///
+/// Visible means the fill or the outline reaches the non-text threshold, so a
+/// pale fill with a black outline passes on white and a dark fill with a pale
+/// outline passes on black. A class that reaches it on neither colour vanishes
+/// there, whatever its label says.
+fn canvas_findings(
+    line: usize,
+    fill: Option<&str>,
+    stroke: Option<&str>,
+    mermaid: &Mermaid,
+) -> Vec<Finding> {
+    let Some(fill) = fill.filter(|fill| is_six_digit_hex(fill)) else {
+        return Vec::new();
+    };
+    let shapes: Vec<f64> = [Some(fill), stroke]
+        .into_iter()
+        .flatten()
+        .filter_map(luminance)
+        .collect();
+    mermaid
+        .canvas_colors
+        .iter()
+        .filter_map(|canvas| {
+            let background = luminance(canvas)?;
+            let best = shapes
+                .iter()
+                .map(|shape| contrast(*shape, background))
+                .fold(0.0, f64::max);
+            (best < NON_TEXT_CONTRAST).then(|| {
+                Finding::new(
+                    ACCESSIBILITY,
+                    "",
+                    format!(
+                        "neither fill `{fill}` nor its outline reaches the non-text contrast threshold against the canvas `{canvas}`"
+                    ),
+                )
+                .at_line(line)
+                .with("ratio", Detail::Text(format!("{best:.2}")))
+                .with("threshold", Detail::Text(format!("{NON_TEXT_CONTRAST:.1}")))
+                .with("canvas", Detail::Text(canvas.clone()))
+            })
+        })
+        .collect()
 }
 
 /// The WCAG 2 threshold for normal-size text. Not configurable: it is a
@@ -365,7 +585,7 @@ fn is_six_digit_hex(value: &str) -> bool {
 ///
 /// Deliberately broad: outside a `classDef` there is no acceptable colour, so
 /// the question is only whether one is present, never which.
-fn contains_color(line: &str) -> bool {
+fn contains_color(line: &str, strict: bool) -> bool {
     if line.contains("rgb(") || line.contains("rgba(") || line.contains("hsl(") {
         return true;
     }
@@ -377,7 +597,10 @@ fn contains_color(line: &str) -> bool {
             .chars()
             .take_while(char::is_ascii_hexdigit)
             .count();
-        if (3..=8).contains(&digits) {
+        if !(3..=8).contains(&digits) {
+            continue;
+        }
+        if !strict || is_assigned_color(&line[..index]) {
             return true;
         }
     }
@@ -390,6 +613,64 @@ fn contains_color(line: &str) -> bool {
             ) && !value.trim().is_empty()
         })
     })
+}
+
+/// Whether the text before a `#` makes it the value of a colour property.
+///
+/// `fill:#fff` and `"primaryColor": "#fff"` qualify; `fixes PR #123` does not,
+/// because nothing there assigns a colour.
+fn is_assigned_color(before: &str) -> bool {
+    let assigned = before.trim_end_matches([' ', '"', '\'']);
+    let Some(property) = assigned.strip_suffix(':') else {
+        return false;
+    };
+    let word = property
+        .trim_end_matches([' ', '"', '\''])
+        .rsplit(|c: char| !c.is_ascii_alphanumeric())
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    matches!(word.as_str(), "fill" | "stroke" | "background" | "bkg")
+        || word.ends_with("color")
+        || word.ends_with("bkg")
+        || word.ends_with("border")
+}
+
+/// A sequence-diagram `box` that names a colour, which that syntax cannot
+/// express as a hex value and so can never come from the palette.
+fn colors_a_box(line: &str) -> bool {
+    const NAMES: [&str; 24] = [
+        "aqua",
+        "black",
+        "blue",
+        "brown",
+        "cyan",
+        "fuchsia",
+        "gray",
+        "grey",
+        "green",
+        "lime",
+        "magenta",
+        "maroon",
+        "navy",
+        "olive",
+        "orange",
+        "pink",
+        "purple",
+        "red",
+        "silver",
+        "teal",
+        "white",
+        "yellow",
+        "lightblue",
+        "lightgreen",
+    ];
+    let Some(rest) = line.strip_prefix("box ") else {
+        return false;
+    };
+    rest.split_whitespace()
+        .next()
+        .is_some_and(|word| NAMES.contains(&word.to_ascii_lowercase().as_str()))
 }
 
 fn luminance(color: &str) -> Option<f64> {
@@ -445,9 +726,20 @@ impl Segment {
 
 fn legibility(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
     let mut findings = Vec::new();
+    let mut in_accessibility_block = false;
 
     for (number, text) in &diagram.lines {
         let trimmed = text.trim();
+        // The accessible description is prose for a screen reader, not a label
+        // a sighted reader sees, so its length and punctuation are not drawn.
+        if in_accessibility_block {
+            in_accessibility_block = !trimmed.contains('}');
+            continue;
+        }
+        if opens_accessibility_block(trimmed) {
+            in_accessibility_block = true;
+            continue;
+        }
         if is_not_a_label_source(diagram.kind, trimmed) {
             continue;
         }
@@ -492,6 +784,16 @@ fn legibility(diagram: &Diagram, mermaid: &Mermaid) -> Vec<Finding> {
     findings
 }
 
+/// Whether a line opens a multi-line `accTitle { ... }` or `accDescr { ... }`
+/// block, whose lines up to the closing brace are prose and not labels.
+fn opens_accessibility_block(line: &str) -> bool {
+    ["accTitle", "accDescr"].iter().any(|name| {
+        line.strip_prefix(name).is_some_and(|rest| {
+            rest.trim() == "{" || (rest.trim_start().starts_with('{') && !rest.contains('}'))
+        })
+    })
+}
+
 /// Lines that declare styling, behaviour, or structure rather than visible text.
 ///
 /// `class` is the interesting case: in a class diagram it names a node a reader
@@ -503,6 +805,7 @@ fn is_not_a_label_source(kind: Kind, line: &str) -> bool {
     }
     let first = line.split_whitespace().next().unwrap_or(line);
     match first {
+        "accTitle:" | "accDescr:" => true,
         "classDef" | "style" | "linkStyle" | "click" | "direction" | "call" | "href" => true,
         "class" => kind != Kind::Class,
         _ => false,
@@ -522,6 +825,8 @@ fn labels(kind: Kind, line: &str) -> Vec<(Segment, String)> {
         Kind::Entity => entity_labels(line),
         Kind::Requirement => enclosed_after(line, "requirement")
             .map_or_else(Vec::new, |name| vec![(Segment::Node, name)]),
+        // No grammar is known, so no label can be told from other text.
+        Kind::Other => Vec::new(),
     }
 }
 
@@ -708,12 +1013,14 @@ mod tests {
             fill_colors: vec!["#FFFFFF".to_string(), "#000000".to_string()],
             edge_colors: vec!["#000000".to_string(), "#123456".to_string()],
             text_colors: vec!["#000000".to_string(), "#FFFFFF".to_string()],
+            ..Mermaid::default()
         }
     }
 
     fn diagram(kind: Kind, lines: &[&str]) -> Diagram {
         Diagram {
             kind,
+            declaration: String::new(),
             lines: lines
                 .iter()
                 .enumerate()
@@ -745,10 +1052,10 @@ mod tests {
         );
         assert_eq!(blocks.len(), 2);
         assert!(matches!(
-            read(&blocks[0]).expect("supported diagram").kind,
+            read(&blocks[0], false).expect("supported diagram").kind,
             Kind::Flow
         ));
-        assert!(read(&blocks[1]).is_none());
+        assert!(read(&blocks[1], false).is_none());
     }
 
     #[test]
@@ -837,16 +1144,203 @@ mod tests {
         assert_eq!(decode("&unknown; &broken"), "&unknown; &broken");
         assert_eq!(numeric("#65"), Some('A'));
         assert_eq!(numeric("#x41"), Some('A'));
-        assert!(contains_color("stroke: red"));
-        assert!(!contains_color("documentation only"));
+        assert!(contains_color("stroke: red", false));
+        assert!(!contains_color("documentation only", false));
         assert!(luminance("#FFFFFF").is_some());
         assert!(luminance("bad").is_none());
         assert!(luminance("#123").is_none());
         assert!(contrast(1.0, 0.0) > 4.5);
         assert!(contrast(0.0, 1.0) > 4.5);
-        assert!(contains_color("style A fill: rgb(1, 2, 3)"));
-        assert!(contains_color("style A fill:#abc"));
+        assert!(contains_color("style A fill: rgb(1, 2, 3)", false));
+        assert!(contains_color("style A fill:#abc", false));
         assert!(flow_labels("A |unclosed").is_empty());
+    }
+
+    fn declared(keys: impl FnOnce(&mut Mermaid)) -> Mermaid {
+        let mut mermaid = policy(Some(AuthoringRule::Rendered));
+        keys(&mut mermaid);
+        mermaid
+    }
+
+    fn messages(findings: &[Finding]) -> String {
+        findings
+            .iter()
+            .map(|finding| finding.message.clone())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn an_undeclared_type_is_refused_and_a_declared_unparsed_type_gets_the_universal_checks() {
+        let mermaid = declared(|m| {
+            m.allowed_types = Some(vec!["flowchart".to_string(), "sequenceDiagram".to_string()]);
+        });
+        let blocks = fenced_blocks(
+            "```mermaid\nmindmap\n  root\n```\n\n```mermaid\nsequenceDiagram\nrect rgb(1, 2, 3)\nA->>B: hi\nend\n```",
+        );
+        let mindmap = read(&blocks[0], true).expect("judged when types are declared");
+        let refused = inspect(&mindmap, &mermaid);
+        assert_eq!(refused.len(), 1);
+        assert!(messages(&refused).contains("`mindmap` is not in the declared allowed types"));
+
+        let sequence = read(&blocks[1], true).expect("judged when types are declared");
+        let universal = messages(&inspect(&sequence, &mermaid));
+        assert!(universal.contains("accessible title"));
+        assert!(universal.contains("outside a classDef"));
+    }
+
+    #[test]
+    fn a_pull_request_number_is_not_a_colour_once_types_are_declared() {
+        assert!(contains_color("A->>B: fixes PR #123", false));
+        assert!(!contains_color("A->>B: fixes PR #123", true));
+        assert!(!contains_color("A->>B: Issue: #123", true));
+        assert!(contains_color("style A fill:#123", true));
+        assert!(contains_color(
+            "%%{init: {'themeVariables': {'primaryColor': '#fff'}}}%%",
+            true
+        ));
+        assert!(colors_a_box("box purple Group"));
+        assert!(!colors_a_box("box Group"));
+    }
+
+    #[test]
+    fn a_complete_default_class_is_required_only_where_the_renderer_applies_one() {
+        let mermaid = declared(|m| m.require_default_class = true);
+        let flow = diagram(Kind::Flow, &["flowchart LR", "A --> B"]);
+        assert!(messages(&inspect(&flow, &mermaid)).contains("classDef default"));
+
+        let partial = diagram(
+            Kind::Flow,
+            &[
+                "flowchart LR",
+                "classDef default fill:#FFFFFF,stroke:#000000",
+            ],
+        );
+        let findings = default_class(&partial, &mermaid);
+        assert_eq!(findings.len(), 1);
+        assert!(messages(&findings).contains("`color`"));
+
+        let complete = diagram(
+            Kind::Flow,
+            &[
+                "flowchart LR",
+                "classDef default fill:#FFFFFF,stroke:#000000,color:#000000",
+            ],
+        );
+        assert!(default_class(&complete, &mermaid).is_empty());
+        assert!(default_class(&diagram(Kind::State, &["stateDiagram-v2"]), &mermaid).is_empty());
+        assert!(default_class(&flow, &declared(|_| {})).is_empty());
+    }
+
+    #[test]
+    fn theme_overrides_are_refused_on_their_own_lines() {
+        let mermaid = declared(|m| m.forbid_theme_overrides = true);
+        let flow = diagram(
+            Kind::Flow,
+            &[
+                "---",
+                "config:",
+                "  theme: forest",
+                "  themeVariables:",
+                "---",
+                "%%{init: {\"theme\": \"dark\"}}%%",
+                "flowchart LR",
+                "%% theme: just a comment",
+            ],
+        );
+        let lines: Vec<Option<usize>> = theme_overrides(&flow, &mermaid)
+            .iter()
+            .map(|finding| finding.line)
+            .collect();
+        assert_eq!(lines, vec![Some(3), Some(4), Some(6)]);
+        assert!(theme_overrides(&flow, &declared(|_| {})).is_empty());
+    }
+
+    #[test]
+    fn a_class_invisible_on_a_declared_canvas_reports_the_ratio_and_the_canvas() {
+        let mermaid = declared(|m| {
+            m.canvas_colors = vec!["#FFFFFF".to_string(), "#0D1117".to_string()];
+        });
+        let shy = class_definition(1, "shy fill:#000000,stroke:#000000,color:#FFFFFF", &mermaid);
+        let canvas: Vec<_> = shy
+            .iter()
+            .filter(|finding| format!("{finding:?}").contains("canvas"))
+            .collect();
+        assert!(!canvas.is_empty());
+        assert!(messages(&shy).contains("`#0D1117`"));
+
+        let warm = class_definition(
+            1,
+            "warm fill:#DE8F05,stroke:#000000,color:#000000",
+            &mermaid,
+        );
+        assert!(!messages(&warm).contains("non-text"));
+        // Absent the key, the same class is not measured.
+        let unmeasured = class_definition(
+            1,
+            "shy fill:#000000,stroke:#000000,color:#FFFFFF",
+            &policy(None),
+        );
+        assert!(!messages(&unmeasured).contains("non-text"));
+    }
+
+    #[test]
+    fn an_exclude_glob_leaves_the_mermaid_scan_and_names_an_invalid_glob_or_canvas() {
+        let tree = MemoryTree::default();
+        tree.write(
+            "plans/done/old.md",
+            "```mermaid\nflowchart LR\nA-->B\n```\n",
+        );
+        tree.write("vendored/lib.md", "```mermaid\nflowchart LR\nA-->B\n```\n");
+        let mermaid = declared(|m| m.exclude = Some(vec!["plans/done/**".to_string()]));
+        let report =
+            validate(&tree, &Config::default(), &mermaid, &Scope::default()).render(Format::Text);
+        assert_eq!(report.exit_code, 1);
+        assert!(report.stderr.contains("vendored/lib.md"));
+        assert!(!report.stderr.contains("plans/done/old.md"));
+
+        let bad_glob = declared(|m| m.exclude = Some(vec!["/absolute/**".to_string()]));
+        assert_eq!(
+            validate(&tree, &Config::default(), &bad_glob, &Scope::default())
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+        let bad_canvas = declared(|m| m.canvas_colors = vec!["white".to_string()]);
+        assert_eq!(
+            validate(&tree, &Config::default(), &bad_canvas, &Scope::default())
+                .render(Format::Text)
+                .exit_code,
+            2
+        );
+    }
+
+    #[test]
+    fn accessibility_prose_is_never_measured_as_a_label() {
+        let mermaid = policy(Some(AuthoringRule::Rendered));
+        let single = diagram(
+            Kind::Flow,
+            &[
+                "flowchart LR",
+                "accDescr: Nodes (a very long description here).",
+            ],
+        );
+        assert!(legibility(&single, &mermaid).is_empty());
+        let block = diagram(
+            Kind::Flow,
+            &[
+                "flowchart LR",
+                "accDescr {",
+                "Nodes (a very long description here).",
+                "}",
+                "A[long node text]",
+            ],
+        );
+        let lines: Vec<_> = legibility(&block, &mermaid)
+            .iter()
+            .map(|f| f.line)
+            .collect();
+        assert_eq!(lines, vec![Some(5)]);
     }
 
     #[test]

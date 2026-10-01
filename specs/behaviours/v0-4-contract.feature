@@ -2636,3 +2636,314 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "md|mermaid|validate|--output|json"
     Then the exit code is 1
     And the first stdout JSON violation kind is "diagram-authoring-rule"
+
+  Scenario: A mermaid exclude glob removes archived paths from the Mermaid scan only
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            exclude:
+              - "plans/done/**"
+      """
+    And the repository contains:
+      | path                | content |
+      | plans/done/old.md   | ```mermaid\nflowchart LR\nA-->B\n``` |
+      | docs/new.md         | # Prose |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "inspected" is 0
+
+  Scenario: A declared mermaid exclude replaces the shared scan exclusions for the Mermaid scan
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            exclude:
+              - "plans/done/**"
+      """
+    And the repository contains:
+      | path                | content |
+      | vendored/lib.md     | ```mermaid\nflowchart LR\nA-->B\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "mermaid-accessibility"
+
+  Scenario: A selection naming an excluded path is not inspected
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            exclude:
+              - "plans/done/**"
+      """
+    And the repository contains:
+      | path                | content |
+      | plans/done/old.md   | ```mermaid\nflowchart LR\nA-->B\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--file|plans/done/old.md|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "inspected" is 0
+
+  Scenario: A required default class is refused where a flowchart omits it and ignored for a state diagram
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            require-default-class: true
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\n``` |
+      | docs/b.md  | ```mermaid\nstateDiagram-v2\naccTitle: T\naccDescr: D\n[*] --> Alpha\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 1
+    And stdout contains "classDef default"
+
+  Scenario: A default class missing its stroke or text colour is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            require-default-class: true
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\nclassDef default fill:#FFFFFF\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 1
+    And stdout contains "stroke"
+
+  Scenario: A complete default class satisfies the requirement
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            require-default-class: true
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\nclassDef default fill:#FFFFFF,stroke:#000000,color:#000000\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 0
+
+  Scenario: An undeclared diagram type is refused and a declared unparsed type receives the universal checks
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            allowed-types:
+              - flowchart
+              - sequenceDiagram
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nmindmap\naccTitle: T\naccDescr: D\n  root\n``` |
+      | docs/b.md  | ```mermaid\nsequenceDiagram\nrect rgb(1, 2, 3)\nA->>B: hi\nend\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 1
+    And stdout contains "mindmap"
+    And stdout contains "accessible title"
+    And stdout contains "outside a classDef"
+
+  Scenario: A pull-request number in a label is not read as a colour
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            allowed-types:
+              - sequenceDiagram
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nsequenceDiagram\naccTitle: T\naccDescr: D\nA->>B: fixes PR #123\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 0
+
+  Scenario: A theme override is refused wherever it appears
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            forbid-theme-overrides: true
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\n%%{init: {"theme": "dark"}}%%\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\n``` |
+      | docs/b.md  | ```mermaid\n---\nconfig:\n  theme: forest\n  themeVariables:\n    fontSize: 12px\n---\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 1
+    And stdout contains "theme override"
+
+  Scenario: A class invisible on a declared canvas is refused with its measured ratio
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            canvas-colors: ["#FFFFFF", "#0D1117"]
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\nclassDef shy fill:#000000,stroke:#000000,color:#FFFFFF\nclass A shy\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 1
+    And stdout contains "#0D1117"
+    And stdout contains "ratio"
+
+  Scenario: A fill that passes a canvas only through its outline is accepted
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            canvas-colors: ["#FFFFFF", "#0D1117"]
+      """
+    And the repository contains:
+      | path       | content |
+      | docs/a.md  | ```mermaid\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\nclassDef warm fill:#DE8F05,stroke:#000000,color:#000000\nclass A warm\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 0
+
+  Scenario: A configuration with none of the new keys behaves as v0.7.0 did
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories:
+          - vendored
+      policies:
+        markdown:
+          mermaid:
+            authoring-rule: rendered
+            node-label-graphemes: 32
+            edge-label-graphemes: 24
+            fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            edge-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+            text-colors: ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#CA9161", "#808080", "#000000", "#FFFFFF"]
+      """
+    And the repository contains:
+      | path                | content |
+      | plans/done/old.md   | ```mermaid\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\n``` |
+      | docs/seq.md         | ```mermaid\nsequenceDiagram\nrect rgb(1, 2, 3)\nA->>B: fixes PR #123\nend\n``` |
+      | docs/flow.md        | ```mermaid\n%%{init: {"theme": "dark"}}%%\nflowchart LR\naccTitle: T\naccDescr: D\nA-->B\n``` |
+    When I invoke the CLI with "md|mermaid|validate|--output|json"
+    Then the exit code is 0
+    And stdout JSON property "inspected" is 2

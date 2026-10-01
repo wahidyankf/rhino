@@ -219,7 +219,7 @@ pub struct InternalLink {
     pub exclude_sources: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Mermaid {
     /// The one authoring rule this repository applies to conceptual diagrams.
@@ -241,6 +241,29 @@ pub struct Mermaid {
     pub edge_colors: Vec<String>,
     #[serde(rename = "text-colors")]
     pub text_colors: Vec<String>,
+    /// Path globs the Mermaid scan leaves out.
+    ///
+    /// Optional, like every key added after `v0.7`. When declared it *replaces*
+    /// `scan.exclude-directories` for this validator and no other: a repository
+    /// that archives a tree wants that tree out of the Mermaid check without
+    /// hiding it from the link or metadata checks.
+    #[serde(default)]
+    pub exclude: Option<Vec<String>>,
+    /// Whether every diagram whose renderer applies a `classDef default`
+    /// declares a complete one.
+    #[serde(rename = "require-default-class", default)]
+    pub require_default_class: bool,
+    /// The diagram types the repository permits. Declared, it turns on the
+    /// universal checks for every type, including those RHINO cannot parse,
+    /// and refuses a type outside the list instead of skipping it.
+    #[serde(rename = "allowed-types", default)]
+    pub allowed_types: Option<Vec<String>>,
+    /// Whether an initialization directive or a front-matter theme is refused.
+    #[serde(rename = "forbid-theme-overrides", default)]
+    pub forbid_theme_overrides: bool,
+    /// The canvases a filled class must stay visible against, as hex colours.
+    #[serde(rename = "canvas-colors", default)]
+    pub canvas_colors: Vec<String>,
 }
 
 /// The two diagram authoring rules, one of which a repository declares.
