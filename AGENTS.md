@@ -32,7 +32,8 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
 - The 99% coverage floor and two declared exclusions are
   [not negotiable](repo-governance/development/software-quality-enforcement.md).
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
-  read its reason, `125` replan or drain, `2` fix the call.
+  read its reason, `125` replan or drain, `2` fix the call. Route
+  [HIPPO and FERRET defects](repo-governance/development/upstream-tool-defects.md) to their owners.
 
 ## Change Discipline
 
@@ -54,9 +55,7 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [local additions](repo-governance/conventions/plan-lifecycle.md),
   [specification changes](repo-governance/conventions/plan-specification-changes.md), and
   [the validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
-- Seven [indexed](repo-governance/workflows/README.md) workflows cover that lifecycle, each
-  [reachable](repo-governance/development/planning-capabilities.md). The
-  [quality gate](repo-governance/workflows/plan-quality-gate.md) needs explicit request; the
+- The plan [quality gate](repo-governance/workflows/plan-quality-gate.md) needs explicit request; the
   [execution check](repo-governance/workflows/plan-execution-check.md) blocks archival.
 
 ## Version Control

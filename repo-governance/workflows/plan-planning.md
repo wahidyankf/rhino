@@ -12,9 +12,9 @@ Someone has asked for a formal plan, or a brief has been promoted by [Ideas Groo
    completes**. A plan written first and questioned afterwards has already committed to the answers. The gate also asks
    whether the change alters what a document describes; if so, the delivery unit changing it carries a
    [Docs Propagation](docs-propagation.md) item.
-3. **Author all six documents.** `README.md`, `brd.md`, `prd.md`, one technical shape, `delivery.md`, `learnings.md`.
-   The document set and its rules are the [Plans Convention](../conventions/plans.md)'s; this workflow does not restate
-   them.
+3. **Author all six documents.** `README.md`, `brd.md`, `prd.md`, one technical shape, `delivery.md`, `learnings.md`. A
+   [Bug-Fix Plan](../conventions/plans/010-bug-fix-plan.md) is not planned through this workflow. The document set and
+   its rules are the [Plans Convention](../conventions/plans.md)'s; this workflow does not restate them.
 4. **Write `delivery.md` last.** It depends on every other document, and writing it first produces a checklist for a
    plan that does not exist yet.
 5. **Run the post-write gate.** A separate gate, on the complete draft, resolving what only became visible once the plan

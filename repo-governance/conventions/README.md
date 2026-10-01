@@ -5,6 +5,8 @@ convention says how this repository does something where more than one way would
 
 ## Directory Map
 
+- [Bug reports](bug-reports.md) — the duplicate search before filing, and what a report carries, version and commit
+  included.
 - [Coding-harness contract](coding-harness-contract.md) — one instruction body, one prompt per agent, adapters that
   route rather than copy.
 - [Command-line interface](command-line-interface.md) — the two-layer contract a command-line tool presents to its
@@ -33,7 +35,7 @@ convention says how this repository does something where more than one way would
 - [Plan validator contract modules](plan-validator-contract/README.md) — the four modules that entrypoint indexes.
 - [Plans](plans.md) — the canonical plan system: lifecycle, the six documents, delivery, validation, evidence, and
   archival.
-- [Plans convention modules](plans/README.md) — the nine modules that entrypoint indexes, in reading order.
+- [Plans convention modules](plans/README.md) — the ten modules that entrypoint indexes, in reading order.
 - [Public repository data safety](public-repository-data-safety.md) — what may never be committed here.
 - [Pull request body](pull-request-body.md) — what the body carries, and that it never goes stale.
 - [Pull request boundaries](pull-request-boundaries.md) — one branch, one pull request, one delivery unit.
