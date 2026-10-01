@@ -21,7 +21,7 @@ harness planning mode, authorizes neither the folder nor the commit that would c
 
 The one standing request is an adopted [Upstream Tool Defects](../development/upstream-tool-defects.md) standard, this
 repository's or a consumer's: it covers writing and landing a defect's idea brief, or a blocking defect's
-[bug-fix plan](plans/010-bug-fix-plan.md), including its quality gate and execution, at the tool's owner.
+[bug-fix plan](plans/010-bug-fix-plan.md), including its quality gate, execution, and release, at the tool's owner.
 
 ## Scope
 

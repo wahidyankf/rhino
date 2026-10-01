@@ -24,8 +24,9 @@ surprised the same way; its fix may be documentation.
 2. **Check for duplicates** in the owning repository — open issues, open pull requests, in-flight plans, and idea briefs
    — per [Bug Reports](../conventions/bug-reports.md).
 3. **When a match exists, wait for it.** Link it from the current work, add to it what it lacks, and continue on a
-   workaround. Repin once it lands. With no workaround, a match already in repair leaves the current work blocked on
-   that link, while a match that is only an idea brief is promoted to a bug-fix plan as in step 5.
+   workaround. Repin once it lands, releasing it first per step 5 if no release carries it. With no workaround, a match
+   already in repair leaves the current work blocked on that link, while a match that is only an idea brief is promoted
+   to a bug-fix plan as in step 5.
 4. **When the defect has a workaround or does not block the work in hand, file it and continue.** Write an
    [idea brief](../conventions/plans/001-lifecycle-and-folders.md) in the owner's `plans/ideas/`, in the owner's own
    layout, with the report in its problem section and the duplicate check and references in its prior art. Land it
@@ -33,8 +34,9 @@ surprised the same way; its fix may be documentation.
 5. **Only when the defect blocks the work in hand and no workaround exists, fix it.** Write a
    [bug-fix plan](../conventions/plans/010-bug-fix-plan.md) in the owning repository, researching the cause and the
    solution and citing every source. Land the plan alone on the owner's trunk through its route first, run the plan
-   quality gate on it, and on a passing verdict execute it through the owner's delivery, regression test first. Release
-   where the owner releases, and repin every consumer.
+   quality gate on it, and on a passing verdict execute it through the owner's delivery, regression test first. Once
+   that test and the owner's full release gate pass on the exact revision, release the fix through the owner's release
+   workflow without a further prompt, skipping no step, and repin every consumer.
 
 A workaround is any route to the current work's outcome that does not edit the tool or its pin: another option or
 command, a documented manual step, or a retry that reliably succeeds. It is recorded beside the link or brief so the
@@ -55,6 +57,6 @@ work that found the defect continues on a workaround rather than absorbing the f
 | FERRET | [`ose-public`](https://github.com/wahidyankf/ose-public), which builds `apps/ferret-cli` |
 
 A brief or plan lands at its owner by pull request to `origin/main`. A RHINO defect found here is this repository's own,
-fixed in place under its ordinary rules. Adopting this standard is the standing request under which a defect's idea
-brief, and a blocking defect's bug-fix plan, need no further authorization. Adopted from the shared rules catalog by
-explicit copy.
+fixed in place under its ordinary rules and released like a covered tool's fix. Adopting this standard is the standing
+request under which a defect's idea brief, a blocking defect's bug-fix plan, and a merged fix's release once its tests
+pass need no further authorization. Adopted from the shared rules catalog by explicit copy.

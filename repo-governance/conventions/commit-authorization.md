@@ -14,7 +14,9 @@ Commit and push only when the user has authorized it, when an approved plan step
   than by a prompt at the moment of merging.
 - Bypassing a hook is a third, separate permission. See [push-hook verification](push-hook-verification.md); a normal
   push request never authorizes `--no-verify`.
-- Publishing a release is separate again, and follows [release cut](../workflows/release-cut.md).
+- Publishing a release is separate again, and follows [release cut](../workflows/release-cut.md). An adopted
+  [upstream tool defects](../development/upstream-tool-defects.md) standard, this repository's or a consumer's,
+  authorizes releasing a merged RHINO defect fix.
 
 Choosing how to integrate a change is not authorization either: the [integration path](integration-path.md) says where a
 change goes, not whether it may go.

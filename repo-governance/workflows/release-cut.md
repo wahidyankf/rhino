@@ -1,12 +1,14 @@
 # Release Cut
 
 A published release is permanent. A tag is never replaced, and a consumer that pinned it must get the same bytes
-forever. Everything below exists to make a mistake impossible rather than recoverable.
+forever. Everything below makes a mistake impossible rather than recoverable.
 
 Run this from the **primary checkout on local `main`**, never from a `worktrees/` checkout.
 
 ## Preconditions
 
+- An adopted [Upstream Tool Defects](../development/upstream-tool-defects.md) standard authorizes releasing a merged
+  RHINO defect fix whose regression test passes on that commit.
 - The commit to release is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, reconciled after the last merge by the
   [integration path](../conventions/integration-path.md) rather than assumed.
@@ -18,19 +20,18 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 ## Size Rehearsal
 
 When a candidate exceeds a platform size ceiling, collect all four native measurements before changing any budget. Run
-the manual `Release Size Rehearsal` workflow for a default-branch candidate. GitHub does not expose manual dispatch
-until that workflow reaches the default branch, so for an unmerged **draft** candidate a maintainer instead applies the
-`release-size-rehearsal` label; remove and reapply it to request a fresh head. That label-triggered run checks out the
-exact reviewed PR head with the same read-only/no-secret permission. Download its one valid JSON aggregate artifact and
-record the raw executable/archive byte counts with the toolchain and commit. It invokes the same `cargo xtask dist`
-writer as release but cannot publish a tag or asset. A partial matrix is evidence of nothing: do not change a ceiling
-until the aggregate names all four release targets and a review explains the material change. Then rebuild and rerun the
-normal release artifact suite; rehearsal never replaces it.
+the manual `Release Size Rehearsal` workflow for a default-branch candidate. For an unmerged **draft** candidate, which
+GitHub cannot dispatch manually, a maintainer instead applies the `release-size-rehearsal` label; remove and reapply it
+to request a fresh head. That label-triggered run checks out the exact reviewed PR head with the same
+read-only/no-secret permission. Download its one valid JSON aggregate artifact and record the raw executable/archive
+byte counts with the toolchain and commit. It invokes the same `cargo xtask dist` writer as release but cannot publish a
+tag or asset. A partial matrix is evidence of nothing: do not change a ceiling until the aggregate names all four
+release targets and a review explains the material change. Then rebuild and rerun the normal release artifact suite;
+rehearsal never replaces it.
 
 ## Procedure
 
-1. **Verify the commit is reachable from the default branch.** A release describes a commit on `main` or it does not
-   publish.
+1. **Verify the commit is reachable from the default branch.**
 
    ```sh
    git fetch origin && git merge-base --is-ancestor HEAD origin/main
@@ -43,10 +44,9 @@ normal release artifact suite; rehearsal never replaces it.
    git tag -l "v<version>" && git ls-remote --tags origin "v<version>"
    ```
 
-3. **Build this platform's archive and stage the grouped schema.** One platform per invocation, deliberately — the
-   release matrix builds each archive on a runner of that architecture rather than cross-compiling, so every published
-   executable has actually started on the operating system it claims. `cargo xtask dist` stages the checked-in v2 schema
-   only after proving it matches the typed model.
+3. **Build this platform's archive and stage the grouped schema.** One platform per invocation: the release matrix
+   builds each archive natively rather than cross-compiling, so every published executable has started on the operating
+   system it claims. `cargo xtask dist` stages the checked-in v2 schema only after proving it matches the typed model.
 
    ```sh
    ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask dist
@@ -60,7 +60,7 @@ normal release artifact suite; rehearsal never replaces it.
    ```
 
 5. **Verify embedded identity.** Each executable's `version --json` must report the tag and the commit exactly. A
-   mismatch means the archive was built from something other than what is being tagged.
+   mismatch means the archive was not built from the tagged commit.
 
 6. **Screen, then tag and push the tag.** The tag name, any annotation, and the notes the release workflow generates
    from merged pull requests are published with the release. Screen the same note range that the workflow will publish,
