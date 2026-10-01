@@ -46,10 +46,14 @@ second worktree for this plan.
 
 ## Delivery Units
 
-| Unit | Outcome                                            | Branch                                                | Rollback                                            |
-| ---- | -------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------- |
-| 1    | Tier-field collision refusal                       | `worktree/harden-rhino-validation-edge-cases-tiers`   | Revert harness behavior, source, bindings, and docs |
-| 2    | Mermaid metadata and numeric-entity classification | `worktree/harden-rhino-validation-edge-cases-mermaid` | Revert Mermaid behavior, source, bindings, and docs |
+- **1**
+  - Outcome: Tier-field collision refusal
+  - Branch: `worktree/harden-rhino-validation-edge-cases-tiers`
+  - Rollback: Revert harness behavior, source, bindings, and docs
+- **2**
+  - Outcome: Mermaid metadata and numeric-entity classification
+  - Branch: `worktree/harden-rhino-validation-edge-cases-mermaid`
+  - Rollback: Revert Mermaid behavior, source, bindings, and docs
 
 Every unit is independently green and releasable. The worktree-to-PR workflow owns commit, push, draft PR, exact-head
 quality, leak review, rebase merge, main reconciliation, and branch cleanup. Fix every gate failure at its cause,
@@ -61,12 +65,12 @@ including a pre-existing failure encountered in scope; never bypass a hook.
       is registered once on the Unit 1 branch at `origin/main`. `[AC-06]`
 - [ ] `[AI]` Export and verify `HIPPO_DEFAULT_CONFIG` with the exact commands above; acceptance: it resolves to the
       readable primary-checkout policy file before the first guarded command. `[AC-06]`
-- [ ] `[AI]` In the worktree, run `./hippo run --class transactional --resource-tier standard --disk-path . -- npm ci`; acceptance: dependencies
-      install, hooks activate, and `git status --porcelain` is empty. `[AC-06]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: the baseline quick
-      gate exits `0`. `[AC-06]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: the baseline
-      CI surface exits `0`. `[AC-06]`
+- [ ] `[AI]` In the worktree, run `./hippo run --class transactional --resource-tier standard --disk-path . -- npm ci`;
+      acceptance: dependencies install, hooks activate, and `git status --porcelain` is empty. `[AC-06]`
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`;
+      acceptance: the baseline quick gate exits `0`. `[AC-06]`
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`;
+      acceptance: the baseline CI surface exits `0`. `[AC-06]`
 - [ ] `[AI]` Move `plans/backlog/harden-rhino-validation-edge-cases/` to
       `plans/in-progress/harden-rhino-validation-edge-cases/` with `git mv`; acceptance: one in-progress copy exists and
       no backlog copy exists. `[AC-06]`
@@ -88,8 +92,8 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 - [ ] `[AI]` **CHARACTERIZE**: add `A no-tier agent renders no tier field` to `specs/behaviours/v0-4-contract.feature`,
       `tests/unit/bindings.rs`, `tests/integration/bindings.rs`, and `tests/e2e/bindings.rs`; run
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: the
-      scenario passes before production code changes, and any step added to `tests/support/binding.rs` is recorded
-      here. `[AC-02]`
+      scenario passes before production code changes, and any step added to `tests/support/binding.rs` is recorded here.
+      `[AC-02]`
 - [ ] `[AI]` **RED**: add the outline `A direct adapter field cannot name a declared tier field`, with `fixed` `model`
       and `fixed` `effort` examples, to the same four files; run
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: both
@@ -144,15 +148,14 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 - [ ] `[AI]` **RED**: add the outlines `Accessibility metadata is not diagram content`, with `accTitle`, single-line
       `accDescr`, and braced `accDescr` examples, and `Numeric HTML entities are not colour literals`, with decimal
       `&#128640;` and hexadecimal `&#x1F680;` examples, to the same four files; run
-      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: every
-      metadata example and the decimal-entity example fail with the current false finding, and the result for the
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance:
+      every metadata example and the decimal-entity example fail with the current false finding, and the result for the
       hexadecimal example is recorded here. `[AC-03]` `[AC-04]`
 - [ ] `[AI]` **GREEN**: edit `colors`, `contains_color`, and `legibility` in `src/markdown/mermaid.rs` to skip
       single-line and braced accessibility metadata and to ignore valid numeric entity spans during colour-token
-      scanning; run
-      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: every
-      AC-03 and AC-04 example passes, AC-05 still reports both existing findings, and `accessibility` still reads the
-      metadata. `[AC-03]` `[AC-04]` `[AC-05]`
+      scanning; run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`;
+      acceptance: every AC-03 and AC-04 example passes, AC-05 still reports both existing findings, and `accessibility`
+      still reads the metadata. `[AC-03]` `[AC-04]` `[AC-05]`
 - [ ] `[AI]` **REFACTOR**: centralize line-role and entity-span recognition in private helpers in
       `src/markdown/mermaid.rs`; run
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo fmt --all --check`, then
@@ -189,11 +192,13 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 
 ## Phase 3: Convergence and Execution Review
 
-- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test integration`;
+- [ ] `[AI]` Run
+      `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test integration`;
       acceptance: the integration adapter passes every changed scenario. `[AC-01]` `[AC-02]` `[AC-03]` `[AC-04]`
       `[AC-05]`
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test e2e`;
-      acceptance: the end-to-end adapter passes every changed scenario. `[AC-01]` `[AC-02]` `[AC-03]` `[AC-04]` `[AC-05]`
+      acceptance: the end-to-end adapter passes every changed scenario. `[AC-01]` `[AC-02]` `[AC-03]` `[AC-04]`
+      `[AC-05]`
 - [ ] `[AI]` Run `repo-governance/workflows/gherkin-implementation-review.md` for the scenarios this plan added to
       `specs/behaviours/v0-4-contract.feature` and store its row ledger at
       `local-tmp/harden-rhino-validation-edge-cases-gherkin-review.tsv`; acceptance: every expanded scenario has a
@@ -207,8 +212,8 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 
 ### Phase 3 Gate
 
-- [ ] `[AI]` Verify AC-01 through AC-06 each cite terminal evidence and no delivery unit or PR remains open;
-      acceptance: the execution review permits knowledge capture. `[AC-06]`
+- [ ] `[AI]` Verify AC-01 through AC-06 each cite terminal evidence and no delivery unit or PR remains open; acceptance:
+      the execution review permits knowledge capture. `[AC-06]`
 
 > **Pause Safety**: substantive implementation is terminal and reviewable on main. Safe to stop. To resume:
 > `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`.
@@ -239,10 +244,10 @@ including a pre-existing failure encountered in scope; never bypass a hook.
       date; acceptance: exactly one done copy exists and no in-progress copy remains. `[AC-06]`
 - [ ] `[AI]` Update `plans/in-progress/README.md`, `plans/done/README.md`, and every live reference; acceptance: no live
       link names the former in-progress path. `[AC-06]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`; acceptance: exit `0` from the
-      archived state. `[AC-06]`
-- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`; acceptance: exit `0` from
-      the archived state. `[AC-06]`
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`;
+      acceptance: exit `0` from the archived state. `[AC-06]`
+- [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`;
+      acceptance: exit `0` from the archived state. `[AC-06]`
 - [ ] `[AI]` Run `git diff --check`; acceptance: exit `0` from the archived state. `[AC-06]`
 - [ ] `[AI]` Commit the archival transaction using a Conventional Commit; acceptance: hooks pass and only archive/index
       paths are present. `[AC-06]`

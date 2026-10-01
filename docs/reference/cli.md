@@ -1,57 +1,82 @@
 # Command line
 
-Every command except `version` and `help` reads `repo-config.yml` from the selected
-repository root. `rhino/repo-config/v2` is the active grouped v0.4 contract.
-An omitted policy group is refused by the leaf that needs it; RHINO does not
-invent a policy or route an old command through a replacement.
+Every command except `version` and `help` reads `repo-config.yml` from the selected repository root.
+`rhino/repo-config/v2` is the active grouped v0.4 contract. An omitted policy group is refused by the leaf that needs
+it; RHINO does not invent a policy or route an old command through a replacement.
 
 ## Grouped v0.4 leaves
 
-| Area             | Commands                                                                                                                                                               |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Configuration    | `repo-config validate`                                                                                                                                                 |
-| Lifecycle gates  | `gate list`, `gate validate`, `gate run --surface <name>`                                                                                                              |
-| Harness adapters | `harness adapters validate`, `harness adapters generate`                                                                                                               |
-| Environment      | `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`                                                                    |
-| Toolchains       | `toolchain validate`, `toolchain provision --apply`                                                                                                                    |
-| Markdown         | `md frontmatter validate`, `md heading-hierarchy validate`, `md internal-link validate`, `md mermaid validate`, `md naming validate`, `md readme-index validate`       |
-| Metadata         | `metadata validate`                                                                                                                                                    |
-| Governance       | `governance word-budget validate`, `governance directory-map validate`, `governance vendor validate`, `governance layers validate`, `governance traceability validate` |
-| Conventions      | `convention emoji validate`, `convention license validate`                                                                                                             |
-| Build identity   | `version`, `version --json`                                                                                                                                            |
-| Help             | `help`, `help <command path>`                                                                                                                                          |
+- **Configuration** — `repo-config validate`
+- **Lifecycle gates** — `gate list`, `gate validate`, `gate run --surface <name>`
+- **Harness adapters** — `harness adapters validate`, `harness adapters generate`
+- **Environment** — `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`
+- **Toolchains** — `toolchain validate`, `toolchain provision --apply`
+- **Markdown** — `md frontmatter validate`, `md heading-hierarchy validate`, `md internal-link validate`,
+  `md mermaid validate`, `md naming validate`, `md readme-index validate`
+- **Metadata** — `metadata validate`
+- **Governance** — `governance word-budget validate`, `governance directory-map validate`, `governance vendor validate`,
+  `governance layers validate`, `governance traceability validate`
+- **Conventions** — `convention emoji validate`, `convention license validate`
+- **Build identity** — `version`, `version --json`
+- **Help** — `help`, `help <command path>`
 
-`gate run` accepts only a declared closed surface: `pre-commit`, `commit-msg`,
-`pre-push`, `pull-request`, `main`, `scheduled`, or `manual`. Its configuration
-declares every typed input, argv token, and environment projection. Arguments
-after `--` are refused, so a caller cannot replace or extend a declared command.
+`gate run` accepts only a declared closed surface: `pre-commit`, `commit-msg`, `pre-push`, `pull-request`, `main`,
+`scheduled`, or `manual`. Its configuration declares every typed input, argv token, and environment projection.
+Arguments after `--` are refused, so a caller cannot replace or extend a declared command.
 
-Tree validators read files, write nothing, start no process, and use no
-network. Adapter generation, declared gate execution, environment operations,
-and toolchain provision use their own explicit boundaries.
+Tree validators read files, write nothing, start no process, and use no network. Adapter generation, declared gate
+execution, environment operations, and toolchain provision use their own explicit boundaries.
 
 ## Options
 
-| Option                               | Accepted by                         | Meaning                                                                        |
-| ------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------ |
-| `-h`, `--help`                       | Every command                       | Print help for the command path given, on stdout, and exit `0`.                |
-| `-V`, `--version`                    | Every command                       | Print the release identity, as `version` does, and exit `0`.                   |
-| `--root <path>`                      | Every command                       | Select a repository root.                                                      |
-| `--output <text\|json>`              | Every command                       | Select text or JSON rendering.                                                 |
-| `--quiet`, `--verbose`, `--no-color` | Every command                       | Presentation-only compatibility options.                                       |
-| `--file <path>`                      | `md mermaid validate`               | Repeatable repository-relative input; `-` reads standard input.                |
-| `--directory <path>`                 | `governance directory-map validate` | Replace the legacy directory-map tree selection.                               |
-| `--dir <path>`                       | `env backup`, `env restore`         | Required repository-relative backup directory.                                 |
-| `--apply`                            | `env init`, `toolchain provision`   | Authorize the declared mutation after planning.                                |
-| `--force`                            | `env restore`                       | Authorize replacement after a recoverable backup plan.                         |
-| `--surface <name>`                   | `gate run`                          | Select one closed lifecycle surface.                                           |
-| `--message-file <path>`              | `gate run` at `commit-msg`          | Pass Git's current `COMMIT_EDITMSG` hook path only.                            |
-| `--push-updates-stdin`               | `gate run` at `pre-push`            | Read Git update records from standard input, and hand them to each gate child. |
-| `--base <sha> --head <sha>`          | `gate run` at `pull-request`        | Supply the immutable pull-request range.                                       |
-| `--json`                             | `version`                           | Shorthand for `--output json`.                                                 |
+- `-h`, `--help`
+  - Accepted by: Every command
+  - Meaning: Print help for the command path given, on stdout, and exit `0`.
+- `-V`, `--version`
+  - Accepted by: Every command
+  - Meaning: Print the release identity, as `version` does, and exit `0`.
+- `--root <path>`
+  - Accepted by: Every command
+  - Meaning: Select a repository root.
+- `--output <text\|json>`
+  - Accepted by: Every command
+  - Meaning: Select text or JSON rendering.
+- `--quiet`, `--verbose`, `--no-color`
+  - Accepted by: Every command
+  - Meaning: Presentation-only compatibility options.
+- `--file <path>`
+  - Accepted by: `md mermaid validate`
+  - Meaning: Repeatable repository-relative input; `-` reads standard input.
+- `--directory <path>`
+  - Accepted by: `governance directory-map validate`
+  - Meaning: Replace the legacy directory-map tree selection.
+- `--dir <path>`
+  - Accepted by: `env backup`, `env restore`
+  - Meaning: Required repository-relative backup directory.
+- `--apply`
+  - Accepted by: `env init`, `toolchain provision`
+  - Meaning: Authorize the declared mutation after planning.
+- `--force`
+  - Accepted by: `env restore`
+  - Meaning: Authorize replacement after a recoverable backup plan.
+- `--surface <name>`
+  - Accepted by: `gate run`
+  - Meaning: Select one closed lifecycle surface.
+- `--message-file <path>`
+  - Accepted by: `gate run` at `commit-msg`
+  - Meaning: Pass Git's current `COMMIT_EDITMSG` hook path only.
+- `--push-updates-stdin`
+  - Accepted by: `gate run` at `pre-push`
+  - Meaning: Read Git update records from standard input, and hand them to each gate child.
+- `--base <sha> --head <sha>`
+  - Accepted by: `gate run` at `pull-request`
+  - Meaning: Supply the immutable pull-request range.
+- `--json`
+  - Accepted by: `version`
+  - Meaning: Shorthand for `--output json`.
 
-A flag a leaf does not accept is an invocation error. Repository-relative paths
-cannot be absolute or escape the selected root.
+A flag a leaf does not accept is an invocation error. Repository-relative paths cannot be absolute or escape the
+selected root.
 
 ## Exit codes
 

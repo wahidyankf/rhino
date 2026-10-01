@@ -53,7 +53,7 @@ remains incomplete while any applicable layer is unresolved.
 This repository ships one surface — a non-interactive command-line process — and its whole observable contract is the
 exit code, the two streams, and the state of the tree afterwards. Every one of those is asserted, by the
 [public contract](../../development/public-contract.md) and the adapter the
-[end-to-end testing](../../development/end-to-end-testing.md) standard defines, so the interface layers a
-canonical repository routes through have nothing here to route. A RHINO plan records them as not applicable and says
-which of the two owns the claim instead. That is a disposition with a reason, not an omission — the canonical rule
-already refuses silence.
+[end-to-end testing](../../development/end-to-end-testing.md) standard defines, so the interface layers a canonical
+repository routes through have nothing here to route. A RHINO plan records them as not applicable and says which of the
+two owns the claim instead. That is a disposition with a reason, not an omission — the canonical rule already refuses
+silence.

@@ -1,18 +1,15 @@
 # How to respond to a RHINO exit code
 
-You are wiring RHINO into a script, a gate, or CI, and you need each code to
-cause the right thing.
+You are wiring RHINO into a script, a gate, or CI, and you need each code to cause the right thing.
 
 ## The rule
 
 **Exit `1` is the repository's problem. Exit `2` is yours.**
 
-Exit `1` means RHINO ran, understood the policy, and found the repository in
-breach of it. Exit `2` means RHINO never formed an opinion — it could not parse
-the command, find the root, read the configuration, or open a selected file.
+Exit `1` means RHINO ran, understood the policy, and found the repository in breach of it. Exit `2` means RHINO never
+formed an opinion — it could not parse the command, find the root, read the configuration, or open a selected file.
 
-A gate that collapses the two will tell a maintainer to shorten a document when
-the real problem is a typo in a flag.
+A gate that collapses the two will tell a maintainer to shorten a document when the real problem is a typo in a flag.
 
 ## Handle them separately
 
@@ -36,14 +33,13 @@ case $status in
 esac
 ```
 
-With `set -e`, capture the status in the same statement, as above. Written as
-`rhino …` followed by `status=$?` on the next line, the shell exits on the
-non-zero status before the `case` ever runs.
+With `set -e`, capture the status in the same statement, as above. Written as `rhino …` followed by `status=$?` on the
+next line, the shell exits on the non-zero status before the `case` ever runs.
 
 ## Run every validator and keep the worst code
 
-A gate usually wants all the findings, not just the first validator's. Run them
-all, then report the most serious outcome:
+A gate usually wants all the findings, not just the first validator's. Run them all, then report the most serious
+outcome:
 
 ```sh
 #!/bin/sh
@@ -70,14 +66,13 @@ done
 exit "$worst"
 ```
 
-`repo-config validate` runs first on purpose. If the configuration is unusable,
-the script stops there with exit `2`: every other command would refuse for the
-same reason, and one clear message beats four copies of it.
+`repo-config validate` runs first on purpose. If the configuration is unusable, the script stops there with exit `2`:
+every other command would refuse for the same reason, and one clear message beats four copies of it.
 
 ## Tell a finding from a broken invocation without reading the code
 
-On exit `2`, **stdout is empty**. On `0` and `1` it carries the summary. So a
-caller that only has stdout can still tell them apart:
+On exit `2`, **stdout is empty**. On `0` and `1` it carries the summary. So a caller that only has stdout can still tell
+them apart:
 
 ```sh
 summary=$(rhino md internal-link validate 2>/dev/null)

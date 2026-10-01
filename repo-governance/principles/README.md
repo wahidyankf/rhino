@@ -1,6 +1,7 @@
 # Principles
 
-Durable constraints within the [vision](../vision/README.md). A principle outlives any particular convention and is what a convention is judged against when the two appear to disagree.
+Durable constraints within the [vision](../vision/README.md). A principle outlives any particular convention and is what
+a convention is judged against when the two appear to disagree.
 
 ## Directory Map
 

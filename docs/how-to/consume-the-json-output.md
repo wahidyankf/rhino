@@ -1,23 +1,23 @@
 # How to consume the JSON output
 
-You want RHINO's result in a program — a dashboard, an annotation on a pull
-request, a report that says which rule breaks most often. Parse the JSON, not
-the text.
+You want RHINO's result in a program — a dashboard, an annotation on a pull request, a report that says which rule
+breaks most often. Parse the JSON, not the text.
 
 ## One line, one object
 
+RHINO writes the object below as one line; it is broken after a comma here only to fit the page.
+
 ```console
 $ rhino md internal-link validate --output json
-{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"link","inspected":1,"scanned":[],"notes":[],"violations":[]}
+{"schemaVersion":1,"command":"internal-link","exitCode":0,"subject":"link","inspected":1,
+"scanned":[],"notes":[],"violations":[]}
 ```
 
-Line-delimited on purpose: concatenating several runs gives a stream `jq` can
-read one object at a time.
+Line-delimited on purpose: concatenating several runs gives a stream `jq` can read one object at a time.
 
 ## Filter on `kind`, never on `message`
 
-`kind` is a stable identifier for the rule. `message` is prose, and prose gets
-improved.
+`kind` is a stable identifier for the rule. `message` is prose, and prose gets improved.
 
 ```sh
 rhino md mermaid validate --output json \
@@ -52,9 +52,8 @@ jq -r '.command as $c | .violations[] | [$c, .kind, .path, (.line // ""), .messa
 
 ## Check that something was actually inspected
 
-This is the check most reporting forgets. A validator whose surface matched
-nothing reports zero findings and exits `0`, which looks identical to a clean
-repository:
+This is the check most reporting forgets. A validator whose surface matched nothing reports zero findings and exits `0`,
+which looks identical to a clean repository:
 
 ```sh
 rhino governance word-budget validate --output json \
@@ -62,18 +61,15 @@ rhino governance word-budget validate --output json \
   || echo "the word-budget surface matched nothing" >&2
 ```
 
-Run this check against a leaf whose subject is a file. Internal-link counts
-links rather than files, so a repository whose files hold no local link reports
-`inspected` as `0` even though every file was read.
+Run this check against a leaf whose subject is a file. Internal-link counts links rather than files, so a repository
+whose files hold no local link reports `inspected` as `0` even though every file was read.
 
-`inspected` and `scanned` exist for exactly this. A surface that matched
-nothing and a surface that matched everything both pass, and only the listing
-tells them apart.
+`inspected` and `scanned` exist for exactly this. A surface that matched nothing and a surface that matched everything
+both pass, and only the listing tells them apart.
 
 ## Handle exit 2 before parsing
 
-On exit `2`, **stdout is empty** and the diagnostic is on stderr. Check the
-code first:
+On exit `2`, **stdout is empty** and the diagnostic is on stderr. Check the code first:
 
 ```sh
 output=$(rhino md mermaid validate --output json) || status=$?
@@ -84,8 +80,7 @@ fi
 printf '%s\n' "$output" | jq .
 ```
 
-Because stdout is empty rather than holding a half-result, a parser never sees
-a summary of a run that did not happen.
+Because stdout is empty rather than holding a half-result, a parser never sees a summary of a run that did not happen.
 
 ## Related
 

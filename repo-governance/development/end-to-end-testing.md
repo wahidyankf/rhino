@@ -1,13 +1,15 @@
 # End-to-End Testing
 
-End-to-end here means the process contract and nothing else: arguments in, exit code and streams out. The adapter spawns the built binary and observes it from outside.
+End-to-end here means the process contract and nothing else: arguments in, exit code and streams out. The adapter spawns
+the built binary and observes it from outside.
 
 ## What It May Observe
 
 - The exit code, under the [public contract](public-contract.md).
 - Standard output, including a documented machine-readable format.
 - Standard error.
-- The state of the temporary tree afterwards — unchanged for validators, and exactly the declared transaction result for an explicit mutator.
+- The state of the temporary tree afterwards — unchanged for validators, and exactly the declared transaction result for
+  an explicit mutator.
 
 ## What It May Not Do
 
@@ -18,13 +20,16 @@ End-to-end here means the process contract and nothing else: arguments in, exit 
 
 ## Where It Runs
 
-Never in a Git hook and never in the quick gate. The end-to-end and integration adapters run on a schedule, because a gate slow enough to be worked around is a gate that will be.
+Never in a Git hook and never in the quick gate. The end-to-end and integration adapters run on a schedule, because a
+gate slow enough to be worked around is a gate that will be.
 
-That placement is itself asserted: the static check verifies that no gate file invokes a slow adapter, and it reads that list by filename — so renaming a gate file without telling the check is caught rather than silently ignored.
+That placement is itself asserted: the static check verifies that no gate file invokes a slow adapter, and it reads that
+list by filename — so renaming a gate file without telling the check is caught rather than silently ignored.
 
 ## Fixtures
 
-Build a temporary tree per case and remove it. There is no shared fixture directory. A shared fixture is a test that passes because of another test.
+Build a temporary tree per case and remove it. There is no shared fixture directory. A shared fixture is a test that
+passes because of another test.
 
 ## Related
 

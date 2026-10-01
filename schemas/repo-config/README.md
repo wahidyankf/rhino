@@ -1,9 +1,8 @@
 # Repository Configuration Schemas
 
-These JSON Schema artifacts describe the grouped repository configuration. Run
-`cargo xtask schema` to regenerate them, or `cargo xtask schema --check` to
-prove the checked-in bytes still derive from Rhino's model. Do not edit a
-generated JSON file by hand.
+These JSON Schema artifacts describe the grouped repository configuration. Run `cargo xtask schema` to regenerate them,
+or `cargo xtask schema --check` to prove the checked-in bytes still derive from Rhino's model. Do not edit a generated
+JSON file by hand.
 
 ## Directory Map
 

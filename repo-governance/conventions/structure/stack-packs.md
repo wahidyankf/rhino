@@ -18,15 +18,15 @@ This convention implements One Source Per Fact, Explicit Over Implicit, and
 
 ## Canonical Paths
 
-| Artifact           | Path                                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| stack standard     | `repo-governance/development/quality/stacks/<id>-standards.md`                                       |
-| stack index        | [`repo-governance/development/quality/stacks/README.md`](../../development/quality/stacks/README.md) |
-| skill              | `.agents/skills/<prefix>-<id>/SKILL.md`, with the prefix set by the pack's kind below                |
-| generic agents     | `.agents/agents/swe-code-{maker,checker,fixer}.md`                                                   |
-| repository adapter | `repo-governance/development/quality/stacks/repository-adapter.md`, in an adopter                    |
-| inventory          | the `extensions.software-development` key of the repository configuration file                       |
-| human reference    | `docs/reference/software-development.md`, in an adopter with a `docs/` tree                          |
+| Artifact           | Path                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| stack standard     | `repo-governance/development/quality/stacks/<id>-standards.md`                        |
+| stack index        | [`repo-governance/development/quality/stacks/README.md`][stacks-index]                |
+| skill              | `.agents/skills/<prefix>-<id>/SKILL.md`, with the prefix set by the pack's kind below |
+| generic agents     | `.agents/agents/swe-code-{maker,checker,fixer}.md`                                    |
+| repository adapter | `repo-governance/development/quality/stacks/repository-adapter.md`, in an adopter     |
+| inventory          | the `extensions.software-development` key of the repository configuration file        |
+| human reference    | `docs/reference/software-development.md`, in an adopter with a `docs/` tree           |
 
 A standard gains a companion `<id>-standards/` directory only when its word budget requires one, named and indexed as
 [File Naming](../file-naming.md) requires. A standard states only what is specific to its stack and links the shared
@@ -36,13 +36,22 @@ standard for everything else.
 
 The IDs form a closed set. A new stack is added here before its standard or skill is written.
 
-| Kind              | Skill prefix      | IDs                                                                                                                                       |
-| ----------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| language          | `programming-`    | `typescript`, `javascript`, `fsharp`, `golang`, `rust`, `elixir`, `csharp`, `java`, `lua`, `python`, `shell`, `clojure`, `dart`, `kotlin` |
-| framework         | `framework-`      | `react`, `nextjs`, `spring-boot`, `phoenix-liveview`, `aspnet-core`                                                                       |
-| framework adapter | `framework-`      | `giraffe`, `gin`                                                                                                                          |
-| infrastructure    | `infrastructure-` | `terraform`, `ansible`                                                                                                                    |
-| tooling adapter   | `tooling-`        | `nx`                                                                                                                                      |
+- **language**
+  - Skill prefix: `programming-`
+  - IDs: `typescript`, `javascript`, `fsharp`, `golang`, `rust`, `elixir`, `csharp`, `java`, `lua`, `python`, `shell`,
+    `clojure`, `dart`, `kotlin`
+- **framework**
+  - Skill prefix: `framework-`
+  - IDs: `react`, `nextjs`, `spring-boot`, `phoenix-liveview`, `aspnet-core`
+- **framework adapter**
+  - Skill prefix: `framework-`
+  - IDs: `giraffe`, `gin`
+- **infrastructure**
+  - Skill prefix: `infrastructure-`
+  - IDs: `terraform`, `ansible`
+- **tooling adapter**
+  - Skill prefix: `tooling-`
+  - IDs: `nx`
 
 Skills sit outside the Capability Naming grammar, which already excludes them; the prefixes are this catalog's choice. A
 browser end-to-end suite has no stack ID and uses the `writing-browser-e2e-tests` skill.
@@ -80,3 +89,5 @@ authors, as the inventory module defines.
 The adopter's metadata, naming, and link gates check each pack's paths and frontmatter. The configuration validator
 covers the inventory's namespace and mapping shape; its contents are unenforced by decision, as the inventory module
 explains. Review applies the closed ID set, inheritance without restatement, and the resolution rule.
+
+[stacks-index]: ../../development/quality/stacks/README.md

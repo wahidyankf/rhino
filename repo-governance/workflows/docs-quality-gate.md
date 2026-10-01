@@ -1,8 +1,12 @@
 # Docs Quality Gate
 
-Run only when someone explicitly names this gate or directs its documentation audit, or when [release cut](release-cut.md) runs it with scope `all`. A change or a [docs propagation](docs-propagation.md) run never authorizes it alone.
+Run only when someone explicitly names this gate or directs its documentation audit, or when
+[release cut](release-cut.md) runs it with scope `all`. A change or a [docs propagation](docs-propagation.md) run never
+authorizes it alone.
 
-Audit read-only and record a finite ledger of stale, obsolete, misplaced, and unreadable documents, repeating after each propagation until two consecutive audits are clean. This gate never edits a document and never starts another run itself; its caller does. Docs propagation is the only writer and the mandatory continuation for any finding.
+Audit read-only and record a finite ledger of stale, obsolete, misplaced, and unreadable documents, repeating after each
+propagation until two consecutive audits are clean. This gate never edits a document and never starts another run
+itself; its caller does. Docs propagation is the only writer and the mandatory continuation for any finding.
 
 ## Inputs and Snapshot
 
@@ -10,24 +14,35 @@ Audit read-only and record a finite ledger of stale, obsolete, misplaced, and un
 - `change` — the revision range or working-tree change; required when `scope` is `change`.
 - `max-iterations` — the ceiling on audits; default `7`.
 
-Each audit freezes the scope, the Git revision, and the uncommitted paths. A material external change, never propagation's own repairs, returns `INPUT_CHANGED` with the ledger kept; it never restarts the gate.
+Each audit freezes the scope, the Git revision, and the uncommitted paths. A material external change, never
+propagation's own repairs, returns `INPUT_CHANGED` with the ledger kept; it never restarts the gate.
 
 ## Audit
 
-Under `change`, audit the documents the change touches and every document citing what it changed; under `all`, the whole set. Decide for each document whether:
+Under `change`, audit the documents the change touches and every document citing what it changed; under `all`, the whole
+set. Decide for each document whether:
 
-1. every claim is true to the implementation, and every command shown was run or is marked not exercised, under [truthfulness](../conventions/documentation-architecture.md#truthfulness);
+1. every claim is true to the implementation, and every command shown was run or is marked not exercised, under
+   [truthfulness](../conventions/documentation-architecture.md#truthfulness);
 2. it still describes something the repository has; if not, it is obsolete and its resolution is removal;
-3. each fact has one home, a summary sits above its detail under [progressive disclosure](../principles/progressive-disclosure.md), and a `docs/` page serves one Diátaxis category under [documentation architecture](../conventions/documentation-architecture.md);
-4. a newcomer learns from the opening what it is and why it matters, and finds the next step, judged by reading, never by a score;
-5. under `all`, or when setup changed, a reader with no prior context can follow the setup exactly as written from a clean checkout, each step marked smooth, frustrating, or blocking; and
+3. each fact has one home, a summary sits above its detail under
+   [progressive disclosure](../principles/progressive-disclosure.md), and a `docs/` page serves one Diátaxis category
+   under [documentation architecture](../conventions/documentation-architecture.md);
+4. a newcomer learns from the opening what it is and why it matters, and finds the next step, judged by reading, never
+   by a score;
+5. under `all`, or when setup changed, a reader with no prior context can follow the setup exactly as written from a
+   clean checkout, each step marked smooth, frustrating, or blocking; and
 6. it agrees with `specs/`, which is canonical.
 
 ## Ledger
 
-Record the ledger under `local-tmp/docs-quality-gate/`. Each row names the document, the gap, the required resolution — update, move, or remove — the evidence, and a status: `OPEN`, `RESOLVED`, `NOT_APPLICABLE` with evidence, or `BLOCKED`. Admit only a document that is wrong, obsolete, unreachable, or unusable by a newcomer; wording preference is not a finding, under [minimal sufficiency](../principles/minimal-sufficiency.md).
+Record the ledger under `local-tmp/docs-quality-gate/`. Each row names the document, the gap, the required resolution —
+update, move, or remove — the evidence, and a status: `OPEN`, `RESOLVED`, `NOT_APPLICABLE` with evidence, or `BLOCKED`.
+Admit only a document that is wrong, obsolete, unreachable, or unusable by a newcomer; wording preference is not a
+finding, under [minimal sufficiency](../principles/minimal-sufficiency.md).
 
-Formatting, links, directory maps, and word budgets belong to deterministic checks. Consume their result rather than repeating them:
+Formatting, links, directory maps, and word budgets belong to deterministic checks. Consume their result rather than
+repeating them:
 
 ```sh
 ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
@@ -35,23 +50,36 @@ Formatting, links, directory maps, and word budgets belong to deterministic chec
 
 ## Results and Handoff
 
-An audit is clean only when the ledger is clear and the checks pass; otherwise the gate hands its ledger to docs propagation. A finding only the owner can decide, such as a specification that disagrees with the implementation, is asked through [grill-me](../../.agents/skills/grill-me/SKILL.md).
+An audit is clean only when the ledger is clear and the checks pass; otherwise the gate hands its ledger to docs
+propagation. A finding only the owner can decide, such as a specification that disagrees with the implementation, is
+asked through [grill-me](../../.agents/skills/grill-me/SKILL.md).
 
-The handoff is never a blocked result: without another request, the caller runs docs propagation with the ledger, then audits again with the same scope and a fresh snapshot. Results:
+The handoff is never a blocked result: without another request, the caller runs docs propagation with the ledger, then
+audits again with the same scope and a fresh snapshot. Results:
 
 - `PASS` — two consecutive clean audits;
-- `PARTIAL` — open findings stopped strictly decreasing, or `max-iterations` audits ran; each remaining finding gets a durable owner: fixed, a plan idea or backlog item, or grill-me;
+- `PARTIAL` — open findings stopped strictly decreasing, or `max-iterations` audits ran; each remaining finding gets a
+  durable owner: fixed, a plan idea or backlog item, or grill-me;
 - `INPUT_CHANGED` — as above; and
 - `FAIL` — an audit or propagation could not run.
 
-**Recorded choice: repair to zero findings**, bounded by `max-iterations`. Verdict only, rejected, ends after one propagation. The [rules quality gate](rules-quality-gate.md) keeps its own verdict-only contract. A result authorizes no commit or push.
+**Recorded choice: repair to zero findings**, bounded by `max-iterations`. Verdict only, rejected, ends after one
+propagation. The [rules quality gate](rules-quality-gate.md) keeps its own verdict-only contract. A result authorizes no
+commit or push.
 
 ## At Release Cut
 
-[Release cut](release-cut.md) runs the gate with scope `all` twice. The first run happens before the release-prep pull request opens, and that pull request carries its repairs, so each repair's new prose is re-audited before the merge rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition and must pass without a repair, since a repair changes the commit; a finding stops the release until a new pull request lands its repairs.
+[Release cut](release-cut.md) runs the gate with scope `all` twice. The first run happens before the release-prep pull
+request opens, and that pull request carries its repairs, so each repair's new prose is re-audited before the merge
+rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition and must pass
+without a repair, since a repair changes the commit; a finding stops the release until a new pull request lands its
+repairs.
 
-The gate runs the binary, so it is also a behaviour audit. A row where the document states the intended contract and the binary disagrees is a code defect: fix it through its own pull request before the tag, never by documenting the defect as current behaviour.
+The gate runs the binary, so it is also a behaviour audit. A row where the document states the intended contract and the
+binary disagrees is a code defect: fix it through its own pull request before the tag, never by documenting the defect
+as current behaviour.
 
 ## Why It Runs on Request
 
-Judging whether a document is still true, still needed, and still readable is a reading task. Wired into every change, it produces noise nobody reads or a pass nobody earned; propagation already refreshes each change.
+Judging whether a document is still true, still needed, and still readable is a reading task. Wired into every change,
+it produces noise nobody reads or a pass nobody earned; propagation already refreshes each change.

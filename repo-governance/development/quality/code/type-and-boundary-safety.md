@@ -22,13 +22,15 @@ check target that [Quality Gates](../../quality-gates.md) names. Findings fail a
 [Lint Strictness](../checks/lint-strictness.md) sets, and a strictness option is never relaxed to make a change pass;
 the code is fixed instead.
 
-| Stack capability                     | Strongest practical checker                                                                                    |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| static types                         | the compiler with its strict options, warnings treated as errors                                               |
-| optional annotations                 | a checker in its strict mode, with every public and external boundary annotated                                |
-| dynamic, with no checker of record   | its strongest substitute: static analysis plus declared data specifications checked at runtime at the boundary |
-| shell                                | a static analyser for the declared dialect, or the dialect's native syntax check plus review where none exists |
-| declarative infrastructure and hosts | schema-aware native validation, with no static-type claim                                                      |
+The strongest practical checker for each stack capability:
+
+- **static types** — the compiler with its strict options, warnings treated as errors
+- **optional annotations** — a checker in its strict mode, with every public and external boundary annotated
+- **dynamic, with no checker of record** — its strongest substitute: static analysis plus declared data specifications
+  checked at runtime at the boundary
+- **shell** — a static analyser for the declared dialect, or the dialect's native syntax check plus review where none
+  exists
+- **declarative infrastructure and hosts** — schema-aware native validation, with no static-type claim
 
 A stack without static types states its strongest practical substitute in its stack standard, and never claims a
 guarantee its tools cannot give.
