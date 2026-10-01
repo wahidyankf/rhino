@@ -164,7 +164,8 @@ Five optional keys add checks and change none of the above while they are absent
 - `allowed-types` lists the diagram types the repository renders, by the first word of the declaration. A type outside
   the list is reported as `mermaid-accessibility`, and a listed type RHINO cannot parse still receives the checks that
   need no grammar: accessible title and description, colour outside a class, and a theme override. Declaring the key
-  also reads a colour by what it is assigned to, so `fixes PR #123` in a label is not a colour.
+  also reads a colour by what it is assigned to, so `fixes PR #123` in a label is not a colour, and it reports a
+  sequence-diagram `box` that names a colour.
 - `forbid-theme-overrides: true` reports each `%%{init}%%` directive and each front-matter `theme`, `themeVariables`, or
   `themeCSS` line.
 - `canvas-colors` lists the canvases, as six-digit hex colours, that a filled class must stay visible against. A class
