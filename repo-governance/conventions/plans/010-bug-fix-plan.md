@@ -49,7 +49,9 @@ label, as the [Delivery Contract](004-delivery-contract.md) requires.
 - **The decision gates in [Workflows and Skills](005-workflows-and-skills.md):** a defect has one correct behaviour, so
   there is nothing to interview about.
 - **Authorization:** it needs no separate request when written under an adopted
-  [Upstream Tool Defects](../../development/upstream-tool-defects.md) standard, or when the owner asks.
+  [Upstream Tool Defects](../../development/upstream-tool-defects.md) standard, or when the owner asks. That standing
+  request also directs its quality gate and execution: once the plan lands, run the gate on it and execute on a passing
+  verdict, without a further prompt.
 
 Every other plan rule holds: slug rules, one root, executor labels, no time estimates, knowledge capture, and archival.
 

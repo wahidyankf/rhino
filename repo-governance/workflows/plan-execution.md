@@ -1,13 +1,13 @@
 # Plan Execution
 
-Use this only after an explicit direction to execute one formal plan. Its job is to keep the plan's records true while
-the work happens.
+Use this only after an explicit direction to execute one formal plan.
 
 ## Start
 
 1. Select one plan in `backlog/` or `in-progress/`. Require a current `PASS` from a
    [plan quality gate](plan-quality-gate.md) run the user explicitly directed. Authority to execute is not authority to
-   run that gate: with no current `PASS`, stop and say so.
+   run that gate: with no current `PASS`, stop and say so. For a bug-fix plan, an adopted Upstream Tool Defects standard
+   directs both.
 2. Enter the plan's worktree before any file or Git mutation, initializing it if new, under
    [the integration path](../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
    its sync gate there, and read the whole incoming diff against the plan when the sync adds commits.

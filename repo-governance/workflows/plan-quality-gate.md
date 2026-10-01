@@ -3,7 +3,9 @@
 Entry is a complete draft whose two [decision gates](../development/planning-capabilities/003-decision-gates.md) have
 both finished. Run this only when the user names this gate or unambiguously directs its semantic audit. Do not infer
 authorization from creating, editing, reviewing, or executing a plan, from a harness planning mode, or from another
-workflow. One instruction may authorize several named checkpoints; otherwise it authorizes one run.
+workflow. One instruction may authorize several named checkpoints; otherwise it authorizes one run. For a
+[bug-fix plan](../conventions/plans/010-bug-fix-plan.md), an adopted
+[Upstream Tool Defects](../development/upstream-tool-defects.md) standard is that direction, once the plan lands.
 
 Produce exactly one terminal result — `PASS` or one `BLOCKED_*` variant — for one plan's semantic readiness, at the
 directed pre-execution or post-material-change checkpoint. Never recurse or start another run.
