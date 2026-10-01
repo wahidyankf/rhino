@@ -952,6 +952,14 @@
     "Mermaid": {
       "additionalProperties": false,
       "properties": {
+        "allowed-types": {
+          "default": null,
+          "description": "The diagram types the repository permits. Declared, it turns on the\nuniversal checks for every type, including those RHINO cannot parse,\nand refuses a type outside the list instead of skipping it.",
+          "items": {
+            "type": "string"
+          },
+          "type": ["array", "null"]
+        },
         "authoring-rule": {
           "anyOf": [
             {
@@ -964,6 +972,14 @@
           "default": null,
           "description": "The one authoring rule this repository applies to conceptual diagrams.\n\nOptional, on the same rule as every section added after `v0.1`. Absent\nleaves both halves unchecked, which is what a repository that never\nadopted the rule already had -- and a default would be RHINO choosing an\nauthoring style on a repository's behalf, which is the one thing the\ncontract says a repository decides."
         },
+        "canvas-colors": {
+          "default": [],
+          "description": "The canvases a filled class must stay visible against, as hex colours.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "edge-colors": {
           "items": {
             "type": "string"
@@ -975,16 +991,34 @@
           "minimum": 0,
           "type": "integer"
         },
+        "exclude": {
+          "default": null,
+          "description": "Path globs the Mermaid scan leaves out.\n\nOptional, like every key added after `v0.7`. When declared it *replaces*\n`scan.exclude-directories` for this validator and no other: a repository\nthat archives a tree wants that tree out of the Mermaid check without\nhiding it from the link or metadata checks.",
+          "items": {
+            "type": "string"
+          },
+          "type": ["array", "null"]
+        },
         "fill-colors": {
           "items": {
             "type": "string"
           },
           "type": "array"
         },
+        "forbid-theme-overrides": {
+          "default": false,
+          "description": "Whether an initialization directive or a front-matter theme is refused.",
+          "type": "boolean"
+        },
         "node-label-graphemes": {
           "format": "uint",
           "minimum": 0,
           "type": "integer"
+        },
+        "require-default-class": {
+          "default": false,
+          "description": "Whether every diagram whose renderer applies a `classDef default`\ndeclares a complete one.",
+          "type": "boolean"
         },
         "text-colors": {
           "items": {

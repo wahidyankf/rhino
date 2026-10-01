@@ -508,6 +508,54 @@ pub const BINDINGS: &[Binding] = &[
         "v0-4-contract",
         "Mermaid policy reports a diagram forbidden by its authoring rule",
     ),
+    (
+        "v0-4-contract",
+        "A mermaid exclude glob removes archived paths from the Mermaid scan only",
+    ),
+    (
+        "v0-4-contract",
+        "A declared mermaid exclude replaces the shared scan exclusions for the Mermaid scan",
+    ),
+    (
+        "v0-4-contract",
+        "A selection naming an excluded path is not inspected",
+    ),
+    (
+        "v0-4-contract",
+        "A required default class is refused where a flowchart omits it and ignored for a state diagram",
+    ),
+    (
+        "v0-4-contract",
+        "A default class missing its stroke or text colour is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A complete default class satisfies the requirement",
+    ),
+    (
+        "v0-4-contract",
+        "An undeclared diagram type is refused and a declared unparsed type receives the universal checks",
+    ),
+    (
+        "v0-4-contract",
+        "A pull-request number in a label is not read as a colour",
+    ),
+    (
+        "v0-4-contract",
+        "A theme override is refused wherever it appears",
+    ),
+    (
+        "v0-4-contract",
+        "A class invisible on a declared canvas is refused with its measured ratio",
+    ),
+    (
+        "v0-4-contract",
+        "A fill that passes a canvas only through its outline is accepted",
+    ),
+    (
+        "v0-4-contract",
+        "A configuration with none of the new keys behaves as v0.7.0 did",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete
