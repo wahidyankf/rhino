@@ -5,3 +5,7 @@ CHANGELOG.md
 local-tmp
 worktrees
 specs/fixtures
+.claude/agents
+.claude/skills
+.codex/agents
+.opencode/agents
