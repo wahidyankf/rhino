@@ -12,7 +12,8 @@ the commits behind any release, see its
 ## [v0.8.0] — 2026-10-01
 
 `md mermaid validate` gains five optional keys under `policies.markdown.mermaid`. A configuration that declares none of
-them validates exactly as it did in `v0.7.0`, so the version moves in the minor position and nothing breaks.
+them reports the same findings as `v0.7.0`, minus any the fix below removes, so the version moves in the minor position
+and nothing breaks.
 
 ### Added
 
