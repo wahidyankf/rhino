@@ -18,7 +18,7 @@ operations use separate, narrow boundaries.
 
 ## Highlights
 
-- **No policy of its own.** Every enforced value comes from `repo-config.yml`.
+- **No policy of its own.** Every repository-specific value it enforces comes from `repo-config.yml`.
 - **Closed grouped configuration.** `rhino/repo-config/v2` rejects unknown core groups and keys instead of treating a
   typo as silent policy.
 - **Explicit operations.** Adapter generation, environment setup, toolchain provision, and gate execution need their own
@@ -45,14 +45,15 @@ tar -xzf "rhino-$TARGET.tar.gz"
 ```
 
 Replace the placeholder with a tag from the [releases page](https://github.com/wahidyankf/rhino/releases) that is not
-marked `Pre-release`; the one marked `Latest` is the newest. The grouped configuration below needs `v0.4.0` or later.
-The full procedure, including the Linux checksum alternative and PATH installation, is in
+marked `Pre-release`; the one marked `Latest` is the newest. The grouped configuration below needs `v0.4.0` or later; a
+key added later needs the release that added it, such as `v0.9.0` for `policies.governance.quality-gates`. The full
+procedure, including the Linux checksum alternative and PATH installation, is in
 [How to install a pinned release](./docs/how-to/install-a-pinned-release.md).
 
 ## Quick start
 
-Create a grouped configuration and declare only the policy your repository owns. This minimal example adopts
-internal-link validation:
+Create `repo-config.yml` at the repository root and declare only the policy your repository owns. This minimal example
+adopts internal-link validation:
 
 ```yaml
 schema: rhino/repo-config/v2
