@@ -9,7 +9,7 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## Unreleased
+## [v0.9.1] — 2026-10-02
 
 A configuration that `governance quality-gates validate` already accepted behaves exactly as it did under every
 command. Only `repo-config validate` now refuses what that check already refused, which is the defect fixed below, so
