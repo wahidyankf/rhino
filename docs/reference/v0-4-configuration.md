@@ -96,24 +96,39 @@ policies:
           subject: apps/web
 ```
 
-- `root`, `agents` (exact paths): the workflow root and the canonical agent directory.
-- `groups` (simple names): the only directories `root` may hold beside its `README.md`.
+- `root`, `agents` (exact paths): the workflow root and the canonical agent directory. `agents` holds
+  `<family>-checker.md` and `<family>-fixer.md` for each declared family (QG08).
+- `groups` (unique simple names): the only directories `root` may hold beside its `README.md`. A simple name uses only
+  lowercase ASCII letters, digits, and hyphens.
 - `gate-group` (one of `groups`): the group that holds every `<family>-quality-gate.md` and `<family>-propagation.md`.
-- `gate-headings` (ordered): the second-level headings every gate carries, in this order. Other headings may follow.
-- `verdict-heading` (one of `gate-headings`) and `verdicts`: the section whose capitalised code spans must be declared
-  verdicts.
-- `retired-inputs`: names no gate may mention.
+- `gate-headings` (ordered): the second-level headings every gate carries, in this order. Other headings may appear
+  anywhere.
+- `verdict-heading` (one of `gate-headings`) and `verdicts`: the section, up to the next first- or second-level heading,
+  whose all-capital code spans must be declared verdicts. An all-capital span has at least two characters, starts with a
+  letter, and uses only `A`–`Z`, `0`–`9`, and `_`, such as `PASS_WITH_FINDINGS`.
+- `retired-inputs`: names no gate may mention anywhere, fenced code included, as a whole name.
 - `propagation-headings`: the second-level headings every propagation carries.
 - `defaults.mode` (`lax`, `normal`, `strict`, or `all`) and `defaults.max-cycles` (1, 2, or 3): the defaults a gate run
-  reads. RHINO supplies neither. `max-cycles` outside 1–3 is a configuration error, because a gate never runs more than
-  three cycles; a repository may lower the ceiling but never raise it.
+  reads. RHINO supplies neither. `max-cycles` outside 1–3 is a configuration error (QG09), because a gate never runs
+  more than three cycles. The default never changes what a gate file may declare: every gate is judged against 1–3.
 - `gates[].family` (unique simple names) and the optional `gates[].subject`: the families this repository holds.
 
-Each finding names its rule as a `rule` detail, `QG01` to `QG11`; the kinds are in
-[Findings](findings.md#quality-gates). The split-workflow rule, `QG11`, measures against
-`policies.governance.word-budget` when that policy declares a surface governing the workflow's entrypoint, and is
-skipped otherwise. A gate's `max-cycles` input is read from the Markdown table row whose first cell is `max-cycles`:
-every integer in the row and its last cell, the default, must be 1 to 3. Headings inside fenced code are not headings.
+`gate-headings`, `propagation-headings`, and `verdicts` must each be non-empty and unique, and no `retired-inputs` entry
+may be blank. A declaration that breaks any rule in this list is a configuration error with exit `2` for every command,
+`repo-config validate` included, before any file is read.
+
+Each finding names its rule as a `rule` detail: `QG01` to `QG08`, `QG10`, or `QG11`. QG09 is the configuration error
+above, never a finding. The kinds are in [Findings](findings.md#quality-gates).
+
+Every gate carries a `max-cycles` input, read from the Markdown table row whose first cell is `max-cycles`: every
+integer in the row and its last cell, the default, must be 1 to 3. A gate with no such row, a row with no cell after the
+name, or a value or default outside 1–3 is `unbounded-gate-cycles` (QG06). Headings and rows inside fenced code are not
+read.
+
+The split-workflow rule, `QG11`, applies to a module directory that sits beside its workflow and holds at least one
+`NNN-*.md` module. It measures the workflow and its modules together against the `fail` limit of the
+`policies.governance.word-budget` surface governing the workflow's entrypoint, and is skipped when no surface governs
+it. A file that vanishes while this command reads it refuses the run with exit `2`.
 
 ### Surface globs and symbolic links
 
@@ -468,8 +483,9 @@ Rhino's source example uses a relative modeline because its generated schema is 
 # yaml-language-server: $schema=./v2.schema.json
 ```
 
-A consumer pins an immutable release URL instead. The consumer fixture is the canonical shape; it never makes the Rhino
-runtime perform a network request.
+A consumer pins an immutable release URL instead. The consumer fixture shows the canonical modeline shape; it never
+makes the Rhino runtime perform a network request. Pin the release you run: its schema describes exactly the keys that
+binary reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema.
 
 ## Verification
 

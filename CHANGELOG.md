@@ -36,11 +36,13 @@ nothing breaks.
 
 - **`governance quality-gates validate`.** Checks the structure of a repository's bounded quality gates against what
   `policies.governance.quality-gates` declares: the workflow root holds only its README and the declared groups, each
-  declared family has its gate, propagation, checker, and fixer, no gate or propagation sits outside the gate group or
-  names an undeclared family, each gate carries the declared headings in order and names only declared verdicts, each
-  propagation carries its declared headings, no gate allows more than three cycles or names a retired input, every
-  module directory sits beside its workflow and lists its `NNN-*.md` modules in a README, and no split workflow fits its
-  word budget as one file. Each finding carries its rule, `QG01` to `QG11`, as a `rule` detail. Its kinds, by rule:
+  declared family has its gate, propagation, checker, and fixer, named `<family>-quality-gate.md` and
+  `<family>-propagation.md` in the gate group and `<family>-checker.md` and `<family>-fixer.md` in the agent directory,
+  no gate or propagation sits outside the gate group or names an undeclared family, each gate carries the declared
+  headings in order and names only declared verdicts, each propagation carries its declared headings, no gate allows
+  more than three cycles or names a retired input, every module directory sits beside its workflow and lists its
+  `NNN-*.md` modules in a README, and no split workflow fits its word budget as one file. Each finding carries its rule
+  as a `rule` detail, `QG01` to `QG11` apart from `QG09`, the configuration error below. Its kinds, by rule:
   `unexpected-workflow-entry` (QG01); `missing-quality-gate-file` (QG02); `misplaced-quality-gate-file` and
   `undeclared-quality-gate-family` (QG03); `missing-gate-heading` and `gate-heading-out-of-order` (QG04);
   `missing-propagation-heading` (QG05); `unbounded-gate-cycles` and `retired-gate-input` (QG06); `unknown-gate-verdict`

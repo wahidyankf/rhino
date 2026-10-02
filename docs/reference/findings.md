@@ -210,24 +210,24 @@ Detail: `target` on `missing-traceability-relationship` — the artifact the sou
 
 ## Quality gates
 
-| Kind                                 | Rule | Means                                                           |
-| ------------------------------------ | ---- | --------------------------------------------------------------- |
-| `unexpected-workflow-entry`          | QG01 | The workflow root holds more than `README.md` and the groups.   |
-| `missing-quality-gate-file`          | QG02 | A declared family has no gate or propagation in the gate group. |
-| `misplaced-quality-gate-file`        | QG03 | A gate or propagation sits outside the gate group.              |
-| `undeclared-quality-gate-family`     | QG03 | A gate or propagation in the gate group has no declared family. |
-| `missing-gate-heading`               | QG04 | A gate lacks a declared gate heading.                           |
-| `gate-heading-out-of-order`          | QG04 | A gate heading appears before one it must follow.               |
-| `missing-propagation-heading`        | QG05 | A propagation lacks a declared propagation heading.             |
-| `unbounded-gate-cycles`              | QG06 | A gate has no `max-cycles` row, or one outside 1 to 3.          |
-| `retired-gate-input`                 | QG06 | A gate names a declared retired input.                          |
-| `unknown-gate-verdict`               | QG07 | The verdict section names an undeclared verdict.                |
-| `missing-gate-agent`                 | QG08 | A declared family has no checker or no fixer agent.             |
-| `unpaired-workflow-module-directory` | QG10 | A directory in a group has no sibling `<name>.md`.              |
-| `unexpected-workflow-module-entry`   | QG10 | A module directory holds more than `README.md` and `NNN-*.md`.  |
-| `missing-workflow-module-index`      | QG10 | A module directory has no `README.md`.                          |
-| `unlisted-workflow-module`           | QG10 | A module directory's `README.md` does not link a module.        |
-| `unnecessary-workflow-split`         | QG11 | A workflow and its modules fit its entrypoint's word budget.    |
+| Kind                                 | Rule | Means                                                             |
+| ------------------------------------ | ---- | ----------------------------------------------------------------- |
+| `unexpected-workflow-entry`          | QG01 | The workflow root holds more than `README.md` and the groups.     |
+| `missing-quality-gate-file`          | QG02 | A declared family has no gate or propagation in the gate group.   |
+| `misplaced-quality-gate-file`        | QG03 | A gate or propagation under the root sits outside the gate group. |
+| `undeclared-quality-gate-family`     | QG03 | A gate or propagation in the gate group has no declared family.   |
+| `missing-gate-heading`               | QG04 | A gate lacks a declared gate heading.                             |
+| `gate-heading-out-of-order`          | QG04 | A gate heading appears before one it must follow.                 |
+| `missing-propagation-heading`        | QG05 | A propagation lacks a declared propagation heading.               |
+| `unbounded-gate-cycles`              | QG06 | A gate has no `max-cycles` row, or one outside 1 to 3.            |
+| `retired-gate-input`                 | QG06 | A gate names a declared retired input.                            |
+| `unknown-gate-verdict`               | QG07 | The verdict section names an undeclared verdict.                  |
+| `missing-gate-agent`                 | QG08 | `agents` lacks a family's `<family>-checker.md` or `-fixer.md`.   |
+| `unpaired-workflow-module-directory` | QG10 | A directory in a group has no sibling `<name>.md`.                |
+| `unexpected-workflow-module-entry`   | QG10 | A module directory holds more than `README.md` and `NNN-*.md`.    |
+| `missing-workflow-module-index`      | QG10 | A module directory has no `README.md`.                            |
+| `unlisted-workflow-module`           | QG10 | A module directory's `README.md` does not link a module.          |
+| `unnecessary-workflow-split`         | QG11 | A workflow and its modules fit its entrypoint's `fail` limit.     |
 
 Details: `rule` on every kind; `family` on the QG02, QG03 undeclared, and QG08 kinds; `heading` on the QG04 and QG05
 kinds; `input` on `retired-gate-input`; `verdict` on `unknown-gate-verdict`; `words` and `limit` on
@@ -309,7 +309,8 @@ could not be executed. A child's own streams are never repeated.
 Some situations look like findings and are not.
 
 - **A file that vanishes between the walk and the read.** The repository changed under the run; reporting it would blame
-  the maintainer for a race.
+  the maintainer for a race. `governance quality-gates validate` instead refuses the run with exit `2`, because a
+  structure it could not finish reading is not one it can call clean.
 - **A file that exists and cannot be opened.** That is exit `2`, not a finding. Reporting it as missing would tell a
   maintainer to write a file that is already there — but only for a file the command was going to read. A file outside
   every declared root, glob, and document kind is one no rule is about, and refusing the run over it would make a
