@@ -9,7 +9,7 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## Unreleased
+## [v0.9.0] — 2026-10-02
 
 `governance quality-gates validate` is a new command reading a new optional key, `policies.governance.quality-gates`. A
 configuration that does not declare the key validates exactly as it did, so the version moves in the minor position and
