@@ -9,6 +9,23 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## Unreleased
+
+A configuration that `governance quality-gates validate` already accepts behaves exactly as it did, so the version moves
+in the patch position and nothing that passed before breaks.
+
+### Fixed
+
+- **`repo-config validate` refuses a quality-gate declaration the structure check could not apply.** A non-exact `root`
+  or `agents` path, `groups` that repeat a name or omit `gate-group`, a repeated or non-simple `gates[].family`, empty or
+  repeated gate headings, propagation headings, or verdicts, a blank retired input, and a `verdict-heading` outside
+  `gate-headings` were accepted by `repo-config validate` and refused only by `governance quality-gates validate`. They
+  are now a configuration error, `rhino.config.unusable` with exit `2`, for every command, before any file is read.
+- **The `v2` schema states the same rules where JSON Schema can.** `groups`, `gate-headings`, `propagation-headings`,
+  and `verdicts` require at least one unique entry, and `groups`, `gate-group`, and `gates[].family` take only lowercase
+  letters, digits, and hyphens. `defaults.max-cycles` is described as the default a gate run reads: it never changes
+  what a gate file may declare, which stays 1 to 3.
+
 ## [v0.9.0] — 2026-10-02
 
 `governance quality-gates validate` is a new command reading a new optional key, `policies.governance.quality-gates`. A

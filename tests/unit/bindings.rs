@@ -602,7 +602,15 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "quality-gates",
-        "A default cycle ceiling above three is refused before any file is read (QG09)",
+        "A default max-cycles above three is refused before any file is read (QG09)",
+    ),
+    (
+        "quality-gates",
+        "A declaration the structure check could not apply is refused by repo-config validate",
+    ),
+    (
+        "quality-gates",
+        "A repository default below three does not lower what a gate may declare",
     ),
     (
         "quality-gates",

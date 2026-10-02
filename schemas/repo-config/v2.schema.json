@@ -1266,7 +1266,7 @@
       "description": "Repository defaults a gate run reads. Neither is supplied by RHINO.",
       "properties": {
         "max-cycles": {
-          "description": "1, 2, or 3. A repository may lower the ceiling, never raise it.",
+          "description": "1, 2, or 3: the default a gate run reads. It never changes what a gate\nfile may declare.",
           "format": "uint8",
           "maximum": 3,
           "minimum": 1,
@@ -1289,6 +1289,7 @@
       "additionalProperties": false,
       "properties": {
         "family": {
+          "pattern": "^[a-z0-9-]+$",
           "type": "string"
         },
         "subject": {
@@ -1305,7 +1306,7 @@
     },
     "QualityGatesPolicy": {
       "additionalProperties": false,
-      "description": "The structure of a repository's bounded quality gates.\n\nEvery name a repository could choose differently -- the workflow root, its\ngroups, the agent directory, the headings, the verdict vocabulary, the\nretired inputs -- is declared here. The one value RHINO fixes is the cycle\nceiling: a gate runs at most three cycles, so `defaults.max-cycles` may\nlower that ceiling but never raise it.",
+      "description": "The structure of a repository's bounded quality gates.\n\nEvery name a repository could choose differently -- the workflow root, its\ngroups, the agent directory, the headings, the verdict vocabulary, the\nretired inputs -- is declared here. The one value RHINO fixes is the cycle\nceiling: no gate's `max-cycles` input may exceed three, and neither may\n`defaults.max-cycles`, the default a gate run reads.",
       "properties": {
         "agents": {
           "description": "The canonical agent directory holding each family's checker and fixer.",
@@ -1323,6 +1324,7 @@
         },
         "gate-group": {
           "description": "The one group that holds every gate and propagation.",
+          "pattern": "^[a-z0-9-]+$",
           "type": "string"
         },
         "gate-headings": {
@@ -1330,7 +1332,9 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "gates": {
           "description": "The gate families this repository holds.",
@@ -1342,16 +1346,21 @@
         "groups": {
           "description": "Every directory the workflow root may hold.",
           "items": {
+            "pattern": "^[a-z0-9-]+$",
             "type": "string"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "propagation-headings": {
           "description": "The second-level headings every propagation carries.",
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "retired-inputs": {
           "description": "Inputs no gate may name any more.",
@@ -1373,7 +1382,9 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         }
       },
       "required": [

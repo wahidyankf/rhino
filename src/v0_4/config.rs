@@ -5,10 +5,11 @@
 //! would inevitably accept a shape the runtime rejects, or the reverse.
 
 use crate::config::ConfigError;
+use crate::v0_4::validators::{exact_path, simple_name};
 use schemars::{JsonSchema, SchemaGenerator, generate::SchemaSettings};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const SCHEMA: &str = "rhino/repo-config/v2";
 
@@ -183,13 +184,17 @@ pub struct GovernancePolicy {
     pub(crate) quality_gates: Option<QualityGatesPolicy>,
 }
 
+/// A simple name: lowercase ASCII letters, digits, and hyphens. The reader
+/// applies the same rule, so an editor and `repo-config validate` agree.
+const SIMPLE_NAME: &str = "^[a-z0-9-]+$";
+
 /// The structure of a repository's bounded quality gates.
 ///
 /// Every name a repository could choose differently -- the workflow root, its
 /// groups, the agent directory, the headings, the verdict vocabulary, the
 /// retired inputs -- is declared here. The one value RHINO fixes is the cycle
-/// ceiling: a gate runs at most three cycles, so `defaults.max-cycles` may
-/// lower that ceiling but never raise it.
+/// ceiling: no gate's `max-cycles` input may exceed three, and neither may
+/// `defaults.max-cycles`, the default a gate run reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct QualityGatesPolicy {
@@ -198,19 +203,24 @@ pub(crate) struct QualityGatesPolicy {
     /// The canonical agent directory holding each family's checker and fixer.
     pub(crate) agents: String,
     /// Every directory the workflow root may hold.
+    #[schemars(length(min = 1), extend("uniqueItems" = true), inner(pattern(SIMPLE_NAME)))]
     pub(crate) groups: Vec<String>,
     /// The one group that holds every gate and propagation.
+    #[schemars(pattern(SIMPLE_NAME))]
     pub(crate) gate_group: String,
     /// The second-level headings every gate carries, in order.
+    #[schemars(length(min = 1), extend("uniqueItems" = true))]
     pub(crate) gate_headings: Vec<String>,
     /// The gate heading whose section names the verdicts.
     pub(crate) verdict_heading: String,
     /// The only verdicts a gate may name.
+    #[schemars(length(min = 1), extend("uniqueItems" = true))]
     pub(crate) verdicts: Vec<String>,
     /// Inputs no gate may name any more.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) retired_inputs: Vec<String>,
     /// The second-level headings every propagation carries.
+    #[schemars(length(min = 1), extend("uniqueItems" = true))]
     pub(crate) propagation_headings: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) defaults: Option<QualityGateDefaults>,
@@ -225,7 +235,8 @@ pub(crate) struct QualityGatesPolicy {
 pub(crate) struct QualityGateDefaults {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) mode: Option<QualityGateMode>,
-    /// 1, 2, or 3. A repository may lower the ceiling, never raise it.
+    /// 1, 2, or 3: the default a gate run reads. It never changes what a gate
+    /// file may declare.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 1, max = 3))]
     pub(crate) max_cycles: Option<u8>,
@@ -243,6 +254,7 @@ pub(crate) enum QualityGateMode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct QualityGateFamily {
+    #[schemars(pattern(SIMPLE_NAME))]
     pub(crate) family: String,
     /// The default subject a run of this family's gate receives.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -944,27 +956,81 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     if let Some(gates) = &document.gates {
         validate_gates(gates)?;
     }
-    validate_cycle_ceiling(&document)?;
+    validate_quality_gates(&document)?;
     Ok(document)
 }
 
-/// The quality-gate cycle ceiling is refused here, before any file is read,
-/// because a repository may lower it but never raise it.
-fn validate_cycle_ceiling(document: &Document) -> Result<(), ConfigError> {
-    let ceiling = document
+/// A quality-gate declaration the structure check could not apply as written
+/// is refused here, before any file is read, so `repo-config validate` and
+/// every other command refuse it for the same reason the check itself would.
+fn validate_quality_gates(document: &Document) -> Result<(), ConfigError> {
+    let Some(policy) = document
         .policies
         .as_ref()
         .and_then(|policies| policies.governance.as_ref())
         .and_then(|governance| governance.quality_gates.as_ref())
-        .and_then(|policy| policy.defaults.as_ref())
-        .and_then(|defaults| defaults.max_cycles);
-    match ceiling {
+    else {
+        return Ok(());
+    };
+    const KEY: &str = "policies.governance.quality-gates";
+    if !exact_path(&policy.root) || !exact_path(&policy.agents) {
+        return semantic(
+            KEY,
+            "`root` and `agents` must be exact repository-relative paths",
+        );
+    }
+    if !unique_names(&policy.groups) || !policy.groups.contains(&policy.gate_group) {
+        return semantic(
+            KEY,
+            "`groups` must be unique simple names that include `gate-group`",
+        );
+    }
+    let families: Vec<String> = policy
+        .gates
+        .iter()
+        .map(|gate| gate.family.clone())
+        .collect();
+    if !unique_names(&families) {
+        return semantic(KEY, "every `gates[].family` must be a unique simple name");
+    }
+    if !unique_text(&policy.gate_headings)
+        || !unique_text(&policy.propagation_headings)
+        || !unique_text(&policy.verdicts)
+        || policy
+            .retired_inputs
+            .iter()
+            .any(|input| input.trim().is_empty())
+    {
+        return semantic(
+            KEY,
+            "headings, verdicts, and retired inputs must be non-empty and unique",
+        );
+    }
+    if !policy.gate_headings.contains(&policy.verdict_heading) {
+        return semantic(KEY, "`verdict-heading` must be one of `gate-headings`");
+    }
+    match policy
+        .defaults
+        .as_ref()
+        .and_then(|defaults| defaults.max_cycles)
+    {
         Some(cycles) if !(1..=3).contains(&cycles) => semantic(
             "policies.governance.quality-gates.defaults.max-cycles",
             "must be 1, 2, or 3; a gate never runs more than three cycles",
         ),
         _ => Ok(()),
     }
+}
+
+fn unique_names(names: &[String]) -> bool {
+    names.iter().all(|name| simple_name(name))
+        && names.iter().collect::<BTreeSet<_>>().len() == names.len()
+}
+
+fn unique_text(values: &[String]) -> bool {
+    !values.is_empty()
+        && values.iter().all(|value| !value.trim().is_empty())
+        && values.iter().collect::<BTreeSet<_>>().len() == values.len()
 }
 
 /// Draft 2020-12 bytes with a trailing newline for stable editor artifacts.
@@ -1558,6 +1624,125 @@ mod tests {
                 parse(&text).is_ok(),
                 accepted,
                 "the reader and max-cycles {cycles}"
+            );
+        }
+    }
+
+    fn quality_gates_declaring(replace: &str, with: &str) -> String {
+        let text = "schema: rhino/repo-config/v2\npolicies:\n  governance:\n    quality-gates:\n      \
+             root: workflows\n      agents: agents\n      groups: [plan, quality]\n      \
+             gate-group: quality\n      gate-headings: [Entry, Verdict]\n      verdict-heading: Verdict\n      \
+             verdicts: [PASS]\n      retired-inputs: [max-audits]\n      propagation-headings: [Scope]\n      \
+             gates: [{family: plan}]\n";
+        assert!(text.contains(replace), "{replace}");
+        text.replace(replace, with)
+    }
+
+    #[test]
+    fn a_quality_gate_declaration_the_check_cannot_apply_is_refused_while_reading() {
+        let schema: Value =
+            serde_json::from_slice(&schema_bytes().expect("schema serializes")).expect("JSON");
+        assert!(parse(&quality_gates_declaring("", "")).is_ok());
+        // The schema states what JSON Schema can state exactly; the reader
+        // refuses the rest too, so the two never disagree on an accepted file.
+        for (replace, with, reason, schema_refuses) in [
+            (
+                "root: workflows",
+                "root: ../workflows",
+                "exact repository-relative",
+                false,
+            ),
+            (
+                "agents: agents",
+                "agents: /agents",
+                "exact repository-relative",
+                false,
+            ),
+            (
+                "groups: [plan, quality]",
+                "groups: [plan]",
+                "include `gate-group`",
+                false,
+            ),
+            (
+                "groups: [plan, quality]",
+                "groups: [plan, quality, plan]",
+                "include `gate-group`",
+                true,
+            ),
+            (
+                "groups: [plan, quality]",
+                "groups: [Plan, quality]",
+                "include `gate-group`",
+                true,
+            ),
+            (
+                "gates: [{family: plan}]",
+                "gates: [{family: plan}, {family: plan}]",
+                "unique simple name",
+                false,
+            ),
+            (
+                "gates: [{family: plan}]",
+                "gates: [{family: plan}, {family: plan, subject: x}]",
+                "unique simple name",
+                false,
+            ),
+            (
+                "gates: [{family: plan}]",
+                "gates: [{family: p_lan}]",
+                "unique simple name",
+                true,
+            ),
+            (
+                "gate-headings: [Entry, Verdict]",
+                "gate-headings: [Verdict, Verdict]",
+                "non-empty and unique",
+                true,
+            ),
+            (
+                "gate-headings: [Entry, Verdict]",
+                "gate-headings: [\" \", Verdict]",
+                "non-empty and unique",
+                false,
+            ),
+            (
+                "propagation-headings: [Scope]",
+                "propagation-headings: []",
+                "non-empty and unique",
+                true,
+            ),
+            (
+                "verdicts: [PASS]",
+                "verdicts: []",
+                "non-empty and unique",
+                true,
+            ),
+            (
+                "retired-inputs: [max-audits]",
+                "retired-inputs: [\"\"]",
+                "non-empty and unique",
+                false,
+            ),
+            (
+                "verdict-heading: Verdict",
+                "verdict-heading: Outcome",
+                "one of `gate-headings`",
+                false,
+            ),
+        ] {
+            let text = quality_gates_declaring(replace, with);
+            let refusal = parse(&text).expect_err(&text).to_string();
+            assert!(
+                refusal.contains("policies.governance.quality-gates"),
+                "{refusal}"
+            );
+            assert!(refusal.contains(reason), "{reason}\n{refusal}");
+            let instance: Value = yaml_serde::from_str(&text).expect("fixture is YAML");
+            assert_eq!(
+                !jsonschema::draft202012::is_valid(&schema, &instance),
+                schema_refuses,
+                "the generated schema and {with}"
             );
         }
     }
