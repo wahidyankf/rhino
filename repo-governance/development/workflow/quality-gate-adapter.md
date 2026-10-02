@@ -49,6 +49,8 @@ operation here states its own bound.
 - **Callers.** `plan-planning` calls the plan gate and `release-cut` the docs gate. Rules grooming never calls the rules
   gate. Each gate's Entry lists only these callers.
 - **Entry and exit check.** The `pull-request` surface in `repo-config.yml`, run by `cargo xtask self-validate`.
+- **Structure.** `rhino governance quality-gates validate`, on the pre-push and pull-request surfaces, checks every gate
+  and propagation for its headings, verdicts, retired inputs, and cycle bound against `repo-config.yml`.
 - **Deterministic Boundary.** Each gate's last column names the tools that surface runs. No validator checks front
   matter here, so that row left every table and front matter is judgeable.
 - **Review surface.** A hosted pull request, under the merge preconditions.
