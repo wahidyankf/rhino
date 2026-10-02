@@ -215,6 +215,40 @@ policies:
         - { path: plans }
         - { path: repo-governance }
         - { path: specs }
+    # Owner: repo-governance/development/workflow/quality-gate-adapter.md
+    quality-gates:
+      root: repo-governance/workflows
+      agents: .agents/agents
+      groups: [plan, quality, maintenance]
+      gate-group: quality
+      gate-headings:
+        - Entry
+        - Inputs
+        - Deterministic Boundary
+        - Cycle
+        - Termination
+        - Verdict
+        - Ledger
+      verdict-heading: Verdict
+      verdicts: [PASS, PASS_WITH_FINDINGS, FAIL, BLOCKED]
+      retired-inputs: [max-iterations, min-iterations, max-audits]
+      propagation-headings:
+        - Contract
+        - Scope
+        - Executor
+        - Row Verification
+        - Family Rules
+      defaults:
+        mode: normal
+        max-cycles: 3
+      gates:
+        - family: plan
+        - family: docs
+        - family: rules
+        - family: harness
+        - family: ci
+        - family: pr-review
+        - family: specs
   conventions:
     emoji:
       prohibited:
@@ -406,6 +440,24 @@ gates:
               { literal: -- },
               { literal: governance },
               { literal: directory-map },
+              { literal: validate },
+            ],
+        }
+      run-on: { pre-push: {}, pull-request: {} }
+    - id: quality-gates
+      type: check
+      command:
+        {
+          executable: cargo,
+          args:
+            [
+              { literal: run },
+              { literal: --quiet },
+              { literal: --bin },
+              { literal: rhino },
+              { literal: -- },
+              { literal: governance },
+              { literal: quality-gates },
               { literal: validate },
             ],
         }
