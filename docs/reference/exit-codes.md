@@ -75,13 +75,17 @@ The `code` is namespaced and stable; the `message` is for a human and is not.
 ## Reading the code in a script
 
 ```sh
-rhino governance word-budget validate
-case $? in
+status=0
+rhino governance word-budget validate || status=$?
+case $status in
   0) ;;
   1) echo "policy violation; see stderr" >&2; exit 1 ;;
-  *) echo "RHINO could not run; check the invocation and repo-config.yml" >&2; exit 2 ;;
+  2) echo "RHINO could not run; check the invocation and repo-config.yml" >&2; exit 2 ;;
+  *) exit "$status" ;;
 esac
 ```
+
+The last arm passes `126`, `127`, and `128+N` through unchanged rather than translating them.
 
 ## Related
 

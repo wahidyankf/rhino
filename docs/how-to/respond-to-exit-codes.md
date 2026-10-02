@@ -30,6 +30,10 @@ case $status in
     echo "RHINO could not run: check the invocation and repo-config.yml" >&2
     exit 2
     ;;
+  *)
+    # 126, 127, or 128+N: RHINO was not run, or a signal ended it. Pass it on.
+    exit "$status"
+    ;;
 esac
 ```
 
@@ -59,8 +63,11 @@ do
   fi
   # 2 outranks 1: a run that could not happen is worse news than one that found something.
   case "$status:$worst" in
+    0:* | 1:[12] | 2:2) ;;
     2:*) worst=2 ;;
     1:0) worst=1 ;;
+    # 126, 127, or 128+N: RHINO was not run, or a signal ended it. Stop and pass it on.
+    *) exit "$status" ;;
   esac
 done
 exit "$worst"
