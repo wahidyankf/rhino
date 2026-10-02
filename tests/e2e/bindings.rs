@@ -610,6 +610,14 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "quality-gates",
+        "A declaration the structure check could not apply is refused by the check itself",
+    ),
+    (
+        "quality-gates",
+        "A declaration the structure check could not apply leaves a command that does not read it unchanged",
+    ),
+    (
+        "quality-gates",
         "A repository default below three does not lower what a gate may declare",
     ),
     (

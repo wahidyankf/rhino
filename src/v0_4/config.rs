@@ -956,14 +956,33 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     if let Some(gates) = &document.gates {
         validate_gates(gates)?;
     }
-    validate_quality_gates(&document)?;
+    validate_cycle_ceiling(&document)?;
     Ok(document)
 }
 
-/// A quality-gate declaration the structure check could not apply as written
-/// is refused here, before any file is read, so `repo-config validate` and
-/// every other command refuse it for the same reason the check itself would.
-fn validate_quality_gates(document: &Document) -> Result<(), ConfigError> {
+/// The quality-gate cycle ceiling is refused here, before any file is read,
+/// by every command, as it has been since the key was added.
+fn validate_cycle_ceiling(document: &Document) -> Result<(), ConfigError> {
+    let ceiling = document
+        .policies
+        .as_ref()
+        .and_then(|policies| policies.governance.as_ref())
+        .and_then(|governance| governance.quality_gates.as_ref())
+        .and_then(|policy| policy.defaults.as_ref())
+        .and_then(|defaults| defaults.max_cycles);
+    match ceiling {
+        Some(cycles) if !(1..=3).contains(&cycles) => semantic(
+            "policies.governance.quality-gates.defaults.max-cycles",
+            "must be 1, 2, or 3; a gate never runs more than three cycles",
+        ),
+        _ => Ok(()),
+    }
+}
+
+/// The declaration rules a quality-gate structure check needs before it can
+/// read a file. Only `repo-config validate` and the check itself apply them,
+/// so a command that never reads the key keeps the result it always had.
+pub(crate) fn check_quality_gates(document: &Document) -> Result<(), ConfigError> {
     let Some(policy) = document
         .policies
         .as_ref()
@@ -1009,17 +1028,7 @@ fn validate_quality_gates(document: &Document) -> Result<(), ConfigError> {
     if !policy.gate_headings.contains(&policy.verdict_heading) {
         return semantic(KEY, "`verdict-heading` must be one of `gate-headings`");
     }
-    match policy
-        .defaults
-        .as_ref()
-        .and_then(|defaults| defaults.max_cycles)
-    {
-        Some(cycles) if !(1..=3).contains(&cycles) => semantic(
-            "policies.governance.quality-gates.defaults.max-cycles",
-            "must be 1, 2, or 3; a gate never runs more than three cycles",
-        ),
-        _ => Ok(()),
-    }
+    Ok(())
 }
 
 fn unique_names(names: &[String]) -> bool {
@@ -1639,10 +1648,13 @@ mod tests {
     }
 
     #[test]
-    fn a_quality_gate_declaration_the_check_cannot_apply_is_refused_while_reading() {
+    fn a_quality_gate_declaration_the_check_cannot_apply_is_refused_by_its_check() {
         let schema: Value =
             serde_json::from_slice(&schema_bytes().expect("schema serializes")).expect("JSON");
-        assert!(parse(&quality_gates_declaring("", "")).is_ok());
+        let conforming = parse(&quality_gates_declaring("", "")).expect("parses");
+        assert!(check_quality_gates(&conforming).is_ok());
+        let undeclared = parse("schema: rhino/repo-config/v2\n").expect("parses");
+        assert!(check_quality_gates(&undeclared).is_ok());
         // The schema states what JSON Schema can state exactly; the reader
         // refuses the rest too, so the two never disagree on an accepted file.
         for (replace, with, reason, schema_refuses) in [
@@ -1732,7 +1744,8 @@ mod tests {
             ),
         ] {
             let text = quality_gates_declaring(replace, with);
-            let refusal = parse(&text).expect_err(&text).to_string();
+            let document = parse(&text).expect("only the check refuses it");
+            let refusal = check_quality_gates(&document).expect_err(&text).to_string();
             assert!(
                 refusal.contains("policies.governance.quality-gates"),
                 "{refusal}"

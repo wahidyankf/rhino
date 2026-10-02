@@ -8,10 +8,11 @@
 //! Whether a gate is well written is the gate's own judgement, never RHINO's.
 //!
 //! Each finding carries the rule it answers to, `QG01` to `QG11`, as its
-//! `rule` detail. A declaration this check could not apply as written --
-//! `QG09`, a configured cycle ceiling outside 1 to 3, among them -- is refused
-//! while the configuration is read, before any file is, so every policy this
-//! module receives is already one it can check.
+//! `rule` detail. A declaration this check could not apply as written is
+//! refused before this module runs and before any file is read: `QG09`, a
+//! configured cycle ceiling outside 1 to 3, while the configuration is read,
+//! and the rest by the declaration check `repo-config validate` shares. Every
+//! policy this module receives is already one it can check.
 
 use crate::config::WordBudget;
 use crate::governance::word_budget;

@@ -344,6 +344,50 @@ Feature: Quality-gate structure
       | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | " "            | [{family: plan}]                 | non-empty and unique            |
       | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Outcome         | [PASS]      | max-iterations | [{family: plan}]                 | one of `gate-headings`          |
 
+  Scenario: A declaration the structure check could not apply is refused by the check itself
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents
+            groups: [plan]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - family: plan
+      """
+    When I invoke the CLI with "governance|quality-gates|validate"
+    Then the exit code is 2
+    And stderr contains "include `gate-group`"
+
+  Scenario: A declaration the structure check could not apply leaves a command that does not read it unchanged
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents
+            groups: [plan]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - family: plan
+      gates: {}
+      """
+    When I invoke the CLI with "gate|list"
+    Then the exit code is 0
+
   Scenario: A repository default below three does not lower what a gate may declare
     Given the configuration file is this text:
       """
