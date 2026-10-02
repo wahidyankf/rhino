@@ -8,15 +8,17 @@
 //! Whether a gate is well written is the gate's own judgement, never RHINO's.
 //!
 //! Each finding carries the rule it answers to, `QG01` to `QG11`, as its
-//! `rule` detail. `QG09`, the configured cycle ceiling, is refused while the
-//! configuration is read, before any file is.
+//! `rule` detail. A declaration this check could not apply as written --
+//! `QG09`, a configured cycle ceiling outside 1 to 3, among them -- is refused
+//! while the configuration is read, before any file is, so every policy this
+//! module receives is already one it can check.
 
 use crate::config::WordBudget;
 use crate::governance::word_budget;
 use crate::report::{Detail, Finding, Report};
 use crate::runtime::{Tree, TreeError};
 use crate::v0_4::config::QualityGatesPolicy;
-use crate::v0_4::validators::{exact_path, markdown_targets, simple_name};
+use crate::v0_4::validators::markdown_targets;
 use std::collections::BTreeSet;
 
 const CATEGORY: &str = "quality-gates";
@@ -49,7 +51,6 @@ fn audit(
     policy: &QualityGatesPolicy,
     budget: Option<&WordBudget>,
 ) -> Result<Report, Refusal> {
-    check_policy(policy).map_err(Refusal::Invalid)?;
     for declared in [&policy.root, &policy.agents] {
         if tree.passes_through_link(declared) {
             return Err(Refusal::Unreadable(format!(
@@ -75,64 +76,6 @@ fn audit(
     audit.gates()?;
     audit.propagations()?;
     Ok(audit.report)
-}
-
-/// Refuse a declaration that could not be checked as written.
-fn check_policy(policy: &QualityGatesPolicy) -> Result<(), String> {
-    if !exact_path(&policy.root) || !exact_path(&policy.agents) {
-        return Err(
-            "policies.governance.quality-gates: `root` and `agents` must be exact repository-relative paths"
-                .to_string(),
-        );
-    }
-    if !unique_names(&policy.groups) || !policy.groups.contains(&policy.gate_group) {
-        return Err(
-            "policies.governance.quality-gates: `groups` must be unique simple names that include `gate-group`"
-                .to_string(),
-        );
-    }
-    let families: Vec<String> = policy
-        .gates
-        .iter()
-        .map(|gate| gate.family.clone())
-        .collect();
-    if !unique_names(&families) {
-        return Err(
-            "policies.governance.quality-gates: every `gates[].family` must be a unique simple name"
-                .to_string(),
-        );
-    }
-    if !unique_text(&policy.gate_headings)
-        || !unique_text(&policy.propagation_headings)
-        || !unique_text(&policy.verdicts)
-        || policy
-            .retired_inputs
-            .iter()
-            .any(|input| input.trim().is_empty())
-    {
-        return Err(
-            "policies.governance.quality-gates: headings, verdicts, and retired inputs must be non-empty and unique"
-                .to_string(),
-        );
-    }
-    if !policy.gate_headings.contains(&policy.verdict_heading) {
-        return Err(
-            "policies.governance.quality-gates: `verdict-heading` must be one of `gate-headings`"
-                .to_string(),
-        );
-    }
-    Ok(())
-}
-
-fn unique_names(names: &[String]) -> bool {
-    names.iter().all(|name| simple_name(name))
-        && names.iter().collect::<BTreeSet<_>>().len() == names.len()
-}
-
-fn unique_text(values: &[String]) -> bool {
-    !values.is_empty()
-        && values.iter().all(|value| !value.trim().is_empty())
-        && values.iter().collect::<BTreeSet<_>>().len() == values.len()
 }
 
 struct Audit<'a> {
@@ -738,34 +681,6 @@ mod tests {
                 .stdout
                 .contains("flows/quality/plan-quality-gate.md")
         );
-    }
-
-    #[test]
-    fn an_unusable_declaration_is_refused_before_the_tree_is_read() {
-        let mut cases = Vec::new();
-        let mut escaping = policy();
-        escaping.root = "../flows".to_string();
-        cases.push((escaping, "exact repository-relative paths"));
-        let mut ungrouped = policy();
-        ungrouped.gate_group = "gates".to_string();
-        cases.push((ungrouped, "include `gate-group`"));
-        let mut repeated = policy();
-        repeated.gates.push(repeated.gates[0].clone());
-        cases.push((repeated, "unique simple name"));
-        let mut blank = policy();
-        blank.retired_inputs.push(" ".to_string());
-        cases.push((blank, "non-empty and unique"));
-        let mut empty = policy();
-        empty.verdicts.clear();
-        cases.push((empty, "non-empty and unique"));
-        let mut stray = policy();
-        stray.verdict_heading = "Outcome".to_string();
-        cases.push((stray, "one of `gate-headings`"));
-        for (declared, reason) in cases {
-            let outcome = validate(&conforming(), &declared, None).render(Format::Text);
-            assert_eq!(outcome.exit_code, 2);
-            assert!(outcome.stderr.contains(reason), "{}", outcome.stderr);
-        }
     }
 
     #[test]

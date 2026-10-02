@@ -285,7 +285,7 @@ Feature: Quality-gate structure
     Then the exit code is 1
     And the first stdout JSON violation kind is "missing-gate-agent"
 
-  Scenario: A default cycle ceiling above three is refused before any file is read (QG09)
+  Scenario: A default max-cycles above three is refused before any file is read (QG09)
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -309,6 +309,64 @@ Feature: Quality-gate structure
     When I invoke the CLI with "governance|quality-gates|validate"
     Then the exit code is 2
     And stderr contains "defaults.max-cycles"
+
+  Scenario Outline: A declaration the structure check could not apply is refused by repo-config validate
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: <root>
+            agents: agents
+            groups: <groups>
+            gate-group: quality
+            gate-headings: <gate-headings>
+            verdict-heading: <verdict-heading>
+            verdicts: <verdicts>
+            retired-inputs: [<retired>]
+            propagation-headings: [Contract, Scope, Executor]
+            gates: <gates>
+      """
+    When I invoke the CLI with "repo-config|validate"
+    Then the exit code is 2
+    And stderr contains "<reason>"
+
+    Examples:
+      | root         | groups                | gate-headings           | verdict-heading | verdicts    | retired        | gates                            | reason                          |
+      | ../workflows | [plan, quality]       | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | max-iterations | [{family: plan}]                 | exact repository-relative paths |
+      | workflows    | [plan]                | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | max-iterations | [{family: plan}]                 | include `gate-group`            |
+      | workflows    | [plan, quality, plan] | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | max-iterations | [{family: plan}]                 | include `gate-group`            |
+      | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | max-iterations | [{family: plan}, {family: plan}] | unique simple name              |
+      | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | max-iterations | [{family: Plan}]                 | unique simple name              |
+      | workflows    | [plan, quality]       | [Entry, Entry, Verdict] | Verdict         | [PASS]      | max-iterations | [{family: plan}]                 | non-empty and unique            |
+      | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Verdict         | []          | max-iterations | [{family: plan}]                 | non-empty and unique            |
+      | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Verdict         | [PASS]      | " "            | [{family: plan}]                 | non-empty and unique            |
+      | workflows    | [plan, quality]       | [Entry, Cycle, Verdict] | Outcome         | [PASS]      | max-iterations | [{family: plan}]                 | one of `gate-headings`          |
+
+  Scenario: A repository default below three does not lower what a gate may declare
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            defaults:
+              max-cycles: 1
+            gates:
+              - family: plan
+      """
+    When I invoke the CLI with "governance|quality-gates|validate"
+    Then the exit code is 0
 
   Scenario: A module directory without a sibling entrypoint is reported (QG10)
     Given the repository contains:
