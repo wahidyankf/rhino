@@ -22,8 +22,11 @@ All five must hold at the moment of merge:
   precondition.
 - **Branch currency.** The branch is current with `main`, brought forward by rebase, and GitHub reports no conflict.
 - **Conversations.** Every review conversation is resolved, or dismissed by the user.
-- **Surface gates.** Every gate the changed behaviour requires has a passing terminal result. When no reachable
-  behaviour changed, say so explicitly rather than leaving the question open.
+- **Surface gates.** Every deterministic check the changed reachable behaviour requires has a passing terminal result. A
+  quality gate is never this precondition: its verdict is advisory under the
+  [Quality Gate Contract](../development/workflow/quality-gate-contract.md), so when one runs on request, its verdict is
+  recorded for the exact head and each open blocking row of a `FAIL` or `BLOCKED` verdict has an owner. When no
+  reachable behaviour changed, say so explicitly rather than leaving the question open.
 
 ## What Safety Means Here
 
@@ -54,6 +57,6 @@ A suspected exposure stops merge handling: contain and rotate the credential, th
 [data-safety convention](public-repository-data-safety.md) for history already written. A green gate, a resolved
 conversation, or an earlier clean review never authorizes merging a contaminated pull request.
 
-Never bypass a failing or pending gate, an unresolved conversation, or the ruleset. A user may waive a named gate for a
+Never bypass a failing or pending check, an unresolved conversation, or the ruleset. A user may waive a named gate for a
 named merge; that waiver covers nothing else, and it never covers the leak review. Repairing a gate failure follows
 [push-hook verification](push-hook-verification.md): fix the cause.
