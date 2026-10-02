@@ -213,7 +213,10 @@ pub fn execute_using_with_boundaries(
     // that declares none of its sections would report a clean tree it never
     // checked.
     match (invocation.category, document) {
-        ("repo-config", _) => {
+        ("repo-config", Document::V0_4(document)) => {
+            if let Err(error) = v0_4::config::check_quality_gates(&document) {
+                return Report::refused("repo-config", error.to_string()).render(invocation.format);
+            }
             let mut report = Report::new("repo-config", "configuration file");
             report.inspected(1);
             report.render(invocation.format)
@@ -414,14 +417,20 @@ pub fn execute_using_with_boundaries(
             tree,
         )
         .render(invocation.format),
-        ("quality-gates", Document::V0_4(document)) => v0_4::validators::quality_gates(
-            document
-                .policies
-                .as_ref()
-                .and_then(|policies| policies.governance.as_ref()),
-            tree,
-        )
-        .render(invocation.format),
+        ("quality-gates", Document::V0_4(document)) => {
+            if let Err(error) = v0_4::config::check_quality_gates(&document) {
+                return Report::refused("quality-gates", error.to_string())
+                    .render(invocation.format);
+            }
+            v0_4::validators::quality_gates(
+                document
+                    .policies
+                    .as_ref()
+                    .and_then(|policies| policies.governance.as_ref()),
+                tree,
+            )
+            .render(invocation.format)
+        }
         ("traceability", Document::V0_4(document)) => v0_4::validators::traceability(
             document
                 .policies
