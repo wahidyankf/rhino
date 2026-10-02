@@ -9,10 +9,10 @@ _source_: an archived plan stays a valid link target, but reporting its outward 
 produce findings. For what the binary does today, read [`specs/`](../../specs/README.md).
 
 Before archiving, reconcile required and conditional delivery, acceptance, verification, and learnings.
-[Plan execution](../../repo-governance/workflows/plan-execution.md) owns the move: it refuses an existing destination
-rather than merging, overwriting, or adding a suffix; records completion metadata and outcomes; moves the folder from
-[`../in-progress/`](../in-progress/README.md); updates both stage indexes and maps in one change; and then verifies the
-archive itself.
+[Plan execution](../../repo-governance/workflows/plan/plan-execution.md) owns the move: it refuses an existing
+destination rather than merging, overwriting, or adding a suffix; records completion metadata and outcomes; moves the
+folder from [`../in-progress/`](../in-progress/README.md); updates both stage indexes and maps in one change; and then
+verifies the archive itself.
 
 ## Completed Plans
 

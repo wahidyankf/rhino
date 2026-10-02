@@ -10,6 +10,7 @@ no second project to disambiguate from.
 
 - [architecture.md](architecture.md) — the as-built C4 model: context, containers, components, data, and the boundaries
   each adapter observes.
-- [behaviours/](behaviours/README.md) — the Gherkin corpus, one feature file holding the whole grouped-v2 contract.
+- [behaviours/](behaviours/README.md) — the Gherkin corpus: the grouped-v2 contract and the validators later releases
+  added to it.
 - [fixtures/](fixtures/README.md) — retained grouped-v2 consumer and rejection fixtures that make the stable corpus
   executable.
