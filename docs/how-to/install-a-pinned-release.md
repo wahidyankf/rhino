@@ -27,7 +27,8 @@ shasum -a 256 --ignore-missing -c checksums.txt
 
 Replace `REPLACE_WITH_RELEASE_TAG` with a tag the releases page does not mark `Pre-release`; the one marked `Latest` is
 the newest. A pre-release is a candidate, not a build to pin. A grouped `rhino/repo-config/v2` configuration needs
-`v0.4.0` or later.
+`v0.4.0` or later, and a key added later needs the release that added it: `policies.governance.quality-gates` needs
+`v0.9.0` or later, because an earlier binary refuses the unknown key.
 
 Verifying afterwards tells you what you already ran. Verify first.
 

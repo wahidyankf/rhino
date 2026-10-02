@@ -54,6 +54,12 @@ inside RHINO — `README.md` for the file a directory map lives in, and the cano
 `AGENTS.md`, `.agents/agents/*.md`, and `.agents/skills/*/SKILL.md` — are the tool's own behaviour, the input its
 generator is defined over, not a consumer's layout.
 
+The quality-gate check holds the same kind of fixed behaviour. Its file names — `<family>-quality-gate.md`,
+`<family>-propagation.md`, `<family>-checker.md`, `<family>-fixer.md`, `NNN-*.md` modules, and a `README.md` index — and
+its ceiling of three cycles belong to the bounded gate contract it checks, not to any one repository. That ceiling is a
+bound rather than a default: a repository still declares where its gates live, which families it holds, and the headings
+and verdicts they carry, and declaring nothing still exits `2`.
+
 ## The test that keeps it honest
 
 RHINO validates RHINO. Its own `repo-config.yml` is the second repository this schema ever described, and writing it
