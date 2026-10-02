@@ -114,8 +114,9 @@ policies:
 - `gates[].family` (unique simple names) and the optional `gates[].subject`: the families this repository holds.
 
 `gate-headings`, `propagation-headings`, and `verdicts` must each be non-empty and unique, and no `retired-inputs` entry
-may be blank. A declaration that breaks any rule in this list is a configuration error with exit `2` for every command,
-`repo-config validate` included, before any file is read.
+may be blank. A declaration that breaks any rule in this list is a configuration error with exit `2` for
+`repo-config validate` and `governance quality-gates validate`, before any file is read; a command that does not read
+the key is unaffected. A `defaults.max-cycles` outside 1–3 is refused by every command that reads `repo-config.yml`.
 
 Each finding names its rule as a `rule` detail: `QG01` to `QG08`, `QG10`, or `QG11`. QG09 is the configuration error
 above, never a finding. The kinds are in [Findings](findings.md#quality-gates).
