@@ -37,7 +37,8 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
   repository-relative path.
 - `rhino.file.missing` — A named file or directory does not exist.
 - `rhino.file.unreadable` — A file RHINO had to read exists and could not be read, or lies behind a symbolic link RHINO
-  does not follow; or a declared surface glob reaches a symbolic link that loops or leads to nothing.
+  does not follow; a declared surface glob reaches a symbolic link that loops or leads to nothing; or a file
+  `governance quality-gates validate` was reading vanished.
 - `rhino.file.exists` — A file that had to be created is already there.
 - `rhino.file.unwritable` — A file that had to be written could not be written, including one whose path passes through
   a symbolic link.
