@@ -23,7 +23,13 @@ nothing breaks.
   names an undeclared family, each gate carries the declared headings in order and names only declared verdicts, each
   propagation carries its declared headings, no gate allows more than three cycles or names a retired input, every
   module directory sits beside its workflow and lists its `NNN-*.md` modules in a README, and no split workflow fits its
-  word budget as one file. Each finding carries its rule, `QG01` to `QG11`, as a `rule` detail.
+  word budget as one file. Each finding carries its rule, `QG01` to `QG11`, as a `rule` detail. Its kinds, by rule:
+  `unexpected-workflow-entry` (QG01); `missing-quality-gate-file` (QG02); `misplaced-quality-gate-file` and
+  `undeclared-quality-gate-family` (QG03); `missing-gate-heading` and `gate-heading-out-of-order` (QG04);
+  `missing-propagation-heading` (QG05); `unbounded-gate-cycles` and `retired-gate-input` (QG06); `unknown-gate-verdict`
+  (QG07); `missing-gate-agent` (QG08); `unpaired-workflow-module-directory`, `unexpected-workflow-module-entry`,
+  `missing-workflow-module-index`, and `unlisted-workflow-module` (QG10); and `unnecessary-workflow-split` (QG11). The
+  [findings reference](docs/reference/findings.md#quality-gates) gives each one's meaning and details.
 - **`policies.governance.quality-gates`.** The declaration that command reads, added to the `v2` schema as an optional
   key. Its `defaults.max-cycles` accepts only 1, 2, or 3, in the schema and at runtime; any other value is a
   configuration error with exit `2`.
