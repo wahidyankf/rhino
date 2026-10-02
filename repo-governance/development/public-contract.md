@@ -38,4 +38,4 @@ offer.
 ## Related
 
 - [Vision](../vision/README.md)
-- [Release cut](../workflows/release-cut.md)
+- [Release cut](../workflows/maintenance/release-cut.md)

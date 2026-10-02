@@ -8,7 +8,7 @@ A plan is optional. Most work here is one delivery unit and needs no folder. A p
 several units or several sessions, or when the decision behind it is one a reader will want the reasoning for later. The
 rule is the [plans convention](../repo-governance/conventions/plans.md) and the local additions in
 [plan lifecycle](../repo-governance/conventions/plan-lifecycle.md); the procedure is
-[plan execution](../repo-governance/workflows/plan-execution.md).
+[plan execution](../repo-governance/workflows/plan/plan-execution.md).
 
 ## Stages
 
@@ -31,8 +31,8 @@ them is lying.
 
 Only work it can deliver alone. A plan whose delivery would change another repository is planned where that work is
 coordinated and arrives here as its own change, with its own evidence, like any other rule that came from elsewhere —
-see [rules propagation](../repo-governance/workflows/rules-propagation.md). A plan that directed edits into a sibling
-would be exactly the automatic propagation this repository refuses.
+see [rules propagation](../repo-governance/workflows/quality/rules-propagation.md). A plan that directed edits into a
+sibling would be exactly the automatic propagation this repository refuses.
 
 ## Directory Map
 

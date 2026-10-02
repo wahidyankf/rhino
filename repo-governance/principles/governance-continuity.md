@@ -13,7 +13,7 @@ the least convenient moment.
 - Work in progress records enough state to resume: what was decided, what was verified, and what is outstanding. A
   verification result that cannot be pointed at has to be redone.
 - Do not delete or weaken a rule to fit the work in front of you. Changing a rule is its own act, with its own
-  authorization, through [rules propagation](../workflows/rules-propagation.md).
+  authorization, through [rules propagation](../workflows/quality/rules-propagation.md).
 - When context is lost mid-task, re-read the governing documents rather than reconstructing them from memory.
   Reconstruction produces something plausible, which is worse than knowing you do not know.
 - Retain unfamiliar changes under this tree rather than reverting them because they are unrecognized. Unfamiliar is not
@@ -22,4 +22,4 @@ the least convenient moment.
 ## Related
 
 - [Rules](../conventions/rules.md)
-- [Rules propagation](../workflows/rules-propagation.md)
+- [Rules propagation](../workflows/quality/rules-propagation.md)

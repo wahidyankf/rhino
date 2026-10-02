@@ -39,5 +39,5 @@ Each increment is a separate item in the [task list](../conventions/task-trackin
 
 ## Related
 
-- [Red, green, refactor](../workflows/red-green-refactor.md)
+- [Red, green, refactor](../workflows/quality/red-green-refactor.md)
 - [Specification maintenance](specification-maintenance.md)

@@ -8,7 +8,7 @@ Represent repository work as a granular task list, and keep that list synchroniz
 - Split work into small, concrete items with one observable outcome each. Split again when an item combines distinct
   actions or outcomes.
 - For new or changed behaviour and for bug fixes, represent each
-  [red–green–refactor](../workflows/red-green-refactor.md) increment as separate RED, GREEN, and REFACTOR items.
+  [red–green–refactor](../workflows/quality/red-green-refactor.md) increment as separate RED, GREEN, and REFACTOR items.
   Preserve the test path, the expected behavioural RED reason before implementation, and the final GREEN and REFACTOR
   results. A pure refactor follows the green-baseline and characterization rule in
   [test-driven development](../development/test-driven-development.md).

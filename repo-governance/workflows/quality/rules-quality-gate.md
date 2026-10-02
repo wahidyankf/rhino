@@ -11,7 +11,7 @@ continuation for any non-passing finding.
 
 A passing rule is good enough for the stated need, scope, and known risk — not perfect, exhaustive, or future-proof. Do
 not raise findings for wording preference, speculative cases, optional explanation, or automation with no demonstrated
-need. Apply [minimal sufficiency](../principles/minimal-sufficiency.md).
+need. Apply [minimal sufficiency](../../principles/minimal-sufficiency.md).
 
 This gate owns semantic rule quality. Deterministic tooling owns machine-decidable checks — links, directory maps, word
 budgets, Mermaid, harness parity. Do not manually reproduce, sample, or second-guess them; consume their result only
@@ -35,7 +35,7 @@ relevant canonical sources, enforcement route, Git revision, and dirty paths. A 
 Audit without editing. Record a finite ledger of `ID`, canonical source, material semantic gap, required resolution,
 evidence, and status — `OPEN`, `RESOLVED`, `NOT_APPLICABLE`, or `BLOCKED`. Admit only a rule violation, or a gap making
 the outcome unsafe, contradictory, undiscoverable, or materially ambiguous. `NOT_APPLICABLE` requires evidence. Preserve
-everything through compaction under [governance continuity](../principles/governance-continuity.md).
+everything through compaction under [governance continuity](../../principles/governance-continuity.md).
 
 ## Semantic Audit
 

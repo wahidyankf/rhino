@@ -6,7 +6,8 @@ description: Build, checksum, and tag a RHINO release from the primary checkout,
 # Release Cut
 
 A published release is permanent. A consumer pins it by version, commit, and checksum, and must get the same bytes
-forever. The rules are in [the workflow](../../../repo-governance/workflows/release-cut.md); this file is the sequence.
+forever. The rules are in [the workflow](../../../repo-governance/workflows/maintenance/release-cut.md); this file is
+the sequence.
 
 Run from the **primary checkout on local `main`**, never from a `worktrees/` checkout.
 
@@ -15,7 +16,7 @@ Run from the **primary checkout on local `main`**, never from a `worktrees/` che
 - The commit is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, working tree clean.
 - `CHANGELOG.md` describes this version, and a
-  [docs quality gate](../../../repo-governance/workflows/docs-quality-gate.md) run with scope `all` passes.
+  [docs quality gate](../../../repo-governance/workflows/quality/docs-quality-gate.md) run with scope `all` passes.
 
 ## Sequence
 

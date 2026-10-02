@@ -7,15 +7,15 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 
 ## Preconditions
 
-- An adopted [Upstream Tool Defects](../development/upstream-tool-defects.md) standard authorizes releasing a merged
+- An adopted [Upstream Tool Defects](../../development/upstream-tool-defects.md) standard authorizes releasing a merged
   RHINO defect fix whose regression test passes on that commit.
 - The commit to release is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, reconciled after the last merge by the
-  [integration path](../conventions/integration-path.md) rather than assumed.
+  [integration path](../../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
 - The quick gate and `cargo xtask schema --check` pass on that exact commit.
-- `CHANGELOG.md` describes this version; the [docs quality gate](docs-quality-gate.md#at-release-cut) with scope `all`
-  passed before the release-prep pull request and passes on this commit; any other result stops the release.
+- `CHANGELOG.md` describes this version; the [docs quality gate](../quality/docs-quality-gate.md#at-release-cut) with
+  scope `all` passed before the release-prep pull request and passes on this commit; any other result stops the release.
 
 ## Size Rehearsal
 
@@ -88,5 +88,5 @@ correctly; the fix is upstream of it.
 
 ## Related
 
-- [The public contract](../development/public-contract.md)
-- [Integration path](../conventions/integration-path.md)
+- [The public contract](../../development/public-contract.md)
+- [Integration path](../../conventions/integration-path.md)

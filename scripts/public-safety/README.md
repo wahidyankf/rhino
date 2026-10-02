@@ -57,8 +57,8 @@ every clone. `check.sh` reads it from `PUBLIC_SAFETY_BASE` and `PUBLIC_SAFETY_HE
 Git's pushed ref updates at `pre-push` and to the review range on a pull request. Each commit contributes its message
 and only the lines it added, at the line numbers they occupy, labelled `<commit>/<path>:<line>`; a merge contributes
 what it resolved beyond the automatic merge. Content the range did not add is not screened again. The screen matches
-shapes; the [leak review](../../repo-governance/workflows/pr-leak-review.md) reads context, and neither replaces the
-other.
+shapes; the [leak review](../../repo-governance/workflows/quality/pr-leak-review.md) reads context, and neither replaces
+the other.
 
 The tracked tree is screened at `pre-push` and in CI rather than at `pre-commit`. A full-tree credential scan costs
 about twenty seconds; paid on every commit it buys nothing that is not already paid before anything leaves the machine,

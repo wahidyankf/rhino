@@ -2,11 +2,11 @@
 
 Run only on explicit direction. Grooming is a recurring sweep of the rule corpus for volume that carries no obligation.
 It is never the remedy for one file exceeding its word budget;
-[progressive disclosure](../principles/progressive-disclosure.md) handles that.
+[progressive disclosure](../../principles/progressive-disclosure.md) handles that.
 
-Grooming never writes. [Rules propagation](rules-propagation.md) is the sole writer, and finding an edit does not make
-grooming an exception. This workflow discovers, ranks, and hands off. It never invokes the
-[rules quality gate](rules-quality-gate.md), which needs its own direction.
+Grooming never writes. [Rules propagation](../quality/rules-propagation.md) is the sole writer, and finding an edit does
+not make grooming an exception. This workflow discovers, ranks, and hands off. It never invokes the
+[rules quality gate](../quality/rules-quality-gate.md), which needs its own direction.
 
 ## Admitted Classes
 

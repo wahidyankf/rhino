@@ -26,9 +26,9 @@ repository's or a consumer's: it covers writing and landing a defect's idea brie
 ## Scope
 
 This repository plans only work it can deliver alone. Work that spans repositories is planned where it is coordinated
-and arrives here as its own change with its own evidence — [rules propagation](../workflows/rules-propagation.md) gives
-the reason: something that crosses a boundary is decided again on the other side, or it arrives without the argument
-that justified it.
+and arrives here as its own change with its own evidence —
+[rules propagation](../workflows/quality/rules-propagation.md) gives the reason: something that crosses a boundary is
+decided again on the other side, or it arrives without the argument that justified it.
 
 ## Ideas Are Filed by Quadrant
 
@@ -40,9 +40,9 @@ the one place the two differ.
 
 ## Delivery Items That Ship Code
 
-A checkbox that ships code states its [red-green-refactor](../workflows/red-green-refactor.md) cycle as three checkboxes
-— RED, GREEN, REFACTOR — each naming the test path, the command, and the failure or pass expected. Never one checkbox,
-and never prose.
+A checkbox that ships code states its [red-green-refactor](../workflows/quality/red-green-refactor.md) cycle as three
+checkboxes — RED, GREEN, REFACTOR — each naming the test path, the command, and the failure or pass expected. Never one
+checkbox, and never prose.
 
 That is stricter than the convention requires, and it is stricter because this repository is the one that implements the
 validators the convention is checked with. A cycle recorded as a single item cannot show that the test failed first,
@@ -51,7 +51,8 @@ which is the only part of it worth recording.
 ## Rule Changes Found During Execution
 
 Where execution may change a repository rule, `delivery.md` carries an `[AI]` task applying
-[rules propagation](../workflows/rules-propagation.md) and recording its terminal result, which may be `PASS_NO_CHANGE`.
+[rules propagation](../workflows/quality/rules-propagation.md) and recording its terminal result, which may be
+`PASS_NO_CHANGE`.
 
 ## Which Gherkin Becomes Durable
 

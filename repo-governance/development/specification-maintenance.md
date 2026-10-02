@@ -44,7 +44,7 @@ reaches inside the process is not end-to-end no matter what it spawns.
 ## Changed Gherkin
 
 A change to a `.feature` file or to an adapter's bindings gets the
-[Gherkin implementation review](../workflows/gherkin-implementation-review.md) before it merges.
+[Gherkin implementation review](../workflows/quality/gherkin-implementation-review.md) before it merges.
 
 ## Related
 

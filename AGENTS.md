@@ -21,7 +21,7 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   implement. Write scenarios and bindings under [BDD](repo-governance/development/behaviour-driven-development.md); keep
   [the C4 model](repo-governance/development/architecture-specifications.md) true.
 - Every scenario binds at unit adapter without exemption;
-  [review changed Gherkin](repo-governance/workflows/gherkin-implementation-review.md).
+  [review changed Gherkin](repo-governance/workflows/quality/gherkin-implementation-review.md).
 
 ## Testing
 
@@ -39,8 +39,9 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
 
 - [Understand, reuse, minimize, verify](repo-governance/principles/minimal-sufficiency.md). A new dependency carries
   [its own record](repo-governance/development/dependency-selection.md).
-- Keep `README.md`, `docs/`, and `CHANGELOG.md` [true to the binary](repo-governance/workflows/docs-propagation.md)
-  under [Diátaxis](repo-governance/conventions/documentation-architecture.md). Follow
+- Keep `README.md`, `docs/`, and `CHANGELOG.md`
+  [true to the binary](repo-governance/workflows/quality/docs-propagation.md) under
+  [Diátaxis](repo-governance/conventions/documentation-architecture.md). Follow
   [code clarity](repo-governance/development/code-clarity.md), [English](repo-governance/conventions/language.md),
   [Markdown](repo-governance/conventions/markdown-line-length.md),
   [links](repo-governance/conventions/markdown-links.md), and
@@ -54,13 +55,13 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [local additions](repo-governance/conventions/plan-lifecycle.md),
   [specification changes](repo-governance/conventions/plan-specification-changes.md), and
   [validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
-- The plan [quality gate](repo-governance/workflows/plan-quality-gate.md) needs explicit request; the
-  [execution check](repo-governance/workflows/plan-execution-check.md) blocks archival.
+- The plan [quality gate](repo-governance/workflows/quality/plan-quality-gate.md) needs explicit request; the
+  [execution check](repo-governance/workflows/plan/plan-execution-check.md) blocks archival.
 
 ## Version Control
 
 - `main` refuses direct pushes. Work only at `{repository location}/worktrees/<name>/`, never a sibling `*-worktrees/`
-  path, and integrate by [pull request](repo-governance/workflows/worktree-to-pull-request.md) under
+  path, and integrate by [pull request](repo-governance/workflows/maintenance/worktree-to-pull-request.md) under
   [the integration path](repo-governance/conventions/integration-path.md), one
   [delivery unit](repo-governance/conventions/pull-request-boundaries.md) each, with an accurate
   [body](repo-governance/conventions/pull-request-body.md) and
@@ -69,20 +70,18 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [authorized](repo-governance/conventions/commit-authorization.md). Never commit prohibited
   [data](repo-governance/conventions/public-repository-data-safety.md); [public safety](scripts/public-safety/README.md)
   gates every surface first without bypass; before each push the
-  [leak review](repo-governance/workflows/pr-leak-review.md) reads every outgoing commit, and every merge needs its
-  posted exact-head `pass` (`leak-review` status). Fix
+  [leak review](repo-governance/workflows/quality/pr-leak-review.md) reads every outgoing commit, and every merge needs
+  its posted exact-head `pass` (`leak-review` status). Fix
   [hook failures](repo-governance/conventions/push-hook-verification.md) at the cause. Keep
   [working tree](repo-governance/conventions/working-tree.md) clean and
   [poll GitHub](repo-governance/conventions/github-polling.md) every three minutes.
-- Cut releases only through [the release workflow](repo-governance/workflows/release-cut.md); never replace a tag.
+- Cut releases only through [release cut](repo-governance/workflows/maintenance/release-cut.md); never replace a tag.
 
 ## Harnesses
 
 - Claude Code, Codex, and OpenCode reach the same rules under
   [the contract](repo-governance/conventions/coding-harness-contract.md);
-  [change](repo-governance/workflows/coding-harness-contract-change.md) and
-  [verify](repo-governance/workflows/coding-harness-parity-verification.md) it through its workflows.
+  [change](repo-governance/workflows/quality/harness-propagation.md) and
+  [verify](repo-governance/workflows/quality/harness-parity-verification.md) it through its workflows.
 - [Rule](repo-governance/conventions/rules.md) changes automatically run
-  [propagation](repo-governance/workflows/rules-propagation.md);
-  [quality gate](repo-governance/workflows/rules-quality-gate.md) and
-  [grooming](repo-governance/workflows/rules-grooming.md) need explicit request.
+  [propagation](repo-governance/workflows/quality/rules-propagation.md); its gate and grooming need explicit request.

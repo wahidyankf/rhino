@@ -40,4 +40,4 @@ cost are never boundaries.
 - Never widen a coverage exclusion to accommodate a new module.
 
 Changed Gherkin or changed bindings get
-[the review](../../../repo-governance/workflows/gherkin-implementation-review.md) before completion.
+[the review](../../../repo-governance/workflows/quality/gherkin-implementation-review.md) before completion.

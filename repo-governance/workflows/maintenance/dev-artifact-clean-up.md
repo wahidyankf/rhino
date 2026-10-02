@@ -1,8 +1,8 @@
 # Dev Artifact Clean-Up
 
 Removing exactly the development artifacts one piece of work created, and bringing the primary checkout's `main` back
-level with `origin/main`. The obligations are stated in [integration path](../conventions/integration-path.md); this is
-the order, and the checks that make deleting safe.
+level with `origin/main`. The obligations are stated in [integration path](../../conventions/integration-path.md); this
+is the order, and the checks that make deleting safe.
 
 ## Scope
 

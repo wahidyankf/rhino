@@ -14,7 +14,7 @@ Every Rust rule is owned by [Rust Standards](../../../repo-governance/developmen
 its [Code Shape and Security][code-shape] module.
 [Test-Driven Development](../../../repo-governance/development/test-driven-development.md) and
 [Quality Gates](../../../repo-governance/development/quality-gates.md) govern tests and gates,
-[Red, Green, Refactor](../../../repo-governance/workflows/red-green-refactor.md) runs each cycle, and
+[Red, Green, Refactor](../../../repo-governance/workflows/quality/red-green-refactor.md) runs each cycle, and
 [Developing Applications](../developing-applications/SKILL.md) carries the judgement on layers, errors, logs, and input
 that holds in every language. This skill adds only the procedure and judgement of applying them in Rust. Where a
 sentence here seems to state a rule, the standard decides.
