@@ -1,8 +1,8 @@
-# Coding-Harness Parity Verification
+# Harness Parity Verification
 
 Use this workflow to evaluate whether the harnesses `repo-config.yml` declares currently satisfy the
-[coding-harness contract](../conventions/coding-harness-contract.md). It is read-only. Use the
-[contract change workflow](coding-harness-contract-change.md) when remediation is requested.
+[coding-harness contract](../../conventions/coding-harness-contract.md). It is read-only. Use the
+[harness propagation](harness-propagation.md) when remediation is requested.
 
 ## Prerequisites
 
@@ -59,5 +59,5 @@ Never broaden a repository-parity pass into a claim about excluded vendor or loc
 
 ## Recovery
 
-Preserve the findings and use the contract change workflow. Never weaken the validator, remove a denial, or exclude a
-path to obtain a pass. Rerun from a newly recorded baseline after remediation.
+Preserve the findings and use harness propagation. Never weaken the validator, remove a denial, or exclude a path to
+obtain a pass. Rerun from a newly recorded baseline after remediation.

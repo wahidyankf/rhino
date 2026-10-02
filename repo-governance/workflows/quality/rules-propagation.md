@@ -1,9 +1,9 @@
 # Rules Propagation
 
-Apply this workflow automatically whenever a repository [rule](../conventions/rules.md) is created, changed, moved, or
-deleted, or an explicitly requested [rules quality gate](rules-quality-gate.md) emits `NEEDS_PROPAGATION`. No separate
-instruction is required. Propagation is the sole writer, never invokes the quality gate, and consumes its frozen ledger
-when supplied. Edits inside one transaction do not start another.
+Apply this workflow automatically whenever a repository [rule](../../conventions/rules.md) is created, changed, moved,
+or deleted, or an explicitly requested [rules quality gate](rules-quality-gate.md) emits `NEEDS_PROPAGATION`. No
+separate instruction is required. Propagation is the sole writer, never invokes the quality gate, and consumes its
+frozen ledger when supplied. Edits inside one transaction do not start another.
 
 ## It Stops at This Repository's Boundary
 
@@ -34,12 +34,13 @@ verification; and authorization. Preserve them through compaction or handoff. A 
      standards in development, and procedures in workflows;
    - resolve conflicts in the order `vision > principles > conventions > development > workflows`;
    - keep one canonical statement, merge unique meaning, replace copies with concise links, and apply
-     [progressive disclosure](../principles/progressive-disclosure.md);
+     [progressive disclosure](../../principles/progressive-disclosure.md);
    - change only stale, misplaced, overlapping, or repeated content the ledger implicates; and
-   - name truthful enforcement under [software quality enforcement](../development/software-quality-enforcement.md),
+   - name truthful enforcement under [software quality enforcement](../../development/software-quality-enforcement.md),
      adding machinery only for a demonstrated need.
 3. Read the repaired surfaces once for semantic closure. Resolve only repair-caused conflicts, under the hierarchy and
-   [minimal sufficiency](../principles/minimal-sufficiency.md). Never broaden the ledger or reopen a settled preference.
+   [minimal sufficiency](../../principles/minimal-sufficiency.md). Never broaden the ledger or reopen a settled
+   preference.
 4. Run the gate:
 
    ```sh

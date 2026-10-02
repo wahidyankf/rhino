@@ -108,7 +108,7 @@ including a pre-existing failure encountered in scope; never bypass a hook.
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo fmt --all --check`, then
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance:
       formatting and all unit scenarios pass. `[AC-01]` `[AC-02]`
-- [ ] `[AI]` Apply `repo-governance/workflows/docs-propagation.md` to `docs/reference/v0-4-configuration.md` and
+- [ ] `[AI]` Apply `repo-governance/workflows/quality/docs-propagation.md` to `docs/reference/v0-4-configuration.md` and
       `CHANGELOG.md`; acceptance: the configuration reference states the refusal and the changelog records it under an
       unreleased entry. `[AC-01]`
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`;
@@ -161,9 +161,9 @@ including a pre-existing failure encountered in scope; never bypass a hook.
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo fmt --all --check`, then
       `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test unit`; acceptance: all
       Mermaid scenarios pass with no duplicated state tracking. `[AC-03]` `[AC-04]` `[AC-05]`
-- [ ] `[AI]` Apply `repo-governance/workflows/docs-propagation.md` to `docs/reference/findings.md` and `CHANGELOG.md`;
-      acceptance: the Mermaid section states that accessibility metadata and numeric entities are not inspected as
-      content, and the changelog records the fix. `[AC-03]` `[AC-04]`
+- [ ] `[AI]` Apply `repo-governance/workflows/quality/docs-propagation.md` to `docs/reference/findings.md` and
+      `CHANGELOG.md`; acceptance: the Mermaid section states that accessibility metadata and numeric entities are not
+      inspected as content, and the changelog records the fix. `[AC-03]` `[AC-04]`
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`;
       acceptance: exit `0`. `[AC-06]`
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`;
@@ -199,16 +199,16 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo test --test e2e`;
       acceptance: the end-to-end adapter passes every changed scenario. `[AC-01]` `[AC-02]` `[AC-03]` `[AC-04]`
       `[AC-05]`
-- [ ] `[AI]` Run `repo-governance/workflows/gherkin-implementation-review.md` for the scenarios this plan added to
-      `specs/behaviours/v0-4-contract.feature` and store its row ledger at
+- [ ] `[AI]` Run `repo-governance/workflows/quality/gherkin-implementation-review.md` for the scenarios this plan added
+      to `specs/behaviours/v0-4-contract.feature` and store its row ledger at
       `local-tmp/harden-rhino-validation-edge-cases-gherkin-review.tsv`; acceptance: every expanded scenario has a
       `PASS` or justified `EXEMPT` row for unit, integration, and end-to-end. `[AC-06]`
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick`;
       acceptance: exit `0` on the exact final main tree. `[AC-06]`
 - [ ] `[AI]` Run `./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate`;
       acceptance: exit `0` on the exact final main tree. `[AC-06]`
-- [ ] `[AI]` Run `repo-governance/workflows/plan-execution-check.md` against Phases 0–3 and record the verdict in this
-      file; acceptance: it reports `PASS` with every AC terminal before knowledge capture. `[AC-06]`
+- [ ] `[AI]` Run `repo-governance/workflows/plan/plan-execution-check.md` against Phases 0–3 and record the verdict in
+      this file; acceptance: it reports `PASS` with every AC terminal before knowledge capture. `[AC-06]`
 
 ### Phase 3 Gate
 

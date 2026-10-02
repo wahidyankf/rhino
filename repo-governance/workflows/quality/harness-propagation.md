@@ -1,12 +1,12 @@
-# Coding-Harness Contract Change
+# Harness Propagation
 
 Use this workflow whenever repository-owned rules, canonical skills, canonical agents, or their adapters are added,
 changed, renamed, or removed. The goal is one canonical edit with complete parity across the harnesses the
-[contract](../conventions/coding-harness-contract.md) declares — not independently maintained trees.
+[contract](../../conventions/coding-harness-contract.md) declares — not independently maintained trees.
 
 ## Prerequisites
 
-- Read the [coding-harness contract](../conventions/coding-harness-contract.md).
+- Read the [coding-harness contract](../../conventions/coding-harness-contract.md).
 - Keep credentials, user-global configuration, local memory, and generated vendor state out of the repository.
 - For a rule change, run [rules propagation](rules-propagation.md) first.
 - Check current official vendor documentation before changing a native adapter schema. Never infer a field from another
@@ -26,7 +26,7 @@ changed, renamed, or removed. The goal is one canonical edit with complete parit
 ### 2. Reconcile every adapter in the same change
 
 The adapter path, route field, and translation table for each harness are declared in
-[`repo-config.yml`](../../repo-config.yml). Read them there; this document does not restate the roster.
+[`repo-config.yml`](../../../repo-config.yml). Read them there; this document does not restate the roster.
 
 An adapter carries native identity, mode, and permission metadata plus the fixed route to the canonical file — and
 nothing else. Never copy the canonical body into an adapter, never append an instruction, never pin a provider model,
@@ -53,7 +53,7 @@ When topology, accepted front matter, capability mappings, native schema, or fin
 
 1. express it in `repo-config.yml`, and stop there if it can be declared;
 2. otherwise change the validator at the narrowest responsible layer, against the corpus, following
-   [specification maintenance](../development/specification-maintenance.md); and
+   [specification maintenance](../../development/specification-maintenance.md); and
 3. update `docs/reference/configuration.md` when a declared key or its meaning moves.
 
 This repository builds the validator it runs, so a shape change and its enforcement land together rather than waiting on

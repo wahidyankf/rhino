@@ -17,8 +17,8 @@ constraints:
 Review changed `.feature` files and their bindings and report whether each binding implements the behaviour its scenario
 states. The static behaviour check proves a binding exists; only this review can say what it asserts.
 
-Follow [the review workflow](../../repo-governance/workflows/gherkin-implementation-review.md) as the procedure. This
-file is the boundary and the judgement.
+Follow [the review workflow](../../repo-governance/workflows/quality/gherkin-implementation-review.md) as the procedure.
+This file is the boundary and the judgement.
 
 ## Method
 

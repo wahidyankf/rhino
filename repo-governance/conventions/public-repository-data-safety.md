@@ -29,8 +29,8 @@ Use repository-relative paths wherever possible. Otherwise use an unmistakable p
 credentials or real infrastructure.
 
 Inspect the complete proposed change before every commit: staged content, intended untracked files, generated artifacts,
-and the message. The [leak review](../workflows/pr-leak-review.md) repeats that reading for every commit before each
-push and, posted, for the exact head being [merged](pull-request-merge.md).
+and the message. The [leak review](../workflows/quality/pr-leak-review.md) repeats that reading for every commit before
+each push and, posted, for the exact head being [merged](pull-request-merge.md).
 
 ## What Enforces It
 

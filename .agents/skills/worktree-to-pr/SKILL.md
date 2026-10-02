@@ -6,8 +6,8 @@ description: Take a change from a task worktree to merged on main through a pull
 # Worktree to Pull Request
 
 `main` refuses direct pushes for every actor, with no bypass. This is the procedure that gets a change there. The rules
-behind each step live in [the workflow](../../../repo-governance/workflows/worktree-to-pull-request.md); this file is
-the sequence.
+behind each step live in [the workflow](../../../repo-governance/workflows/maintenance/worktree-to-pull-request.md);
+this file is the sequence.
 
 ## Once per task
 

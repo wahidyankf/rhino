@@ -1,13 +1,13 @@
 # Red, Green, Refactor
 
 Use this workflow for each behaviour increment required by
-[test-driven development](../development/test-driven-development.md).
+[test-driven development](../../development/test-driven-development.md).
 
 ## Prerequisites
 
 - Assess `specs/behaviours/` and `specs/architecture.md` for impact first, under
-  [specification maintenance](../development/specification-maintenance.md). The Gherkin comes before the test that binds
-  it.
+  [specification maintenance](../../development/specification-maintenance.md). The Gherkin comes before the test that
+  binds it.
 - Identify the smallest observable behaviour to add or change.
 - Identify the narrowest test target that can demonstrate it.
 

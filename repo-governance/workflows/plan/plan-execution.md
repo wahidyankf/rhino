@@ -5,17 +5,17 @@ Use this only after an explicit direction to execute one formal plan.
 ## Start
 
 1. Select one plan in `backlog/` or `in-progress/`. Require a current `PASS` from a
-   [plan quality gate](plan-quality-gate.md) run the user explicitly directed. Authority to execute is not authority to
-   run that gate: with no current `PASS`, stop and say so. For a bug-fix plan, an adopted Upstream Tool Defects standard
-   directs both.
+   [plan quality gate](../quality/plan-quality-gate.md) run the user explicitly directed. Authority to execute is not
+   authority to run that gate: with no current `PASS`, stop and say so. For a bug-fix plan, an adopted Upstream Tool
+   Defects standard directs both.
 2. Enter the plan's worktree before any file or Git mutation, initializing it if new, under
-   [the integration path](../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
+   [the integration path](../../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
    its sync gate there, and read the whole incoming diff against the plan when the sync adds commits.
 3. If the plan is queued, move it to `plans/in-progress/<slug>/` with its status and both stage maps, in one change.
    Never copy it.
 4. Read `learnings.md` before touching anything. Mirror every unchecked executable delivery item into the
-   [task list](../conventions/task-tracking.md), preserving wording, owner label, order, and references. Leave dormant
-   recovery items dormant.
+   [task list](../../conventions/task-tracking.md), preserving wording, owner label, order, and references. Leave
+   dormant recovery items dormant.
 
 ## Execute
 
@@ -25,16 +25,17 @@ Use this only after an explicit direction to execute one formal plan.
    dated result saying what proved it, what changed, and what was surprising. One step, not a batch of ticks at the end
    of a session — a tick says an action happened and does not say what it found. Every behaviour-changing item names the
    layer that establishes it under
-   [verification routing](../development/planning-capabilities/006-verification-routing.md).
+   [verification routing](../../development/planning-capabilities/006-verification-routing.md).
 3. Keep the plan and the task list synchronized, activating a conditional item when its trigger fires. Add a discovered
    task to both lists only when it serves an outcome the plan already has; label it and explain it.
 4. Capture learnings as they happen rather than reconstructing them at the end. Search
-   [`plans/ideas/`](../../plans/ideas/README.md) for overlap and either merge into an existing brief or write one
+   [`plans/ideas/`](../../../plans/ideas/README.md) for overlap and either merge into an existing brief or write one
    distinct brief and link it.
-5. Land work in delivery units through [worktree to pull request](worktree-to-pull-request.md), reusing the plan's one
-   worktree for every unit. A unit is complete when its pull request has merged, not when its code is written.
+5. Land work in delivery units through [worktree to pull request](../maintenance/worktree-to-pull-request.md), reusing
+   the plan's one worktree for every unit. A unit is complete when its pull request has merged, not when its code is
+   written.
 6. Run the required automation for each unit and record evidence
-   [data safety](../conventions/public-repository-data-safety.md) permits.
+   [data safety](../../conventions/public-repository-data-safety.md) permits.
 7. Apply every applicable repository rule; a plan expands no authority, and neither does a task list. A failing gate
    stops the line: repair the cause, update `delivery.md` and `learnings.md`, then resume.
 8. Fix what fails, including what was already failing. A check that was red before this plan started is red because of
@@ -52,10 +53,10 @@ Use this only after an explicit direction to execute one formal plan.
    that never ran. The plan stays in progress while any required outcome, activated conditional, gate, or human action
    remains.
 4. Archive through the sequence
-   [knowledge capture and archival](../conventions/plans/008-knowledge-capture-and-archival.md) fixes, using the final
-   checkpoint's local date for both the README `Completed` field and the destination folder. Refuse an existing
+   [knowledge capture and archival](../../conventions/plans/008-knowledge-capture-and-archival.md) fixes, using the
+   final checkpoint's local date for both the README `Completed` field and the destination folder. Refuse an existing
    destination: never merge, overwrite, or add a suffix. Committing and pushing need their own
-   [authorization](../conventions/commit-authorization.md).
+   [authorization](../../conventions/commit-authorization.md).
 
 ## Recovery
 

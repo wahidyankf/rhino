@@ -4,7 +4,7 @@ Git keeps no undo for uncommitted work, and a rewrite of pushed history reaches 
 someone else is using the same machine and remote at the same moment.
 
 Adapted from the catalog rule of the same name. What changed: a branch whose pull request merged is still deleted with
-`-D` where [dev artifact clean-up](../workflows/dev-artifact-clean-up.md) establishes that the change is on
+`-D` where [dev artifact clean-up](../workflows/maintenance/dev-artifact-clean-up.md) establishes that the change is on
 `origin/main`, and that workflow's own refusals stand beside this rule.
 
 ## The Rule Is the Effect

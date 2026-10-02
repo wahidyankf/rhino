@@ -27,9 +27,9 @@ indexes the documents directly inside it.
 
 Every command and transcript shown in `docs/` must have been executed against the current build. Where running one would
 touch a production or shared system, publish, spend, need a secret, or be irreversible, the page says plainly that it
-was not exercised instead of showing output. [Docs propagation](../workflows/docs-propagation.md) keeps pages true with
-every change. A page that contradicts the [specification corpus](../development/specification-maintenance.md) is a
-defect in the page, not a difference of opinion — the corpus is what the tool is specified to do.
+was not exercised instead of showing output. [Docs propagation](../workflows/quality/docs-propagation.md) keeps pages
+true with every change. A page that contradicts the [specification corpus](../development/specification-maintenance.md)
+is a defect in the page, not a difference of opinion — the corpus is what the tool is specified to do.
 
 ## Directory Maps
 

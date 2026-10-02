@@ -1,8 +1,8 @@
 # Docs Quality Gate
 
 Run only when someone explicitly names this gate or directs its documentation audit, or when
-[release cut](release-cut.md) runs it with scope `all`. A change or a [docs propagation](docs-propagation.md) run never
-authorizes it alone.
+[release cut](../maintenance/release-cut.md) runs it with scope `all`. A change or a
+[docs propagation](docs-propagation.md) run never authorizes it alone.
 
 Audit read-only and record a finite ledger of stale, obsolete, misplaced, and unreadable documents, repeating after each
 propagation until two consecutive audits are clean. This gate never edits a document and never starts another run
@@ -23,11 +23,11 @@ Under `change`, audit the documents the change touches and every document citing
 set. Decide for each document whether:
 
 1. every claim is true to the implementation, and every command shown was run or is marked not exercised, under
-   [truthfulness](../conventions/documentation-architecture.md#truthfulness);
+   [truthfulness](../../conventions/documentation-architecture.md#truthfulness);
 2. it still describes something the repository has; if not, it is obsolete and its resolution is removal;
 3. each fact has one home, a summary sits above its detail under
-   [progressive disclosure](../principles/progressive-disclosure.md), and a `docs/` page serves one Diátaxis category
-   under [documentation architecture](../conventions/documentation-architecture.md);
+   [progressive disclosure](../../principles/progressive-disclosure.md), and a `docs/` page serves one Diátaxis category
+   under [documentation architecture](../../conventions/documentation-architecture.md);
 4. a newcomer learns from the opening what it is and why it matters, and finds the next step, judged by reading, never
    by a score;
 5. under `all`, or when setup changed, a reader with no prior context can follow the setup exactly as written from a
@@ -39,7 +39,7 @@ set. Decide for each document whether:
 Record the ledger under `local-tmp/docs-quality-gate/`. Each row names the document, the gap, the required resolution —
 update, move, or remove — the evidence, and a status: `OPEN`, `RESOLVED`, `NOT_APPLICABLE` with evidence, or `BLOCKED`.
 Admit only a document that is wrong, obsolete, unreachable, or unusable by a newcomer; wording preference is not a
-finding, under [minimal sufficiency](../principles/minimal-sufficiency.md).
+finding, under [minimal sufficiency](../../principles/minimal-sufficiency.md).
 
 Formatting, links, directory maps, and word budgets belong to deterministic checks. Consume their result rather than
 repeating them:
@@ -52,7 +52,7 @@ repeating them:
 
 An audit is clean only when the ledger is clear and the checks pass; otherwise the gate hands its ledger to docs
 propagation. A finding only the owner can decide, such as a specification that disagrees with the implementation, is
-asked through [grill-me](../../.agents/skills/grill-me/SKILL.md).
+asked through [grill-me](../../../.agents/skills/grill-me/SKILL.md).
 
 The handoff is never a blocked result: without another request, the caller runs docs propagation with the ledger, then
 audits again with the same scope and a fresh snapshot. Results:
@@ -69,11 +69,11 @@ commit or push.
 
 ## At Release Cut
 
-[Release cut](release-cut.md) runs the gate with scope `all` twice. The first run happens before the release-prep pull
-request opens, and that pull request carries its repairs, so each repair's new prose is re-audited before the merge
-rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition and must pass
-without a repair, since a repair changes the commit; a finding stops the release until a new pull request lands its
-repairs.
+[Release cut](../maintenance/release-cut.md) runs the gate with scope `all` twice. The first run happens before the
+release-prep pull request opens, and that pull request carries its repairs, so each repair's new prose is re-audited
+before the merge rather than one run at a time after it. The second run, on the exact commit to tag, is the precondition
+and must pass without a repair, since a repair changes the commit; a finding stops the release until a new pull request
+lands its repairs.
 
 The gate runs the binary, so it is also a behaviour audit. A row where the document states the intended contract and the
 binary disagrees is a code defect: fix it through its own pull request before the tag, never by documenting the defect

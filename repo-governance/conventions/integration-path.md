@@ -38,7 +38,7 @@ deletion for every actor, including the repository owner. There is no bypass.
   unit that used the worktree has landed. Confirm nothing is unpushed and nothing is running first. Retain a worktree
   whose run failed, and say so, rather than deleting the evidence.
 - Cut a release from the primary checkout on local `main`, never from a `worktrees/` checkout. This repository has no
-  exception to the location rule; see [release cut](../workflows/release-cut.md).
+  exception to the location rule; see [release cut](../workflows/maintenance/release-cut.md).
 
 ## Why the Server Enforces It
 

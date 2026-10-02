@@ -5,7 +5,7 @@ This stage holds only plans being executed right now. Keep each plan's status, i
 a checklist.
 
 Work starts by moving one folder from [`../backlog/`](../backlog/README.md) without renaming it, and follows
-[plan execution](../../repo-governance/workflows/plan-execution.md). A
+[plan execution](../../repo-governance/workflows/plan/plan-execution.md). A
 [bug-fix plan](../../repo-governance/conventions/plans/010-bug-fix-plan.md) starts here instead.
 
 Work completes only after every required outcome, acceptance condition, verification, learning, and triggered

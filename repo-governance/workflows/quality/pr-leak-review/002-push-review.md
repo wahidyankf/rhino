@@ -35,5 +35,5 @@ the latest commit, or rebuild the range without it.
 
 After the push, the value is disclosed. Stop, rotate any credential, and report it to the repository owner. Rewriting
 published history requires the owner's explicit approval under
-[no destructive Git operations](../../conventions/no-destructive-git-operations.md); correcting the tree alone is never
-the whole remedy.
+[no destructive Git operations](../../../conventions/no-destructive-git-operations.md); correcting the tree alone is
+never the whole remedy.

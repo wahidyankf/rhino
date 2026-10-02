@@ -10,9 +10,9 @@ implements the behaviour.
 
 - the `specs/behaviours/` corpus;
 - the unit, integration, and end-to-end adapters;
-- [behaviour-driven development](../development/behaviour-driven-development.md),
-  [specification maintenance](../development/specification-maintenance.md), and
-  [end-to-end testing](../development/end-to-end-testing.md); and
+- [behaviour-driven development](../../development/behaviour-driven-development.md),
+  [specification maintenance](../../development/specification-maintenance.md), and
+  [end-to-end testing](../../development/end-to-end-testing.md); and
 - the changed scope, or the whole corpus when a full audit is requested.
 
 ## Procedure

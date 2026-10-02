@@ -239,7 +239,7 @@ fn release_workflow_publishes_the_checksummed_grouped_schema() {
 
 #[test]
 fn release_cut_screens_the_v0_4_stable_note_range() {
-    let workflow = repository_root().join("repo-governance/workflows/release-cut.md");
+    let workflow = repository_root().join("repo-governance/workflows/maintenance/release-cut.md");
     let text = std::fs::read_to_string(&workflow)
         .unwrap_or_else(|error| panic!("{}: {error}", workflow.display()));
     assert!(

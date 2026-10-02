@@ -7,8 +7,9 @@ The review binds from adoption onward; history published before it is out of sco
 
 Adopted from the shared catalog, mapped onto this repository: there is no separate reviewer agent, the review is
 performed by whoever handles the push or the merge, and the classes defer to
-[data safety](../conventions/public-repository-data-safety.md), which stays the stricter owner of what may be committed
-at all. The record's marker keeps its shared name so one reader can authenticate a record from any adopting repository.
+[data safety](../../conventions/public-repository-data-safety.md), which stays the stricter owner of what may be
+committed at all. The record's marker keeps its shared name so one reader can authenticate a record from any adopting
+repository.
 
 ## Entry
 
@@ -18,7 +19,7 @@ Two entry points share one judgement:
   [Push Review](pr-leak-review/002-push-review.md). Nothing is posted; a finding blocks the push.
 - **Merge.** A pull request is open, and no `pass` record posted by the repository owner exists for its current head.
   `pull-request` (`string`, required): the pull request's number or address. It is a
-  [merge precondition](../conventions/pull-request-merge.md): no posted `pass`, no merge.
+  [merge precondition](../../conventions/pull-request-merge.md): no posted `pass`, no merge.
 
 ## Sequence
 
@@ -76,5 +77,5 @@ module is indexed in [the companion directory](pr-leak-review/README.md).
 
 ## Related Workflows
 
-- [Worktree to pull request](worktree-to-pull-request.md) runs the push review before each push and this review before
-  each merge.
+- [Worktree to pull request](../maintenance/worktree-to-pull-request.md) runs the push review before each push and this
+  review before each merge.

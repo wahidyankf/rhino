@@ -39,4 +39,4 @@ confirming every gate reports exactly what it reported before.
 ## Related
 
 - [Integration path](integration-path.md)
-- [Worktree to pull request](../workflows/worktree-to-pull-request.md)
+- [Worktree to pull request](../workflows/maintenance/worktree-to-pull-request.md)

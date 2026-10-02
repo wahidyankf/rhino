@@ -1,7 +1,7 @@
 # Leak Classes
 
 A leak review judges three classes and no others. Each maps to the record's count of the same name, and each is a part
-of what [data safety](../../conventions/public-repository-data-safety.md) already prohibits here.
+of what [data safety](../../../conventions/public-repository-data-safety.md) already prohibits here.
 
 | Class                            | A finding is                                                            |
 | -------------------------------- | ----------------------------------------------------------------------- |
@@ -39,7 +39,7 @@ message, never only the range's final files.
 
 The review binds from adoption onward. Content a range does not add is not judged again, and history published before
 adoption is out of scope for the review; a leak found there is handled under
-[data safety](../../conventions/public-repository-data-safety.md#if-it-already-landed) instead.
+[data safety](../../../conventions/public-repository-data-safety.md#if-it-already-landed) instead.
 
 ## The Review Is Itself Published
 
