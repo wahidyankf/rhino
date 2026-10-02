@@ -31,16 +31,44 @@ pub fn count(text: &str, rule: WordRule) -> usize {
     }
 }
 
+/// A declared budget with its surfaces compiled once: which limit governs a
+/// path, and how many words a text holds by the repository's own rule.
+///
+/// Shared so that every leaf measuring against the budget agrees with this
+/// one on glob precedence and on what a word is.
+pub(crate) struct Limits<'a> {
+    budget: &'a WordBudget,
+    globs: scan::Surfaces,
+}
+
+impl<'a> Limits<'a> {
+    pub(crate) fn compile(budget: &'a WordBudget) -> Result<Self, String> {
+        scan::Surfaces::compile(
+            "governance-word-budget.surfaces",
+            budget.surfaces.iter().map(|surface| surface.glob.as_str()),
+        )
+        .map(|globs| Self { budget, globs })
+    }
+
+    /// The limit of the last declared surface that matches `path`.
+    pub(crate) fn limit(&self, path: &str) -> Option<usize> {
+        self.globs
+            .governing(path)
+            .and_then(|index| self.budget.surfaces.get(index))
+            .map(|surface| surface.fail)
+    }
+
+    pub(crate) fn count(&self, text: &str) -> usize {
+        count(text, self.budget.count)
+    }
+}
+
 pub fn validate(tree: &dyn Tree, config: &Config, budget: &WordBudget) -> Report {
-    let surfaces = &budget.surfaces;
-    let globs = match scan::Surfaces::compile(
-        "governance-word-budget.surfaces",
-        surfaces.iter().map(|surface| surface.glob.as_str()),
-    ) {
-        Ok(globs) => globs,
+    let limits = match Limits::compile(budget) {
+        Ok(limits) => limits,
         Err(reason) => return Report::refused("word-budget", reason),
     };
-    let corpus = match Corpus::reached(tree, config, &globs) {
+    let corpus = match Corpus::reached(tree, config, &limits.globs) {
         Ok(corpus) => corpus,
         Err(unreachable) => return unreachable.refusal("word-budget"),
     };
@@ -48,17 +76,14 @@ pub fn validate(tree: &dyn Tree, config: &Config, budget: &WordBudget) -> Report
     let mut report = Report::new("word-budget", "file");
 
     for document in corpus.documents() {
-        let Some(surface) = globs
-            .governing(&document.path)
-            .and_then(|index| surfaces.get(index))
-        else {
+        let Some(limit) = limits.limit(&document.path) else {
             continue;
         };
 
         report.scanned(&document.path);
 
-        let words = count(&document.text, budget.count);
-        if words > surface.fail {
+        let words = limits.count(&document.text);
+        if words > limit {
             report.found(
                 Finding::new(
                     "word-limit-exceeded",
@@ -66,7 +91,7 @@ pub fn validate(tree: &dyn Tree, config: &Config, budget: &WordBudget) -> Report
                     "is longer than its declared word budget",
                 )
                 .with("words", Detail::Count(words))
-                .with("limit", Detail::Count(surface.fail)),
+                .with("limit", Detail::Count(limit)),
             );
         }
     }

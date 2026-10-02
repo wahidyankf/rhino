@@ -643,6 +643,16 @@
             }
           ]
         },
+        "quality-gates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QualityGatesPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "traceability": {
           "anyOf": [
             {
@@ -1249,6 +1259,133 @@
         }
       },
       "required": ["relation"],
+      "type": "object"
+    },
+    "QualityGateDefaults": {
+      "additionalProperties": false,
+      "description": "Repository defaults a gate run reads. Neither is supplied by RHINO.",
+      "properties": {
+        "max-cycles": {
+          "description": "1, 2, or 3. A repository may lower the ceiling, never raise it.",
+          "format": "uint8",
+          "maximum": 3,
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QualityGateMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "QualityGateFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "subject": {
+          "description": "The default subject a run of this family's gate receives.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["family"],
+      "type": "object"
+    },
+    "QualityGateMode": {
+      "enum": ["lax", "normal", "strict", "all"],
+      "type": "string"
+    },
+    "QualityGatesPolicy": {
+      "additionalProperties": false,
+      "description": "The structure of a repository's bounded quality gates.\n\nEvery name a repository could choose differently -- the workflow root, its\ngroups, the agent directory, the headings, the verdict vocabulary, the\nretired inputs -- is declared here. The one value RHINO fixes is the cycle\nceiling: a gate runs at most three cycles, so `defaults.max-cycles` may\nlower that ceiling but never raise it.",
+      "properties": {
+        "agents": {
+          "description": "The canonical agent directory holding each family's checker and fixer.",
+          "type": "string"
+        },
+        "defaults": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QualityGateDefaults"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gate-group": {
+          "description": "The one group that holds every gate and propagation.",
+          "type": "string"
+        },
+        "gate-headings": {
+          "description": "The second-level headings every gate carries, in order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "gates": {
+          "description": "The gate families this repository holds.",
+          "items": {
+            "$ref": "#/$defs/QualityGateFamily"
+          },
+          "type": "array"
+        },
+        "groups": {
+          "description": "Every directory the workflow root may hold.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "propagation-headings": {
+          "description": "The second-level headings every propagation carries.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "retired-inputs": {
+          "description": "Inputs no gate may name any more.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "root": {
+          "description": "The workflow root whose top level holds only `README.md` and `groups`.",
+          "type": "string"
+        },
+        "verdict-heading": {
+          "description": "The gate heading whose section names the verdicts.",
+          "type": "string"
+        },
+        "verdicts": {
+          "description": "The only verdicts a gate may name.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "root",
+        "agents",
+        "groups",
+        "gate-group",
+        "gate-headings",
+        "verdict-heading",
+        "verdicts",
+        "propagation-headings"
+      ],
       "type": "object"
     },
     "RangeSelector": {

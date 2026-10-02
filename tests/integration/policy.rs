@@ -32,6 +32,7 @@ static NEXT_INDEX_FIXTURE: AtomicUsize = AtomicUsize::new(0);
 const LEAVES: &[&[&str]] = &[
     &["governance", "word-budget", "validate"],
     &["governance", "directory-map", "validate"],
+    &["governance", "quality-gates", "validate"],
     &["harness", "adapters", "validate"],
     &["md", "internal-link", "validate"],
     &["md", "mermaid", "validate"],

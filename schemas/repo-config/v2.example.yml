@@ -5,7 +5,35 @@ scan: {}
 harness: {}
 policies:
   markdown: {}
-  governance: {}
+  governance:
+    quality-gates:
+      root: repo-governance/workflows
+      agents: .agents/agents
+      groups: [plan, quality, maintenance]
+      gate-group: quality
+      gate-headings:
+        - Entry
+        - Inputs
+        - Deterministic Boundary
+        - Cycle
+        - Termination
+        - Verdict
+        - Ledger
+      verdict-heading: Verdict
+      verdicts: [PASS, PASS_WITH_FINDINGS, FAIL, BLOCKED]
+      retired-inputs: [max-iterations, min-iterations, max-audits]
+      propagation-headings:
+        - Contract
+        - Scope
+        - Executor
+        - Row Verification
+        - Family Rules
+      defaults:
+        mode: normal
+        max-cycles: 3
+      gates:
+        - family: plan
+        - family: docs
   conventions: {}
   plans: {}
 environment: {}

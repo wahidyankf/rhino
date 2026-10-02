@@ -556,6 +556,62 @@ pub const BINDINGS: &[Binding] = &[
         "v0-4-contract",
         "A configuration with none of the new keys behaves as v0.7.0 did",
     ),
+    (
+        "quality-gates",
+        "A repository whose gates follow the declared structure passes",
+    ),
+    (
+        "quality-gates",
+        "A repository that declares no quality-gate policy is refused",
+    ),
+    (
+        "quality-gates",
+        "An entry outside the declared workflow groups is reported (QG01)",
+    ),
+    (
+        "quality-gates",
+        "A declared family without its gate or propagation is reported (QG02)",
+    ),
+    (
+        "quality-gates",
+        "A gate file outside the gate group is reported (QG03)",
+    ),
+    (
+        "quality-gates",
+        "A gate file for an undeclared family is reported (QG03)",
+    ),
+    (
+        "quality-gates",
+        "A gate whose required headings are out of order is reported (QG04)",
+    ),
+    (
+        "quality-gates",
+        "A propagation without a required heading is reported (QG05)",
+    ),
+    (
+        "quality-gates",
+        "A gate that can run beyond three cycles is reported (QG06)",
+    ),
+    (
+        "quality-gates",
+        "A gate verdict outside the declared verdicts is reported (QG07)",
+    ),
+    (
+        "quality-gates",
+        "A declared family without its checker and fixer agents is reported (QG08)",
+    ),
+    (
+        "quality-gates",
+        "A default cycle ceiling above three is refused before any file is read (QG09)",
+    ),
+    (
+        "quality-gates",
+        "A module directory without a sibling entrypoint is reported (QG10)",
+    ),
+    (
+        "quality-gates",
+        "A split workflow that fits its word budget as one file is reported (QG11)",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

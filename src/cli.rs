@@ -110,6 +110,12 @@ pub const LEAVES: &[Leaf] = &[
         summary: "Check declared artifacts and their declared local links.",
     },
     Leaf {
+        path: &["governance", "quality-gates", "validate"],
+        category: "quality-gates",
+        accepts: &[],
+        summary: "Check the declared quality-gate layout, headings, verdicts, and cycle ceiling.",
+    },
+    Leaf {
         path: &["governance", "word-budget", "validate"],
         category: "word-budget",
         accepts: &[],

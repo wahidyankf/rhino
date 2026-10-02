@@ -9,6 +9,25 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## Unreleased
+
+`governance quality-gates validate` is a new command reading a new optional key, `policies.governance.quality-gates`. A
+configuration that does not declare the key validates exactly as it did, so the version moves in the minor position and
+nothing breaks.
+
+### Added
+
+- **`governance quality-gates validate`.** Checks the structure of a repository's bounded quality gates against what
+  `policies.governance.quality-gates` declares: the workflow root holds only its README and the declared groups, each
+  declared family has its gate, propagation, checker, and fixer, no gate or propagation sits outside the gate group or
+  names an undeclared family, each gate carries the declared headings in order and names only declared verdicts, each
+  propagation carries its declared headings, no gate allows more than three cycles or names a retired input, every
+  module directory sits beside its workflow and lists its `NNN-*.md` modules in a README, and no split workflow fits its
+  word budget as one file. Each finding carries its rule, `QG01` to `QG11`, as a `rule` detail.
+- **`policies.governance.quality-gates`.** The declaration that command reads, added to the `v2` schema as an optional
+  key. Its `defaults.max-cycles` accepts only 1, 2, or 3, in the schema and at runtime; any other value is a
+  configuration error with exit `2`.
+
 ## [v0.8.0] — 2026-10-01
 
 `md mermaid validate` gains five optional keys under `policies.markdown.mermaid`. A configuration that declares none of

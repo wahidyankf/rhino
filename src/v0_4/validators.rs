@@ -718,6 +718,19 @@ fn traceability_policy(policy: &TraceabilityPolicy, tree: &dyn Tree) -> Report {
     report
 }
 
+/// Project the declared quality-gate structure, with the word budget its
+/// split-workflow check measures against when the repository declares one.
+pub(crate) fn quality_gates(policy: Option<&GovernancePolicy>, tree: &dyn Tree) -> Report {
+    let Some(gates) = policy.and_then(|policy| policy.quality_gates.as_ref()) else {
+        return undeclared("quality-gates", "policies.governance.quality-gates");
+    };
+    crate::governance::quality_gates::validate(
+        tree,
+        gates,
+        policy.and_then(|policy| policy.word_budget.as_ref()),
+    )
+}
+
 fn undeclared(category: &'static str, path: &str) -> Report {
     Report::refused_as(
         crate::errors::ErrorCode::ConfigUndeclared,
@@ -752,7 +765,7 @@ fn read(tree: &dyn Tree, path: &str) -> Result<Option<String>, String> {
     }
 }
 
-fn exact_path(path: &str) -> bool {
+pub(crate) fn exact_path(path: &str) -> bool {
     !path.trim().is_empty()
         && !path.starts_with('/')
         && path.split('/').all(|part| {
@@ -764,7 +777,7 @@ fn exact_path(path: &str) -> bool {
         })
 }
 
-fn simple_name(value: &str) -> bool {
+pub(crate) fn simple_name(value: &str) -> bool {
     !value.is_empty()
         && value.chars().all(|character| {
             character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
@@ -790,7 +803,7 @@ fn vendor_exception(policy: &VendorPolicy, path: &str, term: &str) -> bool {
     })
 }
 
-fn markdown_targets(path: &str, text: &str) -> BTreeSet<String> {
+pub(crate) fn markdown_targets(path: &str, text: &str) -> BTreeSet<String> {
     text.split("](")
         .skip(1)
         .filter_map(|tail| tail.split_once(')').map(|(target, _)| target))

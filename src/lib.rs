@@ -414,6 +414,14 @@ pub fn execute_using_with_boundaries(
             tree,
         )
         .render(invocation.format),
+        ("quality-gates", Document::V0_4(document)) => v0_4::validators::quality_gates(
+            document
+                .policies
+                .as_ref()
+                .and_then(|policies| policies.governance.as_ref()),
+            tree,
+        )
+        .render(invocation.format),
         ("traceability", Document::V0_4(document)) => v0_4::validators::traceability(
             document
                 .policies
@@ -529,6 +537,7 @@ mod tests {
             &["governance", "vendor", "validate"],
             &["governance", "layers", "validate"],
             &["governance", "traceability", "validate"],
+            &["governance", "quality-gates", "validate"],
             &["md", "heading-hierarchy", "validate"],
         ] {
             let outcome = execute(&tree, &arguments(command));

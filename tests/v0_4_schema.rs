@@ -52,6 +52,7 @@ fn structural_rejections_agree_between_json_schema_and_rhino() {
     for fixture in [
         "schema: rhino/repo-config/v2\nunknown-core: {}\n",
         "schema: rhino/repo-config/v2\nextensions:\n  Invalid_owner: {}\n",
+        "schema: rhino/repo-config/v2\npolicies:\n  governance:\n    quality-gates:\n      root: w\n      agents: a\n      groups: [q]\n      gate-group: q\n      gate-headings: [V]\n      verdict-heading: V\n      verdicts: [PASS]\n      propagation-headings: [S]\n      defaults: {max-cycles: 4}\n",
     ] {
         assert!(
             !jsonschema::draft202012::is_valid(&schema, &yaml(fixture)),

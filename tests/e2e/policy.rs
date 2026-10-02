@@ -16,6 +16,7 @@ use std::process::{Command, Stdio};
 const LEAVES: &[&[&str]] = &[
     &["governance", "word-budget", "validate"],
     &["governance", "directory-map", "validate"],
+    &["governance", "quality-gates", "validate"],
     &["harness", "parity", "validate"],
     &["md", "internal-link", "validate"],
     &["md", "mermaid", "validate"],
