@@ -66,6 +66,7 @@ fn audit(
         tree,
         policy,
         report: Report::new(CATEGORY, "file"),
+        read: BTreeSet::new(),
     };
     audit.workflow_root();
     audit.module_directories(limits.as_ref())?;
@@ -138,6 +139,9 @@ struct Audit<'a> {
     tree: &'a dyn Tree,
     policy: &'a QualityGatesPolicy,
     report: Report,
+    /// Paths already listed as read: a gate that is also a split workflow's
+    /// entrypoint is read by two rules but inspected once.
+    read: BTreeSet<String>,
 }
 
 impl Audit<'_> {
@@ -161,7 +165,9 @@ impl Audit<'_> {
                 TreeError::NotText => format!("{path}: holds no text"),
             })
         })?;
-        self.report.scanned(path);
+        if self.read.insert(path.to_string()) {
+            self.report.scanned(path);
+        }
         Ok(text)
     }
 
@@ -862,6 +868,28 @@ mod tests {
             !unsplit.contains("unnecessary-workflow-split\",\"path\":\"flows/plan/empty.md"),
             "{unsplit}"
         );
+    }
+
+    #[test]
+    fn a_split_gate_is_listed_and_counted_once() {
+        let tree = conforming();
+        tree.write(
+            "flows/quality/plan-quality-gate/README.md",
+            "- [One](001-one.md)\n",
+        );
+        tree.write("flows/quality/plan-quality-gate/001-one.md", "four five");
+        let report: serde_json::Value =
+            serde_json::from_str(&json(&tree, &policy(), Some(&budget(500, "flows/**/*.md"))))
+                .expect("the report is one JSON object");
+        let scanned: Vec<&str> = report["scanned"]
+            .as_array()
+            .expect("the report lists what it read")
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .collect();
+        let unique: BTreeSet<&str> = scanned.iter().copied().collect();
+        assert_eq!(scanned.len(), unique.len(), "{scanned:?}");
+        assert_eq!(report["inspected"], unique.len(), "{report}");
     }
 
     #[test]
