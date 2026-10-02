@@ -1,79 +1,72 @@
 # Harness Propagation
 
-Use this workflow whenever repository-owned rules, canonical skills, canonical agents, or their adapters are added,
-changed, renamed, or removed. The goal is one canonical edit with complete parity across the harnesses the
-[contract](../../conventions/coding-harness-contract.md) declares — not independently maintained trees.
+## Contract
 
-## Prerequisites
+This is the `harness` family's sole writer, under
+[Sole-Writer Propagation](../../development/workflow/sole-writer-propagation.md).
 
-- Read the [coding-harness contract](../../conventions/coding-harness-contract.md).
-- Keep credentials, user-global configuration, local memory, and generated vendor state out of the repository.
-- For a rule change, run [rules propagation](rules-propagation.md) first.
-- Check current official vendor documentation before changing a native adapter schema. Never infer a field from another
-  harness.
+## Scope
 
-## Procedure
+The canonical agent and skill artifacts, the adapter generator's mapping, the reference record kept of each harness's
+conventions, and the adapters the generator regenerates from them. A generated adapter is never edited by hand, per
+[Harness Adapters](../../conventions/coding-harness-contract.md).
 
-### 1. Edit the canonical source first
+## Executor
 
-- **Rules** — root `AGENTS.md`. Root `CLAUDE.md` stays the exact `@AGENTS.md` import. Add no nested or harness-specific
-  instruction file.
-- **Skills** — the complete `.agents/skills/<name>/` bundle, `SKILL.md` and every supporting file. Directory name and
-  front-matter `name` must match.
-- **Agents** — `.agents/agents/<name>.md`, including the prompt and its semantic `requires`, `denies`, and
-  `constraints`.
+`harness-fixer`, loading the `checking-harness-compatibility` skill.
 
-### 2. Reconcile every adapter in the same change
+## Row Verification
 
-The adapter path, route field, and translation table for each harness are declared in
-[`repo-config.yml`](../../../repo-config.yml). Read them there; this document does not restate the roster.
+A row closes when the committed binding now agrees with the row's cited upstream fact, the adapters were regenerated
+with the repository's generator, and the repository's parity check and Markdown gates exit 0. Each ledger row ends
+`resolved`, `not-resolved`, `not-applicable`, or `needs-decision`, with evidence.
 
-An adapter carries native identity, mode, and permission metadata plus the fixed route to the canonical file — and
-nothing else. Never copy the canonical body into an adapter, never append an instruction, never pin a provider model,
-and never omit a restriction.
+## Family Rules
 
-Translate canonical capabilities and denials into that harness's **strongest documented** native control. Where a
-harness expresses a denial only as an absence, the absence must be complete: a tool left unlisted because it seemed
-unlikely is a granted capability. Where the documented adapter schema has no control for a canonical boundary, route the
-complete canonical source, state that native-enforcement limit in the contract, and do not list that boundary as a
-native profile requirement.
+### Entry
 
-If a semantic capability has a documented native mapping the validator cannot express, extend the convention and the
-`harness-parity` declarations before claiming parity. A mapping the validator cannot express is a change to the
-validator, not a parity claim.
+The [Harness Quality Gate](harness-quality-gate.md) hands over a frozen ledger, or an explicit request names its rows.
 
-A rename or removal renames or removes every matching adapter and leaves no stale file.
+- `findings` (`file`, required): the frozen ledger, each row with its upstream citation and retrieval date.
 
-### 3. Update enforcement only when the shape changes
+### Sequence
 
-A content-only change that keeps names, descriptions, routes, semantics, and native schemas needs no code change: the
-validator reads and hashes canonical content dynamically.
+1. **Re-read each named file against its citation.** A file that already agrees with the cited fact is `not-applicable`,
+   since the drift is gone; a file that holds neither the quoted value nor the cited one is `needs-decision`, because
+   the ground moved under the row.
+2. **Repair the source, never the output.** Drift the evidence settles unambiguously, such as a renamed metadata key or
+   a moved file location, is repaired in the canonical artifact, the generator mapping, or the reference record.
+3. **Leave decisions to people.** A source conflict, a change to what a permission means, adding or removing a harness,
+   a change to the generator's logic, and a retired model identifier without a named successor are `needs-decision`,
+   with the citation and the options.
+4. **Regenerate the adapters,** then verify each row.
 
-When topology, accepted front matter, capability mappings, native schema, or finding behaviour changes:
+The writer does not research. A row its citation and the repository cannot confirm stays `needs-decision`, and new
+research returns to the checking side, per Web Research Delegation. It never weakens the parity check, drops a
+restriction, or excludes a path to reach a clean result.
 
-1. express it in `repo-config.yml`, and stop there if it can be declared;
-2. otherwise change the validator at the narrowest responsible layer, against the corpus, following
-   [specification maintenance](../../development/specification-maintenance.md); and
-3. update `docs/reference/configuration.md` when a declared key or its meaning moves.
+### Canonical Changes
 
-This repository builds the validator it runs, so a shape change and its enforcement land together rather than waiting on
-a release.
+This writer keeps the trigger it already had here: adding, changing, renaming, or removing a canonical rule, skill,
+agent, or adapter enters it automatically, with no ledger, and follows
+[Canonical Change](harness-propagation/001-canonical-change.md).
 
-### 4. Verify
+### Exit
 
-```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+Outputs: `status` (`enum`: `no-change`, `landed`, `partial`, `input-changed`) and the ledger, each row with its status
+and evidence. The caller commits the repairs with the regenerated adapters. A rerun on unchanged inputs changes nothing.
+
+## Example Usage
+
+```text
+Run harness-propagation with the ledger the harness quality gate froze for subject all.
 ```
 
-Review findings by kind, field, harness, and path. Matching counts are not proof.
+## Related Workflows
 
-## Recovery
+- [Harness Quality Gate](harness-quality-gate.md) researches upstream drift and hands its blocking rows here.
+- [Harness Parity Verification](harness-parity-verification.md) owns parity between bindings and their source.
 
-Never weaken the validator, remove a denial, or exclude a path to make the gate pass. Restore the missing route or
-adapter, correct the mapping, and rerun. If a harness cannot express a required capability, stop and record the gap; do
-not claim three-harness parity until the contract or the supported-harness set changes explicitly.
+## Modules
 
-## Outcome
-
-Complete only when one canonical source remains, every required adapter is current, no stale or extra source exists, the
-deterministic checks pass, and the diff contains no local or sensitive data.
+1. [Canonical Change](harness-propagation/001-canonical-change.md)

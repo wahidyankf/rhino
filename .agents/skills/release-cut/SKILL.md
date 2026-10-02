@@ -16,7 +16,8 @@ Run from the **primary checkout on local `main`**, never from a `worktrees/` che
 - The commit is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, working tree clean.
 - `CHANGELOG.md` describes this version, and a
-  [docs quality gate](../../../repo-governance/workflows/quality/docs-quality-gate.md) run with scope `all` passes.
+  [docs quality gate](../../../repo-governance/workflows/quality/docs-quality-gate.md) verdict on subject `all` is
+  recorded.
 
 ## Sequence
 

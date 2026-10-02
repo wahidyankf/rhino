@@ -52,7 +52,7 @@ which is the only part of it worth recording.
 
 Where execution may change a repository rule, `delivery.md` carries an `[AI]` task applying
 [rules propagation](../workflows/quality/rules-propagation.md) and recording its terminal result, which may be
-`PASS_NO_CHANGE`.
+`no-change`.
 
 ## Which Gherkin Becomes Durable
 

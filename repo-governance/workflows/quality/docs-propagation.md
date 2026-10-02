@@ -1,64 +1,86 @@
 # Docs Propagation
 
-Carry one change into every human-facing document it affects, in one bounded pass. Apply this workflow automatically
-before committing a change that alters what a document's reader relies on, when a document is added, moved, or deleted,
-or when an explicitly requested [docs quality gate](docs-quality-gate.md) hands over its ledger, after which that gate
-audits again. No separate instruction is required. Propagation is the only writer of documents; edits inside one run
-start no second one.
+## Contract
 
-## The Document Set
+This is the `docs` family's sole writer, under
+[Sole-Writer Propagation](../../development/workflow/sole-writer-propagation.md).
 
-Every `README.md`, the `docs/` and `specs/` trees, the root `CHANGELOG.md`, and a plan's documents where they describe
-the repository. Governance, `AGENTS.md`, and agent and skill instructions stay with
-[rules propagation](rules-propagation.md). Formatting, links, directory maps, and word budgets stay with the checks
-`cargo xtask self-validate` already runs; this workflow runs them and adds none.
+## Scope
 
-## Inputs
+Every human-facing document: every README, the documentation and specification trees, documents inside projects, the
+standard files per Repository Documentation Files, and a plan's documents where they describe the repository. Governance
+and agent instructions stay with [Rules Propagation](rules-propagation.md). A handed-over ledger narrows the scope to
+what its rows require.
 
-Freeze the change — a revision range or the working-tree change — any handed-over gate ledger, the Git revision, and the
-uncommitted paths. A material external change returns `INPUT_CHANGED`; it never restarts the run.
+## Executor
 
-## Procedure
+`docs-fixer`, loading the `authoring-documentation` skill.
 
-1. **Find what went stale.** Search the whole document set for every name, path, command, flag, exit code, configuration
-   key, and version the change removed, renamed, or redefined. Each ledger row is an item too.
-2. **Remove what is obsolete.** A document describing something the repository no longer has is deleted, with every link
-   and directory-map entry pointing at it. Unique meaning that is still true moves to its canonical home first.
-3. **Keep each fact in one home.** The root `README.md` orients; each directory `README.md` maps its directory under
-   [directory maps](../../conventions/directory-maps.md); a `docs/` page serves one Diátaxis category under
-   [documentation architecture](../../conventions/documentation-architecture.md). A summary links one level down to its
-   detail, under [progressive disclosure](../../principles/progressive-disclosure.md), and a fact with a canonical home
-   is linked, never copied.
-4. **Write for a newcomer.** Each affected document tells a reader new to this repository what it is and why it matters
-   from its opening, shows the next step without assuming the layout, and leaves no undefined term or skipped
-   prerequisite, in the plain English of [language](../../conventions/language.md). Judge this by reading, never by a
-   readability score. A sparing emoji may mark meaning where the policy in `repo-config.yml` permits one; decoration
-   never does.
-5. **Run what is safe to run.** Execute every command and example an affected document shows, through `./hippo`, under
-   [truthfulness](../../conventions/documentation-architecture.md#truthfulness). Never run one that touches a production
-   or shared system, publishes, spends, needs a secret, or cannot be undone; the document says plainly that it was not
-   exercised.
-6. **Treat specifications as canonical.** Refresh their readability, navigation, and links. A document that contradicts
-   `specs/` is repaired to match it. When a specification disagrees with the implementation, that document stays
-   unchanged and the owner is asked through [grill-me](../../../.agents/skills/grill-me/SKILL.md), under
-   [last-resort questions](../../conventions/last-resort-questions.md); the rest lands.
-7. **Change only what is stale, missing, or obsolete.** Never rewrite accurate prose, invent behaviour, or fold in
+## Row Verification
+
+A row closes when the document no longer holds the state the row names, every command it shows ran or is marked not
+exercised, and the repository's checks exit 0. Each ledger row ends `resolved`, `not-resolved`, `not-applicable`, or
+`needs-decision`, with evidence.
+
+## Family Rules
+
+### Entry
+
+A change about to be committed alters what a document's reader relies on, a document is added, moved, or deleted, or the
+[Docs Quality Gate](docs-quality-gate.md) hands over findings. Entry is automatic: whoever makes the change starts here
+as part of the work, without a separate request. Edits made inside one run start no second one. Formatting, links,
+indexes, and word budgets stay with the repository's checks; this workflow runs them and adds none.
+
+- `change` (`string`, required): the revision range or working-tree change.
+- `findings` (`file`, optional): a handed-over, frozen ledger.
+
+### Sequence
+
+1. **Freeze the inputs:** the change, any ledger, the revision, and uncommitted paths. A material change ends the run as
+   input changed, never restarting it.
+2. **Find what went stale.** Search the whole scope for every name, path, command, flag, version, and interface the
+   change removed, renamed, or redefined. Each ledger row is an item too.
+3. **Remove what is obsolete.** A document describing something the repository no longer has is deleted, with every link
+   and index entry pointing at it. Unique meaning that is still true moves to its canonical home first.
+4. **Keep each fact in its one home.** The root README orients; a project README follows Project READMEs; an index
+   follows [Directory Indexes](../../conventions/directory-maps.md); a page serves one mode per
+   [Documentation Architecture](../../conventions/documentation-architecture.md). A summary links one level down to its
+   detail, per [Progressive Disclosure](../../principles/progressive-disclosure.md), and a fact with a canonical home is
+   linked, never copied.
+5. **Write for a newcomer.** Each affected document tells a reader new to the repository what it is and why it matters
+   from the opening, shows the next step without assuming the layout, and leaves no undefined term or skipped
+   prerequisite, per README Quality and Content Quality, never a readability score. A sparing marker per Emoji Usage may
+   aid scanning; decoration never does.
+6. **Run what is safe to run.** Execute every command and example an affected document shows through the repository's
+   declared entry point, per [Only What Was Run](../../conventions/documentation-architecture.md#truthfulness). Never
+   run one that touches a production or shared system, publishes, spends, needs a secret, or cannot be undone; the
+   document says plainly that it was not exercised.
+7. **Treat specifications as canonical.** Refresh their readability, navigation, and links; when one disagrees with the
+   implementation, the partial outcome applies.
+8. **Change only what is stale, missing, or obsolete.** Never rewrite accurate prose, invent behaviour, or fold in
    unrelated work.
-8. **Verify once.**
+9. **Verify once.** Run the repository's existing checks. Repair only failures this run caused, and only while their
+   count strictly decreases, per Bounded Convergence.
+10. **Hand delivery to the caller.** The run never commits; the repairs land with the change they explain, per
+    [Thematic Commits](../../conventions/thematic-commits.md), and a handed-over ledger's repairs land as their own
+    commit.
 
-   ```sh
-   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
-   ```
+### Exit
 
-   Repair only failures this run caused, and rerun only while the count of failing checks strictly decreases and no new
-   failure class appears.
+Outputs: `status` (`enum`: `no-change`, `landed`, `partial`, `input-changed`), `updated-docs` (`file-list`), `removed`
+(`file-list`), and `not-run` (`record`, each command left unexecuted and why).
 
-9. **Commit with the change it explains,** under [thematic commits](../../conventions/thematic-commits.md). A
-   handed-over ledger's repairs land as their own commit.
+Partial outcome: when the code, a specification, or the audience is ambiguous or they disagree, that document stays
+unchanged and its row is `needs-decision`, asked through [Grill Me](../../../.agents/skills/grill-me/SKILL.md); the rest
+lands. A rerun on unchanged inputs changes nothing.
 
-## Terminal Contract
+## Example Usage
 
-The only results are `NO_CHANGE`, `LANDED`, `PARTIAL`, and `INPUT_CHANGED`. Each reports the updated documents, the
-removed documents, and every command left unexecuted with its reason. `PARTIAL` names each document held for the owner's
-answer. A rerun on unchanged inputs changes nothing. Passing authorizes neither commit nor push;
-[commit authorization](../../conventions/commit-authorization.md) still applies.
+```text
+Run docs-propagation for the change on the current branch.
+```
+
+## Related Workflows
+
+- [Docs Quality Gate](docs-quality-gate.md) audits documents and hands its blocking rows here.
+- [Planning](../plan/plan-planning.md) adds this workflow to each delivery unit that changes what a document describes.

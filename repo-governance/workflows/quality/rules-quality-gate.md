@@ -1,71 +1,94 @@
 # Rules Quality Gate
 
-Run only when the user explicitly names this gate or unambiguously directs its semantic audit. Do not infer
-authorization from a rule change, a review request, propagation, or another workflow.
+This gate follows the [Quality Gate Contract](../../development/workflow/quality-gate-contract.md): a read-only checker,
+a frozen ledger, one separate writer, at most three cycles, and an advisory verdict. This file states only what is
+specific to rules.
 
-Produce one read-only semantic verdict for one proposed or effective rule state. This workflow never edits rules and
-never starts another gate run. [Rules propagation](rules-propagation.md) is the sole writer and the mandatory
-continuation for any non-passing finding.
+## Entry
 
-## Sufficiency and Ownership
+The gate starts only on an explicit request that names it. A rule change, a review request, a
+[rules grooming](../maintenance/rules-grooming.md) run, or a propagation run never starts it alone.
 
-A passing rule is good enough for the stated need, scope, and known risk — not perfect, exhaustive, or future-proof. Do
-not raise findings for wording preference, speculative cases, optional explanation, or automation with no demonstrated
-need. Apply [minimal sufficiency](../../principles/minimal-sufficiency.md).
+## Inputs
 
-This gate owns semantic rule quality. Deterministic tooling owns machine-decidable checks — links, directory maps, word
-budgets, Mermaid, harness parity. Do not manually reproduce, sample, or second-guess them; consume their result only
-where this workflow requires effective-state verification.
+| Input        | Type    | Values                                                 | Default  |
+| ------------ | ------- | ------------------------------------------------------ | -------- |
+| `subject`    | string  | A rule outcome with its reason, `proposal`/`effective` | required |
+| `mode`       | enum    | `lax`, `normal`, `strict`, `all`                       | `normal` |
+| `max-cycles` | integer | 1, 2, or 3                                             | 3        |
 
-For a deterministic check proposed but not yet implemented, proposal mode verifies only that its ownership, executable
-delivery, and proof obligation are explicit. Effective mode requires the target to exist and pass. Never simulate a
-future tool.
+A `proposal` subject compares a requested outcome with the current rules before any edit; an `effective` subject judges
+the repository after propagation wrote. Any other `max-cycles` value, or a missing subject, refuses to start.
 
-## Modes, Snapshot, and Ledger
+## Deterministic Boundary
 
-Run in exactly one mode:
+The checker reports none of these properties. The entry and exit checks run their owners instead.
 
-- `PROPOSAL` compares the requested outcome with current effective rules, before edits.
-- `EFFECTIVE` evaluates the repository after propagation edits.
+| Property                            | Owned by                   | This repository runs                      |
+| ----------------------------------- | -------------------------- | ----------------------------------------- |
+| Markdown formatting and line length | the formatter and linter   | `prettier`, `markdownlint-cli2`           |
+| Internal links                      | the link validator         | `rhino md internal-link validate`         |
+| Directory maps                      | the map validator          | `rhino governance directory-map validate` |
+| Word budgets                        | the word-budget validator  | `rhino governance word-budget validate`   |
+| Gate and propagation structure      | the quality-gate validator | `rhino governance quality-gates validate` |
+| Harness adapters match their source | the adapter validator      | `rhino harness adapters validate`         |
 
-Freeze the mode, requested outcome and rationale, intended strength, scope and consumers, proposed move or deletion,
-relevant canonical sources, enforcement route, Git revision, and dirty paths. A material external change returns
-`BLOCKED_INPUT_CHANGED`; it never restarts the gate.
+A property no tool of its own owns leaves the table and becomes judgeable.
 
-Audit without editing. Record a finite ledger of `ID`, canonical source, material semantic gap, required resolution,
-evidence, and status — `OPEN`, `RESOLVED`, `NOT_APPLICABLE`, or `BLOCKED`. Admit only a rule violation, or a gap making
-the outcome unsafe, contradictory, undiscoverable, or materially ambiguous. `NOT_APPLICABLE` requires evidence. Preserve
-everything through compaction under [governance continuity](../../principles/governance-continuity.md).
+## Cycle
 
-## Semantic Audit
+Each cycle is one full audit by `rules-checker` and one repair by [Rules Propagation](rules-propagation.md), run by
+`rules-fixer`, per
+[Sequence and Termination](../../development/workflow/quality-gate-contract/002-sequence-and-termination.md). The frozen
+subject records intended strength, scope, consumers, any move or deletion, canonical sources, and the enforcement route.
+The audit covers the affected rule, its uses, the authority above it, and overlapping guidance; for grooming, that run's
+manifest. It asks whether:
 
-Inspect only the affected rule, its point-of-use routes, relevant higher authority, and directly overlapping guidance.
-Decide whether:
-
-1. the need, outcome, and rationale are concrete enough to evaluate;
-2. `must`, `should`, or `may` expresses the intended strength;
-3. scope, trigger, action or prohibition, boundaries, and necessary exceptions are explicit;
-4. the canonical level is correct and no lower rule conflicts with higher authority;
-5. one canonical source owns the meaning while concise point-of-use links make it discoverable without duplication;
-6. each enforcement claim names a truthful class and route, with required evidence where automation cannot decide;
-7. the instruction survives compaction and handoff at every entry point;
+1. the need, outcome, and reason are concrete enough to judge;
+2. the wording's strength matches the intended strength, per [Rule Definition](../../conventions/rules.md);
+3. scope, trigger, action, boundaries, and necessary exceptions are explicit;
+4. the rule sits at the right level, and nothing lower contradicts a higher rule;
+5. one canonical source owns the meaning, and links keep it findable without copies;
+6. every enforcement claim names a truthful route, with evidence where automation cannot decide;
+7. the rule survives compaction and handover at every entry point;
 8. a reasonable reader can act without inventing policy; and
-9. a move or deletion preserves unique intent and updates affected consumers.
+9. a move or deletion keeps unique intent and updates its consumers.
 
-## Results and Mandatory Handoff
+Only a rule violation, or a gap leaving the outcome unsafe, contradictory, undiscoverable, or materially ambiguous, is a
+finding. Wording preference, speculative cases, and unneeded automation are not, per
+[Minimal Sufficiency](../../principles/minimal-sufficiency.md). After the first repair, a `proposal` subject is audited
+as written.
 
-In `PROPOSAL` mode, return `PASS_NO_CHANGE` when current effective meaning already satisfies the request; otherwise emit
-`NEEDS_PROPAGATION` with the ledger, evidence, and any required external decision.
+## Termination
 
-In `EFFECTIVE` mode, run:
+The contract's
+[termination table](../../development/workflow/quality-gate-contract/002-sequence-and-termination.md#termination)
+applies unchanged. This gate adds no row.
 
-```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+## Verdict
+
+| Verdict              | The caller                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `PASS`               | records the verdict and continues; for a proposal, current rules already suffice    |
+| `PASS_WITH_FINDINGS` | records the verdict and the open non-blocking rows, and continues                   |
+| `FAIL`               | gives each open blocking row an owner (idea brief, plan item, or issue), continues  |
+| `BLOCKED`            | records the cause (tooling, input-changed, or unavailable), then acts as for `FAIL` |
+
+No verdict stops the caller, and none authorizes a commit or a push.
+
+## Ledger
+
+`local-tmp/quality/rules/<outcome-slug>__<YYYYMMDDTHHMMZ>.md`, with the columns and closing verdict block in
+[the contract](../../development/workflow/quality-gate-contract/003-verdicts-ledger-and-relations.md#ledger). It is
+never committed.
+
+## Example Usage
+
+```text
+Run rules-quality-gate on proposal "Require a dry run for every script that deletes files."
 ```
 
-Return `PASS_EFFECTIVE` only when the ledger is clear and tooling passes; otherwise emit `NEEDS_PROPAGATION`.
+## Related Workflows
 
-`NEEDS_PROPAGATION` is a non-terminal handoff, never a blocked result. The caller must immediately run propagation with
-the frozen outcome, ledger, and evidence, then report only propagation's terminal result. This gate can therefore end
-only in `PASS_NO_CHANGE` or `PASS_EFFECTIVE`. It never ends blocked, repairs rules, reruns itself, or authorizes commit
-or push.
+- [Rules Propagation](rules-propagation.md) repairs every blocking row.
+- [Rules Grooming](../maintenance/rules-grooming.md) may request a verdict after its reductions.

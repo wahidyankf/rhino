@@ -14,8 +14,9 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
   [integration path](../../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
 - The quick gate and `cargo xtask schema --check` pass on that exact commit.
-- `CHANGELOG.md` describes this version; the [docs quality gate](../quality/docs-quality-gate.md#at-release-cut) with
-  scope `all` passed before the release-prep pull request and passes on this commit; any other result stops the release.
+- `CHANGELOG.md` describes this version, and a [docs quality gate](../quality/docs-quality-gate.md) verdict on subject
+  `all`, run before the release-prep pull request, is recorded. A documented contract the binary breaks is fixed in code
+  before the tag.
 
 ## Size Rehearsal
 
