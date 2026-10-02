@@ -15,7 +15,7 @@ it; RHINO does not invent a policy or route an old command through a replacement
   `md mermaid validate`, `md naming validate`, `md readme-index validate`
 - **Metadata** — `metadata validate`
 - **Governance** — `governance word-budget validate`, `governance directory-map validate`, `governance vendor validate`,
-  `governance layers validate`, `governance traceability validate`
+  `governance layers validate`, `governance traceability validate`, `governance quality-gates validate`
 - **Conventions** — `convention emoji validate`, `convention license validate`
 - **Build identity** — `version`, `version --json`
 - **Help** — `help`, `help <command path>`

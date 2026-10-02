@@ -28,7 +28,8 @@ omitting it says that this repository declares no policy in that area.
 - `harness` — Portable requirements and exactly three opaque adapter profiles.
 - `policies.markdown` — Opt-in frontmatter, heading-hierarchy, internal-link, metadata, Mermaid, naming, and
   README-index policy. The Mermaid keys are in [Mermaid policy](v0-4-configuration.md#mermaid-policy).
-- `policies.governance` — Configured vendor, layer, traceability, word-budget, and directory-map policy.
+- `policies.governance` — Configured vendor, layer, traceability, word-budget, directory-map, and quality-gate policy.
+  The quality-gate keys are in [Quality-gate policy](v0-4-configuration.md#quality-gate-policy).
 - `policies.conventions` — Configured license placement, identifiers, and digests, and emoji-prohibited surfaces.
 - `policies.plans` — Reserved closed policy owner.
 - `environment` — Declared key contracts, example/target pairs, detectors, allowlists, and staged-path policy.

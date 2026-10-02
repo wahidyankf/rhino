@@ -208,6 +208,32 @@ Detail: `term` — the forbidden term found.
 
 Detail: `target` on `missing-traceability-relationship` — the artifact the source does not link.
 
+## Quality gates
+
+| Kind                                 | Rule | Means                                                           |
+| ------------------------------------ | ---- | --------------------------------------------------------------- |
+| `unexpected-workflow-entry`          | QG01 | The workflow root holds more than `README.md` and the groups.   |
+| `missing-quality-gate-file`          | QG02 | A declared family has no gate or propagation in the gate group. |
+| `misplaced-quality-gate-file`        | QG03 | A gate or propagation sits outside the gate group.              |
+| `undeclared-quality-gate-family`     | QG03 | A gate or propagation in the gate group has no declared family. |
+| `missing-gate-heading`               | QG04 | A gate lacks a declared gate heading.                           |
+| `gate-heading-out-of-order`          | QG04 | A gate heading appears before one it must follow.               |
+| `missing-propagation-heading`        | QG05 | A propagation lacks a declared propagation heading.             |
+| `unbounded-gate-cycles`              | QG06 | A gate has no `max-cycles` row, or one outside 1 to 3.          |
+| `retired-gate-input`                 | QG06 | A gate names a declared retired input.                          |
+| `unknown-gate-verdict`               | QG07 | The verdict section names an undeclared verdict.                |
+| `missing-gate-agent`                 | QG08 | A declared family has no checker or no fixer agent.             |
+| `unpaired-workflow-module-directory` | QG10 | A directory in a group has no sibling `<name>.md`.              |
+| `unexpected-workflow-module-entry`   | QG10 | A module directory holds more than `README.md` and `NNN-*.md`.  |
+| `missing-workflow-module-index`      | QG10 | A module directory has no `README.md`.                          |
+| `unlisted-workflow-module`           | QG10 | A module directory's `README.md` does not link a module.        |
+| `unnecessary-workflow-split`         | QG11 | A workflow and its modules fit its entrypoint's word budget.    |
+
+Details: `rule` on every kind; `family` on the QG02, QG03 undeclared, and QG08 kinds; `heading` on the QG04 and QG05
+kinds; `input` on `retired-gate-input`; `verdict` on `unknown-gate-verdict`; `words` and `limit` on
+`unnecessary-workflow-split`. QG09, a `defaults.max-cycles` outside 1 to 3, is a configuration error with exit `2`, not
+a finding.
+
 ## Metadata
 
 Twenty-three kinds, all prefixed `metadata-`. They divide into what the front matter is:

@@ -7,4 +7,5 @@
 //! with.
 
 pub mod directory_map;
+pub mod quality_gates;
 pub mod word_budget;

@@ -179,6 +179,74 @@ pub struct GovernancePolicy {
     pub(crate) layers: Option<LayerPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) traceability: Option<TraceabilityPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) quality_gates: Option<QualityGatesPolicy>,
+}
+
+/// The structure of a repository's bounded quality gates.
+///
+/// Every name a repository could choose differently -- the workflow root, its
+/// groups, the agent directory, the headings, the verdict vocabulary, the
+/// retired inputs -- is declared here. The one value RHINO fixes is the cycle
+/// ceiling: a gate runs at most three cycles, so `defaults.max-cycles` may
+/// lower that ceiling but never raise it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub(crate) struct QualityGatesPolicy {
+    /// The workflow root whose top level holds only `README.md` and `groups`.
+    pub(crate) root: String,
+    /// The canonical agent directory holding each family's checker and fixer.
+    pub(crate) agents: String,
+    /// Every directory the workflow root may hold.
+    pub(crate) groups: Vec<String>,
+    /// The one group that holds every gate and propagation.
+    pub(crate) gate_group: String,
+    /// The second-level headings every gate carries, in order.
+    pub(crate) gate_headings: Vec<String>,
+    /// The gate heading whose section names the verdicts.
+    pub(crate) verdict_heading: String,
+    /// The only verdicts a gate may name.
+    pub(crate) verdicts: Vec<String>,
+    /// Inputs no gate may name any more.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) retired_inputs: Vec<String>,
+    /// The second-level headings every propagation carries.
+    pub(crate) propagation_headings: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) defaults: Option<QualityGateDefaults>,
+    /// The gate families this repository holds.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) gates: Vec<QualityGateFamily>,
+}
+
+/// Repository defaults a gate run reads. Neither is supplied by RHINO.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub(crate) struct QualityGateDefaults {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mode: Option<QualityGateMode>,
+    /// 1, 2, or 3. A repository may lower the ceiling, never raise it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1, max = 3))]
+    pub(crate) max_cycles: Option<u8>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum QualityGateMode {
+    Lax,
+    Normal,
+    Strict,
+    All,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct QualityGateFamily {
+    pub(crate) family: String,
+    /// The default subject a run of this family's gate receives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) subject: Option<String>,
 }
 
 /// Exact vocabulary that may not appear in declared portable source roots.
@@ -876,7 +944,27 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     if let Some(gates) = &document.gates {
         validate_gates(gates)?;
     }
+    validate_cycle_ceiling(&document)?;
     Ok(document)
+}
+
+/// The quality-gate cycle ceiling is refused here, before any file is read,
+/// because a repository may lower it but never raise it.
+fn validate_cycle_ceiling(document: &Document) -> Result<(), ConfigError> {
+    let ceiling = document
+        .policies
+        .as_ref()
+        .and_then(|policies| policies.governance.as_ref())
+        .and_then(|governance| governance.quality_gates.as_ref())
+        .and_then(|policy| policy.defaults.as_ref())
+        .and_then(|defaults| defaults.max_cycles);
+    match ceiling {
+        Some(cycles) if !(1..=3).contains(&cycles) => semantic(
+            "policies.governance.quality-gates.defaults.max-cycles",
+            "must be 1, 2, or 3; a gate never runs more than three cycles",
+        ),
+        _ => Ok(()),
+    }
 }
 
 /// Draft 2020-12 bytes with a trailing newline for stable editor artifacts.
@@ -1442,6 +1530,36 @@ mod tests {
             value["properties"]["extensions"]["propertyNames"]["pattern"],
             "^[a-z][a-z0-9-]*$"
         );
+    }
+
+    fn quality_gates_with_ceiling(cycles: u8) -> String {
+        format!(
+            "schema: rhino/repo-config/v2\npolicies:\n  governance:\n    quality-gates:\n      \
+             root: workflows\n      agents: agents\n      groups: [quality]\n      \
+             gate-group: quality\n      gate-headings: [Verdict]\n      verdict-heading: Verdict\n      \
+             verdicts: [PASS]\n      propagation-headings: [Scope]\n      defaults:\n        \
+             max-cycles: {cycles}\n"
+        )
+    }
+
+    #[test]
+    fn the_quality_gate_cycle_ceiling_is_one_to_three_in_schema_and_reader() {
+        let schema: Value =
+            serde_json::from_slice(&schema_bytes().expect("schema serializes")).expect("JSON");
+        for (cycles, accepted) in [(0, false), (1, true), (3, true), (4, false)] {
+            let text = quality_gates_with_ceiling(cycles);
+            let instance: Value = yaml_serde::from_str(&text).expect("fixture is YAML");
+            assert_eq!(
+                jsonschema::draft202012::is_valid(&schema, &instance),
+                accepted,
+                "the generated schema and max-cycles {cycles}"
+            );
+            assert_eq!(
+                parse(&text).is_ok(),
+                accepted,
+                "the reader and max-cycles {cycles}"
+            );
+        }
     }
 
     #[test]

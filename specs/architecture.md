@@ -81,6 +81,7 @@ cli -- command tree [entry]
  |     +--> word_budget [check] -----+--> markdown scan [shared] ---------->+
  |     +--> metadata [check] --------+                                      |
  |     +--> directory_map [check] ----------------------------------------->+
+ |     +--> quality_gates [check] ----------------------------------------->+
  |     +--> conventions [check]                                             |
  |                                                                          |
  +--> harness adapters [check] -------------------------------------------->+

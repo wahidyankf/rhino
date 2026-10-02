@@ -34,9 +34,9 @@ remains in scope until its repository declares otherwise.
 
 `policies.markdown` opts into frontmatter, heading hierarchy, internal-link, metadata, Mermaid, filename, and
 README-index validation. `policies.governance` owns vendor vocabulary, layer structure, traceability declarations,
-word-budget surfaces, and directory-map trees. `policies.conventions` owns configured license paths, identifiers,
-digests, exact exclusions, and emoji-prohibited file surfaces. Each group refuses an undeclared or invalid sub-policy
-instead of inheriting a repository convention.
+word-budget surfaces, directory-map trees, and quality-gate structure. `policies.conventions` owns configured license
+paths, identifiers, digests, exact exclusions, and emoji-prohibited file surfaces. Each group refuses an undeclared or
+invalid sub-policy instead of inheriting a repository convention.
 
 `governance word-budget validate` and `governance directory-map validate` read only `policies.governance.word-budget`
 and `policies.governance.directory-map`, respectively. Their `count`, ordered `surfaces`, `trees`, findings, and
@@ -67,6 +67,53 @@ a configuration that omits an optional key behaves as it did before that key exi
 the command refuse with the unreadable-input exit code instead of reporting findings. Declaring `allowed-types` also
 reads a colour by what it is assigned to and refuses a sequence-diagram `box` that names a colour. The checks and
 finding details are in [Findings](findings.md#mermaid).
+
+### Quality-gate policy
+
+`policies.governance.quality-gates` configures `governance quality-gates validate`, which checks the structure of a
+repository's bounded quality gates and never judges their prose. Every key is required except `retired-inputs`,
+`defaults`, and `gates`.
+
+```yaml
+policies:
+  governance:
+    quality-gates:
+      root: repo-governance/workflows
+      agents: .agents/agents
+      groups: [plan, quality, maintenance]
+      gate-group: quality
+      gate-headings: [Entry, Inputs, Deterministic Boundary, Cycle, Termination, Verdict, Ledger]
+      verdict-heading: Verdict
+      verdicts: [PASS, PASS_WITH_FINDINGS, FAIL, BLOCKED]
+      retired-inputs: [max-iterations, min-iterations, max-audits]
+      propagation-headings: [Contract, Scope, Executor, Row Verification, Family Rules]
+      defaults:
+        mode: normal
+        max-cycles: 3
+      gates:
+        - family: plan
+        - family: ui-web
+          subject: apps/web
+```
+
+- `root`, `agents` (exact paths): the workflow root and the canonical agent directory.
+- `groups` (simple names): the only directories `root` may hold beside its `README.md`.
+- `gate-group` (one of `groups`): the group that holds every `<family>-quality-gate.md` and `<family>-propagation.md`.
+- `gate-headings` (ordered): the second-level headings every gate carries, in this order. Other headings may follow.
+- `verdict-heading` (one of `gate-headings`) and `verdicts`: the section whose capitalised code spans must be declared
+  verdicts.
+- `retired-inputs`: names no gate may mention.
+- `propagation-headings`: the second-level headings every propagation carries.
+- `defaults.mode` (`lax`, `normal`, `strict`, or `all`) and `defaults.max-cycles` (1, 2, or 3): the defaults a gate run
+  reads. RHINO supplies neither. `max-cycles` outside 1–3 is a configuration error, because a gate never runs more than
+  three cycles; a repository may lower the ceiling but never raise it.
+- `gates[].family` (unique simple names) and the optional `gates[].subject`: the families this repository holds.
+
+Each finding names its rule as a `rule` detail, `QG01` to `QG11`; the kinds are in
+[Findings](findings.md#quality-gates). The split-workflow rule, `QG11`, measures against
+`policies.governance.word-budget` when that policy declares a surface governing the workflow's entrypoint, and is
+skipped otherwise. A gate's `max-cycles` input is read from the Markdown table row whose first cell is `max-cycles`:
+every integer in the row and its last cell, the default, must be 1 to 3. Headings inside fenced code are not headings.
 
 ### Surface globs and symbolic links
 
