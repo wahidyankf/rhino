@@ -21,7 +21,7 @@ Every rule has exactly one canonical source. Its level and precedence come from 
 it, because a restatement is a second copy that will eventually disagree.
 
 Creating, moving, changing, or removing a rule invokes [rules propagation](../workflows/quality/rules-propagation.md),
-whether or not it was asked for. A rule change is ready when propagation returns `PASS_NO_CHANGE` or `PASS_CHANGED`.
+whether or not it was asked for. A rule change is ready when propagation ends `no-change` or `landed`.
 
 The read-only [rules quality gate](../workflows/quality/rules-quality-gate.md) and the
 [rules grooming](../workflows/maintenance/rules-grooming.md) sweep each run only on explicit direction, and neither

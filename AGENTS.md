@@ -55,8 +55,8 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [local additions](repo-governance/conventions/plan-lifecycle.md),
   [specification changes](repo-governance/conventions/plan-specification-changes.md), and
   [validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
-- The plan [quality gate](repo-governance/workflows/quality/plan-quality-gate.md) needs explicit request; the
-  [execution check](repo-governance/workflows/plan/plan-execution-check.md) blocks archival.
+- [Quality gates](repo-governance/development/workflow/quality-gate-contract.md) need explicit request or a listed
+  caller; the [execution check](repo-governance/workflows/plan/plan-execution-check.md) blocks archival.
 
 ## Version Control
 
@@ -84,4 +84,4 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [change](repo-governance/workflows/quality/harness-propagation.md) and
   [verify](repo-governance/workflows/quality/harness-parity-verification.md) it through its workflows.
 - [Rule](repo-governance/conventions/rules.md) changes automatically run
-  [propagation](repo-governance/workflows/quality/rules-propagation.md); its gate and grooming need explicit request.
+  [propagation](repo-governance/workflows/quality/rules-propagation.md); grooming needs explicit request.

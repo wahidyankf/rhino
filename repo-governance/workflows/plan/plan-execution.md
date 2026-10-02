@@ -4,9 +4,9 @@ Use this only after an explicit direction to execute one formal plan.
 
 ## Start
 
-1. Select one plan in `backlog/` or `in-progress/`. Require a current `PASS` from a
-   [plan quality gate](../quality/plan-quality-gate.md) run the user explicitly directed. Authority to execute is not
-   authority to run that gate: with no current `PASS`, stop and say so. For a bug-fix plan, an adopted Upstream Tool
+1. Select one plan in `backlog/` or `in-progress/`. Require a current verdict, any of the four, from a
+   [plan quality gate](../quality/plan-quality-gate.md) the user explicitly directed. Authority to execute is not
+   authority to run that gate: with no current verdict, stop and say so. For a bug-fix plan, an adopted Upstream Tool
    Defects standard directs both.
 2. Enter the plan's worktree before any file or Git mutation, initializing it if new, under
    [the integration path](../../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
@@ -64,5 +64,5 @@ At any pause the plan itself carries enough state to resume: the current checkou
 unresolved item, and any bounded budget already partly spent. A resumed session continues a budget; it never resets one.
 
 Interrupted work stays accurately in progress and resumes from its recorded state; only a material plan change needs a
-fresh directed quality-gate `PASS`. If archival verification fails, restore the folder, its status, and both maps. Never
-leave a plan split across two stages, and never archive incomplete work.
+fresh directed quality-gate verdict. If archival verification fails, restore the folder, its status, and both maps.
+Never leave a plan split across two stages, and never archive incomplete work.

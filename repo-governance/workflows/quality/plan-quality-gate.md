@@ -1,78 +1,90 @@
 # Plan Quality Gate
 
-Entry is a complete draft whose two [decision gates](../../development/planning-capabilities/003-decision-gates.md) have
-both finished. Run this only when the user names this gate or unambiguously directs its semantic audit. Do not infer
-authorization from creating, editing, reviewing, or executing a plan, from a harness planning mode, or from another
-workflow. One instruction may authorize several named checkpoints; otherwise it authorizes one run. For a
-[bug-fix plan](../../conventions/plans/010-bug-fix-plan.md), an adopted
-[Upstream Tool Defects](../../development/upstream-tool-defects.md) standard is that direction, once the plan lands.
+This gate follows the [Quality Gate Contract](../../development/workflow/quality-gate-contract.md): a read-only checker,
+a frozen ledger, one separate writer, at most three cycles, and an advisory verdict. This file states only what is
+specific to plans.
 
-Produce exactly one terminal result — `PASS` or one `BLOCKED_*` variant — for one plan's semantic readiness, at the
-directed pre-execution or post-material-change checkpoint. Never recurse or start another run.
+## Entry
 
-## What It Judges
+The gate starts only on an explicit request that names it, or from [Planning](../plan/plan-planning.md), after the
+post-write gate.
 
-Meaning, consistency, safety, executability, and proof. `PASS` means good enough for the authorized scope, its known
-risks, and applicable rules — not perfect or future-proof. Do not block on style, speculative hardening, or an
-improvement that can wait without making execution unsafe or ambiguous. Apply
-[minimal sufficiency](../../principles/minimal-sufficiency.md).
+Creating, editing, or executing a plan never starts it alone. Each run serves one named checkpoint: before execution, or
+after a material change.
 
-Deterministic tooling owns every machine-decidable check: the plan's own shape under
-[structural validation](../../conventions/plans/006-structural-validation.md), plus links, directory maps, word budgets,
-Mermaid, and harness parity. Do not reproduce or second-guess them by reading; run them only in verification. Where the
-plan _delivers_ a check, confirm `delivery.md` has an implementation and a proof task rather than simulating the future
-tool, which must exist and pass at completion.
+## Inputs
 
-## Snapshot and Ledger
+| Input        | Type    | Values                                    | Default  |
+| ------------ | ------- | ----------------------------------------- | -------- |
+| `subject`    | string  | One plan folder, with both decision gates | required |
+| `mode`       | enum    | `lax`, `normal`, `strict`, `all`          | `normal` |
+| `max-cycles` | integer | 1, 2, or 3                                | 3        |
 
-Freeze the plan path and stage, Git revision and dirty paths, scope, relevant specification and governance paths,
-unresolved decisions, and cycle `1`. Preserve them through compaction or handoff under
-[governance continuity](../../principles/governance-continuity.md). A material external input change ends the run as
-`BLOCKED_INPUT_CHANGED` rather than restarting it.
+Any other `max-cycles` value, or a missing subject, refuses to start.
 
-Audit before editing. Build one finite ledger whose rows carry an ID, canonical rule, location, material gap, required
-repair, proof, and a status of `OPEN`, `FIXED`, `NOT_APPLICABLE`, or `BLOCKED`. Only a gap that violates a rule, or
-makes scoped execution unsafe, ambiguous, or unprovable, is a row. A mandatory finding cannot be waived, and
-`NOT_APPLICABLE` needs evidence.
+## Deterministic Boundary
 
-## Procedure
+The checker reports none of these properties. The entry and exit checks run their owners instead.
 
-1. Recursively inventory and read the plan, its assets, relevant implementation and specifications, and the governance
-   it depends on. Do not validate a machine-owned concern.
-2. Complete one semantic audit without editing anything. Check the [plans convention](../../conventions/plans.md) and
-   its [local additions](../../conventions/plan-lifecycle.md) — one stage, required documents, one technical shape,
-   truthful status; a route from BRD and PRD through the technical set to delivery that a junior could follow;
-   necessary, non-placeholder artifacts; architecture, Gherkin, file impact, and dependencies synchronized against
-   [software quality enforcement](../../development/software-quality-enforcement.md); ownership, acceptance
-   traceability, RED, GREEN, and REFACTOR tasks, checkpoints, evidence, and recovery; the
-   [specification-change](../../conventions/plan-specification-changes.md) contract; and conflicts with current
-   specifications, governance, implementation, or another active plan.
-3. Freeze the ledger. Repair only its rows, in dependency and safety order, each closing one `OPEN` row without
-   expanding product scope. A missing decision, missing authority, or irreconcilable rule becomes `BLOCKED`; never
-   invent the answer.
-4. Verify semantically in read-only mode, reviewing only repaired meaning and its cross-document effects. Then run
-   structural validation, which covers the frozen plan, and the gate:
+| Property                            | Owned by                      | This repository runs                      |
+| ----------------------------------- | ----------------------------- | ----------------------------------------- |
+| Plan layout, documents, and labels  | the plan structural validator | `rhino plan validate`                     |
+| Markdown formatting and line length | the formatter and linter      | `prettier`, `markdownlint-cli2`           |
+| Internal links and anchors          | the link validator            | `rhino md internal-link validate`         |
+| Directory maps                      | the map validator             | `rhino governance directory-map validate` |
 
-   ```sh
-   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- \
-     cargo run --quiet --bin rhino -- plan validate
-   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick
-   ```
+The plan validator's checks are listed in [Structural Validation](../../conventions/plans/006-structural-validation.md).
+A property no tool of its own owns leaves the table and becomes judgeable.
 
-5. Return `PASS` when no row is `OPEN` or `BLOCKED`, the gate passes, no new semantic gap appeared, and the snapshot
-   changed only through recorded repairs.
-6. Otherwise allow exactly one stabilization cycle: add only repair-caused semantic gaps and deterministic findings, set
-   cycle `2`, repair them once, and repeat step 4. A fixed finding cannot reopen without changed input, which yields
-   `BLOCKED_INPUT_CHANGED`.
-7. After cycle `2`, return `PASS` if step 5 now holds. Otherwise return `BLOCKED_NON_CONVERGENT` with the remaining rows
-   and evidence. Do not repair again, restart, or invoke this workflow automatically.
+## Cycle
 
-HIPPO recovery required by [resource-aware development](../../development/resource-aware-development.md) is
-infrastructure handling, not another cycle. If the gate cannot reach a deterministic verdict, return `BLOCKED_TOOLING`
-with its failure evidence; never simulate the check or retry it unbounded.
+Each cycle is one full audit by `plan-checker`, loading the `plan-validating-quality` skill, and one repair by
+[Plan Propagation](plan-propagation.md), run by `plan-fixer`, per
+[Sequence and Termination](../../development/workflow/quality-gate-contract/002-sequence-and-termination.md). The audit
+reads the frozen plan and asks whether:
 
-## Terminal Contract
+1. the acceptance criteria are testable, and are the right ones for the stated outcome;
+2. `delivery.md` is executable by someone who was not present, in dependency order, per
+   [Plans](../../conventions/plans.md);
+3. the technical shape matches the work, and each of the six documents answers its own question;
+4. for a bug-fix plan, the root cause carries checkable evidence and the solution cites references; and
+5. every decision the plan relies on is recorded, so an executor invents no policy.
 
-`PASS` authorizes neither execution nor commit. Every `BLOCKED_*` result names its reason, remaining rows, and the
-external change required. Resume only when new input and an explicit direction authorize a fresh run.
-[Plan execution](../plan/plan-execution.md) consumes this result and never starts it.
+Wording preference and speculative cases are not findings, per
+[Minimal Sufficiency](../../principles/minimal-sufficiency.md). `plan-maker` authors plans; `plan-fixer` only repairs
+ledger rows.
+
+## Termination
+
+The contract's
+[termination table](../../development/workflow/quality-gate-contract/002-sequence-and-termination.md#termination)
+applies unchanged. This gate adds no row.
+
+## Verdict
+
+| Verdict              | The caller                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `PASS`               | records the verdict and continues                                                   |
+| `PASS_WITH_FINDINGS` | records the verdict and the open non-blocking rows, and continues                   |
+| `FAIL`               | gives each open blocking row an owner (idea brief, plan item, or issue), continues  |
+| `BLOCKED`            | records the cause (tooling, input-changed, or unavailable), then acts as for `FAIL` |
+
+No verdict stops the caller, and none authorizes execution, a commit, or a push. The plan records one line in its
+`delivery.md`, for example `plan-quality-gate: PASS_WITH_FINDINGS (2 cycles, 3 LOW open)`.
+
+## Ledger
+
+`local-tmp/quality/plan/<plan-slug>__<YYYYMMDDTHHMMZ>.md`, with the columns and closing verdict block in
+[the contract](../../development/workflow/quality-gate-contract/003-verdicts-ledger-and-relations.md#ledger). It is
+never committed.
+
+## Example Usage
+
+```text
+Run plan-quality-gate on plans/in-progress/billing-retry with mode normal.
+```
+
+## Related Workflows
+
+- [Planning](../plan/plan-planning.md) authors the draft this gate judges.
+- [Execution Check](../plan/plan-execution-check.md) judges finished execution, not a draft.
