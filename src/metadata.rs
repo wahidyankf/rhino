@@ -62,7 +62,7 @@ impl Schema {
             },
             MetadataSchema::Agent => Self {
                 required: &["name", "description", "when_to_use", "tier", "capabilities"],
-                optional: &["skills", "constraints"],
+                optional: &["skills", "constraints", "dispatches"],
             },
         }
     }
@@ -234,7 +234,7 @@ fn missing_findings(path: &str, block: usize, entries: &[&Entry], schema: &Schem
 /// Named rather than inferred from what a document happened to write, because
 /// "this key holds a list" is a fact about the schema: a repository writing one
 /// as the other has made a mistake the validator has to be able to state.
-const LIST_KEYS: [&str; 3] = ["capabilities", "skills", "constraints"];
+const LIST_KEYS: [&str; 4] = ["capabilities", "skills", "constraints", "dispatches"];
 
 fn value_findings(path: &str, entries: &[&Entry], kind: MetadataSchema) -> Vec<Finding> {
     let mut findings = Vec::new();
@@ -783,6 +783,35 @@ mod tests {
         ] {
             assert!(kinds.contains(&expected), "missing {expected}: {kinds:?}");
         }
+    }
+
+    #[test]
+    fn an_agent_dispatch_list_is_an_optional_list_ordered_after_constraints() {
+        let agent = |tail: &str| {
+            format!(
+                "---\nname: lead\ndescription: Leads the work by dispatching each part to a teammate.\nwhen_to_use: >-\n  Use when a goal spans several agents and needs one coordinator.\ntier: plan\ncapabilities:\n  - repository-read\n{tail}---\n"
+            )
+        };
+        let accepted = inspect(
+            ".agents/agents/lead.md",
+            &agent("constraints:\n  - inline-result-only\ndispatches:\n  - writer\n  - tester\n"),
+            MetadataSchema::Agent,
+        );
+        assert_eq!(kinds(&accepted), Vec::<&str>::new());
+
+        let early = inspect(
+            ".agents/agents/lead.md",
+            &agent("dispatches:\n  - writer\nconstraints:\n  - inline-result-only\n"),
+            MetadataSchema::Agent,
+        );
+        assert_eq!(kinds(&early), vec!["metadata-key-order"]);
+
+        let scalar = inspect(
+            ".agents/agents/lead.md",
+            &agent("dispatches: writer\n"),
+            MetadataSchema::Agent,
+        );
+        assert_eq!(kinds(&scalar), vec!["metadata-array-required"]);
     }
 
     #[test]
