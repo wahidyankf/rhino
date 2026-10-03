@@ -9,6 +9,39 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [Unreleased]
+
+Adapter generation gains resolved models and dispatch lists, and a quality-gate family can name its own agents. Two
+harness checks now refuse a configuration that generated adapters before, so the next release moves in the minor
+position; read **Changed — breaking** before upgrading a pinned version.
+
+### Changed — breaking
+
+- **A canonical agent without a tier is refused.** When `canonical.agents.tier` is declared, `harness adapters validate`
+  and `generate` refuse an agent that names no tier with `harness-tier-missing`, exit `2`. An untiered agent used to
+  render with no tier fields.
+- **A tier the profile does not declare is refused.** A profile with a `tiers` block must map every tier its selected
+  agents name; an unmapped tier is refused with `harness-tier-undeclared`, exit `2`, where it used to render no tier
+  fields. A profile with no `tiers` block is unaffected.
+
+### Added
+
+- **Explicitly empty tiers.** A tier may map to `{}`, leaving the model and effort to the harness. An agent adapter's
+  optional `empty-tier` names the values such an agent renders, such as `{ model: inherit }`. A tier that sets only one
+  of a model and an effort is refused while the configuration is read.
+- **Resolved tier models.** A tier may declare `model-resolve` (`command`, `pattern`, `fallback`) with an `effort`
+  instead of a pinned `model`. `harness adapters generate` alone runs the command, with no shell and a 30-second
+  timeout, renders the newest matching model, and records it in the family's `provenance.json`. When the command fails
+  it renders the last recorded model, or the fallback, and warns on stderr instead of failing. `harness adapters
+  validate` never starts the command.
+- **Dispatch lists.** `canonical.agents.dispatches` names an agent's list of agents it may dispatch, and an agent
+  adapter's `dispatches` renders it as one list member through a `{names}` template or as an `allow-map` of
+  `"*": deny` and one `allow` per name. Canonical agent metadata accepts the optional `dispatches` list after
+  `constraints`.
+- **Named gate agents.** A `policies.governance.quality-gates.gates[]` entry may declare `judge` and `repairer` agent
+  names. QG08 then requires those agent files instead of `<family>-checker.md` and `<family>-fixer.md`, which stay the
+  default, and each `missing-gate-agent` finding carries `role` and `agent` details.
+
 ## [v0.9.1] — 2026-10-02
 
 A configuration that `governance quality-gates validate` already accepted behaves exactly as it did under every

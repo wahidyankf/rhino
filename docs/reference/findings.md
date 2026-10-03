@@ -222,7 +222,7 @@ Detail: `target` on `missing-traceability-relationship` — the artifact the sou
 | `unbounded-gate-cycles`              | QG06 | A gate has no `max-cycles` row, or one outside 1 to 3.            |
 | `retired-gate-input`                 | QG06 | A gate names a declared retired input.                            |
 | `unknown-gate-verdict`               | QG07 | The verdict section names an undeclared verdict.                  |
-| `missing-gate-agent`                 | QG08 | `agents` lacks a family's `<family>-checker.md` or `-fixer.md`.   |
+| `missing-gate-agent`                 | QG08 | `agents` lacks a family's judge or repairer agent file.           |
 | `unpaired-workflow-module-directory` | QG10 | A directory in a group has no sibling `<name>.md`.                |
 | `unexpected-workflow-module-entry`   | QG10 | A module directory holds more than `README.md` and `NNN-*.md`.    |
 | `missing-workflow-module-index`      | QG10 | A module directory has no `README.md`.                            |

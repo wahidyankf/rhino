@@ -4,8 +4,8 @@ RHINO tree validators open files and print. They write nothing, spawn nothing, a
 operations are separate: `gate run` starts only a declared child argv, toolchain commands start declared typed argv
 without a shell or reported output, `env validate` runs one `git diff --cached` query for the staged paths when
 `environment.staged` is declared, and adapter generation replaces only declared adapter families and exact
-instruction-adapter files after planning every output in memory. These are enforced as tests, not incidental properties
-of the current implementation.
+instruction-adapter files after planning every output in memory, starting at most a tier's declared `model-resolve`
+argv. These are enforced as tests, not incidental properties of the current implementation.
 
 ## The four boundaries
 
@@ -17,7 +17,8 @@ or exact files and is never reachable from a validator.
 **A tree validator spawns no child process.** No `git`, no formatter, no shell. Everything it reports, it derived from
 bytes it read itself. `gate run` and the toolchain commands are separate declared operations: each starts typed argv at
 a narrow port and never interprets a shell command. Toolchain probes and provision never report child output; provision
-stops at its first failure.
+stops at its first failure. Adapter generation may start a tier's declared `model-resolve` argv through its own port,
+with a timeout; `harness adapters validate` never does.
 
 **It opens no socket, including loopback.** There is no telemetry, no version check, no remote policy fetch. This is
 stricter than the layer rule it sits under, which permits an integration test to own a loopback socket — that permission
