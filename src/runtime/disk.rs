@@ -9,9 +9,9 @@
 
 use super::{
     AdapterError, AdapterStore, AdapterTransaction, EnvironmentError, EnvironmentStore,
-    EnvironmentTransaction, Launch, LaunchError, Launched, Launcher, LinkTarget, Mutated,
-    MutationError, MutationLaunch, MutationRunner, ToolchainError, ToolchainLaunch,
-    ToolchainResult, ToolchainRunner, Tree, TreeError,
+    EnvironmentTransaction, Launch, LaunchError, Launched, Launcher, LinkTarget, ModelResolver,
+    Mutated, MutationError, MutationLaunch, MutationRunner, ResolveError, ResolveLaunch,
+    ToolchainError, ToolchainLaunch, ToolchainResult, ToolchainRunner, Tree, TreeError,
 };
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -1593,6 +1593,98 @@ fn ensure_no_links(root: &Path, relative: &str) -> Result<(), AdapterError> {
         }
     }
     Ok(())
+}
+
+/// The no-shell process boundary for a declared model-listing command. Its
+/// output is read only for model names and never enters a report; a bound
+/// keeps a hostile child from retaining unbounded output.
+pub struct DiskModelResolver;
+
+impl ModelResolver for DiskModelResolver {
+    fn resolve(&self, launch: ResolveLaunch<'_>) -> Result<String, ResolveError> {
+        let Some((program, arguments)) = launch.arguments.split_first() else {
+            return Err(ResolveError(
+                "the model command declares no executable".to_string(),
+            ));
+        };
+        if program.trim().is_empty() || program.starts_with('-') {
+            return Err(ResolveError(
+                "the model command's executable is invalid".to_string(),
+            ));
+        }
+        const MAX_MODEL_OUTPUT: u64 = 8 * 1024 * 1024;
+        let mut child = Command::new(program)
+            .args(arguments)
+            .current_dir(launch.directory)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|error| ResolveError(format!("could not start the model command: {error}")))?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            ResolveError("the model command has no captured output stream".to_string())
+        })?;
+        let reader = std::thread::spawn(move || {
+            let mut output = Vec::new();
+            stdout
+                .take(MAX_MODEL_OUTPUT + 1)
+                .read_to_end(&mut output)
+                .map(|_| output)
+                .map_err(|error| error.to_string())
+        });
+        let started = Instant::now();
+        let timeout = Duration::from_secs(launch.timeout_seconds);
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break status,
+                Ok(None) if started.elapsed() >= timeout => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = reader.join();
+                    return Err(ResolveError(
+                        "the model command exceeded its timeout".to_string(),
+                    ));
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = reader.join();
+                    return Err(ResolveError(format!(
+                        "could not observe the model command: {error}"
+                    )));
+                }
+            }
+        };
+        let output = reader
+            .join()
+            .map_err(|_| ResolveError("the model command's output reader panicked".to_string()))?
+            .map_err(|error| {
+                ResolveError(format!(
+                    "could not read the model command's output: {error}"
+                ))
+            })?;
+        if output.len() as u64 > MAX_MODEL_OUTPUT {
+            return Err(ResolveError(
+                "the model command emitted too much output".to_string(),
+            ));
+        }
+        match status.code() {
+            Some(0) => {}
+            Some(code) => {
+                return Err(ResolveError(format!(
+                    "the model command exited with status {code}"
+                )));
+            }
+            None => {
+                return Err(ResolveError(
+                    "the model command ended by signal".to_string(),
+                ));
+            }
+        }
+        String::from_utf8(output)
+            .map_err(|_| ResolveError("the model command emitted non-text output".to_string()))
+    }
 }
 
 /// The no-shell process boundary for declared toolchain commands. Captured

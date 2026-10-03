@@ -720,12 +720,46 @@ pub(crate) struct EmptyTier {
 /// the same claim as a tier the profile never declared.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[schemars(extend("dependentRequired" = {"model": ["effort"], "effort": ["model"]}))]
+#[schemars(extend(
+    "dependentRequired" = {"model": ["effort"], "model-resolve": ["effort"]},
+    "dependentSchemas" = {"effort": {"anyOf": [{"required": ["model"]}, {"required": ["model-resolve"]}]}},
+    "not" = {"required": ["model", "model-resolve"]}
+))]
 pub(crate) struct Tier {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) model: Option<String>,
+    /// Resolve the model at generation instead of pinning one here.
+    #[serde(
+        rename = "model-resolve",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) model_resolve: Option<ModelResolve>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) effort: Option<String>,
+}
+
+/// A tier model resolved when adapters are generated rather than pinned.
+///
+/// `command` is an argument vector run without a shell from the repository
+/// root, with a bounded timeout, and only by generation. Its output is read
+/// as tokens, each a maximal run of letters, digits, `.`, `_`, and `-`.
+/// `pattern` holds exactly one `*`, which matches a version: a non-empty run
+/// of digits and dots. The matching token with the highest version, compared
+/// as dot-separated numbers, is the model. `fallback` is the model a binding
+/// renders when no run has ever resolved one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ModelResolve {
+    #[schemars(length(min = 1))]
+    pub(crate) command: Vec<String>,
+    pub(crate) pattern: String,
+    pub(crate) fallback: String,
+}
+
+/// One character of a model name, as a resolving tier reads command output.
+pub(crate) fn is_model_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
 }
 
 /// One capability projection into the declared native adapter format.
@@ -1014,16 +1048,56 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
     Ok(document)
 }
 
+/// A resolving tier names a command to run, one version wildcard among
+/// model-name characters, and a fallback that is itself a model name.
+fn validate_model_resolve(key: &str, resolve: &ModelResolve) -> Result<(), ConfigError> {
+    if resolve
+        .command
+        .first()
+        .is_none_or(|executable| executable.trim().is_empty())
+    {
+        return semantic(key, "declares a model-resolve command with no executable");
+    }
+    if resolve.pattern.matches('*').count() != 1
+        || !resolve
+            .pattern
+            .chars()
+            .all(|character| character == '*' || is_model_character(character))
+    {
+        return semantic(
+            key,
+            "declares a model-resolve pattern that is not one `*` among model-name characters",
+        );
+    }
+    if resolve.fallback.is_empty() || !resolve.fallback.chars().all(is_model_character) {
+        return semantic(
+            key,
+            "declares a model-resolve fallback that is not a model name",
+        );
+    }
+    Ok(())
+}
+
 /// A tier pins its model and its effort together or pins neither, refused
 /// here, before any file is read, by every command that reads the file.
 fn validate_tiers(harness: &Harness) -> Result<(), ConfigError> {
     for profile in &harness.profiles {
         for (name, tier) in &profile.tiers {
-            if tier.model.is_some() != tier.effort.is_some() {
+            let key = format!("harness.profiles.{}.tiers.{name}", profile.id);
+            if tier.model.is_some() && tier.model_resolve.is_some() {
                 return semantic(
-                    &format!("harness.profiles.{}.tiers.{name}", profile.id),
+                    &key,
+                    "declares both a model and a model-resolve; a tier names one model",
+                );
+            }
+            if (tier.model.is_some() || tier.model_resolve.is_some()) != tier.effort.is_some() {
+                return semantic(
+                    &key,
                     "declares a model or an effort without the other; a tier pins both or neither",
                 );
+            }
+            if let Some(resolve) = &tier.model_resolve {
+                validate_model_resolve(&key, resolve)?;
             }
         }
     }
@@ -1675,6 +1749,68 @@ mod tests {
             value["properties"]["extensions"]["propertyNames"]["pattern"],
             "^[a-z][a-z0-9-]*$"
         );
+    }
+
+    fn harness_with_tier(tier: &str) -> String {
+        format!(
+            "schema: rhino/repo-config/v2\nharness:\n  profiles:\n    - id: alpha\n      \
+             agent-adapter: {{path: \"a/{{name}}.md\", format: front-matter, route-field: body, \
+             route: \"{{path}}\"}}\n      tiers: {{plan: {tier}}}\n"
+        )
+    }
+
+    #[test]
+    fn a_resolving_tier_names_a_command_one_wildcard_and_a_model_fallback() {
+        let resolving = "command: [list], pattern: \"m-*-x\", fallback: m-0-x";
+        parse(&harness_with_tier(&format!(
+            "{{model-resolve: {{{resolving}}}, effort: high}}"
+        )))
+        .expect("a complete resolving tier parses");
+        assert_refusal(
+            parse(&harness_with_tier(&format!(
+                "{{model: m, model-resolve: {{{resolving}}}, effort: high}}"
+            ))),
+            "declares both a model and a model-resolve",
+        );
+        assert_refusal(
+            parse(&harness_with_tier(&format!(
+                "{{model-resolve: {{{resolving}}}}}"
+            ))),
+            "pins both or neither",
+        );
+        for (resolve, expected) in [
+            (
+                "command: [\"  \"], pattern: \"m-*\", fallback: m-0",
+                "with no executable",
+            ),
+            (
+                "command: [list], pattern: \"m-x\", fallback: m-0",
+                "not one `*`",
+            ),
+            (
+                "command: [list], pattern: \"m-*-*\", fallback: m-0",
+                "not one `*`",
+            ),
+            (
+                "command: [list], pattern: \"m *\", fallback: m-0",
+                "not one `*`",
+            ),
+            (
+                "command: [list], pattern: \"m-*\", fallback: \"\"",
+                "fallback that is not a model name",
+            ),
+            (
+                "command: [list], pattern: \"m-*\", fallback: \"m/0\"",
+                "fallback that is not a model name",
+            ),
+        ] {
+            assert_refusal(
+                parse(&harness_with_tier(&format!(
+                    "{{model-resolve: {{{resolve}}}, effort: high}}"
+                ))),
+                expected,
+            );
+        }
     }
 
     fn quality_gates_with_ceiling(cycles: u8) -> String {

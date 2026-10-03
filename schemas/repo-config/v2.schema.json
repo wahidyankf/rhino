@@ -1131,6 +1131,27 @@
       "required": ["glob", "schema"],
       "type": "object"
     },
+    "ModelResolve": {
+      "additionalProperties": false,
+      "description": "A tier model resolved when adapters are generated rather than pinned.\n\n`command` is an argument vector run without a shell from the repository\nroot, with a bounded timeout, and only by generation. Its output is read\nas tokens, each a maximal run of letters, digits, `.`, `_`, and `-`.\n`pattern` holds exactly one `*`, which matches a version: a non-empty run\nof digits and dots. The matching token with the highest version, compared\nas dot-separated numbers, is the model. `fallback` is the model a binding\nrenders when no run has ever resolved one.",
+      "properties": {
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "fallback": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        }
+      },
+      "required": ["command", "pattern", "fallback"],
+      "type": "object"
+    },
     "MutationContract": {
       "additionalProperties": false,
       "description": "A mutation has one local index operation and one disposable PR replay.\nPairing them in the declaration prevents a formatter from becoming a local\nconvenience command that has never faced its pull-request safety proof.",
@@ -1623,16 +1644,42 @@
     "Tier": {
       "additionalProperties": false,
       "dependentRequired": {
-        "effort": ["model"],
-        "model": ["effort"]
+        "model": ["effort"],
+        "model-resolve": ["effort"]
+      },
+      "dependentSchemas": {
+        "effort": {
+          "anyOf": [
+            {
+              "required": ["model"]
+            },
+            {
+              "required": ["model-resolve"]
+            }
+          ]
+        }
       },
       "description": "One tier's mapping onto a profile's native model fields.\n\nA mapping pins a model and an effort together or pins neither. An empty\nmapping is a deliberate choice to leave both to the harness, which is not\nthe same claim as a tier the profile never declared.",
+      "not": {
+        "required": ["model", "model-resolve"]
+      },
       "properties": {
         "effort": {
           "type": ["string", "null"]
         },
         "model": {
           "type": ["string", "null"]
+        },
+        "model-resolve": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelResolve"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Resolve the model at generation instead of pinning one here."
         }
       },
       "type": "object"

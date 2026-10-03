@@ -10,8 +10,8 @@
 pub mod disk;
 
 pub use disk::{
-    DiskAdapterStore, DiskEnvironmentStore, DiskMutationRunner, DiskToolchainRunner, DiskTree,
-    ProcessLauncher,
+    DiskAdapterStore, DiskEnvironmentStore, DiskModelResolver, DiskMutationRunner,
+    DiskToolchainRunner, DiskTree, ProcessLauncher,
 };
 
 use std::cell::RefCell;
@@ -218,6 +218,30 @@ pub struct ToolchainResult {
 
 pub struct ToolchainError(pub String);
 
+/// A declared model-listing command. Like a toolchain launch it carries no
+/// hook surface or inherited environment, and the child is given no shell.
+pub struct ResolveLaunch<'a> {
+    /// The declared vector. The first value is the executable; there is no
+    /// shell, so a value holding a space or a metacharacter is one argument.
+    pub arguments: &'a [String],
+    /// The repository root, which is the child's working directory.
+    pub directory: &'a str,
+    /// The upper bound for the child, always stated.
+    pub timeout_seconds: u64,
+}
+
+pub struct ResolveError(pub String);
+
+/// The only capability that starts a declared model-listing command.
+///
+/// Adapter generation alone is handed a real one. Adapter validation never
+/// receives it, so checking bindings against a recorded model can never start
+/// a process, whatever the configuration declares.
+pub trait ModelResolver {
+    /// The child's standard output, when it started and exited `0`.
+    fn resolve(&self, launch: ResolveLaunch<'_>) -> Result<String, ResolveError>;
+}
+
 /// The narrow write port used only by canonical adapter generation.
 ///
 /// A caller supplies all desired bytes before asking the store to replace any
@@ -254,6 +278,8 @@ pub struct NoEnvironmentStore;
 
 pub struct NoToolchainRunner;
 
+pub struct NoModelResolver;
+
 impl AdapterStore for NoAdapterStore {
     fn replace(&self, _: &str, _: &AdapterTransaction) -> Result<(), AdapterError> {
         Err(AdapterError(
@@ -280,6 +306,14 @@ impl ToolchainRunner for NoToolchainRunner {
     fn run(&self, _: ToolchainLaunch<'_>) -> Result<ToolchainResult, ToolchainError> {
         Err(ToolchainError(
             "this entry point has no toolchain process boundary".to_string(),
+        ))
+    }
+}
+
+impl ModelResolver for NoModelResolver {
+    fn resolve(&self, _: ResolveLaunch<'_>) -> Result<String, ResolveError> {
+        Err(ResolveError(
+            "this entry point has no model-resolution process boundary".to_string(),
         ))
     }
 }

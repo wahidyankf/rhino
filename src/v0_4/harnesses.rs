@@ -7,17 +7,17 @@
 
 use super::config::{
     Adapter, AdapterFormat, Canonical, CanonicalAgent, CanonicalDocument, Dispatches, Harness,
-    Identity, Profile, Requirements, Scan, Translation, When,
+    Identity, ModelResolve, Profile, Requirements, Scan, Translation, When, is_model_character,
 };
 use crate::Outcome;
 use crate::cli::Format;
 use crate::errors::ErrorCode;
 use crate::runtime::{
-    AdapterFile, AdapterStore, AdapterTransaction, Tree, TreeError, adapter_exact_paths,
-    adapter_roots, normal_adapter_path, under_root,
+    AdapterFile, AdapterStore, AdapterTransaction, ModelResolver, ResolveLaunch, Tree, TreeError,
+    adapter_exact_paths, adapter_roots, normal_adapter_path, under_root,
 };
 use crate::scan;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -28,6 +28,8 @@ const SKILLS_ROOT: &str = ".agents/skills/";
 const ALLOW_MAP: &str = "allow-map";
 /// The placeholder a dispatch member template replaces with the names.
 const NAMES: &str = "{names}";
+/// How long a declared model-listing command may run before it is stopped.
+const RESOLVE_TIMEOUT_SECONDS: u64 = 30;
 
 /// Compare every currently visible adapter against the complete desired model.
 /// It deliberately has no write port, so validation cannot repair drift.
@@ -40,8 +42,10 @@ pub(crate) fn validate(
     let Some(harness) = harness else {
         return undeclared(format);
     };
-    let plan = match plan(harness, tree) {
-        Ok(plan) => plan,
+    // Validation reads the model each binding recorded and never starts the
+    // declared command: it holds no resolver to start it with.
+    let (plan, _) = match plan(harness, tree, Resolution::Recorded) {
+        Ok(planned) => planned,
         Err(reason) => return refused(format, reason),
     };
     let mut differences = differences(tree, &plan);
@@ -65,13 +69,14 @@ pub(crate) fn generate(
     scan: Option<&Scan>,
     tree: &dyn Tree,
     store: &dyn AdapterStore,
+    models: &dyn ModelResolver,
     format: Format,
 ) -> Outcome {
     let Some(harness) = harness else {
         return undeclared(format);
     };
-    let plan = match plan(harness, tree) {
-        Ok(plan) => plan,
+    let (plan, warnings) = match plan(harness, tree, Resolution::Run(models)) {
+        Ok(planned) => planned,
         Err(reason) => return refused(format, reason),
     };
     // Read before anything is written, so a marker surface that cannot be
@@ -87,11 +92,17 @@ pub(crate) fn generate(
     }
     // Generation owns only its families and exact files, so it cannot clear
     // a marker elsewhere; it writes what it owns and reports the rest.
-    if markers.is_empty() {
+    let mut outcome = if markers.is_empty() {
         clean(format, "canonical adapter generation is current")
     } else {
         findings(format, markers)
+    };
+    for warning in warnings {
+        outcome
+            .stderr
+            .push_str(&format!("[harness-adapters] warning: {warning}\n"));
     }
+    outcome
 }
 
 /// The phrase that claims a file, or a region of one, as RHINO output.
@@ -183,6 +194,35 @@ struct Provenance<'a> {
     schema_version: u8,
     profile: &'a str,
     sources: &'a [Source],
+    /// The model each resolving tier last resolved to, by tier.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    resolved_models: &'a BTreeMap<String, String>,
+}
+
+/// What a binding family's provenance recorded, read back for resolution.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordedProvenance {
+    #[serde(default)]
+    resolved_models: BTreeMap<String, String>,
+}
+
+/// Where a resolving tier's model comes from in this run.
+#[derive(Clone, Copy)]
+enum Resolution<'a> {
+    /// Validation: the model each binding recorded, never a process.
+    Recorded,
+    /// Generation: the declared command, through the one boundary that may
+    /// start it.
+    Run(&'a dyn ModelResolver),
+}
+
+/// One profile's resolving tiers: the model each renders, and the model each
+/// records in the binding family's provenance.
+#[derive(Default)]
+struct ResolvedModels {
+    rendered: BTreeMap<String, String>,
+    recorded: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -230,7 +270,11 @@ enum EntryValue {
     Map(BTreeMap<String, String>),
 }
 
-fn plan(harness: &Harness, tree: &dyn Tree) -> Result<Plan, String> {
+fn plan(
+    harness: &Harness,
+    tree: &dyn Tree,
+    resolution: Resolution<'_>,
+) -> Result<(Plan, Vec<String>), String> {
     if harness.profiles.len() != 3 {
         return Err("harness: exactly three adapter profiles are required".to_string());
     }
@@ -245,9 +289,11 @@ fn plan(harness: &Harness, tree: &dyn Tree) -> Result<Plan, String> {
     }
     require_declared_tiers(harness, &sources)?;
 
+    let mut warnings = Vec::new();
     let mut desired = BTreeMap::new();
     for profile in &harness.profiles {
-        render_profile(profile, &sources, &mut desired)?;
+        let models = resolve_models(profile, tree, resolution, &mut warnings);
+        render_profile(profile, &sources, &models, &mut desired)?;
     }
     let files = desired
         .iter()
@@ -256,14 +302,120 @@ fn plan(harness: &Harness, tree: &dyn Tree) -> Result<Plan, String> {
             contents: contents.clone(),
         })
         .collect();
-    Ok(Plan {
-        transaction: AdapterTransaction {
-            roots,
-            exact_paths,
-            files,
+    Ok((
+        Plan {
+            transaction: AdapterTransaction {
+                roots,
+                exact_paths,
+                files,
+            },
+            desired,
         },
-        desired,
-    })
+        warnings,
+    ))
+}
+
+/// Resolve each of a profile's resolving tiers once.
+///
+/// A run that resolves a model records it. A run that cannot, and every
+/// validation, keeps the model the binding family last recorded, or the
+/// declared fallback when it never recorded one; a failed run says so.
+fn resolve_models(
+    profile: &Profile,
+    tree: &dyn Tree,
+    resolution: Resolution<'_>,
+    warnings: &mut Vec<String>,
+) -> ResolvedModels {
+    let mut models = ResolvedModels::default();
+    let Some(adapter) = &profile.agent_adapter else {
+        return models;
+    };
+    let recorded = recorded_models(tree, adapter);
+    for (tier, mapping) in &profile.tiers {
+        let Some(resolve) = &mapping.model_resolve else {
+            continue;
+        };
+        let last = recorded.get(tier);
+        let resolved = match resolution {
+            Resolution::Recorded => None,
+            Resolution::Run(resolver) => match newest_model(resolver, &tree.root(), resolve) {
+                Ok(model) => Some(model),
+                Err(reason) => {
+                    let (model, source) = match last {
+                        Some(model) => (model, "the last resolved model"),
+                        None => (&resolve.fallback, "the fallback"),
+                    };
+                    warnings.push(format!(
+                        "profile `{}` tier `{tier}` resolved no model ({reason}); using {source} `{model}`",
+                        profile.id
+                    ));
+                    None
+                }
+            },
+        };
+        let record = resolved.or_else(|| last.cloned());
+        let model = record.clone().unwrap_or_else(|| resolve.fallback.clone());
+        models.rendered.insert(tier.clone(), model);
+        if let Some(record) = record {
+            models.recorded.insert(tier.clone(), record);
+        }
+    }
+    models
+}
+
+/// The models a binding family's provenance recorded, by tier. A family that
+/// was never generated, or whose provenance holds no record, has none.
+fn recorded_models(tree: &dyn Tree, adapter: &Adapter) -> BTreeMap<String, String> {
+    let root = adapter_root(&adapter.path).expect("profile validation proved the adapter path");
+    tree.read(&format!("{root}/provenance.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<RecordedProvenance>(&text).ok())
+        .map(|recorded| recorded.resolved_models)
+        .unwrap_or_default()
+}
+
+/// Run the declared command and choose the newest model its output names.
+fn newest_model(
+    resolver: &dyn ModelResolver,
+    directory: &str,
+    resolve: &ModelResolve,
+) -> Result<String, String> {
+    let output = resolver
+        .resolve(ResolveLaunch {
+            arguments: &resolve.command,
+            directory,
+            timeout_seconds: RESOLVE_TIMEOUT_SECONDS,
+        })
+        .map_err(|error| error.0)?;
+    let (prefix, suffix) = resolve
+        .pattern
+        .split_once('*')
+        .expect("configuration validation proved one `*`");
+    output
+        .split(|character: char| !is_model_character(character))
+        .filter_map(|token| {
+            let version = token.strip_prefix(prefix)?.strip_suffix(suffix)?;
+            (!version.is_empty()
+                && version
+                    .chars()
+                    .all(|character| character.is_ascii_digit() || character == '.'))
+            .then_some((version_key(version), token))
+        })
+        .max()
+        .map(|(_, token)| token.to_string())
+        .ok_or_else(|| format!("no output token matched `{}`", resolve.pattern))
+}
+
+/// A version as dot-separated numbers, each compared by value however many
+/// digits it is written with.
+fn version_key(version: &str) -> Vec<(usize, &str)> {
+    version
+        .split('.')
+        .map(|part| {
+            let digits = part.trim_start_matches('0');
+            (digits.len(), digits)
+        })
+        .collect()
 }
 
 fn validate_profiles(
@@ -687,6 +839,7 @@ fn read_source(
 fn render_profile(
     profile: &Profile,
     sources: &[Source],
+    models: &ResolvedModels,
     desired: &mut BTreeMap<String, String>,
 ) -> Result<(), String> {
     let selected = selected_sources(profile, sources);
@@ -703,10 +856,24 @@ fn render_profile(
         )?;
     }
     if let Some(adapter) = &profile.agent_adapter {
-        render_family(profile, adapter, SourceKind::Agent, sources, desired)?;
+        render_family(
+            profile,
+            adapter,
+            SourceKind::Agent,
+            sources,
+            models,
+            desired,
+        )?;
     }
     if let Some(adapter) = &profile.skill_adapter {
-        render_family(profile, adapter, SourceKind::Skill, sources, desired)?;
+        render_family(
+            profile,
+            adapter,
+            SourceKind::Skill,
+            sources,
+            &ResolvedModels::default(),
+            desired,
+        )?;
     }
     Ok(())
 }
@@ -815,6 +982,7 @@ fn render_family(
     adapter: &Adapter,
     kind: SourceKind,
     sources: &[Source],
+    models: &ResolvedModels,
     desired: &mut BTreeMap<String, String>,
 ) -> Result<(), String> {
     let root = adapter_root(&adapter.path)
@@ -825,7 +993,11 @@ fn render_family(
             .as_ref()
             .expect("a renderable source has parsed canonical metadata");
         let path = adapter.path.replace("{name}", &metadata.name);
-        add_file(desired, &path, render_adapter(profile, adapter, source)?)?;
+        add_file(
+            desired,
+            &path,
+            render_adapter(profile, adapter, source, &models.rendered)?,
+        )?;
     }
     let catalog = Catalog {
         schema_version: 1,
@@ -836,6 +1008,7 @@ fn render_family(
         schema_version: 1,
         profile: &profile.id,
         sources,
+        resolved_models: &models.recorded,
     };
     add_file(
         desired,
@@ -849,7 +1022,12 @@ fn render_family(
     )
 }
 
-fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Result<String, String> {
+fn render_adapter(
+    profile: &Profile,
+    adapter: &Adapter,
+    source: &Source,
+    resolved: &BTreeMap<String, String>,
+) -> Result<String, String> {
     let metadata = source
         .metadata
         .as_ref()
@@ -877,11 +1055,18 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
     let mapping = metadata
         .tier
         .as_ref()
-        .and_then(|tier| profile.tiers.get(tier));
-    if let (Some(mapping), Some(tier_fields)) = (mapping, &adapter.tier_fields) {
+        .and_then(|tier| Some((tier, profile.tiers.get(tier)?)));
+    if let (Some((tier, mapping)), Some(tier_fields)) = (mapping, &adapter.tier_fields) {
         // A mapping pins both or neither, so an unpinned one is the explicitly
         // empty mapping, which renders only the profile's empty-tier values.
-        let (model, effort) = match (&mapping.model, &mapping.effort) {
+        // A resolving mapping pins the model this run resolved for its tier.
+        let pinned = mapping.model.as_ref().or_else(|| {
+            mapping
+                .model_resolve
+                .as_ref()
+                .and_then(|_| resolved.get(tier))
+        });
+        let (model, effort) = match (pinned, &mapping.effort) {
             (Some(model), Some(effort)) => (Some(model), Some(effort)),
             _ => adapter.empty_tier.as_ref().map_or((None, None), |empty| {
                 (empty.model.as_ref(), empty.effort.as_ref())
@@ -1584,10 +1769,145 @@ fn refused(format: Format, reason: String) -> Outcome {
 mod typed_tests {
     use super::super::config::{
         Canonical, CanonicalAgent, CanonicalDocument, CanonicalList, EmptyTier, InstructionAdapter,
-        Tier, TierFields,
+        ModelResolve, Tier, TierFields,
     };
     use super::*;
-    use crate::runtime::{MemoryAdapterStore, MemoryTree, NoAdapterStore, Tree};
+    use crate::runtime::{
+        MemoryAdapterStore, MemoryTree, NoAdapterStore, NoModelResolver, ResolveError, Tree,
+    };
+
+    /// A resolver whose command printed `output`, or could not run.
+    struct Printed(Result<&'static str, &'static str>);
+
+    impl ModelResolver for Printed {
+        fn resolve(&self, launch: ResolveLaunch<'_>) -> Result<String, ResolveError> {
+            assert_eq!(launch.timeout_seconds, RESOLVE_TIMEOUT_SECONDS);
+            self.0
+                .map(str::to_string)
+                .map_err(|reason| ResolveError(reason.to_string()))
+        }
+    }
+
+    fn resolving_profile() -> Profile {
+        let mut resolving = profile("alpha", "read");
+        resolving.tiers.insert(
+            "plan".to_string(),
+            Tier {
+                model: None,
+                model_resolve: Some(ModelResolve {
+                    command: vec!["list".to_string()],
+                    pattern: "m-*-x".to_string(),
+                    fallback: "m-0-x".to_string(),
+                }),
+                effort: Some("high".to_string()),
+            },
+        );
+        resolving.tiers.insert(
+            "fast".to_string(),
+            Tier {
+                model: Some("pinned".to_string()),
+                model_resolve: None,
+                effort: Some("low".to_string()),
+            },
+        );
+        resolving
+    }
+
+    fn resolved(
+        tree: &MemoryTree,
+        resolution: Resolution<'_>,
+    ) -> (
+        BTreeMap<String, String>,
+        BTreeMap<String, String>,
+        Vec<String>,
+    ) {
+        let mut warnings = Vec::new();
+        let models = resolve_models(&resolving_profile(), tree, resolution, &mut warnings);
+        (models.rendered, models.recorded, warnings)
+    }
+
+    fn one(model: &str) -> BTreeMap<String, String> {
+        BTreeMap::from([("plan".to_string(), model.to_string())])
+    }
+
+    #[test]
+    fn a_resolving_tier_renders_the_newest_match_and_falls_back_without_failing() {
+        let never = MemoryTree::default();
+        let recorded = MemoryTree::default();
+        recorded.write(
+            "adapters/alpha/agents/provenance.json",
+            "{\"profile\":\"alpha\",\"resolvedModels\":{\"plan\":\"m-7-x\"}}",
+        );
+        let malformed = MemoryTree::default();
+        malformed.write("adapters/alpha/agents/provenance.json", "not json");
+
+        // Validation reads the record, or the fallback, and records nothing new.
+        assert_eq!(
+            resolved(&recorded, Resolution::Recorded),
+            (one("m-7-x"), one("m-7-x"), Vec::new())
+        );
+        assert_eq!(
+            resolved(&never, Resolution::Recorded),
+            (one("m-0-x"), BTreeMap::new(), Vec::new())
+        );
+        assert_eq!(
+            resolved(&malformed, Resolution::Recorded),
+            (one("m-0-x"), BTreeMap::new(), Vec::new())
+        );
+
+        // Ten outranks nine, a leading zero changes nothing, and a token that
+        // is not a version, or not this pattern, is never chosen.
+        let output = "m-9-x m-10-x m-010-x m-1.2-x m--x m-a-x m-99-y n-100-x [\"m-2.10-x\"]";
+        let resolver = Printed(Ok(output));
+        let (rendered, recorded_now, warnings) = resolved(&never, Resolution::Run(&resolver));
+        assert_eq!(rendered, one("m-10-x"));
+        assert_eq!(recorded_now, one("m-10-x"));
+        assert!(warnings.is_empty());
+
+        let unmatched = Printed(Ok("nothing that matches"));
+        let (rendered, _, warnings) = resolved(&recorded, Resolution::Run(&unmatched));
+        assert_eq!(rendered, one("m-7-x"));
+        assert_eq!(
+            warnings,
+            [
+                "profile `alpha` tier `plan` resolved no model (no output token matched `m-*-x`); \
+              using the last resolved model `m-7-x`"
+            ]
+        );
+
+        let failed = Printed(Err("the model command exited with status 3"));
+        let (rendered, recorded_now, warnings) = resolved(&never, Resolution::Run(&failed));
+        assert_eq!(rendered, one("m-0-x"));
+        assert!(recorded_now.is_empty());
+        assert_eq!(
+            warnings,
+            [
+                "profile `alpha` tier `plan` resolved no model (the model command exited with \
+              status 3); using the fallback `m-0-x`"
+            ]
+        );
+
+        let mut instruction_only = resolving_profile();
+        instruction_only.agent_adapter = None;
+        let models = resolve_models(
+            &instruction_only,
+            &never,
+            Resolution::Run(&failed),
+            &mut Vec::new(),
+        );
+        assert!(models.rendered.is_empty() && models.recorded.is_empty());
+        assert!(
+            NoModelResolver
+                .resolve(ResolveLaunch {
+                    arguments: &[],
+                    directory: ".",
+                    timeout_seconds: 1,
+                })
+                .is_err()
+        );
+        assert!(version_key("2.10") > version_key("2.9"));
+        assert_eq!(version_key("010"), version_key("10"));
+    }
 
     type ProfileMutator = fn(&mut Profile);
 
@@ -1704,6 +2024,7 @@ mod typed_tests {
             "plan".to_string(),
             Tier {
                 model: Some("deliberate".to_string()),
+                model_resolve: None,
                 effort: Some("high".to_string()),
             },
         );
@@ -1762,7 +2083,14 @@ mod typed_tests {
             .insert("mode".to_string(), "subagent".to_string());
         let store = MemoryAdapterStore::new(&tree);
 
-        let first = generate(Some(&harness), None, &tree, &store, Format::Text);
+        let first = generate(
+            Some(&harness),
+            None,
+            &tree,
+            &store,
+            &NoModelResolver,
+            Format::Text,
+        );
         assert_eq!(first.exit_code, 0, "{}", first.stderr);
         assert_eq!(tree.read("CLAUDE.md").unwrap(), "@AGENTS.md\n");
         assert!(
@@ -1787,7 +2115,14 @@ mod typed_tests {
         );
         let after_first = tree.files();
 
-        let second = generate(Some(&harness), None, &tree, &store, Format::Text);
+        let second = generate(
+            Some(&harness),
+            None,
+            &tree,
+            &store,
+            &NoModelResolver,
+            Format::Text,
+        );
         assert_eq!(second, first);
         assert_eq!(tree.files(), after_first);
         assert_eq!(
@@ -1802,7 +2137,14 @@ mod typed_tests {
         let mut loss = complete_harness("write");
         loss.profiles[1].supports.capabilities.clear();
         let store = MemoryAdapterStore::new(&tree);
-        let outcome = generate(Some(&loss), None, &tree, &store, Format::Text);
+        let outcome = generate(
+            Some(&loss),
+            None,
+            &tree,
+            &store,
+            &NoModelResolver,
+            Format::Text,
+        );
         assert_eq!(outcome.exit_code, 2);
         assert!(
             outcome
@@ -1838,7 +2180,14 @@ mod typed_tests {
         tree.write("settings/plain.toml", "[agents]\n");
         tree.write("adapters/alpha/agents/manual.md", "Rhino generated\n");
         let store = MemoryAdapterStore::new(&tree);
-        let generated = generate(Some(&harness), None, &tree, &store, Format::Json);
+        let generated = generate(
+            Some(&harness),
+            None,
+            &tree,
+            &store,
+            &NoModelResolver,
+            Format::Json,
+        );
         assert_eq!(generated.exit_code, 1);
         assert!(
             generated
@@ -1912,6 +2261,7 @@ mod typed_tests {
             None,
             &escaping,
             &store,
+            &NoModelResolver,
             Format::Json,
         );
         assert_eq!(generated.exit_code, 2);
@@ -1938,7 +2288,15 @@ mod typed_tests {
         let store = MemoryAdapterStore::new(&tree);
         tree.write("adapters/gamma/settings.json", "user-owned\n");
         assert_eq!(
-            generate(Some(&harness), None, &tree, &store, Format::Text).exit_code,
+            generate(
+                Some(&harness),
+                None,
+                &tree,
+                &store,
+                &NoModelResolver,
+                Format::Text
+            )
+            .exit_code,
             0
         );
         assert_eq!(
@@ -1965,7 +2323,14 @@ mod typed_tests {
             outcome.stderr
         );
         for no_profiles in [
-            generate(None, None, &tree, &NoAdapterStore, Format::Json),
+            generate(
+                None,
+                None,
+                &tree,
+                &NoAdapterStore,
+                &NoModelResolver,
+                Format::Json,
+            ),
             validate(None, None, &tree, Format::Json),
         ] {
             assert_eq!(no_profiles.exit_code, 2);
@@ -1985,7 +2350,7 @@ mod typed_tests {
         let mut wrong_count = complete_harness("read");
         wrong_count.profiles.pop();
         assert!(
-            plan(&wrong_count, &tree)
+            plan(&wrong_count, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("exactly three")
@@ -1994,7 +2359,7 @@ mod typed_tests {
         let mut absent_shape = complete_harness("read");
         absent_shape.canonical = None;
         assert!(
-            plan(&absent_shape, &tree)
+            plan(&absent_shape, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("canonical agent")
@@ -2003,7 +2368,7 @@ mod typed_tests {
         let mut absent_skill_shape = complete_harness("read");
         absent_skill_shape.canonical.as_mut().unwrap().skills = None;
         assert!(
-            plan(&absent_skill_shape, &tree)
+            plan(&absent_skill_shape, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("canonical skill")
@@ -2011,12 +2376,17 @@ mod typed_tests {
 
         let mut empty_id = complete_harness("read");
         empty_id.profiles[1].id.clear();
-        assert!(plan(&empty_id, &tree).err().unwrap().contains("empty id"));
+        assert!(
+            plan(&empty_id, &tree, Resolution::Recorded)
+                .err()
+                .unwrap()
+                .contains("empty id")
+        );
 
         let mut duplicate_id = complete_harness("read");
         duplicate_id.profiles[1].id = "alpha".to_string();
         assert!(
-            plan(&duplicate_id, &tree)
+            plan(&duplicate_id, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("duplicated")
@@ -2026,7 +2396,7 @@ mod typed_tests {
         empty_representation.profiles[1].agent_adapter = None;
         empty_representation.profiles[1].skill_adapter = None;
         assert!(
-            plan(&empty_representation, &tree)
+            plan(&empty_representation, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("no native adapter representation")
@@ -2040,7 +2410,7 @@ mod typed_tests {
         invalid_instruction.profiles[1].agent_adapter = None;
         invalid_instruction.profiles[1].skill_adapter = None;
         assert!(
-            plan(&invalid_instruction, &tree)
+            plan(&invalid_instruction, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("invalid instruction")
@@ -2056,14 +2426,19 @@ mod typed_tests {
         for (axis, clear_supported) in semantic_axes {
             let mut incomplete_axis = complete_harness("read");
             clear_supported(&mut incomplete_axis.profiles[1]);
-            assert!(plan(&incomplete_axis, &tree).err().unwrap().contains(axis));
+            assert!(
+                plan(&incomplete_axis, &tree, Resolution::Recorded)
+                    .err()
+                    .unwrap()
+                    .contains(axis)
+            );
         }
 
         let mut overlapping = complete_harness("read");
         overlapping.profiles[1].agent_adapter.as_mut().unwrap().path =
             "adapters/alpha/agents/{name}.md".to_string();
         assert!(
-            plan(&overlapping, &tree)
+            plan(&overlapping, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("non-overlapping")
@@ -2340,7 +2715,13 @@ mod typed_tests {
                 entries: BTreeMap::new(),
             },
         ];
-        let rendered = render_adapter(&profile("test", "read"), &denial_adapter, &source).unwrap();
+        let rendered = render_adapter(
+            &profile("test", "read"),
+            &denial_adapter,
+            &source,
+            &BTreeMap::new(),
+        )
+        .unwrap();
         assert!(rendered.contains("tools: Read"));
         assert!(!rendered.contains("Write"));
         assert!(!rendered.contains("Edit"));
@@ -2355,14 +2736,26 @@ mod typed_tests {
             entries: BTreeMap::new(),
         }];
         assert!(
-            render_adapter(&profile("test", "read"), &missing_member_field, &source)
-                .unwrap_err()
-                .contains("cannot remove members from undeclared field")
+            render_adapter(
+                &profile("test", "read"),
+                &missing_member_field,
+                &source,
+                &BTreeMap::new()
+            )
+            .unwrap_err()
+            .contains("cannot remove members from undeclared field")
         );
 
         let mut tree = canonical_tree();
         let harness = complete_harness("read");
-        let no_store = generate(Some(&harness), None, &tree, &NoAdapterStore, Format::Text);
+        let no_store = generate(
+            Some(&harness),
+            None,
+            &tree,
+            &NoAdapterStore,
+            &NoModelResolver,
+            Format::Text,
+        );
         assert_eq!(no_store.exit_code, 2);
         assert!(no_store.stderr.contains("write boundary"));
 
@@ -2372,7 +2765,15 @@ mod typed_tests {
 
         let store = MemoryAdapterStore::new(&tree);
         assert_eq!(
-            generate(Some(&harness), None, &tree, &store, Format::Text).exit_code,
+            generate(
+                Some(&harness),
+                None,
+                &tree,
+                &store,
+                &NoModelResolver,
+                Format::Text
+            )
+            .exit_code,
             0
         );
         tree.write("adapters/alpha/agents/reviewer.md", "divergent\n");
@@ -2401,7 +2802,7 @@ mod typed_tests {
             route: "@{path}".to_string(),
         });
         assert!(
-            plan(&invalid_instruction, &tree)
+            plan(&invalid_instruction, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("invalid instruction")
@@ -2414,7 +2815,7 @@ mod typed_tests {
             "---\nname: another\ndescription: Review changes\ntier: plan\nrequires:\n  - read\ndenies:\n  - network\nconstraints:\n  - offline\n---\nCanonical agent\n",
         );
         assert!(
-            plan(&complete_harness("read"), &tree)
+            plan(&complete_harness("read"), &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
                 .contains("does not match its path")
@@ -2426,10 +2827,14 @@ mod typed_tests {
             "---\nname: another\ndescription: Review skill\n---\nCanonical skill\n",
         );
         assert!(
-            plan(&complete_harness("read"), &skill_mismatch)
-                .err()
-                .unwrap()
-                .contains("does not match its path")
+            plan(
+                &complete_harness("read"),
+                &skill_mismatch,
+                Resolution::Recorded
+            )
+            .err()
+            .unwrap()
+            .contains("does not match its path")
         );
 
         let missing = MemoryTree::default();
@@ -2510,7 +2915,7 @@ mod typed_tests {
         );
         absent.absent = vec!["name".to_string()];
         assert!(
-            render_adapter(&profile("test", "read"), &absent, &source)
+            render_adapter(&profile("test", "read"), &absent, &source, &BTreeMap::new())
                 .err()
                 .unwrap()
                 .contains("absent adapter field")
@@ -2525,7 +2930,15 @@ mod typed_tests {
             absent_members: Vec::new(),
             entries: BTreeMap::new(),
         }];
-        assert!(render_adapter(&profile("test", "read"), &translation_conflict, &source).is_err());
+        assert!(
+            render_adapter(
+                &profile("test", "read"),
+                &translation_conflict,
+                &source,
+                &BTreeMap::new()
+            )
+            .is_err()
+        );
 
         let mut desired = BTreeMap::from([("CLAUDE.md".to_string(), "exists".to_string())]);
         let mut instruction_profile = profile("instruction", "read");
@@ -2542,11 +2955,27 @@ mod typed_tests {
             kind: SourceKind::Instruction,
             metadata: None,
         };
-        assert!(render_profile(&instruction_profile, &[instruction], &mut desired).is_err());
+        assert!(
+            render_profile(
+                &instruction_profile,
+                &[instruction],
+                &ResolvedModels::default(),
+                &mut desired,
+            )
+            .is_err()
+        );
 
         let mut invalid_family = profile("invalid", "read");
         invalid_family.agent_adapter.as_mut().unwrap().path = "invalid.md".to_string();
-        assert!(render_profile(&invalid_family, &[], &mut BTreeMap::new()).is_err());
+        assert!(
+            render_profile(
+                &invalid_family,
+                &[],
+                &ResolvedModels::default(),
+                &mut BTreeMap::new(),
+            )
+            .is_err()
+        );
 
         let family_profile = profile("family", "read");
         let mut desired = BTreeMap::from([(
@@ -2559,6 +2988,7 @@ mod typed_tests {
                 family_profile.agent_adapter.as_ref().unwrap(),
                 SourceKind::Agent,
                 &[source],
+                &ResolvedModels::default(),
                 &mut desired,
             )
             .is_err()
@@ -2657,7 +3087,13 @@ mod typed_tests {
             "body",
         );
         listing.lists = BTreeMap::from([("skills".to_string(), CanonicalList::Skills)]);
-        let rendered = render_adapter(&profile("test", "read"), &listing, &source).unwrap();
+        let rendered = render_adapter(
+            &profile("test", "read"),
+            &listing,
+            &source,
+            &BTreeMap::new(),
+        )
+        .unwrap();
         assert!(!rendered.contains("skills"), "{rendered}");
     }
 
@@ -2713,8 +3149,9 @@ mod typed_tests {
     fn dispatch_projection_renders_each_native_form() {
         let source = dispatching_source();
         let profile = profile("test", "read");
-        let render =
-            |adapter: &Adapter| render_adapter(&profile, adapter, &source).unwrap_or_else(|e| e);
+        let render = |adapter: &Adapter| {
+            render_adapter(&profile, adapter, &source, &BTreeMap::new()).unwrap_or_else(|e| e)
+        };
 
         assert_eq!(
             render(&dispatching(
@@ -2772,7 +3209,8 @@ mod typed_tests {
             !render_adapter(
                 &profile,
                 &dispatching("tools", "Agent({names})", AdapterFormat::FrontMatter),
-                &quiet
+                &quiet,
+                &BTreeMap::new()
             )
             .unwrap()
             .contains("tools")

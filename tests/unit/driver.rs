@@ -85,6 +85,7 @@ impl Driver for UnitDriver {
                 adapters: &adapters,
                 environments: &environments,
                 toolchains: &NoToolchainRunner,
+                models: &recorder,
             },
         );
         let after = observe(&tree);
