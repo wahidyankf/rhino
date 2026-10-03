@@ -231,6 +231,7 @@ fn plan(harness: &Harness, tree: &dyn Tree) -> Result<Plan, String> {
     for profile in &harness.profiles {
         require_selected_sources(profile, &sources)?;
     }
+    require_declared_tiers(harness, &sources)?;
 
     let mut desired = BTreeMap::new();
     for profile in &harness.profiles {
@@ -383,6 +384,16 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
     if !agent && adapter.tier_fields.is_some() {
         return Err(format!(
             "profile `{profile}` projects a tier into a skill adapter"
+        ));
+    }
+    if !agent && adapter.empty_tier.is_some() {
+        return Err(format!(
+            "profile `{profile}` projects an empty tier into a skill adapter"
+        ));
+    }
+    if adapter.empty_tier.is_some() && adapter.tier_fields.is_none() {
+        return Err(format!(
+            "profile `{profile}` declares empty-tier values without tier fields"
         ));
     }
     if !agent && !adapter.lists.is_empty() {
@@ -653,6 +664,55 @@ fn require_selected_sources(profile: &Profile, sources: &[Source]) -> Result<(),
     Ok(())
 }
 
+/// Every canonical agent names a tier when the canonical shape declares a tier
+/// field, and every profile with a `tiers` block declares each tier its
+/// rendered agents name. A profile without a `tiers` block maps no tier, so it
+/// is exempt; an explicitly empty mapping is a declaration like any other.
+fn require_declared_tiers(harness: &Harness, sources: &[Source]) -> Result<(), String> {
+    let tier_field = harness
+        .canonical
+        .as_ref()
+        .and_then(|canonical| canonical.agents.as_ref())
+        .and_then(|agents| agents.tier.as_deref());
+    if let Some(field) = tier_field {
+        for source in sources {
+            if source.kind == SourceKind::Agent && agent_tier(source).is_none() {
+                return Err(format!(
+                    "harness-tier-missing: canonical agent `{}` declares no tier in its `{field}` field",
+                    source.path
+                ));
+            }
+        }
+    }
+    for profile in &harness.profiles {
+        if profile.agent_adapter.is_none() || profile.tiers.is_empty() {
+            continue;
+        }
+        for source in selected_sources(profile, sources) {
+            if let Some(tier) = agent_tier(&source) {
+                if !profile.tiers.contains_key(tier) {
+                    return Err(format!(
+                        "harness-tier-undeclared: profile `{}` declares no tier `{tier}` for canonical agent `{}`",
+                        profile.id, source.path
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A canonical agent's tier; every other source kind has none.
+fn agent_tier(source: &Source) -> Option<&str> {
+    match source.kind {
+        SourceKind::Agent => source
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.tier.as_deref()),
+        _ => None,
+    }
+}
+
 /// The sources one profile renders: every source, less any canonical agent its
 /// agent adapter does not select. Both of the profile's catalogs read this set.
 fn selected_sources(profile: &Profile, sources: &[Source]) -> Vec<Source> {
@@ -755,8 +815,18 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
         .as_ref()
         .and_then(|tier| profile.tiers.get(tier));
     if let (Some(mapping), Some(tier_fields)) = (mapping, &adapter.tier_fields) {
-        if let (Some(model), Some(effort)) = (&mapping.model, &mapping.effort) {
+        // A mapping pins both or neither, so an unpinned one is the explicitly
+        // empty mapping, which renders only the profile's empty-tier values.
+        let (model, effort) = match (&mapping.model, &mapping.effort) {
+            (Some(model), Some(effort)) => (Some(model), Some(effort)),
+            _ => adapter.empty_tier.as_ref().map_or((None, None), |empty| {
+                (empty.model.as_ref(), empty.effort.as_ref())
+            }),
+        };
+        if let Some(model) = model {
             add_scalar(&mut fields, &tier_fields.model, model.clone())?;
+        }
+        if let Some(effort) = effort {
             add_scalar(&mut fields, &tier_fields.effort, effort.clone())?;
         }
     }
@@ -1326,8 +1396,8 @@ fn refused(format: Format, reason: String) -> Outcome {
 #[cfg(test)]
 mod typed_tests {
     use super::super::config::{
-        Canonical, CanonicalAgent, CanonicalDocument, CanonicalList, InstructionAdapter, Tier,
-        TierFields,
+        Canonical, CanonicalAgent, CanonicalDocument, CanonicalList, EmptyTier, InstructionAdapter,
+        Tier, TierFields,
     };
     use super::*;
     use crate::runtime::{MemoryAdapterStore, MemoryTree, NoAdapterStore, Tree};
@@ -1374,6 +1444,7 @@ mod typed_tests {
             ]),
             fixed: BTreeMap::new(),
             tier_fields: None,
+            empty_tier: None,
             lists: BTreeMap::new(),
             agents: None,
             absent: Vec::new(),
@@ -1865,6 +1936,21 @@ mod typed_tests {
             validate_adapter("test", &invalid, true)
                 .unwrap_err()
                 .contains("invalid tier")
+        );
+        invalid = front_matter.clone();
+        invalid.empty_tier = Some(EmptyTier {
+            model: Some("inherit".to_string()),
+            effort: None,
+        });
+        assert!(
+            validate_adapter("test", &invalid, false)
+                .unwrap_err()
+                .contains("empty tier into a skill adapter")
+        );
+        assert!(
+            validate_adapter("test", &invalid, true)
+                .unwrap_err()
+                .contains("empty-tier values without tier fields")
         );
         invalid = front_matter.clone();
         invalid
