@@ -1366,6 +1366,16 @@
           "pattern": "^[a-z0-9-]+$",
           "type": "string"
         },
+        "judge": {
+          "description": "The agent that judges this family's gate, by file name without\n`.md`. Absent, it is `<family>-checker`.",
+          "pattern": "^[a-z0-9-]+$",
+          "type": ["string", "null"]
+        },
+        "repairer": {
+          "description": "The agent that repairs what this family's gate finds, by file name\nwithout `.md`. Absent, it is `<family>-fixer`.",
+          "pattern": "^[a-z0-9-]+$",
+          "type": ["string", "null"]
+        },
         "subject": {
           "description": "The default subject a run of this family's gate receives.",
           "type": ["string", "null"]
