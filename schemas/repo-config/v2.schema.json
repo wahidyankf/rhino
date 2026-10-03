@@ -1569,15 +1569,19 @@
     },
     "Tier": {
       "additionalProperties": false,
+      "dependentRequired": {
+        "effort": ["model"],
+        "model": ["effort"]
+      },
+      "description": "One tier's mapping onto a profile's native model fields.\n\nA mapping pins a model and an effort together or pins neither. An empty\nmapping is a deliberate choice to leave both to the harness, which is not\nthe same claim as a tier the profile never declared.",
       "properties": {
         "effort": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "model": {
-          "type": "string"
+          "type": ["string", "null"]
         }
       },
-      "required": ["model", "effort"],
       "type": "object"
     },
     "TierFields": {

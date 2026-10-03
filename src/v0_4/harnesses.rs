@@ -755,8 +755,10 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
         .as_ref()
         .and_then(|tier| profile.tiers.get(tier));
     if let (Some(mapping), Some(tier_fields)) = (mapping, &adapter.tier_fields) {
-        add_scalar(&mut fields, &tier_fields.model, mapping.model.clone())?;
-        add_scalar(&mut fields, &tier_fields.effort, mapping.effort.clone())?;
+        if let (Some(model), Some(effort)) = (&mapping.model, &mapping.effort) {
+            add_scalar(&mut fields, &tier_fields.model, model.clone())?;
+            add_scalar(&mut fields, &tier_fields.effort, effort.clone())?;
+        }
     }
     let mut absent_members = BTreeMap::<String, BTreeSet<String>>::new();
     for translation in &adapter.translations {
@@ -1441,8 +1443,8 @@ mod typed_tests {
         alpha.tiers.insert(
             "plan".to_string(),
             Tier {
-                model: "deliberate".to_string(),
-                effort: "high".to_string(),
+                model: Some("deliberate".to_string()),
+                effort: Some("high".to_string()),
             },
         );
         alpha.agent_adapter.as_mut().unwrap().translations = vec![
