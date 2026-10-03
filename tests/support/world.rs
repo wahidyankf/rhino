@@ -414,6 +414,12 @@ pub struct World<D> {
     /// Gates whose child cannot be started at all, which is a different fact
     /// from a child that started and failed.
     pub unlaunchable_gates: BTreeSet<String>,
+    /// What each declared model-listing command prints, keyed by the name of
+    /// what it runs. Stated rather than shipped, for the reason gate outcomes
+    /// are: the unit boundary has no process to spawn.
+    pub model_outputs: BTreeMap<String, String>,
+    /// Model-listing commands that cannot be started at all.
+    pub unstartable_models: BTreeSet<String>,
     /// What the children of the most recent dispatch recorded.
     pub journal: Vec<String>,
     /// What the children of the dispatch before it recorded.
@@ -436,6 +442,8 @@ impl<D> World<D> {
             stdin: self.stdin.as_deref(),
             gate_outcomes: &self.gate_outcomes,
             unlaunchable_gates: &self.unlaunchable_gates,
+            model_outputs: &self.model_outputs,
+            unstartable_models: &self.unstartable_models,
         }
     }
 
@@ -493,6 +501,10 @@ pub struct Repository<'a> {
     /// order, and the ones that cannot be started at all.
     pub gate_outcomes: &'a [(String, i32)],
     pub unlaunchable_gates: &'a BTreeSet<String>,
+    /// The model-listing commands this repository answers with, and the ones
+    /// that cannot be started at all.
+    pub model_outputs: &'a BTreeMap<String, String>,
+    pub unstartable_models: &'a BTreeSet<String>,
 }
 
 /// What an adapter must be able to do. Anything a scenario can do to a

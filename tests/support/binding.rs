@@ -2416,6 +2416,47 @@ Body.
                 world.last_mutations
             ),
         ),
+
+        // -- Model resolution --------------------------------------------------
+        // A model-listing command is stated rather than shipped, as a gate
+        // child is: each adapter supplies a command that prints exactly this
+        // and records that it started, so one sentence is one claim at three
+        // boundaries, including the one with no process to spawn.
+        "the model command {string} prints:" => {
+            let Some(output) = step.docstring.clone() else {
+                return Outcome::Failed("the sentence promised the command's output".to_string());
+            };
+            let id = matched.string(0).to_string();
+            world.unstartable_models.remove(&id);
+            world.model_outputs.insert(id, format!("{output}\n"));
+            Outcome::Passed
+        }
+        "the model command {string} cannot be started" => {
+            world
+                .unstartable_models
+                .insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the model command {string} was started" => {
+            let id = matched.string(0);
+            expect(
+                model_command_started(world, id),
+                format!(
+                    "the model command `{id}` did not start\njournal: {:?}",
+                    world.journal
+                ),
+            )
+        }
+        "the model command {string} was not started" => {
+            let id = matched.string(0);
+            expect(
+                !model_command_started(world, id),
+                format!(
+                    "the model command `{id}` started\njournal: {:?}",
+                    world.journal
+                ),
+            )
+        }
         "the generated adapter at {string} contains {string}" => {
             let path = matched.string(0);
             let expected = matched.string(1);
@@ -3135,6 +3176,17 @@ fn gate_arguments(surface: &str, forwarded: &[String]) -> Vec<String> {
         arguments.extend(forwarded.iter().cloned());
     }
     arguments
+}
+
+/// The journal line a model-listing command writes when it starts.
+pub const MODEL_START: &str = "resolve";
+
+/// Whether the most recent invocation started the named model command.
+fn model_command_started<D>(world: &World<D>, id: &str) -> bool {
+    world
+        .journal
+        .iter()
+        .any(|line| *line == format!("{MODEL_START}\t{id}"))
 }
 
 /// The gates that recorded a start, in the order they recorded it.

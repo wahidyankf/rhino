@@ -860,7 +860,7 @@ Feature: Rhino v0.4 contracts
     And the repository contains:
       | path                           | content               |
       | AGENTS.md                      | Canonical instruction |
-      | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\ntier: plan\n---\nCanonical agent |
       | .agents/skills/review/SKILL.md | ---\nname: review\ndescription: Review: skill\n---\nCanonical skill   |
     When I invoke the CLI with "harness|adapters|generate"
     Then the exit code is 0
@@ -943,7 +943,7 @@ Feature: Rhino v0.4 contracts
     And the repository contains:
       | path                           | content                                           |
       | AGENTS.md                      | Canonical instruction                             |
-      | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/reviewer.md     | ---\nname: reviewer\ndescription: Review changes\ntier: plan\n---\nCanonical agent |
       | .agents/skills/review/SKILL.md | ---\nname: review\ndescription: Review skill\n---\nCanonical skill    |
       | adapters/gamma/opencode.json   | user-owned                                        |
     When I invoke the CLI with "harness|adapters|generate"
@@ -1230,6 +1230,479 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "harness|adapters|validate"
     Then the exit code is 1
     And stderr contains "adapters/alpha/agents/writer.md: stale-adapter"
+
+  Scenario: An agent without a tier is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers: {plan: {model: grand, effort: high}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.harness.refused"
+    And stderr contains "harness-tier-missing"
+    And stderr contains "canonical agent `.agents/agents/reviewer.md` declares no tier"
+
+  Scenario: A tier the profile does not declare is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers: {plan: {model: grand, effort: high}, execution: {model: steady, effort: medium}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.harness.refused"
+    And stderr contains "harness-tier-undeclared"
+    And stderr contains "profile `alpha` declares no tier `fast` for canonical agent `.agents/agents/runner.md`"
+
+  Scenario: A tier mapping that pins a model without an effort is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers: {fast: {model: luna}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 2
+    And stderr contains "harness.profiles.alpha.tiers.fast"
+    And stderr contains "pins both or neither"
+
+  Scenario: An explicitly empty tier renders only the profile's empty-tier fields
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}, empty-tier: {model: inherit}}
+            tiers: {plan: {}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                      | content                                                                      |
+      | AGENTS.md                 | Canonical instruction                                                        |
+      | .agents/agents/planner.md | ---\nname: planner\ndescription: Plan changes\ntier: plan\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/planner.md" is exactly:
+      """
+      ---
+      model: inherit
+      name: planner
+      ---
+
+      Read .agents/agents/planner.md completely.
+      """
+
+  Scenario: An explicitly empty tier renders no tier field when its profile declares no empty-tier fields
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers: {plan: {}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                      | content                                                                      |
+      | AGENTS.md                 | Canonical instruction                                                        |
+      | .agents/agents/planner.md | ---\nname: planner\ndescription: Plan changes\ntier: plan\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/planner.md" is exactly:
+      """
+      ---
+      name: planner
+      ---
+
+      Read .agents/agents/planner.md completely.
+      """
+
+  Scenario: A pinned fast tier renders model and effort
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}, empty-tier: {model: inherit}}
+            tiers: {plan: {}, fast: {model: luna, effort: xhigh}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/runner.md" is exactly:
+      """
+      ---
+      effort: xhigh
+      model: luna
+      name: runner
+      ---
+
+      Read .agents/agents/runner.md completely.
+      """
+
+  Scenario: A resolving tier renders the newest matching model
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers:
+              fast:
+                model-resolve: {command: [models/list-models.sh], pattern: "m-*-x", fallback: m-0-x}
+                effort: high
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    And the model command "list-models" prints:
+      """
+      m-1-x m-2-x m-1.5-x
+      """
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the model command "list-models" was started
+    And the generated adapter at "adapters/alpha/agents/runner.md" contains "model: m-2-x"
+    And the generated adapter at "adapters/alpha/agents/provenance.json" contains "m-2-x"
+
+  Scenario: A resolving tier finds model slugs inside compact JSON output
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers:
+              fast:
+                model-resolve: {command: [models/list-models.sh], pattern: "m-*-x", fallback: m-0-x}
+                effort: high
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    And the model command "list-models" prints:
+      """
+      {"models":[{"slug":"m-1-x"},{"slug":"m-2-x"}]}
+      """
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/runner.md" contains "model: m-2-x"
+
+  Scenario: A resolving tier falls back to the last resolved model without failing
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers:
+              fast:
+                model-resolve: {command: [models/list-models.sh], pattern: "m-*-x", fallback: m-0-x}
+                effort: high
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    And the model command "list-models" prints:
+      """
+      m-2-x
+      """
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    Given the model command "list-models" cannot be started
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And stderr contains "warning"
+    And stderr contains "m-2-x"
+    And the generated adapter at "adapters/alpha/agents/runner.md" contains "model: m-2-x"
+
+  Scenario: A never-resolved tier uses the seed fallback
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers:
+              fast:
+                model-resolve: {command: [models/list-models.sh], pattern: "m-*-x", fallback: m-0-x}
+                effort: high
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    And the model command "list-models" cannot be started
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And stderr contains "warning"
+    And stderr contains "m-0-x"
+    And the generated adapter at "adapters/alpha/agents/runner.md" contains "model: m-0-x"
+
+  Scenario: Validate never runs the resolver
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, tier: tier, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, tier-fields: {model: model, effort: effort}}
+            tiers:
+              fast:
+                model-resolve: {command: [models/list-models.sh], pattern: "m-*-x", fallback: m-0-x}
+                effort: high
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                    |
+      | AGENTS.md                | Canonical instruction                                                      |
+      | .agents/agents/runner.md | ---\nname: runner\ndescription: Run checks\ntier: fast\n---\nCanonical agent |
+    And the model command "list-models" prints:
+      """
+      m-2-x
+      """
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    Given the model command "list-models" prints:
+      """
+      m-3-x
+      """
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+    And the model command "list-models" was not started
+
+  Scenario: A declared dispatch list renders as one native tools member
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              dispatches: {field: tools, format: "Agent({names})"}
+              translations:
+                - {when: always, field: tools, members: [Read]}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                                          |
+      | AGENTS.md                | Canonical instruction                                                                            |
+      | .agents/agents/lead.md   | ---\nname: lead\ndescription: Lead changes\ndispatches:\n  - writer\n  - tester\n---\nCanonical agent |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                              |
+      | .agents/agents/tester.md | ---\nname: tester\ndescription: Test changes\n---\nCanonical agent                               |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/lead.md" is exactly:
+      """
+      ---
+      name: lead
+      tools: |-
+        Read, Agent(writer, tester)
+      ---
+
+      Read .agents/agents/lead.md completely.
+      """
+
+  Scenario: A declared dispatch list renders as a native allow map
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              dispatches: {field: permission.task, format: allow-map}
+              translations:
+                - {when: always, field: permission, entries: {read: allow}}
+      """
+    And the repository contains:
+      | path                     | content                                                                                          |
+      | AGENTS.md                | Canonical instruction                                                                            |
+      | .agents/agents/lead.md   | ---\nname: lead\ndescription: Lead changes\ndispatches:\n  - writer\n  - tester\n---\nCanonical agent |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                              |
+      | .agents/agents/tester.md | ---\nname: tester\ndescription: Test changes\n---\nCanonical agent                               |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/gamma/agents/lead.md" is exactly:
+      """
+      ---
+      name: lead
+      permission:
+        read: allow
+        task:
+          "*": deny
+          tester: allow
+          writer: allow
+      ---
+
+      Read .agents/agents/lead.md completely.
+      """
+
+  Scenario: A profile without a dispatches key renders nothing for the list
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}, dispatches: {field: tools, format: "Agent({names})"}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.toml", format: toml, route-field: developer_instructions, route: "Read {path} completely.", identity: {name: name}}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                                          |
+      | AGENTS.md                | Canonical instruction                                                                            |
+      | .agents/agents/lead.md   | ---\nname: lead\ndescription: Lead changes\ndispatches:\n  - writer\n---\nCanonical agent       |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                              |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/beta/agents/lead.toml" is exactly:
+      """
+      developer_instructions = "Read .agents/agents/lead.md completely."
+      name = "lead"
+      """
+
+  Scenario: An agent's dispatch list passes metadata validation
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          metadata:
+            surfaces:
+              - glob: ".agents/agents/*.md"
+                schema: agent
+      """
+    And the repository contains:
+      | path                   | content |
+      | .agents/agents/lead.md | ---\nname: lead\ndescription: Leads the work by dispatching each part to a teammate.\nwhen_to_use: >-\n  Use when a goal spans several agents and needs one coordinator.\ntier: plan\ncapabilities:\n  - repository-read\nconstraints:\n  - inline-result-only\ndispatches:\n  - writer\n  - tester\n---\nCanonical agent |
+    When I run the "metadata" validator
+    Then the exit code is 0
 
   Scenario: Harness adapter validation reports a generated marker no adapter writes
     Given the configuration file is this text:
