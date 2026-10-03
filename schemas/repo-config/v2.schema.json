@@ -17,6 +17,17 @@
           },
           "type": ["array", "null"]
         },
+        "dispatches": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Dispatches"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where a canonical `dispatches` list is written in this profile's\nnative format. Without it the profile renders nothing for the list."
+        },
         "empty-tier": {
           "anyOf": [
             {
@@ -167,6 +178,10 @@
         "description": {
           "type": "string"
         },
+        "dispatches": {
+          "description": "The key holding the agents this one may dispatch, in the order the\ncanonical source wrote them. Optional, because a repository whose\nagents dispatch nothing has nothing to declare.",
+          "type": ["string", "null"]
+        },
         "grants": {
           "type": "string"
         },
@@ -270,6 +285,20 @@
         }
       },
       "required": ["trees"],
+      "type": "object"
+    },
+    "Dispatches": {
+      "additionalProperties": false,
+      "description": "One native rendering of a canonical dispatch list.\n\n`field` names the native field, with one `.` when the list belongs inside a\nmap field. `format` is either `allow-map`, which writes a deny-all `*` entry\nand one `allow` entry per name, or a member template with exactly one\n`{names}` placeholder, which adds one member holding the names in canonical\norder, comma-separated.",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        }
+      },
+      "required": ["field", "format"],
       "type": "object"
     },
     "Emoji": {

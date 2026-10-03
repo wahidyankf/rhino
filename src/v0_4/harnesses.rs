@@ -6,8 +6,8 @@
 //! consumer-specific branch.
 
 use super::config::{
-    Adapter, AdapterFormat, Canonical, CanonicalAgent, CanonicalDocument, Harness, Identity,
-    Profile, Requirements, Scan, Translation, When,
+    Adapter, AdapterFormat, Canonical, CanonicalAgent, CanonicalDocument, Dispatches, Harness,
+    Identity, Profile, Requirements, Scan, Translation, When,
 };
 use crate::Outcome;
 use crate::cli::Format;
@@ -24,6 +24,10 @@ use std::collections::{BTreeMap, BTreeSet};
 const ROOT_INSTRUCTION: &str = "AGENTS.md";
 const AGENTS_ROOT: &str = ".agents/agents/";
 const SKILLS_ROOT: &str = ".agents/skills/";
+/// The dispatch format that writes a deny-all entry and one allow per name.
+const ALLOW_MAP: &str = "allow-map";
+/// The placeholder a dispatch member template replaces with the names.
+const NAMES: &str = "{names}";
 
 /// Compare every currently visible adapter against the complete desired model.
 /// It deliberately has no write port, so validation cannot repair drift.
@@ -209,13 +213,21 @@ struct Metadata {
     constraints: BTreeSet<String>,
     /// Every canonical list in authored order, keyed by its front-matter key.
     lists: BTreeMap<String, Vec<String>>,
+    /// The agents this one may dispatch, in authored order.
+    dispatches: Vec<String>,
 }
 
 enum RenderField {
     Scalar(String),
     Members(Vec<String>),
-    Entries(BTreeMap<String, String>),
+    Entries(BTreeMap<String, EntryValue>),
     Sequence(Vec<String>),
+}
+
+/// One entry of a native map field: a value, or a nested map of values.
+enum EntryValue {
+    Scalar(String),
+    Map(BTreeMap<String, String>),
 }
 
 fn plan(harness: &Harness, tree: &dyn Tree) -> Result<Plan, String> {
@@ -271,6 +283,23 @@ fn validate_profiles(
     if needs_agents && canonical.and_then(|shape| shape.agents.as_ref()).is_none() {
         return Err(
             "harness: agent adapters require a canonical agent field declaration".to_string(),
+        );
+    }
+    let needs_dispatches = profiles.iter().any(|profile| {
+        profile
+            .agent_adapter
+            .as_ref()
+            .is_some_and(|adapter| adapter.dispatches.is_some())
+    });
+    if needs_dispatches
+        && canonical
+            .and_then(|shape| shape.agents.as_ref())
+            .and_then(|agents| agents.dispatches.as_ref())
+            .is_none()
+    {
+        return Err(
+            "harness: a dispatches adapter key requires a canonical dispatches field declaration"
+                .to_string(),
         );
     }
     if needs_skills && canonical.and_then(|shape| shape.skills.as_ref()).is_none() {
@@ -406,6 +435,18 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
             "profile `{profile}` selects agents in a skill adapter"
         ));
     }
+    if let Some(dispatches) = &adapter.dispatches {
+        if !agent {
+            return Err(format!(
+                "profile `{profile}` projects a dispatch list into a skill adapter"
+            ));
+        }
+        if !valid_dispatches(dispatches) {
+            return Err(format!(
+                "profile `{profile}` has an invalid dispatches declaration"
+            ));
+        }
+    }
     let mut direct_fields = BTreeSet::new();
     for field in adapter
         .identity
@@ -418,6 +459,17 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
                 "profile `{profile}` repeats or omits an adapter field"
             ));
         }
+    }
+    if adapter.dispatches.as_ref().is_some_and(|dispatches| {
+        let root = dispatches
+            .field
+            .split_once('.')
+            .map_or(dispatches.field.as_str(), |(parent, _)| parent);
+        direct_fields.contains(root)
+    }) {
+        return Err(format!(
+            "profile `{profile}` repeats or omits an adapter field"
+        ));
     }
     let mut translation_fields = BTreeMap::new();
     for translation in &adapter.translations {
@@ -451,6 +503,18 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
         return Err(format!("profile `{profile}` has invalid tier fields"));
     }
     Ok(root)
+}
+
+/// A dispatch field is one native field, or one map field and its key; an
+/// allow map may nest, and a member template adds to a top-level member list
+/// and names the list exactly once.
+fn valid_dispatches(dispatches: &Dispatches) -> bool {
+    let segments: Vec<&str> = dispatches.field.split('.').collect();
+    if segments.len() > 2 || segments.iter().any(|segment| segment.trim().is_empty()) {
+        return false;
+    }
+    dispatches.format == ALLOW_MAP
+        || (segments.len() == 1 && dispatches.format.matches(NAMES).count() == 1)
 }
 
 fn validate_route(profile: &str, route: &str) -> Result<(), String> {
@@ -858,6 +922,11 @@ fn render_adapter(profile: &Profile, adapter: &Adapter, source: &Source) -> Resu
             }
         }
     }
+    if let Some(dispatches) = &adapter.dispatches {
+        if !metadata.dispatches.is_empty() {
+            add_dispatches(&mut fields, dispatches, &metadata.dispatches)?;
+        }
+    }
     for (field, members_to_remove) in absent_members {
         let Some(RenderField::Members(members)) = fields.get_mut(&field) else {
             return Err(format!(
@@ -913,6 +982,7 @@ trait CanonicalShape {
     fn grants_field(&self) -> Option<&str>;
     fn denials_field(&self) -> Option<&str>;
     fn constraints_field(&self) -> Option<&str>;
+    fn dispatches_field(&self) -> Option<&str>;
 }
 
 impl CanonicalShape for CanonicalDocument {
@@ -937,6 +1007,10 @@ impl CanonicalShape for CanonicalDocument {
     }
 
     fn constraints_field(&self) -> Option<&str> {
+        None
+    }
+
+    fn dispatches_field(&self) -> Option<&str> {
         None
     }
 }
@@ -965,6 +1039,10 @@ impl CanonicalShape for CanonicalAgent {
     fn constraints_field(&self) -> Option<&str> {
         Some(&self.constraints)
     }
+
+    fn dispatches_field(&self) -> Option<&str> {
+        self.dispatches.as_deref()
+    }
 }
 
 enum CanonicalValue {
@@ -992,6 +1070,7 @@ fn parse_metadata(
         grants: optional_list(&fields, shape.grants_field(), path)?,
         denials: optional_list(&fields, shape.denials_field(), path)?,
         constraints: optional_list(&fields, shape.constraints_field(), path)?,
+        dispatches: ordered_list(&fields, shape.dispatches_field(), path)?,
         lists: fields
             .iter()
             .filter_map(|(key, value)| match value {
@@ -1119,12 +1198,21 @@ fn optional_list(
     field: Option<&str>,
     path: &str,
 ) -> Result<BTreeSet<String>, String> {
+    Ok(ordered_list(fields, field, path)?.into_iter().collect())
+}
+
+/// A declared list in the order the canonical source wrote it.
+fn ordered_list(
+    fields: &BTreeMap<String, CanonicalValue>,
+    field: Option<&str>,
+    path: &str,
+) -> Result<Vec<String>, String> {
     let Some(field) = field else {
-        return Ok(BTreeSet::new());
+        return Ok(Vec::new());
     };
     match fields.get(field) {
-        None => Ok(BTreeSet::new()),
-        Some(CanonicalValue::List(values)) => Ok(values.iter().cloned().collect()),
+        None => Ok(Vec::new()),
+        Some(CanonicalValue::List(values)) => Ok(values.clone()),
         Some(_) => Err(format!(
             "canonical source `{path}` has a non-list `{field}` metadata field"
         )),
@@ -1179,10 +1267,12 @@ fn add_translation(
     } else {
         match fields.entry(translation.field.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(RenderField::Entries(translation.entries.clone()));
+                entry.insert(RenderField::Entries(scalar_entries(&translation.entries)));
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
-                RenderField::Entries(entries) => entries.extend(translation.entries.clone()),
+                RenderField::Entries(entries) => {
+                    entries.extend(scalar_entries(&translation.entries))
+                }
                 _ => {
                     return Err(format!(
                         "adapter output conflicts at `{}`",
@@ -1193,6 +1283,63 @@ fn add_translation(
         }
     }
     Ok(())
+}
+
+fn scalar_entries(entries: &BTreeMap<String, String>) -> BTreeMap<String, EntryValue> {
+    entries
+        .iter()
+        .map(|(key, value)| (key.clone(), EntryValue::Scalar(value.clone())))
+        .collect()
+}
+
+/// Render a canonical dispatch list into its declared native field.
+///
+/// A member template adds one member to a member list, after whatever the
+/// translations placed there. An allow map denies every agent and then allows
+/// each named one, either as the whole field or as one key of a map field.
+fn add_dispatches(
+    fields: &mut BTreeMap<String, RenderField>,
+    dispatches: &Dispatches,
+    names: &[String],
+) -> Result<(), String> {
+    if dispatches.format != ALLOW_MAP {
+        let member = dispatches.format.replace(NAMES, &names.join(", "));
+        return match fields
+            .entry(dispatches.field.clone())
+            .or_insert_with(|| RenderField::Members(Vec::new()))
+        {
+            RenderField::Members(members) => {
+                members.push(member);
+                Ok(())
+            }
+            _ => Err(format!(
+                "adapter output conflicts at `{}`",
+                dispatches.field
+            )),
+        };
+    }
+    let mut allowed = BTreeMap::from([("*".to_string(), "deny".to_string())]);
+    allowed.extend(names.iter().map(|name| (name.clone(), "allow".to_string())));
+    let Some((parent, key)) = dispatches.field.split_once('.') else {
+        return add_field(
+            fields,
+            &dispatches.field,
+            RenderField::Entries(scalar_entries(&allowed)),
+        );
+    };
+    match fields
+        .entry(parent.to_string())
+        .or_insert_with(|| RenderField::Entries(BTreeMap::new()))
+    {
+        RenderField::Entries(entries) if !entries.contains_key(key) => {
+            entries.insert(key.to_string(), EntryValue::Map(allowed));
+            Ok(())
+        }
+        _ => Err(format!(
+            "adapter output conflicts at `{}`",
+            dispatches.field
+        )),
+    }
 }
 
 fn render_front_matter(
@@ -1209,7 +1356,17 @@ fn render_front_matter(
             RenderField::Entries(entries) => {
                 output.push_str(&format!("{field}:\n"));
                 for (key, value) in entries {
-                    render_yaml_field(&mut output, key, value, "  ");
+                    match value {
+                        EntryValue::Scalar(value) => {
+                            render_yaml_field(&mut output, &yaml_item(key), value, "  ")
+                        }
+                        EntryValue::Map(map) => {
+                            output.push_str(&format!("  {}:\n", yaml_item(key)));
+                            for (key, value) in map {
+                                render_yaml_field(&mut output, &yaml_item(key), value, "    ");
+                            }
+                        }
+                    }
                 }
             }
             RenderField::Sequence(values) => {
@@ -1238,8 +1395,24 @@ fn render_toml(fields: &BTreeMap<String, RenderField>) -> Result<String, String>
             }
             RenderField::Entries(entries) => {
                 output.push_str(&format!("[{field}]\n"));
+                // Every value before any nested table, because a TOML table
+                // header ends the table whose values precede it.
                 for (key, value) in entries {
-                    output.push_str(&format!("{key} = {}\n", toml_scalar(value)));
+                    if let EntryValue::Scalar(value) = value {
+                        output.push_str(&format!("{} = {}\n", toml_key(key), toml_scalar(value)));
+                    }
+                }
+                for (key, value) in entries {
+                    if let EntryValue::Map(map) = value {
+                        output.push_str(&format!("[{field}.{}]\n", toml_key(key)));
+                        for (key, value) in map {
+                            output.push_str(&format!(
+                                "{} = {}\n",
+                                toml_key(key),
+                                toml_scalar(value)
+                            ));
+                        }
+                    }
                 }
             }
             RenderField::Sequence(values) => {
@@ -1287,6 +1460,20 @@ fn yaml_item(value: &str) -> String {
     match yaml_scalar(value) {
         YamlScalar::Plain(value) => value.to_string(),
         YamlScalar::Literal => serde_json::to_string(value).expect("a string always serializes"),
+    }
+}
+
+/// A key as written: bare when TOML reads it back as written, otherwise
+/// quoted, as a `*` entry must be.
+fn toml_key(key: &str) -> String {
+    if !key.is_empty()
+        && key.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        })
+    {
+        key.to_string()
+    } else {
+        toml_scalar(key)
     }
 }
 
@@ -1424,6 +1611,7 @@ mod typed_tests {
                 grants: "requires".to_string(),
                 denials: "denies".to_string(),
                 constraints: "constraints".to_string(),
+                dispatches: None,
             }),
             skills: Some(CanonicalDocument {
                 name: "name".to_string(),
@@ -1449,6 +1637,7 @@ mod typed_tests {
             agents: None,
             absent: Vec::new(),
             translations: Vec::new(),
+            dispatches: None,
         }
     }
 
@@ -2125,6 +2314,7 @@ mod typed_tests {
                 denials: BTreeSet::from(["repo-write".to_string()]),
                 constraints: BTreeSet::new(),
                 lists: BTreeMap::new(),
+                dispatches: Vec::new(),
             }),
         };
         let mut denial_adapter = adapter(
@@ -2310,6 +2500,7 @@ mod typed_tests {
                 denials: BTreeSet::new(),
                 constraints: BTreeSet::new(),
                 lists: BTreeMap::new(),
+                dispatches: Vec::new(),
             }),
         };
         let mut absent = adapter(
@@ -2482,6 +2673,176 @@ mod typed_tests {
             validate_adapter("test", &skill, false)
                 .unwrap_err()
                 .contains("selects agents in a skill adapter")
+        );
+    }
+
+    fn dispatching_source() -> Source {
+        let mut shape = canonical().agents.unwrap();
+        shape.dispatches = Some("dispatches".to_string());
+        Source {
+            id: "agent/lead".to_string(),
+            path: ".agents/agents/lead.md".to_string(),
+            digest: digest("lead"),
+            kind: SourceKind::Agent,
+            metadata: Some(
+                parse_metadata(
+                    ".agents/agents/lead.md",
+                    "---\nname: lead\ndescription: Lead changes\ndispatches:\n  - writer\n  - tester\n---\n",
+                    &shape,
+                )
+                .unwrap(),
+            ),
+        }
+    }
+
+    fn dispatching(field: &str, format: &str, adapter_format: AdapterFormat) -> Adapter {
+        let (path, route_field) = match adapter_format {
+            AdapterFormat::FrontMatter => ("adapters/test/agents/{name}.md", "body"),
+            AdapterFormat::Toml => ("adapters/test/agents/{name}.toml", "route"),
+        };
+        let mut dispatching = adapter(path, adapter_format, route_field);
+        dispatching.identity.clear();
+        dispatching.dispatches = Some(Dispatches {
+            field: field.to_string(),
+            format: format.to_string(),
+        });
+        dispatching
+    }
+
+    #[test]
+    fn dispatch_projection_renders_each_native_form() {
+        let source = dispatching_source();
+        let profile = profile("test", "read");
+        let render =
+            |adapter: &Adapter| render_adapter(&profile, adapter, &source).unwrap_or_else(|e| e);
+
+        assert_eq!(
+            render(&dispatching(
+                "tools",
+                "Agent({names})",
+                AdapterFormat::FrontMatter
+            )),
+            "---\ntools: |-\n  Agent(writer, tester)\n---\n\nRead .agents/agents/lead.md completely.\n"
+        );
+        assert_eq!(
+            render(&dispatching(
+                "task",
+                "allow-map",
+                AdapterFormat::FrontMatter
+            )),
+            "---\ntask:\n  \"*\": deny\n  tester: allow\n  writer: allow\n---\n\nRead .agents/agents/lead.md completely.\n"
+        );
+        assert_eq!(
+            render(&dispatching(
+                "subagents.task",
+                "allow-map",
+                AdapterFormat::Toml
+            )),
+            "route = \"Read .agents/agents/lead.md completely.\"\n[subagents]\n[subagents.task]\n\"*\" = \"deny\"\ntester = \"allow\"\nwriter = \"allow\"\n"
+        );
+
+        let mut denied = dispatching("permission.task", "allow-map", AdapterFormat::Toml);
+        denied.translations = vec![Translation {
+            when: When::Always,
+            capability: None,
+            field: "permission".to_string(),
+            members: Vec::new(),
+            absent_members: Vec::new(),
+            entries: BTreeMap::from([("task".to_string(), "deny".to_string())]),
+        }];
+        assert!(render(&denied).contains("conflicts at `permission.task`"));
+        let mut members = dispatching("permission", "Agent({names})", AdapterFormat::Toml);
+        members.translations = denied.translations.clone();
+        assert!(render(&members).contains("conflicts at `permission`"));
+        members.dispatches = Some(Dispatches {
+            field: "permission".to_string(),
+            format: "allow-map".to_string(),
+        });
+        assert!(render(&members).contains("repeats field `permission`"));
+        let mut scalar = dispatching("model", "allow-map", AdapterFormat::FrontMatter);
+        scalar
+            .fixed
+            .insert("mode".to_string(), "subagent".to_string());
+        scalar.dispatches.as_mut().unwrap().field = "mode.task".to_string();
+        assert!(render(&scalar).contains("conflicts at `mode.task`"));
+
+        let mut quiet = source.clone();
+        quiet.metadata.as_mut().unwrap().dispatches.clear();
+        assert!(
+            !render_adapter(
+                &profile,
+                &dispatching("tools", "Agent({names})", AdapterFormat::FrontMatter),
+                &quiet
+            )
+            .unwrap()
+            .contains("tools")
+        );
+        assert_eq!(toml_key("plain-key_1.2"), "plain-key_1.2");
+        assert_eq!(toml_key(""), "\"\"");
+    }
+
+    #[test]
+    fn dispatch_declarations_refuse_every_unrepresentable_form() {
+        for (field, format) in [
+            ("", "allow-map"),
+            ("a.b.c", "allow-map"),
+            ("a.", "allow-map"),
+            ("tools", "Agent"),
+            ("tools", "{names}{names}"),
+            ("permission.task", "Agent({names})"),
+        ] {
+            assert!(
+                validate_adapter(
+                    "test",
+                    &dispatching(field, format, AdapterFormat::FrontMatter),
+                    true
+                )
+                .unwrap_err()
+                .contains("invalid dispatches"),
+                "{field} {format}"
+            );
+        }
+        let mut repeated = dispatching("name.task", "allow-map", AdapterFormat::FrontMatter);
+        repeated.identity.insert("name".to_string(), Identity::Name);
+        assert!(
+            validate_adapter("test", &repeated, true)
+                .unwrap_err()
+                .contains("repeats")
+        );
+        assert!(
+            validate_adapter(
+                "test",
+                &dispatching("tools", "Agent({names})", AdapterFormat::FrontMatter),
+                false
+            )
+            .unwrap_err()
+            .contains("dispatch list into a skill adapter")
+        );
+
+        let mut harness = complete_harness("read");
+        harness.profiles[0]
+            .agent_adapter
+            .as_mut()
+            .unwrap()
+            .dispatches = Some(Dispatches {
+            field: "tools".to_string(),
+            format: "Agent({names})".to_string(),
+        });
+        let refusal = validate(Some(&harness), None, &canonical_tree(), Format::Text);
+        assert_eq!(refusal.exit_code, 2);
+        assert!(refusal.stderr.contains("canonical dispatches field"));
+
+        let mut shape = canonical().agents.unwrap();
+        shape.dispatches = Some("dispatches".to_string());
+        assert!(
+            parse_metadata(
+                "agent.md",
+                "---\nname: lead\ndescription: Lead\ndispatches: writer\n---\n",
+                &shape
+            )
+            .err()
+            .unwrap()
+            .contains("non-list `dispatches`")
         );
     }
 }
