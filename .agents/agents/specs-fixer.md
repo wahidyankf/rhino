@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use as the fixer in a specification quality gate, once a specification checker has returned findings for the current
   revision of the listed folders.
+tier: execution
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence

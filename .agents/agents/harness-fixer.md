@@ -5,6 +5,7 @@ description: >-
   the canonical source, regenerates adapters, and hands every decision to a person.
 when_to_use: >-
   Use after a harness compatibility audit returns findings, inside a harness quality gate's repair.
+tier: execution
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence

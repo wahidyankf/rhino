@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use as the writer's executor in a rules quality gate cycle, or once a rules checker has returned findings, as the
   repair step of a rules consistency check.
+tier: execution
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence

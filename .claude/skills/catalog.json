@@ -5,37 +5,37 @@
     {
       "id": "agent/ci-checker",
       "path": ".agents/agents/ci-checker.md",
-      "digest": "86904b3911e6c03a46b694a1710b8f293e53b94acea3470c51935a2aea998ec2"
+      "digest": "6f9507eb029dcd85ef32ab7e65c32326e9f797fdd921dcd731d526211bfbe49f"
     },
     {
       "id": "agent/ci-fixer",
       "path": ".agents/agents/ci-fixer.md",
-      "digest": "24101bfce3e1c36b2f0e479efcb820dd9c8d67015e690c75e9301841c30b22cd"
+      "digest": "91c3fb5dc8397da7eb0e730facf8b9a58be96fc315bf20c247b57cb68521a922"
     },
     {
       "id": "agent/docs-checker",
       "path": ".agents/agents/docs-checker.md",
-      "digest": "875f8eb4c99807188e1d13e5fa510ddf50f56ef91a8a37d58b70c22e5ee63a60"
+      "digest": "d897a069a114ada7ac32fddf9c1b01ab4c1eb12634184040a84d978258768a21"
     },
     {
       "id": "agent/docs-fixer",
       "path": ".agents/agents/docs-fixer.md",
-      "digest": "803d294f9fa8d1baed1a658b692ff9ad0edb93e9b7b904c3d7fef21f0cb5a6fb"
+      "digest": "dbbd551edc2668677925c274aed0a02e09ad3af02a23da0707575b07e6503de2"
     },
     {
       "id": "agent/gherkin-implementation-reviewer",
       "path": ".agents/agents/gherkin-implementation-reviewer.md",
-      "digest": "4024ec1b7afac3531f58257128dc961614312a1610ed484b3cd7b9233a569411"
+      "digest": "929a5cc942a37336cd5a3c670dec771833fa61e787673577b2be52c1e5e9db25"
     },
     {
       "id": "agent/harness-checker",
       "path": ".agents/agents/harness-checker.md",
-      "digest": "e97b9aae448d43b44532f707fbcb150ec3d0c753c68c0b8baf31c1f79c55eaab"
+      "digest": "9ef74033950f61aedfc30be3ba042c34a6933fc4e94d29d9fbe222ebdf0f9870"
     },
     {
       "id": "agent/harness-fixer",
       "path": ".agents/agents/harness-fixer.md",
-      "digest": "2210142518a2604940f8ea87e43c2804c3216c077b2e9d9746983b4a6a177c03"
+      "digest": "0a92fcefba005746a3da465a65dbe080e7ab03eb26ff04b2a25b013c04af8ad4"
     },
     {
       "id": "agent/plan-checker",
@@ -50,7 +50,7 @@
     {
       "id": "agent/plan-fixer",
       "path": ".agents/agents/plan-fixer.md",
-      "digest": "d22e5d2b49ce82b0d33d9596b3a93236ff7c24bcab369dd9135498bf69866a9f"
+      "digest": "0fe1425ed62f10e87c19d09ec93904a19c8fab927d74058ad4245464d8a775ac"
     },
     {
       "id": "agent/plan-maker",
@@ -65,7 +65,7 @@
     {
       "id": "agent/pr-review-fixer",
       "path": ".agents/agents/pr-review-fixer.md",
-      "digest": "d620410e8ba36217719905f90f642e9409482d3c0fc104bc7c56bf368570a313"
+      "digest": "535dbebcdc7ab64b65788d6a69bb955577aa27cd243bc257ed868068c8ae866b"
     },
     {
       "id": "agent/rules-checker",
@@ -75,32 +75,32 @@
     {
       "id": "agent/rules-fixer",
       "path": ".agents/agents/rules-fixer.md",
-      "digest": "3ea5a4b583adafafc14cdf8f08322a0185d522dff398048f5eb3d88b640e9892"
+      "digest": "09352e5275ee36865c9de2497c1fcf82ed12bccfa5d13e6d2e7a2719579d0c4a"
     },
     {
       "id": "agent/specs-checker",
       "path": ".agents/agents/specs-checker.md",
-      "digest": "9b88a77e8250ea504b80bf5a455b69f97f78a0528d7acc450e900a12a079f893"
+      "digest": "b23cae4d9dea27274cbee2e5378e50a272bf3703a68cab8b79e674141e9f7575"
     },
     {
       "id": "agent/specs-fixer",
       "path": ".agents/agents/specs-fixer.md",
-      "digest": "e45d94d429cd09872e38a8011c3f24a7a3294dc102106a36d816bc3c69148a59"
+      "digest": "e33132b09c4ff3cc48467959b98b2b5697229d24d5239f3f523c9087fe9148a8"
     },
     {
       "id": "agent/swe-code-checker",
       "path": ".agents/agents/swe-code-checker.md",
-      "digest": "ccf51ca55d119ee04c0bcacd3bf2341e9d19dbc4ea5818c88164765519fb94f6"
+      "digest": "6625c87bf371fa62bc3546b92a5b8f98eaccd15b761eebec1b88bd94499b19a5"
     },
     {
       "id": "agent/swe-code-fixer",
       "path": ".agents/agents/swe-code-fixer.md",
-      "digest": "7e95ea6d672c12031b98854ae36915fa7f5bd985a97be58bc260454fc6288435"
+      "digest": "dd5e4fe66a0482dc526ee76491321297d8bf1e0fa113e82a03cab54197add48b"
     },
     {
       "id": "agent/swe-code-maker",
       "path": ".agents/agents/swe-code-maker.md",
-      "digest": "5b580dbf0fbbcc27c64b65a8aa16e25ee2ccfcd5593791a6a41a04c1e6bdc0ec"
+      "digest": "e2ce9181bbef70d0947b3fddf16183bd16f930552ae502f991d96cbe35367f53"
     },
     {
       "id": "skill/applying-maker-checker-fixer",

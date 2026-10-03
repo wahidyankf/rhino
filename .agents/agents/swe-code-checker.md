@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use for a standards audit of named projects, after substantial code changes made outside a pull request review, or
   before declaring implementation work complete.
+tier: execution
 skills:
   - developing-applications
   - assessing-criticality-confidence

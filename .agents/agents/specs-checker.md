@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use as the checker in a specification quality gate, or before restructuring, migrating, or bulk-editing a named set of
   specification folders.
+tier: execution
 skills:
   - assessing-criticality-confidence
 mode: subagent

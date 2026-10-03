@@ -101,6 +101,7 @@ harness:
         identity: { name: name, description: description }
       tiers:
         plan: { model: opus, effort: high }
+        execution: {}
     - id: codex
       supports:
         capabilities:

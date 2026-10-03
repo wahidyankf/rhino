@@ -1,6 +1,8 @@
 ---
 description: |-
   Review changed Gherkin scenarios and their bindings against this repository's rules, read-only, and report what each binding actually asserts.
+effort: high
+model: opus
 name: gherkin-implementation-reviewer
 tools: |-
   Read, Glob, Grep

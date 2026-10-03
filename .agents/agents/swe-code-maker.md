@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use when new or changed behaviour must be built in a project's code, before any audit of it, rather than when checker
   findings need applying or a command is failing.
+tier: execution
 skills:
   - developing-applications
 mode: subagent

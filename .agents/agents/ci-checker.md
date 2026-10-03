@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use as the checker in a CI quality gate, after adding a project or changing hooks or pipeline definitions, or for a
   periodic audit of gate wiring.
+tier: execution
 skills:
   - assessing-criticality-confidence
 mode: subagent
