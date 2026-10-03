@@ -11,12 +11,17 @@
 //! proved by something standing in for one.
 
 use crate::world::Repository;
-use rhino::runtime::{Launch, LaunchError, Launched, Launcher};
+use rhino::runtime::{
+    Launch, LaunchError, Launched, Launcher, ModelResolver, ResolveError, ResolveLaunch,
+};
 use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub struct Recorder {
     outcomes: Vec<(String, i32)>,
     unlaunchable: Vec<String>,
+    model_outputs: BTreeMap<String, String>,
+    unstartable_models: BTreeSet<String>,
     journal: RefCell<Vec<String>>,
     root: String,
 }
@@ -26,6 +31,8 @@ impl Recorder {
         Self {
             outcomes: repository.gate_outcomes.to_vec(),
             unlaunchable: repository.unlaunchable_gates.iter().cloned().collect(),
+            model_outputs: repository.model_outputs.clone(),
+            unstartable_models: repository.unstartable_models.clone(),
             journal: RefCell::new(Vec::new()),
             root: root.to_string(),
         }
@@ -81,6 +88,29 @@ impl Launcher for Recorder {
             .find(|(named, _)| *named == id)
             .map_or(0, |(_, code)| *code);
         Ok(Launched { code })
+    }
+}
+
+/// The other implementation of the model-resolver port: a command that prints
+/// exactly what the scenario stated, and records that it started.
+impl ModelResolver for Recorder {
+    fn resolve(&self, launch: ResolveLaunch<'_>) -> Result<String, ResolveError> {
+        let Some(program) = launch.arguments.first() else {
+            return Err(ResolveError(
+                "the model command declares no executable".to_string(),
+            ));
+        };
+        let id = identifier(program);
+        if self.unstartable_models.contains(&id) {
+            return Err(ResolveError(format!("`{program}` could not be started")));
+        }
+        let Some(output) = self.model_outputs.get(&id) else {
+            return Err(ResolveError(format!("`{program}` could not be started")));
+        };
+        self.journal
+            .borrow_mut()
+            .push(format!("{}\t{id}", crate::binding::MODEL_START));
+        Ok(output.clone())
     }
 }
 

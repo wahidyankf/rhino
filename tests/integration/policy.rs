@@ -15,11 +15,11 @@ use crate::sandbox::{self, Sandbox};
 use crate::world::{World, differences};
 use rhino::ExecutionBoundaries;
 use rhino::runtime::{
-    DiskEnvironmentStore, DiskMutationRunner, DiskToolchainRunner, DiskTree, EnvironmentFile,
-    EnvironmentRestoreFile, EnvironmentRestoreTransaction, EnvironmentStore,
-    EnvironmentTransaction, MutationLaunch, MutationRunner, NoAdapterStore, NoEnvironmentStore,
-    NoLauncher, NoMutationRunner, NoToolchainRunner, ToolchainLaunch, ToolchainRunner, Tree,
-    TreeError,
+    DiskEnvironmentStore, DiskModelResolver, DiskMutationRunner, DiskToolchainRunner, DiskTree,
+    EnvironmentFile, EnvironmentRestoreFile, EnvironmentRestoreTransaction, EnvironmentStore,
+    EnvironmentTransaction, ModelResolver, MutationLaunch, MutationRunner, NoAdapterStore,
+    NoEnvironmentStore, NoLauncher, NoModelResolver, NoMutationRunner, NoToolchainRunner,
+    ResolveLaunch, ToolchainLaunch, ToolchainRunner, Tree, TreeError,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -730,6 +730,7 @@ fn environment_staging_guard_reads_the_real_index_without_reading_unstaged_bytes
             adapters: &NoAdapterStore,
             environments: &NoEnvironmentStore,
             toolchains: &NoToolchainRunner,
+            models: &NoModelResolver,
         },
     );
 
@@ -757,6 +758,56 @@ fn disk_toolchain_runner_cancels_a_timed_out_child_without_output() {
 
     assert!(error.0.contains("exceeded its timeout"));
     assert!(!error.0.contains("SYNTHETIC"));
+}
+
+#[cfg(unix)]
+#[test]
+fn disk_model_resolver_cancels_a_timed_out_child() {
+    let arguments = vec!["sleep".to_string(), "2".to_string()];
+    let error = DiskModelResolver
+        .resolve(ResolveLaunch {
+            arguments: &arguments,
+            directory: ".",
+            timeout_seconds: 1,
+        })
+        .expect_err("the isolated synthetic child exceeds its timeout");
+
+    assert!(error.0.contains("exceeded its timeout"));
+}
+
+#[cfg(unix)]
+#[test]
+fn disk_model_resolver_refuses_a_failed_or_unstartable_child() {
+    let failed = vec!["false".to_string()];
+    let error = DiskModelResolver
+        .resolve(ResolveLaunch {
+            arguments: &failed,
+            directory: ".",
+            timeout_seconds: 5,
+        })
+        .expect_err("a child that exits non-zero resolves nothing");
+    assert!(error.0.contains("exited with status 1"));
+
+    let missing = vec!["rhino-synthetic-model-command-that-does-not-exist".to_string()];
+    let error = DiskModelResolver
+        .resolve(ResolveLaunch {
+            arguments: &missing,
+            directory: ".",
+            timeout_seconds: 5,
+        })
+        .expect_err("a command that cannot start resolves nothing");
+    assert!(error.0.contains("could not start the model command"));
+
+    let printed = vec!["echo".to_string(), "m-1-x".to_string()];
+    let output = DiskModelResolver
+        .resolve(ResolveLaunch {
+            arguments: &printed,
+            directory: ".",
+            timeout_seconds: 5,
+        })
+        .map_err(|error| error.0)
+        .expect("a child that exits zero returns its output");
+    assert_eq!(output, "m-1-x\n");
 }
 
 /// Every `.rs` file under `src/`, with its repository-relative path.
@@ -891,9 +942,11 @@ fn no_validator_spawns_a_child_process() {
     //
     // Gate dispatch is the one thing here that is not inspection: running a
     // repository's declared gates *is* starting children, and a runner that
-    // could not would be a runner in name only. That capability is confined to
-    // one module and reached through one port, and the rule below is the
-    // confinement rather than a waiver of it.
+    // could not would be a runner in name only. Toolchain operations and the
+    // model-resolve command `harness adapters generate` may start are the
+    // same kind of capability. Every one is confined to one module and
+    // reached through its own port, and the rule below is the confinement
+    // rather than a waiver of it.
     let found: Vec<String> =
         mentions(&["std::process::Command", "Command::new", "process::Command"])
             .into_iter()
@@ -960,6 +1013,34 @@ fn the_toolchain_runner_is_reached_only_by_declared_toolchain_operations() {
     assert!(
         found.is_empty(),
         "a module outside declared toolchain operations reaches the runner:\n{}",
+        found.join("\n")
+    );
+}
+
+#[test]
+fn the_model_resolver_is_reached_only_by_adapter_generation() {
+    // Model resolution is the one child `harness adapters generate` may start,
+    // and it has its own no-shell port. Keeping the port's references to
+    // these five modules stops a validator -- including `harness adapters
+    // validate` -- from acquiring a host-process capability by naming it.
+    const ALLOWED: [&str; 5] = [
+        "src/runtime.rs",
+        LAUNCHER,
+        "src/lib.rs",
+        "src/main.rs",
+        "src/v0_4/harnesses.rs",
+    ];
+    let found: Vec<String> = mentions(&["ModelResolver", "ResolveLaunch {"])
+        .into_iter()
+        .filter(|finding| {
+            !ALLOWED
+                .iter()
+                .any(|allowed| finding.starts_with(&format!("{allowed}:")))
+        })
+        .collect();
+    assert!(
+        found.is_empty(),
+        "a module outside adapter generation reaches the model resolver:\n{}",
         found.join("\n")
     );
 }

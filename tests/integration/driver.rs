@@ -45,6 +45,7 @@ impl Driver for IntegrationDriver {
                 adapters: &DiskAdapterStore,
                 environments: &DiskEnvironmentStore,
                 toolchains: &NoToolchainRunner,
+                models: &recorder,
             },
         );
         let after = sandbox::observe(sandbox.root());

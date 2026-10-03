@@ -24,8 +24,9 @@ mod v0_4;
 use config::{ConfigError, Document};
 use report::Report;
 use runtime::{
-    AdapterStore, EnvironmentStore, Launcher, MutationRunner, NoAdapterStore, NoEnvironmentStore,
-    NoLauncher, NoMutationRunner, NoToolchainRunner, ToolchainRunner, Tree, TreeError,
+    AdapterStore, EnvironmentStore, Launcher, ModelResolver, MutationRunner, NoAdapterStore,
+    NoEnvironmentStore, NoLauncher, NoModelResolver, NoMutationRunner, NoToolchainRunner,
+    ToolchainRunner, Tree, TreeError,
 };
 
 /// Everything an invocation produces, and all the process contract exposes.
@@ -55,6 +56,8 @@ pub struct ExecutionBoundaries<'a> {
     pub adapters: &'a dyn AdapterStore,
     pub environments: &'a dyn EnvironmentStore,
     pub toolchains: &'a dyn ToolchainRunner,
+    /// Starts a declared model-listing command; only adapter generation uses it.
+    pub models: &'a dyn ModelResolver,
 }
 
 impl Outcome {
@@ -143,6 +146,7 @@ pub fn execute_using_with_mutations(
             adapters: &NoAdapterStore,
             environments: &NoEnvironmentStore,
             toolchains: &NoToolchainRunner,
+            models: &NoModelResolver,
         },
     )
 }
@@ -162,6 +166,7 @@ pub fn execute_using_with_boundaries(
         adapters,
         environments,
         toolchains,
+        models,
     } = boundaries;
     let invocation = match cli::parse(arguments) {
         Ok(cli::Parsed::Help(cli::Help(text))) => return Outcome::clean(text),
@@ -246,6 +251,7 @@ pub fn execute_using_with_boundaries(
             document.scan.as_ref(),
             tree,
             adapters,
+            models,
             invocation.format,
         ),
         ("environment-backup", Document::V0_4(document)) => v0_4::operations::backup(

@@ -13,8 +13,8 @@
 
 use rhino::cli::Parsed;
 use rhino::runtime::{
-    DiskAdapterStore, DiskEnvironmentStore, DiskMutationRunner, DiskToolchainRunner, DiskTree,
-    ProcessLauncher,
+    DiskAdapterStore, DiskEnvironmentStore, DiskModelResolver, DiskMutationRunner,
+    DiskToolchainRunner, DiskTree, ProcessLauncher,
 };
 use rhino::{ExecutionBoundaries, Outcome};
 use std::io::{ErrorKind, Write};
@@ -73,6 +73,7 @@ fn main() -> ExitCode {
                     adapters: &DiskAdapterStore,
                     environments: &DiskEnvironmentStore,
                     toolchains: &DiskToolchainRunner,
+                    models: &DiskModelResolver,
                 },
             )
         }
