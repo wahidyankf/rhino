@@ -292,10 +292,14 @@ impl Audit<'_> {
     }
 
     /// QG02 and QG08: each declared family holds its gate, its propagation,
-    /// its checker, and its fixer.
+    /// its judge, and its repairer -- `<family>-checker` and `<family>-fixer`
+    /// unless the family names other agents.
     fn families(&mut self) {
         let gate_directory = self.gate_directory();
-        for family in self.declared() {
+        let mut gates = self.policy.gates.clone();
+        gates.sort_by(|left, right| left.family.cmp(&right.family));
+        for gate in gates {
+            let family = gate.family.clone();
             for suffix in [GATE_SUFFIX, PROPAGATION_SUFFIX] {
                 let path = format!("{gate_directory}/{family}{suffix}");
                 if !self.present(&path) {
@@ -310,8 +314,8 @@ impl Audit<'_> {
                     );
                 }
             }
-            for role in ["checker", "fixer"] {
-                let path = format!("{}/{family}-{role}.md", self.policy.agents);
+            for (role, agent) in [("judge", gate.judge()), ("repairer", gate.repairer())] {
+                let path = format!("{}/{agent}.md", self.policy.agents);
                 if !self.present(&path) {
                     self.found(
                         "QG08",
@@ -320,7 +324,9 @@ impl Audit<'_> {
                             &path,
                             "a declared gate family has no agent here",
                         )
-                        .with("family", Detail::Text(family.clone())),
+                        .with("family", Detail::Text(family.clone()))
+                        .with("role", Detail::Text(role.to_string()))
+                        .with("agent", Detail::Text(agent)),
                     );
                 }
             }
@@ -642,6 +648,8 @@ mod tests {
             gates: vec![QualityGateFamily {
                 family: "plan".to_string(),
                 subject: None,
+                judge: None,
+                repairer: None,
             }],
         }
     }
@@ -919,6 +927,41 @@ mod tests {
         ] {
             assert!(!report.contains(absent), "{absent}\n{report}");
         }
+    }
+
+    #[test]
+    fn a_family_may_name_its_judge_and_repairer_in_place_of_its_defaults() {
+        let mut declared = policy();
+        declared.gates[0].judge = Some("plan-tester".to_string());
+        declared.gates[0].repairer = Some("developer".to_string());
+        let tree = MemoryTree::default();
+        tree.write("flows/README.md", "# Flows\n");
+        tree.write("flows/quality/plan-quality-gate.md", GATE);
+        tree.write("flows/quality/plan-propagation.md", PROPAGATION);
+        tree.write("agents/developer.md", "# Developer\n");
+
+        let report = json(&tree, &declared, None);
+        assert!(report.contains("agents/plan-tester.md"), "{report}");
+        assert!(report.contains("\"role\":\"judge\""), "{report}");
+        assert!(report.contains("\"agent\":\"plan-tester\""), "{report}");
+        assert!(!report.contains("plan-checker"), "{report}");
+        assert!(!report.contains("plan-fixer"), "{report}");
+        assert!(!report.contains("\"role\":\"repairer\""), "{report}");
+
+        tree.write("agents/plan-tester.md", "# Tester\n");
+        assert_eq!(
+            validate(&tree, &declared, None)
+                .render(Format::Json)
+                .exit_code,
+            0
+        );
+
+        let defaults = json(&MemoryTree::default(), &policy(), None);
+        assert!(
+            defaults.contains("\"agent\":\"plan-checker\""),
+            "{defaults}"
+        );
+        assert!(defaults.contains("\"agent\":\"plan-fixer\""), "{defaults}");
     }
 
     #[test]

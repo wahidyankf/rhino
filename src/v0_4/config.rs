@@ -259,6 +259,32 @@ pub(crate) struct QualityGateFamily {
     /// The default subject a run of this family's gate receives.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) subject: Option<String>,
+    /// The agent that judges this family's gate, by file name without
+    /// `.md`. Absent, it is `<family>-checker`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(pattern(SIMPLE_NAME))]
+    pub(crate) judge: Option<String>,
+    /// The agent that repairs what this family's gate finds, by file name
+    /// without `.md`. Absent, it is `<family>-fixer`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(pattern(SIMPLE_NAME))]
+    pub(crate) repairer: Option<String>,
+}
+
+impl QualityGateFamily {
+    /// The agent that judges this family's gate.
+    pub(crate) fn judge(&self) -> String {
+        self.judge
+            .clone()
+            .unwrap_or_else(|| format!("{}-checker", self.family))
+    }
+
+    /// The agent that repairs what this family's gate finds.
+    pub(crate) fn repairer(&self) -> String {
+        self.repairer
+            .clone()
+            .unwrap_or_else(|| format!("{}-fixer", self.family))
+    }
 }
 
 /// Exact vocabulary that may not appear in declared portable source roots.
@@ -1155,6 +1181,18 @@ pub(crate) fn check_quality_gates(document: &Document) -> Result<(), ConfigError
         .collect();
     if !unique_names(&families) {
         return semantic(KEY, "every `gates[].family` must be a unique simple name");
+    }
+    if policy
+        .gates
+        .iter()
+        .flat_map(|gate| [&gate.judge, &gate.repairer])
+        .flatten()
+        .any(|agent| !simple_name(agent))
+    {
+        return semantic(
+            KEY,
+            "every `gates[].judge` and `gates[].repairer` must be a simple agent name",
+        );
     }
     if !unique_text(&policy.gate_headings)
         || !unique_text(&policy.propagation_headings)
