@@ -670,11 +670,19 @@ pub(crate) struct TierFields {
     pub(crate) effort: String,
 }
 
+/// One tier's mapping onto a profile's native model fields.
+///
+/// A mapping pins a model and an effort together or pins neither. An empty
+/// mapping is a deliberate choice to leave both to the harness, which is not
+/// the same claim as a tier the profile never declared.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("dependentRequired" = {"model": ["effort"], "effort": ["model"]}))]
 pub(crate) struct Tier {
-    pub(crate) model: String,
-    pub(crate) effort: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) effort: Option<String>,
 }
 
 /// One capability projection into the declared native adapter format.
@@ -957,7 +965,26 @@ pub fn parse(text: &str) -> Result<Document, ConfigError> {
         validate_gates(gates)?;
     }
     validate_cycle_ceiling(&document)?;
+    if let Some(harness) = &document.harness {
+        validate_tiers(harness)?;
+    }
     Ok(document)
+}
+
+/// A tier pins its model and its effort together or pins neither, refused
+/// here, before any file is read, by every command that reads the file.
+fn validate_tiers(harness: &Harness) -> Result<(), ConfigError> {
+    for profile in &harness.profiles {
+        for (name, tier) in &profile.tiers {
+            if tier.model.is_some() != tier.effort.is_some() {
+                return semantic(
+                    &format!("harness.profiles.{}.tiers.{name}", profile.id),
+                    "declares a model or an effort without the other; a tier pins both or neither",
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 /// The quality-gate cycle ceiling is refused here, before any file is read,
