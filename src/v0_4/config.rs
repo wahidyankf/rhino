@@ -543,6 +543,11 @@ pub(crate) struct CanonicalAgent {
     pub(crate) grants: String,
     pub(crate) denials: String,
     pub(crate) constraints: String,
+    /// The key holding the agents this one may dispatch, in the order the
+    /// canonical source wrote them. Optional, because a repository whose
+    /// agents dispatch nothing has nothing to declare.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) dispatches: Option<String>,
 }
 
 /// One complete axis set. A profile must represent every item required on each
@@ -629,6 +634,10 @@ pub(crate) struct Adapter {
     /// field and rendered in the order the canonical source wrote the list.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) lists: BTreeMap<String, CanonicalList>,
+    /// Where a canonical `dispatches` list is written in this profile's
+    /// native format. Without it the profile renders nothing for the list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) dispatches: Option<Dispatches>,
     /// The canonical agents this profile renders. When omitted, every
     /// canonical agent renders.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -676,6 +685,20 @@ pub(crate) enum Identity {
 pub(crate) struct TierFields {
     pub(crate) model: String,
     pub(crate) effort: String,
+}
+
+/// One native rendering of a canonical dispatch list.
+///
+/// `field` names the native field, with one `.` when the list belongs inside a
+/// map field. `format` is either `allow-map`, which writes a deny-all `*` entry
+/// and one `allow` entry per name, or a member template with exactly one
+/// `{names}` placeholder, which adds one member holding the names in canonical
+/// order, comma-separated.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Dispatches {
+    pub(crate) field: String,
+    pub(crate) format: String,
 }
 
 /// The tier-field values an explicitly empty tier mapping renders, such as a
