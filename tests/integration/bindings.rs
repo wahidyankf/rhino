@@ -205,6 +205,60 @@ pub const BINDINGS: &[Binding] = &[
         "A selected agent without a canonical source refuses",
     ),
     ("v0-4-contract", "A file outside the selection is stale"),
+    ("v0-4-contract", "An agent without a tier is refused"),
+    (
+        "v0-4-contract",
+        "A tier the profile does not declare is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A tier mapping that pins a model without an effort is refused",
+    ),
+    (
+        "v0-4-contract",
+        "An explicitly empty tier renders only the profile's empty-tier fields",
+    ),
+    (
+        "v0-4-contract",
+        "An explicitly empty tier renders no tier field when its profile declares no empty-tier fields",
+    ),
+    (
+        "v0-4-contract",
+        "A pinned fast tier renders model and effort",
+    ),
+    (
+        "v0-4-contract",
+        "A resolving tier renders the newest matching model",
+    ),
+    (
+        "v0-4-contract",
+        "A resolving tier finds model slugs inside compact JSON output",
+    ),
+    (
+        "v0-4-contract",
+        "A resolving tier falls back to the last resolved model without failing",
+    ),
+    (
+        "v0-4-contract",
+        "A never-resolved tier uses the seed fallback",
+    ),
+    ("v0-4-contract", "Validate never runs the resolver"),
+    (
+        "v0-4-contract",
+        "A declared dispatch list renders as one native tools member",
+    ),
+    (
+        "v0-4-contract",
+        "A declared dispatch list renders as a native allow map",
+    ),
+    (
+        "v0-4-contract",
+        "A profile without a dispatches key renders nothing for the list",
+    ),
+    (
+        "v0-4-contract",
+        "An agent's dispatch list passes metadata validation",
+    ),
     (
         "v0-4-contract",
         "Harness adapter validation reports a generated marker no adapter writes",

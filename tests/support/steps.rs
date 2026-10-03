@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 24] = [
+pub const VOCABULARY: [&str; 28] = [
     "I invoke the CLI with {string}",
     "I run the {string} validator",
     "stderr contains {string}",
@@ -30,6 +30,10 @@ pub const VOCABULARY: [&str; 24] = [
     "no generated adapter exists at {string}",
     "the last adapter generation changes the repository",
     "the last adapter generation makes no repository change",
+    "the model command {string} prints:",
+    "the model command {string} cannot be started",
+    "the model command {string} was started",
+    "the model command {string} was not started",
     "the repository contains:",
     "the repository contains a symbolic link at {string}",
     "the repository contains a symbolic link at {string} to a directory outside it holding {string}",

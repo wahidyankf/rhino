@@ -16,6 +16,8 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 /// Where a declared gate child is written, and where the children record.
 const GATES: &str = "gates";
 const JOURNAL: &str = ".gate-journal";
+/// Where a declared model-listing command is written.
+const MODELS: &str = "models";
 
 /// The marker every recorder writes into its own streams, so a runner that
 /// repeated what a child wrote is caught wherever it surfaced rather than by
@@ -88,6 +90,19 @@ impl Sandbox {
         for (id, code) in repository.gate_outcomes {
             sandbox.recorder(id, *code);
         }
+        // A journal carried over from an earlier invocation in the same
+        // scenario would describe two runs as one.
+        let _ = std::fs::remove_file(sandbox.root.join(JOURNAL));
+        for (id, output) in repository.model_outputs {
+            if !repository.unstartable_models.contains(id) {
+                sandbox.model_command(id, output);
+            }
+        }
+        // A command an earlier invocation left in the repository is removed,
+        // so nothing remains for a run to start.
+        for id in repository.unstartable_models {
+            let _ = std::fs::remove_file(sandbox.root.join(format!("{MODELS}/{id}.sh")));
+        }
         // Permissions last: a file has to be written before it can be closed.
         for path in repository.unreadable {
             sandbox.seal(path);
@@ -128,6 +143,24 @@ exit {code}
         let target = self.root.join(&path);
         std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))
             .expect("the recorder is made executable");
+    }
+
+    /// Write the model-listing command a scenario declared: a real executable
+    /// that records its start and prints exactly the stated output.
+    fn model_command(&self, id: &str, output: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        let path = format!("{MODELS}/{id}.sh");
+        self.write(
+            &path,
+            &format!(
+                "#!/bin/sh\nprintf '{start}\\t{id}\\n' >> \"$PWD/{JOURNAL}\"\ncat <<'RHINO_MODEL_OUTPUT'\n{output}\nRHINO_MODEL_OUTPUT\n",
+                start = crate::binding::MODEL_START,
+                output = output.trim_end_matches('\n'),
+            ),
+        );
+        let target = self.root.join(&path);
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))
+            .expect("the model command is made executable");
     }
 
     /// What the children recorded, with the sandbox path replaced by the
