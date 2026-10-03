@@ -94,10 +94,11 @@ policies:
         - family: plan
         - family: ui-web
           subject: apps/web
+        - { family: api-http, judge: api-tester, repairer: developer }
 ```
 
-- `root`, `agents` (exact paths): the workflow root and the canonical agent directory. `agents` holds
-  `<family>-checker.md` and `<family>-fixer.md` for each declared family (QG08).
+- `root`, `agents` (exact paths): the workflow root and the canonical agent directory. `agents` holds each declared
+  family's judge and repairer agent files (QG08).
 - `groups` (unique simple names): the only directories `root` may hold beside its `README.md`. A simple name uses only
   lowercase ASCII letters, digits, and hyphens.
 - `gate-group` (one of `groups`): the group that holds every `<family>-quality-gate.md` and `<family>-propagation.md`.
@@ -112,6 +113,10 @@ policies:
   reads. RHINO supplies neither. `max-cycles` outside 1–3 is a configuration error (QG09), because a gate never runs
   more than three cycles. The default never changes what a gate file may declare: every gate is judged against 1–3.
 - `gates[].family` (unique simple names) and the optional `gates[].subject`: the families this repository holds.
+- `gates[].judge` and `gates[].repairer` (optional simple names): the agents, named without `.md`, that judge a family's
+  gate and repair what it finds. Absent, they are `<family>-checker` and `<family>-fixer`. QG08 requires
+  `<agents>/<judge>.md` and `<agents>/<repairer>.md`, and each `missing-gate-agent` finding carries `role` (`judge` or
+  `repairer`) and `agent` details. Any other key on a `gates[]` entry is refused.
 
 `gate-headings`, `propagation-headings`, and `verdicts` must each be non-empty and unique, and no `retired-inputs` entry
 may be blank. A declaration that breaks any rule in this list is a configuration error with exit `2` for
@@ -274,10 +279,22 @@ These optional keys shape an agent adapter's native fields beyond identity and `
 `2` with `rhino.harness.refused` before any write.
 
 **Tiers.** `canonical.agents.tier` names the canonical front-matter key that holds an agent's tier, such as
-`tier: plan`. A profile's `tiers` maps each tier name to a `model` and an `effort` value, and its agent adapter's
-`tier-fields` names the two native fields that receive them. An agent whose tier the profile maps gets both fields; an
-agent with no tier, or a tier the profile does not map, gets neither. `tier-fields` in a skill adapter, or with an empty
-or repeated field name, is refused.
+`tier: plan`. Once it is declared, every canonical agent must name a tier (`harness-tier-missing`), and every profile
+with a `tiers` block must map each tier its selected agents name (`harness-tier-undeclared`). A profile with no `tiers`
+block maps no tier and is exempt.
+
+A profile's `tiers` maps each tier name to one of three forms, and its agent adapter's `tier-fields` names the two
+native fields that receive them:
+
+- `{ model: <name>, effort: <value> }` — pins both. A `model` or a `model-resolve` without an `effort`, an `effort`
+  alone, or a `model` together with a `model-resolve` is refused while the configuration is read, naming
+  `harness.profiles.<id>.tiers.<tier>`.
+- `{ model-resolve: {...}, effort: <value> }` — resolves the model when adapters are generated; see below.
+- `{}` — leaves the model and effort to the harness. The agent gets only the values its adapter's optional `empty-tier`
+  declares, such as `empty-tier: { model: inherit }`, and no tier field when it declares none. `empty-tier` in a skill
+  adapter, or without `tier-fields`, is refused.
+
+`tier-fields` in a skill adapter, or with an empty or repeated field name, is refused.
 
 ```yaml
 harness:
@@ -296,9 +313,41 @@ harness:
       agent-adapter:
         # path, format, route-field, route, and identity as above
         tier-fields: { model: model, effort: effort }
+        empty-tier: { model: inherit }
       tiers:
         plan: { model: large-model, effort: high }
+        execution: {}
 ```
+
+**Resolved models.** A `model-resolve` mapping names `command`, an argument vector run from the repository root with no
+shell; `pattern`, a model name with exactly one `*` standing for a version of digits and dots; and `fallback`, a model
+name. Only `harness adapters generate` starts the command, through its own model-resolver boundary with a 30 second
+timeout. It reads the output as tokens of letters, digits, `.`, `_`, and `-`, picks the matching token with the highest
+version compared as dot-separated numbers, renders it, and records it as `resolvedModels` in the binding family's
+`provenance.json`. When the command fails, times out, or matches nothing, generation still succeeds: it renders the last
+recorded model, or `fallback` when none was ever recorded, and prints a `[harness-adapters] warning:` line to stderr.
+`harness adapters validate` never starts the command; it compares against the recorded model, or `fallback`.
+
+```yaml
+tiers:
+  plan:
+    model-resolve:
+      { command: [scripts/list-models.sh], pattern: "large-*", fallback: large-4 }
+    effort: high
+```
+
+**Dispatch lists.** `canonical.agents.dispatches` names the canonical front-matter key that lists the agents an agent
+may dispatch, such as `dispatches: [writer, tester]`; in canonical metadata it is an optional list that follows
+`constraints`. An agent adapter's optional `dispatches` projects that list, in canonical order, into one native field:
+
+- `{ field: tools, format: "Agent({names})" }` — a member template with exactly one `{names}` placeholder adds one
+  member to a list field, holding the names comma-separated: `Agent(writer, tester)`.
+- `{ field: permission.task, format: allow-map }` — writes a map of `"*": deny` and one `<name>: allow` per name. A
+  dotted field, at most one dot deep, nests the map under a map field that a translation's `entries` also writes.
+
+An agent without a list renders nothing for it. `dispatches` in a skill adapter, a template without exactly one
+`{names}`, a field more than one dot deep or with an empty segment, a field that collides with an identity, `fixed`, or
+`lists` field, and an adapter `dispatches` with no `canonical.agents.dispatches` are each refused.
 
 **Absent fields.** An adapter's `absent` lists native fields its output must never carry, such as
 `absent: [model, effort]` for a harness that has no such setting. A render that would write one refuses, naming the

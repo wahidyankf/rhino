@@ -14,7 +14,8 @@ Four constraints shape every box below, and none of them is a convention that co
 - **Read-only validation.** A validator opens no file for writing inside the inspected tree.
 - **Network-free.** RHINO opens no socket, including loopback. External URLs found in Markdown are recognized and
   skipped, never fetched.
-- **Bounded process launch.** `gate run` and toolchain operations start only declared argv through separate ports.
+- **Bounded process launch.** `gate run`, toolchain operations, and adapter generation's `model-resolve` command start
+  only declared argv through separate ports.
 - **Bounded adapter mutation.** Only generation receives an adapter-store port; it replaces declared roots only after a
   complete lossless plan exists.
 
@@ -118,7 +119,7 @@ the author had in mind.
   - Where it is: The port trait in `runtime`
   - How it is held: Substituted wholesale by the unit adapter
 - **Host process**
-  - Where it is: Launcher and toolchain-runner ports in `runtime`
+  - Where it is: Launcher, toolchain-runner, and model-resolver ports in `runtime`
   - How it is held: Declared typed argv only; no shell or output report
 - **Repository root**
   - Where it is: Every resolved path
