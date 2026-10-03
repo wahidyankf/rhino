@@ -5,6 +5,7 @@ description: >-
   records what it fixed, disproved, and left for a person.
 when_to_use: >-
   Use as the fixer in a CI quality gate, once a CI checker has returned findings for the current revision.
+tier: execution
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence

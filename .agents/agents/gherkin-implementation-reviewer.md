@@ -1,6 +1,7 @@
 ---
 name: gherkin-implementation-reviewer
 description: Review changed Gherkin scenarios and their bindings against this repository's rules, read-only, and report what each binding actually asserts.
+tier: plan
 mode: subagent
 requires:
   - repository-read

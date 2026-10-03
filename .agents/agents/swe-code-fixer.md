@@ -7,6 +7,7 @@ description: >-
 when_to_use: >-
   Use once a code checker has returned findings for the current revision of the projects in scope, rather than when a
   command is failing or new behaviour is needed.
+tier: execution
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence

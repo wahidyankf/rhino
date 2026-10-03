@@ -6,6 +6,7 @@ description: >-
 when_to_use: >-
   Use as the writer's executor in a plan quality gate cycle, once the plan checker's findings are frozen in a ledger, or
   when someone explicitly names rows of one to repair.
+tier: execution
 skills:
   - plan-creating-project-plans
   - plan-writing-gherkin-criteria
