@@ -24,8 +24,10 @@ Tree-validation commands are read-only, network-free, process-free, and path-con
 `toolchain provision` may start only declared typed argv through their separate runner boundary; probes never install or
 report output, and provision stops at its first failed child. `harness adapters` `generate` may replace only declared
 adapter roots through its adapter-store boundary, after the complete desired projection has passed loss validation in
-memory. Each rejects a missing boundary; none may fall back to the validator's ordinary read port. No product command
-opens a socket.
+memory. It may start only a repository-declared `model-resolve` argument vector through its separate model-resolver
+boundary, with no shell and a bounded timeout; when that boundary is missing or its child fails, generation renders the
+last recorded or fallback model and warns. `harness adapters validate` never starts it. Every other boundary rejects
+being missing; none may fall back to the validator's ordinary read port. No product command opens a socket.
 
 These are enforced by tests rather than by documentation, because a documented invariant is an intention. The
 no-loopback rule is stricter than the integration layer's own boundary, which permits an owned socket — deliberately,
