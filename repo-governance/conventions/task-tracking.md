@@ -25,6 +25,18 @@ Represent repository work as a granular task list, and keep that list synchroniz
 - Carry the list and its accurate status across context compaction or handoff, under
   [governance continuity](../principles/governance-continuity.md).
 
+## Written Progress Record
+
+A session can break off, and the live list goes with it, so the work also keeps a written record a new session resumes
+from. Inside plan-mediated work that record is the plan's `delivery.md`, under its
+[delivery contract](plans/004-delivery-contract.md#single-progress-surface).
+
+Outside a plan, a progress file in `local-tmp/`, the [scratch directory](working-tree.md#ignored), is the written
+record. Open it before the task's first action; record the goal, every active rule decision, and each item with its
+status; and update it as items resolve, so a session that breaks off resumes from it. It stays until the whole task has
+ended, delivery and cleanup in every repository included, and is then removed under
+[dev artifact clean-up](../workflows/maintenance/dev-artifact-clean-up.md).
+
 ## New Direction Mid-Task
 
 New, follow-on, or changed direction reaches the list before it reaches the work. Read it against every open item first:

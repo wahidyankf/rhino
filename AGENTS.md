@@ -27,8 +27,6 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
 
 - `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and
   [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook.
-  [`repo-config.yml`](repo-config.yml) declares which gates run at which moment; `cargo xtask self-validate` dispatches
-  the `ci` surface.
 - The 99% coverage floor and two declared exclusions are
   [not negotiable](repo-governance/development/software-quality-enforcement.md).
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
@@ -46,7 +44,8 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [Markdown](repo-governance/conventions/markdown-line-length.md),
   [links](repo-governance/conventions/markdown-links.md), and
   [directory maps](repo-governance/conventions/directory-maps.md).
-- Track work in [granular items](repo-governance/conventions/task-tracking.md), preserve rules through
+- Cap [delegated agents](repo-governance/development/delegated-agent-concurrency.md) at three. Track work in
+  [granular items](repo-governance/conventions/task-tracking.md) and a written progress record, preserve rules through
   [compaction](repo-governance/principles/governance-continuity.md),
   [ask last](repo-governance/conventions/last-resort-questions.md), and name files in
   [lowercase kebab-case](repo-governance/conventions/file-naming.md).

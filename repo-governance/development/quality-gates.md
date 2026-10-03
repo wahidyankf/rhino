@@ -54,6 +54,9 @@ cancelled dependency as failure, and that refusal is proved rather than assumed.
 Install locked tooling with `npm ci`. That is also what activates the hooks, so a fresh checkout — including a new
 worktree — has no enforcement until it runs.
 
+[`repo-config.yml`](../../repo-config.yml) declares which gates run at which moment; `cargo xtask self-validate`
+dispatches the `ci` surface.
+
 Hooks enforce public safety first, then Conventional Commits, staged formatting, and the quick gate before push. Every
 hook sets `-e`, so a failing gate ends the sequence rather than printing above a successful commit. A failing hook is
 repaired at its cause under [push-hook verification](../conventions/push-hook-verification.md).

@@ -7,6 +7,8 @@ Engineering standards, within every higher level. These govern how the product i
 - [Architecture specifications](architecture-specifications.md) — the C4 model, kept true to the as-built boundaries.
 - [Behaviour-driven development](behaviour-driven-development.md) — how a scenario and its bindings are written.
 - [Code clarity](code-clarity.md) — phase separation, comments that say why, and naming.
+- [Delegated-agent concurrency](delegated-agent-concurrency.md) — at most three delegated agents at once, at any depth,
+  in every harness.
 - [Dependency selection](dependency-selection.md) — the record a new dependency has to carry.
 - [End-to-end testing](end-to-end-testing.md) — the process contract, and nothing inside it.
 - [GitHub Actions storage](github-actions-storage.md) — staying inside the free allowance on a `$0` budget.
