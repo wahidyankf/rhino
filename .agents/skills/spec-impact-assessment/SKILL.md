@@ -1,6 +1,9 @@
 ---
 name: spec-impact-assessment
 description: Assess specs/behaviours and specs/architecture.md for impact before changing anything, and record a verified no-op rather than churning an unaffected specification.
+when_to_use: >-
+  Use before starting any change to this repository, behaviour or not, to decide which specifications it
+  touches.
 ---
 
 # Specification Impact Assessment

@@ -20,9 +20,10 @@ harness:
       name: name
       description: description
       tier: tier
-      grants: requires
+      grants: capabilities
       denials: denies
       constraints: constraints
+      dispatches: dispatches
     skills:
       name: name
       description: description
@@ -31,8 +32,11 @@ harness:
       - repository-read
       - repository-write
       - shell
+      - network
+      - subagent
     constraints:
       - inline-result-only
+      - read-only
     routes:
       - canonical-import
     identities:
@@ -44,8 +48,11 @@ harness:
           - repository-read
           - repository-write
           - shell
+          - network
+          - subagent
         constraints:
           - inline-result-only
+          - read-only
         routes:
           - canonical-import
         identities:
@@ -60,6 +67,8 @@ harness:
         route: "Before acting, read the complete canonical agent definition at the repository-root path\n{path}\nand follow it as authoritative. If it cannot be read, stop and report the missing path."
         identity: { name: name, description: description }
         tier-fields: { model: model, effort: effort }
+        dispatches: { field: tools, format: "Agent({names})" }
+        empty-tier: { model: inherit }
         translations:
           - { when: always, field: tools, members: [Read] }
           - {
@@ -75,6 +84,12 @@ harness:
               members: [Write, Edit],
             }
           - { when: requires, capability: shell, field: tools, members: [Bash] }
+          - {
+              when: requires,
+              capability: network,
+              field: tools,
+              members: [WebSearch, WebFetch],
+            }
           - {
               when: denies,
               capability: repository-write,
@@ -100,16 +115,21 @@ harness:
         route: "Read {path} completely,\nresolve every relative resource from that skill directory, and follow it as authoritative before acting."
         identity: { name: name, description: description }
       tiers:
-        plan: { model: opus, effort: high }
-        execution: {}
+        ultra: {}
+        plan: {}
+        execution: { model: sonnet, effort: xhigh }
+        fast: { model: haiku, effort: xhigh }
     - id: codex
       supports:
         capabilities:
           - repository-read
           - repository-write
           - shell
+          - network
+          - subagent
         constraints:
           - inline-result-only
+          - read-only
         routes:
           - canonical-import
         identities:
@@ -120,15 +140,28 @@ harness:
         route-field: developer_instructions
         route: "Before acting, read the complete canonical agent definition at the repository-root path\n{path}\nand follow it as authoritative. If it cannot be read, stop and report the missing path."
         identity: { name: name, description: description }
-        absent: [model, effort]
+        tier-fields: { model: model, effort: model_reasoning_effort }
+      tiers:
+        ultra: {}
+        plan: {}
+        execution: {}
+        fast:
+          model-resolve:
+            command: [codex, debug, models]
+            pattern: gpt-*-luna
+            fallback: gpt-6-luna
+          effort: xhigh
     - id: opencode
       supports:
         capabilities:
           - repository-read
           - repository-write
           - shell
+          - network
+          - subagent
         constraints:
           - inline-result-only
+          - read-only
         routes:
           - canonical-import
         identities:
@@ -140,6 +173,7 @@ harness:
         route: "Before acting, read the complete canonical agent definition at the repository-root path\n{path}\nand follow it as authoritative. If it cannot be read, stop and report the missing path."
         identity: { description: description }
         fixed: { mode: subagent }
+        dispatches: { field: permission.task, format: allow-map }
         translations:
           - { when: always, field: permission, entries: { read: allow } }
           - {
@@ -159,6 +193,24 @@ harness:
               capability: shell,
               field: permission,
               entries: { bash: allow },
+            }
+          - {
+              when: requires,
+              capability: network,
+              field: permission,
+              entries: { webfetch: allow, websearch: allow },
+            }
+          - {
+              when: constrains,
+              capability: read-only,
+              field: permission,
+              entries: { edit: deny },
+            }
+          - {
+              when: constrains,
+              capability: inline-result-only,
+              field: permission,
+              entries: { edit: deny },
             }
           - {
               when: denies,
@@ -181,6 +233,14 @@ harness:
 
 policies:
   markdown:
+    metadata:
+      surfaces:
+        - glob: ".agents/skills/*/SKILL.md"
+          schema: skill
+        - glob: ".agents/agents/*.md"
+          schema: agent
+        - glob: ".agents/agents/README.md"
+          schema: governance
     heading-hierarchy:
       surfaces:
         - glob: "repo-governance/**/*.md"

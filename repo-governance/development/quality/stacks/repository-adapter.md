@@ -48,10 +48,13 @@ A catalog owner with no local counterpart stays named in the adopted text withou
 
 ## Adopter Decisions
 
-- `swe-code-maker`
-  - Decision: stack skill loading
-  - Choice: read on demand
-  - Reason: a new stack needs no agent edit
+- `swe-architect` — **ADR location**: the default, `docs/explanation/decisions/NNN-<slug>.md`.
+- `swe-developer` — **Stack skills**: read on demand, so a new stack needs no agent edit. **Host-integrated proof**: not
+  required, the default.
+- `swe-reviewer` — **Reviewer output**: inline. **Specification completeness**: not checked. **Test boundary**: Test
+  Boundaries and Gates. Each is the default.
+- `swe-releaser` — **Deploy targets**: none; RHINO deploys nothing and publishes only through
+  [release cut](../../../workflows/maintenance/release-cut.md).
 - **software quality enforcement**
   - Decision: coverage floor
   - Choice: 99% of lines over the validator modules, in the unit run
@@ -104,6 +107,11 @@ A catalog owner with no local counterpart stays named in the adopted text withou
   - Decision: test tool
   - Choice: plain shell runners and the behaviour corpus
   - Reason: no shell test dependency to pin
+
+## Skill Names
+
+`swe-releaser` loads the catalog skill `cutting-releases` as the local
+[`release-cut`](../../../../.agents/skills/release-cut/SKILL.md).
 
 ## Project Applicability
 

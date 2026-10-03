@@ -43,6 +43,7 @@ convention says how this repository does something where more than one way would
 - [Push-hook verification](push-hook-verification.md) — fix the cause; never bypass unauthorized.
 - [Rules](rules.md) — what a rule is, and how must, should, and may are read.
 - [Structure](structure/README.md) — where each kind of artifact adopted from the shared catalog lives.
+- [SWE delegation](swe-delegation.md) — coding work goes to the fitting `swe-*` agent, with three exceptions.
 - [Task tracking](task-tracking.md) — granular items kept synchronized with the work.
 - [Thematic commits](thematic-commits.md) — one theme per commit, in Conventional Commits form.
 - [Working tree](working-tree.md) — what is ignored, and why every tree-walking tool needs telling separately.

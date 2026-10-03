@@ -7,15 +7,11 @@ when_to_use: >-
   Use in harness parity verification or a harness quality gate, after changing canonical agents, skills, root
   instructions, or the adapter generator, or after a harness announces a configuration change.
 tier: execution
-skills:
-  - assessing-criticality-confidence
-mode: subagent
-requires:
+capabilities:
   - repository-read
   - shell
-denies:
-  - repository-write
-  - nested-agent
+skills:
+  - assessing-criticality-confidence
 constraints:
   - inline-result-only
 ---

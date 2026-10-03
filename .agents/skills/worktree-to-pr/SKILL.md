@@ -1,6 +1,8 @@
 ---
 name: worktree-to-pr
 description: Take a change from a task worktree to merged on main through a pull request, the only path this repository's ruleset allows.
+when_to_use: >-
+  Use when a change is ready to leave its task worktree, or when starting a task that must reach main.
 ---
 
 # Worktree to Pull Request

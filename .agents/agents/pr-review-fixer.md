@@ -7,16 +7,13 @@ when_to_use: >-
   Use as the writer's executor in a PR review quality gate cycle, once the pass's findings for a pull request or a local
   commit range are frozen in the gate's ledger, or when someone explicitly names rows of one to answer.
 tier: execution
-skills:
-  - assessing-criticality-confidence
-  - applying-maker-checker-fixer
-mode: subagent
-requires:
+capabilities:
   - repository-read
   - repository-write
   - shell
-denies:
-  - nested-agent
+skills:
+  - assessing-criticality-confidence
+  - applying-maker-checker-fixer
 ---
 
 # PR Review Fixer

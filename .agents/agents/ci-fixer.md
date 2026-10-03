@@ -6,17 +6,14 @@ description: >-
 when_to_use: >-
   Use as the fixer in a CI quality gate, once a CI checker has returned findings for the current revision.
 tier: execution
+capabilities:
+  - repository-read
+  - repository-write
+  - shell
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence
   - generating-validation-reports
-mode: subagent
-requires:
-  - repository-read
-  - repository-write
-  - shell
-denies:
-  - nested-agent
 ---
 
 # CI Fixer
