@@ -19,7 +19,7 @@ use std::io::{Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
@@ -1613,62 +1613,18 @@ impl ModelResolver for DiskModelResolver {
             ));
         }
         const MAX_MODEL_OUTPUT: u64 = 8 * 1024 * 1024;
-        let mut child = Command::new(program)
-            .args(arguments)
-            .current_dir(launch.directory)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|error| ResolveError(format!("could not start the model command: {error}")))?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            ResolveError("the model command has no captured output stream".to_string())
-        })?;
-        let reader = std::thread::spawn(move || {
-            let mut output = Vec::new();
-            stdout
-                .take(MAX_MODEL_OUTPUT + 1)
-                .read_to_end(&mut output)
-                .map(|_| output)
-                .map_err(|error| error.to_string())
-        });
-        let started = Instant::now();
-        let timeout = Duration::from_secs(launch.timeout_seconds);
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) if started.elapsed() >= timeout => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = reader.join();
-                    return Err(ResolveError(
-                        "the model command exceeded its timeout".to_string(),
-                    ));
-                }
-                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-                Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = reader.join();
-                    return Err(ResolveError(format!(
-                        "could not observe the model command: {error}"
-                    )));
-                }
-            }
-        };
-        let output = reader
-            .join()
-            .map_err(|_| ResolveError("the model command's output reader panicked".to_string()))?
-            .map_err(|error| {
-                ResolveError(format!(
-                    "could not read the model command's output: {error}"
-                ))
-            })?;
-        if output.len() as u64 > MAX_MODEL_OUTPUT {
-            return Err(ResolveError(
-                "the model command emitted too much output".to_string(),
-            ));
-        }
+        let mut command = Command::new(program);
+        command.args(arguments).current_dir(launch.directory);
+        let (status, output) = bounded_child(
+            command,
+            ChildNames {
+                subject: "model command",
+                output: "model command output",
+            },
+            MAX_MODEL_OUTPUT,
+            Some(Duration::from_secs(launch.timeout_seconds)),
+        )
+        .map_err(ResolveError)?;
         match status.code() {
             Some(0) => {}
             Some(code) => {
@@ -1700,59 +1656,18 @@ impl ToolchainRunner for DiskToolchainRunner {
             ));
         }
         const MAX_TOOLCHAIN_OUTPUT: u64 = 64 * 1024;
-        let mut child = Command::new(launch.executable)
-            .args(launch.arguments)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|error| {
-                ToolchainError(format!("could not start declared toolchain: {error}"))
-            })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            ToolchainError("the declared toolchain has no captured output stream".to_string())
-        })?;
-        let reader = std::thread::spawn(move || {
-            let mut output = Vec::new();
-            stdout
-                .take(MAX_TOOLCHAIN_OUTPUT + 1)
-                .read_to_end(&mut output)
-                .map(|_| output)
-                .map_err(|error| error.to_string())
-        });
-        let started = Instant::now();
-        let timeout = launch.timeout_seconds.map(Duration::from_secs);
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) if timeout.is_some_and(|limit| started.elapsed() >= limit) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = reader.join();
-                    return Err(ToolchainError(
-                        "the declared toolchain exceeded its timeout".to_string(),
-                    ));
-                }
-                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-                Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = reader.join();
-                    return Err(ToolchainError(format!(
-                        "could not observe declared toolchain: {error}"
-                    )));
-                }
-            }
-        };
-        let output = reader
-            .join()
-            .map_err(|_| ToolchainError("the toolchain output reader panicked".to_string()))?
-            .map_err(|error| ToolchainError(format!("could not read toolchain output: {error}")))?;
-        if output.len() as u64 > MAX_TOOLCHAIN_OUTPUT {
-            return Err(ToolchainError(
-                "the declared toolchain emitted too much output".to_string(),
-            ));
-        }
+        let mut command = Command::new(launch.executable);
+        command.args(launch.arguments);
+        let (status, output) = bounded_child(
+            command,
+            ChildNames {
+                subject: "declared toolchain",
+                output: "toolchain output",
+            },
+            MAX_TOOLCHAIN_OUTPUT,
+            launch.timeout_seconds.map(Duration::from_secs),
+        )
+        .map_err(ToolchainError)?;
         let Some(code) = status.code() else {
             return Err(ToolchainError(
                 "the declared toolchain ended by signal".to_string(),
@@ -1763,4 +1678,67 @@ impl ToolchainRunner for DiskToolchainRunner {
         })?;
         Ok(ToolchainResult { code, stdout })
     }
+}
+
+/// What a bounded child is called in the errors its boundary reports.
+struct ChildNames {
+    subject: &'static str,
+    output: &'static str,
+}
+
+/// Start `command` with no input and discarded diagnostics, keep at most
+/// `limit` bytes of its output, and stop it once `timeout` passes. A child
+/// that is stopped, unobservable, or over the bound yields no output at all.
+fn bounded_child(
+    mut command: Command,
+    names: ChildNames,
+    limit: u64,
+    timeout: Option<Duration>,
+) -> Result<(ExitStatus, Vec<u8>), String> {
+    let ChildNames { subject, output } = names;
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("could not start {subject}: {error}"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| format!("the {subject} has no captured output stream"))?;
+    let reader = std::thread::spawn(move || {
+        let mut captured = Vec::new();
+        stdout
+            .take(limit + 1)
+            .read_to_end(&mut captured)
+            .map(|_| captured)
+            .map_err(|error| error.to_string())
+    });
+    let started = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if timeout.is_some_and(|limit| started.elapsed() >= limit) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = reader.join();
+                return Err(format!("the {subject} exceeded its timeout"));
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = reader.join();
+                return Err(format!("could not observe {subject}: {error}"));
+            }
+        }
+    };
+    let captured = reader
+        .join()
+        .map_err(|_| format!("the {output} reader panicked"))?
+        .map_err(|error| format!("could not read {output}: {error}"))?;
+    if captured.len() as u64 > limit {
+        return Err(format!("the {subject} emitted too much output"));
+    }
+    Ok((status, captured))
 }

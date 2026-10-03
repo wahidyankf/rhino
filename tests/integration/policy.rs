@@ -796,7 +796,7 @@ fn disk_model_resolver_refuses_a_failed_or_unstartable_child() {
             timeout_seconds: 5,
         })
         .expect_err("a command that cannot start resolves nothing");
-    assert!(error.0.contains("could not start the model command"));
+    assert!(error.0.contains("could not start model command"));
 
     let printed = vec!["echo".to_string(), "m-1-x".to_string()];
     let output = DiskModelResolver
