@@ -9,7 +9,7 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.10.0] — 2026-10-03
 
 Adapter generation gains resolved models and dispatch lists, and a quality-gate family can name its own agents. Two
 harness checks now refuse a configuration that generated adapters before, so the next release moves in the minor
