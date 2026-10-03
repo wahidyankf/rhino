@@ -285,6 +285,129 @@ Feature: Quality-gate structure
     Then the exit code is 1
     And the first stdout JSON violation kind is "missing-gate-agent"
 
+  Scenario: A family that names no agents still requires its default checker and fixer (QG08)
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents/canonical
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - family: plan
+      """
+    When I invoke the CLI with "governance|quality-gates|validate|--output|json"
+    Then the exit code is 1
+    And stdout contains "agents/canonical/plan-checker.md"
+    And stdout contains "agents/canonical/plan-fixer.md"
+
+  Scenario: A family's declared judge and repairer stand in for its checker and fixer (QG08)
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents/declared
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - {family: plan, judge: plan-tester, repairer: developer}
+      """
+    And the repository contains:
+      | path                           | content       |
+      | agents/declared/plan-tester.md | # Plan Tester |
+      | agents/declared/developer.md   | # Developer   |
+    When I invoke the CLI with "governance|quality-gates|validate"
+    Then the exit code is 0
+
+  Scenario: A declared judge with no agent file is reported by its declared name (QG08)
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents/declared
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - {family: plan, judge: plan-tester, repairer: developer}
+      """
+    And the repository contains:
+      | path                         | content     |
+      | agents/declared/developer.md | # Developer |
+    When I invoke the CLI with "governance|quality-gates|validate|--output|json"
+    Then the exit code is 1
+    And the first stdout JSON violation kind is "missing-gate-agent"
+    And stdout contains "agents/declared/plan-tester.md"
+
+  Scenario: A gate family with an unknown key is still refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - {family: plan, reviewer: plan-tester}
+      """
+    When I invoke the CLI with "governance|quality-gates|validate"
+    Then the exit code is 2
+    And stderr contains "unknown field `reviewer`"
+
+  Scenario: A declared gate agent that is not a simple name is refused before any file is read
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - {family: plan, judge: ../plan-tester}
+      """
+    When I invoke the CLI with "repo-config|validate"
+    Then the exit code is 2
+    And stderr contains "simple agent name"
+
   Scenario: A default max-cycles above three is refused before any file is read (QG09)
     Given the configuration file is this text:
       """

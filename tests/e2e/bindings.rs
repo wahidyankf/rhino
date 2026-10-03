@@ -656,6 +656,26 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "quality-gates",
+        "A family that names no agents still requires its default checker and fixer (QG08)",
+    ),
+    (
+        "quality-gates",
+        "A family's declared judge and repairer stand in for its checker and fixer (QG08)",
+    ),
+    (
+        "quality-gates",
+        "A declared judge with no agent file is reported by its declared name (QG08)",
+    ),
+    (
+        "quality-gates",
+        "A gate family with an unknown key is still refused",
+    ),
+    (
+        "quality-gates",
+        "A declared gate agent that is not a simple name is refused before any file is read",
+    ),
+    (
+        "quality-gates",
         "A default max-cycles above three is refused before any file is read (QG09)",
     ),
     (
