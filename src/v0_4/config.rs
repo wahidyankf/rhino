@@ -617,6 +617,14 @@ pub(crate) struct Adapter {
         skip_serializing_if = "Option::is_none"
     )]
     pub(crate) tier_fields: Option<TierFields>,
+    /// What an explicitly empty tier mapping renders into the tier fields.
+    /// Without it, an empty mapping renders neither field.
+    #[serde(
+        rename = "empty-tier",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) empty_tier: Option<EmptyTier>,
     /// Native fields that carry a canonical metadata list, keyed by native
     /// field and rendered in the order the canonical source wrote the list.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -668,6 +676,18 @@ pub(crate) enum Identity {
 pub(crate) struct TierFields {
     pub(crate) model: String,
     pub(crate) effort: String,
+}
+
+/// The tier-field values an explicitly empty tier mapping renders, such as a
+/// model that tells the harness to keep the session's own model. Each value is
+/// optional, so a profile can render a model and leave the effort unset.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct EmptyTier {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) effort: Option<String>,
 }
 
 /// One tier's mapping onto a profile's native model fields.

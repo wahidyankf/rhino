@@ -17,6 +17,17 @@
           },
           "type": ["array", "null"]
         },
+        "empty-tier": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmptyTier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What an explicitly empty tier mapping renders into the tier fields.\nWithout it, an empty mapping renders neither field."
+        },
         "fixed": {
           "additionalProperties": {
             "type": "string"
@@ -273,6 +284,19 @@
         }
       },
       "required": ["prohibited"],
+      "type": "object"
+    },
+    "EmptyTier": {
+      "additionalProperties": false,
+      "description": "The tier-field values an explicitly empty tier mapping renders, such as a\nmodel that tells the harness to keep the session's own model. Each value is\noptional, so a profile can render a model and leave the effort unset.",
+      "properties": {
+        "effort": {
+          "type": ["string", "null"]
+        },
+        "model": {
+          "type": ["string", "null"]
+        }
+      },
       "type": "object"
     },
     "Environment": {
