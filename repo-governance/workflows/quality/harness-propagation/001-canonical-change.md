@@ -22,8 +22,7 @@ independently maintained trees.
   instruction file.
 - **Skills** — the complete `.agents/skills/<name>/` bundle, `SKILL.md` and every supporting file. Directory name and
   front-matter `name` must match.
-- **Agents** — `.agents/agents/<name>.md`, including the prompt and its semantic `requires`, `denies`, and
-  `constraints`.
+- **Agents** — `.agents/agents/<name>.md`, including the prompt and its semantic `capabilities` and `constraints`.
 
 ### 2. Reconcile every adapter in the same change
 

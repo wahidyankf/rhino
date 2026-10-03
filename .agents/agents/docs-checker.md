@@ -8,15 +8,11 @@ when_to_use: >-
   Use as the factual-accuracy validator in a documentation quality gate, or as its combined validator where recorded,
   after documentation changes, or before a release that the documentation describes.
 tier: execution
-skills:
-  - assessing-criticality-confidence
-mode: subagent
-requires:
+capabilities:
   - repository-read
   - shell
-denies:
-  - repository-write
-  - nested-agent
+skills:
+  - assessing-criticality-confidence
 constraints:
   - inline-result-only
 ---

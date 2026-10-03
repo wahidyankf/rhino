@@ -1,7 +1,7 @@
 # RHINO Rules
 
-RHINO is a repository-hygiene validator that [owns no repository's answers](repo-governance/vision/README.md). Every
-rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
+RHINO is a repository-hygiene validator. Every rule lives in [`repo-governance/`](repo-governance/README.md), stated
+once.
 
 ## The Product
 
@@ -44,6 +44,7 @@ rule lives in [`repo-governance/`](repo-governance/README.md), stated once.
   [Markdown](repo-governance/conventions/markdown-line-length.md),
   [links](repo-governance/conventions/markdown-links.md), and
   [directory maps](repo-governance/conventions/directory-maps.md).
+- Dispatch coding work to fitting `swe-*` agents per [SWE Delegation](repo-governance/conventions/swe-delegation.md).
 - Cap [delegated agents](repo-governance/development/delegated-agent-concurrency.md) at three. Track work in
   [granular items](repo-governance/conventions/task-tracking.md) and a written progress record, preserve rules through
   [compaction](repo-governance/principles/governance-continuity.md),

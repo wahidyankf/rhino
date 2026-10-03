@@ -1,6 +1,9 @@
 ---
 name: release-cut
 description: Build, checksum, and tag a RHINO release from the primary checkout, where a published tag is permanent and is never replaced.
+when_to_use: >-
+  Use when a merged revision on main must become a published RHINO release, once its changelog and docs
+  quality gate verdict are recorded.
 ---
 
 # Release Cut

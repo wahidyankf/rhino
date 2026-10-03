@@ -6,17 +6,14 @@ description: >-
 when_to_use: >-
   Use after a harness compatibility audit returns findings, inside a harness quality gate's repair.
 tier: execution
+capabilities:
+  - repository-read
+  - repository-write
+  - shell
 skills:
   - applying-maker-checker-fixer
   - assessing-criticality-confidence
   - generating-validation-reports
-mode: subagent
-requires:
-  - repository-read
-  - repository-write
-  - shell
-denies:
-  - nested-agent
 ---
 
 # Harness Fixer
