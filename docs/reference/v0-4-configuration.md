@@ -337,8 +337,8 @@ tiers:
 ```
 
 **Dispatch lists.** `canonical.agents.dispatches` names the canonical front-matter key that lists the agents an agent
-may dispatch, written as a block list such as `dispatches:` followed by the lines `- writer` and `- tester`; a flow list
-such as `dispatches: [writer, tester]` is refused. In canonical metadata it is an optional list that follows
+may dispatch, written as a block list such as `dispatches:` followed by the indented lines `- writer` and `- tester`; a
+flow list such as `dispatches: [writer, tester]` is refused. In canonical metadata it is an optional list that follows
 `constraints`. An agent adapter's optional `dispatches` projects that list, in canonical order, into one native field:
 
 - `{ field: tools, format: "Agent({names})" }` — a member template with exactly one `{names}` placeholder adds one
