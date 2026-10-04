@@ -1930,8 +1930,17 @@
       "type": "object"
     },
     "When": {
-      "enum": ["always", "requires", "denies", "constrains"],
-      "type": "string"
+      "oneOf": [
+        {
+          "enum": ["always", "requires", "denies", "constrains"],
+          "type": "string"
+        },
+        {
+          "const": "no-dispatches",
+          "description": "Applies to every canonical agent that declares no dispatch list, and\ntakes no capability.",
+          "type": "string"
+        }
+      ]
     },
     "WordBudget": {
       "additionalProperties": false,

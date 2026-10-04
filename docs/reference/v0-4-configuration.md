@@ -350,6 +350,11 @@ An agent without a list renders nothing for it. `dispatches` in a skill adapter,
 `{names}`, a field more than one dot deep or with an empty segment, a field that collides with an identity, `fixed`, or
 `lists` field, and an adapter `dispatches` with no `canonical.agents.dispatches` are each refused.
 
+A member template `<P>({names})` declares `<P>` as the profile's spawn tool. An agent whose rendered field still holds a
+bare `<P>` member, such as `Agent` beside or instead of `Agent(writer)`, may spawn any agent, so it is refused with
+`harness-dispatch-unscoped`, naming the profile and the canonical agent, whether or not the agent declares a list. An
+`allow-map` format, or a template without that exact `({names})` suffix, declares no spawn tool.
+
 **Absent fields.** An adapter's `absent` lists native fields its output must never carry, such as
 `absent: [model, effort]` for a harness that has no such setting. A render that would write one refuses, naming the
 canonical source.
@@ -357,9 +362,11 @@ canonical source.
 **Capability translations.** An adapter's `translations` project canonical capabilities into native fields. Each entry
 has:
 
-- `when` — `always`, or `requires`, `denies`, or `constrains`: the entry applies when the agent's grants, denials, or
-  constraints list (as `canonical.agents` names them) holds `capability`.
-- `capability` — The capability to look for. Required for every `when` except `always`, and refused with `always`.
+- `when` — `always`; `no-dispatches`, which applies to every agent that declares no dispatch list (an absent or empty
+  `canonical.agents.dispatches` key); or `requires`, `denies`, or `constrains`: the entry applies when the agent's
+  grants, denials, or constraints list (as `canonical.agents` names them) holds `capability`.
+- `capability` — The capability to look for. Required for every `when` except `always` and `no-dispatches`, and refused
+  with either.
 - `field` — The native field written. It must not repeat an identity, `fixed`, or `lists` field.
 - `members`, `absent-members`, or `entries` — Exactly one of the three. `members` adds values to a list field;
   `absent-members` removes values other entries added; `entries` adds keys to a map field.
@@ -374,7 +381,11 @@ translations:
   - { when: requires, capability: shell, field: tools, members: [Bash] }
   - { when: denies, capability: shell, field: tools, absent-members: [Bash] }
   - { when: always, field: permission, entries: { read: allow } }
+  - { when: no-dispatches, field: permission, entries: { task: deny } }
 ```
+
+The `no-dispatches` entry denies the spawn tool to every agent without a list, while an agent with one renders its
+`dispatches` allow map in `permission.task` instead, so the two never meet in one binding.
 
 ### Agent lists and selection
 

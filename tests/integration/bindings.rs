@@ -257,6 +257,27 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "An agent without a dispatch list receives the conditional entries",
+    ),
+    (
+        "v0-4-contract",
+        "An agent with a dispatch list does not receive them",
+    ),
+    (
+        "v0-4-contract",
+        "A conditional translation that names a capability is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A bare spawn member on an agent without a list is refused",
+    ),
+    (
+        "v0-4-contract",
+        "A bare spawn member beside a scoped list is refused",
+    ),
+    ("v0-4-contract", "A scoped list alone passes"),
+    (
+        "v0-4-contract",
         "An agent's dispatch list passes metadata validation",
     ),
     (

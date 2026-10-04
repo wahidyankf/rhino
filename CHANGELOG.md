@@ -9,6 +9,22 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [Unreleased]
+
+### Changed
+
+- **An unscoped spawn grant is refused.** A profile whose agent-adapter `dispatches` format is a member template
+  `<P>({names})` declares `<P>` as its spawn tool. `harness adapters validate` and `generate` now refuse, before any
+  write, an agent whose rendered field still holds a bare `<P>` member, such as `Agent` beside or instead of
+  `Agent(writer)`, with `harness-dispatch-unscoped`, exit `2`. Such an agent used to render and could spawn any agent.
+
+### Added
+
+- **A translation for agents without a dispatch list.** A capability translation may declare `when: no-dispatches`,
+  which applies to every canonical agent with no dispatch list and takes no `capability`. A profile can deny its spawn
+  tool to those agents, such as `{ when: no-dispatches, field: permission, entries: { task: deny } }`, while an agent
+  with a list keeps its allow map.
+
 ## [v0.10.0] — 2026-10-03
 
 Adapter generation gains resolved models and dispatch lists, and a quality-gate family can name its own agents. Two

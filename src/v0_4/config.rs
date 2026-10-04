@@ -815,6 +815,10 @@ pub(crate) enum When {
     Requires,
     Denies,
     Constrains,
+    /// Applies to every canonical agent that declares no dispatch list, and
+    /// takes no capability.
+    #[serde(rename = "no-dispatches")]
+    NoDispatches,
 }
 
 /// The declared lifecycle gates. The model owns only portable scheduling data:

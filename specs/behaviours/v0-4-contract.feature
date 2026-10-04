@@ -1687,6 +1687,214 @@ Feature: Rhino v0.4 contracts
       name = "lead"
       """
 
+  Scenario: An agent without a dispatch list receives the conditional entries
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              translations:
+                - {when: no-dispatches, field: permission, entries: {task: deny}}
+      """
+    And the repository contains:
+      | path                     | content                                                             |
+      | AGENTS.md                | Canonical instruction                                               |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/gamma/agents/writer.md" is exactly:
+      """
+      ---
+      name: writer
+      permission:
+        task: deny
+      ---
+
+      Read .agents/agents/writer.md completely.
+      """
+
+  Scenario: An agent with a dispatch list does not receive them
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              dispatches: {field: permission.task, format: allow-map}
+              translations:
+                - {when: no-dispatches, field: permission, entries: {task: deny}}
+      """
+    And the repository contains:
+      | path                     | content                                                                              |
+      | AGENTS.md                | Canonical instruction                                                                |
+      | .agents/agents/lead.md   | ---\nname: lead\ndescription: Lead changes\ndispatches:\n  - writer\n---\nCanonical agent |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                  |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/gamma/agents/lead.md" is exactly:
+      """
+      ---
+      name: lead
+      permission:
+        task:
+          "*": deny
+          writer: allow
+      ---
+
+      Read .agents/agents/lead.md completely.
+      """
+
+  Scenario: A conditional translation that names a capability is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter:
+              path: adapters/gamma/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              translations:
+                - {when: no-dispatches, capability: shell, field: permission, entries: {task: deny}}
+      """
+    And the repository contains:
+      | path                     | content                                                             |
+      | AGENTS.md                | Canonical instruction                                               |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 2
+    And stderr contains "profile `gamma` has an invalid capability translation"
+
+  Scenario: A bare spawn member on an agent without a list is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              dispatches: {field: tools, format: "Agent({names})"}
+              translations:
+                - {when: requires, capability: subagent, field: tools, members: [Agent]}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                                  |
+      | AGENTS.md                | Canonical instruction                                                                    |
+      | .agents/agents/helper.md | ---\nname: helper\ndescription: Help changes\ncapabilities:\n  - subagent\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 2
+    And stderr contains "harness-dispatch-unscoped"
+    And stderr contains ".agents/agents/helper.md"
+
+  Scenario: A bare spawn member beside a scoped list is refused
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              dispatches: {field: tools, format: "Agent({names})"}
+              translations:
+                - {when: requires, capability: subagent, field: tools, members: [Agent]}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                                                         |
+      | AGENTS.md                | Canonical instruction                                                                                           |
+      | .agents/agents/lead.md   | ---\nname: lead\ndescription: Lead changes\ncapabilities:\n  - subagent\ndispatches:\n  - writer\n---\nCanonical agent |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                                             |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 2
+    And stderr contains "harness-dispatch-unscoped"
+    And stderr contains ".agents/agents/lead.md"
+
+  Scenario: A scoped list alone passes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints, dispatches: dispatches}
+        profiles:
+          - id: alpha
+            agent-adapter:
+              path: adapters/alpha/agents/{name}.md
+              format: front-matter
+              route-field: body
+              route: Read {path} completely.
+              identity: {name: name}
+              dispatches: {field: tools, format: "Agent({names})"}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                     | content                                                                              |
+      | AGENTS.md                | Canonical instruction                                                                |
+      | .agents/agents/lead.md   | ---\nname: lead\ndescription: Lead changes\ndispatches:\n  - writer\n---\nCanonical agent |
+      | .agents/agents/writer.md | ---\nname: writer\ndescription: Write changes\n---\nCanonical agent                  |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/agents/lead.md" contains "Agent(writer)"
+
   Scenario: An agent's dispatch list passes metadata validation
     Given the configuration file is this text:
       """
