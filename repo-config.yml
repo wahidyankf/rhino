@@ -224,12 +224,7 @@ harness:
               field: permission,
               entries: { bash: deny },
             }
-          - {
-              when: denies,
-              capability: nested-agent,
-              field: permission,
-              entries: { task: deny },
-            }
+          - { when: no-dispatches, field: permission, entries: { task: deny } }
 
 policies:
   markdown:
