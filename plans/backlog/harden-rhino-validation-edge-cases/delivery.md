@@ -239,7 +239,10 @@ including a pre-existing failure encountered in scope; never bypass a hook.
 
 ## Plan Archival
 
-- [ ] `[AI]` Verify all substantive items are complete and the execution-check verdict is `PASS`. `[AC-06]`
+- [ ] `[AI]` Verify all substantive items are complete and the execution-check verdict is `PASS`; acceptance: the item
+      records the marker `execution-check verdict: PASS`, and
+      `grep -c 'execution-check verdict: PASS' plans/backlog/harden-rhino-validation-edge-cases/delivery.md` prints at
+      least `1`. `[AC-06]`
 - [ ] `[AI]` Move the plan to `plans/done/YYYY-MM-DD__harden-rhino-validation-edge-cases/` with the actual completion
       date; acceptance: exactly one done copy exists and no in-progress copy remains. `[AC-06]`
 - [ ] `[AI]` Update `plans/in-progress/README.md`, `plans/done/README.md`, and every live reference; acceptance: no live
