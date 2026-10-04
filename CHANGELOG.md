@@ -9,7 +9,11 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.11.0] — 2026-10-04
+
+Spawn grants follow the dispatch list. A translation can now target agents without a list, and an agent whose binding
+would grant a bare spawn tool is refused, so a profile that rendered one under `v0.10.0` fails here; read **Changed**
+before upgrading a pinned version.
 
 ### Changed
 
