@@ -40,9 +40,13 @@ convention says how this repository does something where more than one way would
 - [Pull request body](pull-request-body.md) — what the body carries, and that it never goes stale.
 - [Pull request boundaries](pull-request-boundaries.md) — one branch, one pull request, one delivery unit.
 - [Pull request merge](pull-request-merge.md) — the five preconditions that authorize a merge.
+- [PR review agent procedures](pr-review-agent-procedures/README.md) — the procedure moved out of the
+  `pr-review-checker` definition to fit its word budget.
 - [Push-hook verification](push-hook-verification.md) — fix the cause; never bypass unauthorized.
 - [Rules](rules.md) — what a rule is, and how must, should, and may are read.
 - [Structure](structure/README.md) — where each kind of artifact adopted from the shared catalog lives.
+- [SWE agent procedures](swe-agent-procedures/README.md) — the procedure sections moved out of three `swe-*` agent
+  definitions to fit their word budget.
 - [SWE delegation](swe-delegation.md) — coding work goes to the fitting `swe-*` agent, with three exceptions.
 - [Task tracking](task-tracking.md) — granular items kept synchronized with the work.
 - [Thematic commits](thematic-commits.md) — one theme per commit, in Conventional Commits form.
