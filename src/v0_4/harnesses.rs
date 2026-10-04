@@ -630,7 +630,8 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
                 + usize::from(!translation.absent_members.is_empty())
                 + usize::from(!translation.entries.is_empty())
                 != 1)
-            || matches!(translation.when, When::Always) != translation.capability.is_none()
+            || matches!(translation.when, When::Always | When::NoDispatches)
+                != translation.capability.is_none()
             || direct_fields.contains(translation.field.as_str())
         {
             return Err(format!(
@@ -1095,6 +1096,7 @@ fn render_adapter(
                 .capability
                 .as_ref()
                 .is_some_and(|capability| metadata.constraints.contains(capability)),
+            When::NoDispatches => metadata.dispatches.is_empty(),
         };
         if applies {
             if translation.absent_members.is_empty() {
@@ -1120,6 +1122,7 @@ fn render_adapter(
         };
         members.retain(|member| !members_to_remove.contains(member));
     }
+    refuse_unscoped_dispatch(profile, adapter, source, &fields)?;
     if adapter
         .absent
         .iter()
@@ -1475,6 +1478,34 @@ fn scalar_entries(entries: &BTreeMap<String, String>) -> BTreeMap<String, EntryV
         .iter()
         .map(|(key, value)| (key.clone(), EntryValue::Scalar(value.clone())))
         .collect()
+}
+
+/// A member-template dispatch format `<P>({names})` declares `<P>` as the
+/// profile's spawn tool. A rendered agent whose dispatch field still holds a
+/// bare `<P>` may spawn any agent, whether or not it also carries a scoped
+/// list, so it is refused before anything is written. An allow map, or a
+/// template without that exact suffix, declares no spawn tool.
+fn refuse_unscoped_dispatch(
+    profile: &Profile,
+    adapter: &Adapter,
+    source: &Source,
+    fields: &BTreeMap<String, RenderField>,
+) -> Result<(), String> {
+    let Some(dispatches) = &adapter.dispatches else {
+        return Ok(());
+    };
+    let Some(tool) = dispatches.format.strip_suffix(&format!("({NAMES})")) else {
+        return Ok(());
+    };
+    match fields.get(&dispatches.field) {
+        Some(RenderField::Members(members)) if members.iter().any(|member| member == tool) => {
+            Err(format!(
+                "harness-dispatch-unscoped: profile `{}` renders an unscoped `{tool}` for canonical agent `{}`",
+                profile.id, source.path
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Render a canonical dispatch list into its declared native field.
@@ -3217,6 +3248,46 @@ mod typed_tests {
         );
         assert_eq!(toml_key("plain-key_1.2"), "plain-key_1.2");
         assert_eq!(toml_key(""), "\"\"");
+    }
+
+    #[test]
+    fn a_bare_spawn_tool_is_refused_only_under_a_member_template() {
+        let source = dispatching_source();
+        let profile = profile("test", "read");
+        let mut quiet = source.clone();
+        quiet.metadata.as_mut().unwrap().dispatches.clear();
+        let bare = |format: &str| {
+            let mut granted = dispatching("tools", format, AdapterFormat::FrontMatter);
+            granted.translations = vec![Translation {
+                when: When::Always,
+                capability: None,
+                field: "tools".to_string(),
+                members: vec!["Agent".to_string()],
+                absent_members: Vec::new(),
+                entries: BTreeMap::new(),
+            }];
+            granted
+        };
+        for agent in [&source, &quiet] {
+            assert!(
+                render_adapter(&profile, &bare("Agent({names})"), agent, &BTreeMap::new())
+                    .unwrap_err()
+                    .starts_with("harness-dispatch-unscoped: profile `test`")
+            );
+        }
+        assert!(
+            render_adapter(&profile, &bare("Agent[{names}]"), &quiet, &BTreeMap::new()).is_ok()
+        );
+        let mut removed = bare("Agent({names})");
+        removed.translations.push(Translation {
+            when: When::NoDispatches,
+            capability: None,
+            field: "tools".to_string(),
+            members: Vec::new(),
+            absent_members: vec!["Agent".to_string()],
+            entries: BTreeMap::new(),
+        });
+        assert!(render_adapter(&profile, &removed, &quiet, &BTreeMap::new()).is_ok());
     }
 
     #[test]
