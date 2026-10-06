@@ -8,6 +8,8 @@ Add one kebab-case Markdown file per idea, in the shape [the index](../README.md
 
 ## Directory Map
 
+- [Empty pre-push update records](empty-pre-push-update-records.md) proposes telling a push that publishes nothing,
+  which Git sends no update record for, from a pre-push run whose update stream never arrived.
 - [README index direct-child link forms](readme-index-direct-child-link-forms.md) proposes giving
   `require-direct-children: true` the subdirectory link rule `every-directory` already uses.
 - [Vendor exception path existence](vendor-exception-path-existence.md) proposes reporting a vocabulary exception whose
