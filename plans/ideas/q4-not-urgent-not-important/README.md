@@ -8,5 +8,7 @@ Add one kebab-case Markdown file per idea, in the shape [the index](../README.md
 
 ## Directory Map
 
+- [README index direct-child link forms](readme-index-direct-child-link-forms.md) proposes giving
+  `require-direct-children: true` the subdirectory link rule `every-directory` already uses.
 - [Vendor exception path existence](vendor-exception-path-existence.md) proposes reporting a vocabulary exception whose
   path names no file.
