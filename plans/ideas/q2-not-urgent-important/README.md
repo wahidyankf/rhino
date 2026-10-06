@@ -10,3 +10,5 @@ Add one kebab-case Markdown file per idea, in the shape [the index](../README.md
 
 - [Internal-link fragment validation](internal-link-fragment-validation.md) proposes resolving `#fragment` anchors that
   `md internal-link validate` skips today.
+- [Mermaid syntax validation](mermaid-syntax-validation.md) proposes a parse check in `md mermaid validate`, which
+  passes diagrams that Mermaid's own parser rejects.
