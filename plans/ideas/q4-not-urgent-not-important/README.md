@@ -8,4 +8,5 @@ Add one kebab-case Markdown file per idea, in the shape [the index](../README.md
 
 ## Directory Map
 
-This quadrant holds no idea yet, so this README has no siblings to map.
+- [Vendor exception path existence](vendor-exception-path-existence.md) proposes reporting a vocabulary exception whose
+  path names no file.
