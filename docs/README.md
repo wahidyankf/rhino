@@ -55,7 +55,8 @@ repository's role, then how it relates to RHINO:
   guards its local compute with a pinned HIPPO release, and HIPPO's contributor gates pin RHINO releases.
 - [`ose-public`](https://github.com/wahidyankf/ose-public) — the OSE product platform and research. Upstream consumption
   both ways: it pins RHINO releases, and RHINO pins its FERRET release.
-- _(unnamed, private)_ — authorized operations. Upstream consumption: it pins RHINO releases.
+- [`ose-private`](https://github.com/wahidyankf/ose-private) (Private) — authorized operations. Upstream consumption: it
+  pins RHINO releases.
 - [`beaver-nest`](https://github.com/wahidyankf/beaver-nest) — an independent family product. Upstream consumption: it
   pins RHINO releases.
 - [`ose-rules`](https://github.com/wahidyankf/ose-rules) — the reference catalog of governance, planning, agent, and
@@ -64,8 +65,8 @@ repository's role, then how it relates to RHINO:
 - [`py-typekit`](https://github.com/wahidyankf/py-typekit) — typed functional primitives for Python. Upstream
   consumption: it pins RHINO releases.
 
-The private one stays unnamed on purpose: a name nobody outside the organisation can reach is not navigation, and
-publishing one says something about a private repository that its owner did not publish.
+`ose-private`'s link resolves only for authorized maintainers. Its owner made its name and link public; its contents
+stay private, and this repository publishes nothing about it beyond its name, link, and role.
 
 **That label is navigation, not coupling.** `ose-projects` is a routing label only — not an organisation, a parent
 repository, a parity group, or a shared release. The seven are developed, versioned, gated, and released independently,

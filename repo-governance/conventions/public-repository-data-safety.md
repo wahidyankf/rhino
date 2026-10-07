@@ -20,7 +20,9 @@ Unless a value is deliberately public and approved for this repository, do not c
 - logs, screenshots, fixtures, generated files, configuration, or examples containing any of the above.
 
 Public identifiers this repository documents on purpose, such as its canonical GitHub URL, are allowed. So is
-commit-author identity the owner configured deliberately.
+commit-author identity the owner configured deliberately, and so are the private operations repository's name,
+`ose-private`, and its GitHub URL, made public by the maintainer's 2026-10-07 decision; its contents, paths, and
+internals stay private.
 
 ## Safe Representation
 
