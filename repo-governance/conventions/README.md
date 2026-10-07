@@ -19,7 +19,7 @@ convention says how this repository does something where more than one way would
   there is an order.
 - [GitHub polling](github-polling.md) — one status request every three minutes, never a stream.
 - [Integration path](integration-path.md) — trunk-based development through a worktree and a pull request.
-- [Language](language.md) — English, and which spelling.
+- [Language](language.md) — English for repository artifacts and clear writing for documents and agent replies.
 - [Last-resort questions](last-resort-questions.md) — exhaust independent progress before asking.
 - [Markdown links](markdown-links.md) — internal links resolve, and move with their targets.
 - [Markdown line length](markdown-line-length.md) — 120 characters per line, tables and code included.

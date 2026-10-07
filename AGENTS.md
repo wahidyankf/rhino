@@ -3,6 +3,10 @@
 RHINO is a repository-hygiene validator. Every rule lives in [`repo-governance/`](repo-governance/README.md), stated
 once.
 
+When writing in English, including replies to users, use clear, simple, and natural English that is easy for non-native
+speakers to understand. Follow
+[Language](repo-governance/conventions/language.md) for all repository writing.
+
 ## The Product
 
 - Ship no repository-specific default, repository, harness, or organization name in `src/`; the
@@ -40,7 +44,7 @@ once.
 - Keep `README.md`, `docs/`, and `CHANGELOG.md`
   [true to the binary](repo-governance/workflows/quality/docs-propagation.md) under
   [Diátaxis](repo-governance/conventions/documentation-architecture.md). Follow
-  [code clarity](repo-governance/development/code-clarity.md), [English](repo-governance/conventions/language.md),
+  [code clarity](repo-governance/development/code-clarity.md),
   [Markdown](repo-governance/conventions/markdown-line-length.md),
   [links](repo-governance/conventions/markdown-links.md), and
   [directory maps](repo-governance/conventions/directory-maps.md).
