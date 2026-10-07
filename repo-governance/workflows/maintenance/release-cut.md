@@ -7,8 +7,10 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 
 ## Preconditions
 
-- An adopted [Upstream Tool Defects](../../development/upstream-tool-defects.md) standard authorizes releasing a merged
-  RHINO defect fix whose regression test passes on that commit.
+- Release authorization comes from either the adopted
+  [Upstream Tool Defects](../../development/upstream-tool-defects.md) standard for a merged defect fix, or explicit
+  owner approval for a compatible feature release. The defect regression or feature acceptance tests pass on that
+  commit.
 - The commit to release is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, reconciled after the last merge by the
   [integration path](../../conventions/integration-path.md) rather than assumed.

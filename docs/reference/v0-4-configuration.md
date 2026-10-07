@@ -186,7 +186,7 @@ A tree that omits the key, or sets `true` or `false`, is checked exactly as befo
 
 ## Canonical adapter profiles
 
-`harness` declares the portable requirements and exactly three opaque profiles. Each profile explicitly lists the
+`harness` declares the portable requirements and a nonempty list of opaque profiles. Each profile explicitly lists the
 capabilities, grants, denials, constraints, routes, and identities its documented native adapter can represent. The
 canonical field vocabulary and each native adapter representation are also declared, so Rhino does not assume a
 harness's path, format, front-matter keys, or route syntax. Canonical source remains `AGENTS.md`, `.agents/agents/*.md`,
@@ -550,6 +550,9 @@ makes the Rhino runtime perform a network request. Pin the release you run: its 
 binary reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema.
 
 ## Verification
+
+The schema generation and validation sequence below was not exercised during this documentation pass. Separate
+source-gate evidence does not record execution of this example sequence.
 
 Generate the artifact after changing the model, then verify it before review:
 

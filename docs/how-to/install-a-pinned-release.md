@@ -7,6 +7,10 @@ red without anyone editing it.
 
 ## Download and verify
 
+The download and checksum sequence below was not exercised during this documentation pass.
+
+Source validation evidence does not establish the identity of a downloaded artifact.
+
 Releases are published from the [repository releases page](https://github.com/wahidyankf/rhino/releases) with a checksum
 file. Fetch the archive for your platform and the checksum, then verify **before** extracting:
 
@@ -34,6 +38,10 @@ Verifying afterwards tells you what you already ran. Verify first.
 
 ## Put it on PATH
 
+The extraction and PATH installation sequence below was not exercised during this documentation pass.
+
+Checks of an existing binary do not establish a fresh installation.
+
 ```sh
 tar -xzf "rhino-$TARGET.tar.gz"
 mkdir -p "$HOME/.local/bin"
@@ -56,6 +64,10 @@ theirs and find different. Compare it against your lock file instead. A build ma
 zeros rather than lying about it.
 
 ## Build from source instead
+
+The clone and release-build sequence below was not exercised during this documentation pass.
+
+Separate source-gate evidence does not demonstrate this installation sequence.
 
 RHINO is a single Rust binary. Its checked-in configuration schema derives from the typed model and is verified
 separately; a release archive never fetches it while running.

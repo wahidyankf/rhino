@@ -8,6 +8,9 @@ the download and the build from source.
 
 ## 1. Create the files
 
+This tutorial sequence, from creating the example directory through fixing its link, was not exercised during this
+documentation pass. The expected exits describe the command contract, rather than a recorded walkthrough.
+
 Create an empty checkout with a document that will contain one local link:
 
 ```sh

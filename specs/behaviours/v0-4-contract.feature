@@ -802,6 +802,119 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "--harness"
 
+
+  Scenario: One declared harness profile generates and validates its adapter
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        profiles:
+          - id: alpha
+            instruction-adapter: {path: "adapters/alpha/instructions.md", route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path      | content               |
+      | AGENTS.md | Canonical instruction |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/instructions.md" contains "Read AGENTS.md completely."
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario: Three declared harness profiles generate and validate every adapter
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        profiles:
+          - id: alpha
+            instruction-adapter: {path: "adapters/alpha/instructions.md", route: "Read {path} completely."}
+          - id: beta
+            instruction-adapter: {path: "adapters/beta/instructions.md", route: "Read {path} completely."}
+          - id: gamma
+            instruction-adapter: {path: "adapters/gamma/instructions.md", route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path      | content               |
+      | AGENTS.md | Canonical instruction |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/instructions.md" contains "Read AGENTS.md completely."
+    And the generated adapter at "adapters/beta/instructions.md" contains "Read AGENTS.md completely."
+    And the generated adapter at "adapters/gamma/instructions.md" contains "Read AGENTS.md completely."
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario: Four declared harness profiles generate and validate every adapter
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        profiles:
+          - id: alpha
+            instruction-adapter: {path: "adapters/alpha/instructions.md", route: "Read {path} completely."}
+          - id: beta
+            instruction-adapter: {path: "adapters/beta/instructions.md", route: "Read {path} completely."}
+          - id: gamma
+            instruction-adapter: {path: "adapters/gamma/instructions.md", route: "Read {path} completely."}
+          - id: delta
+            instruction-adapter: {path: "adapters/delta/instructions.md", route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path      | content               |
+      | AGENTS.md | Canonical instruction |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/alpha/instructions.md" contains "Read AGENTS.md completely."
+    And the generated adapter at "adapters/beta/instructions.md" contains "Read AGENTS.md completely."
+    And the generated adapter at "adapters/gamma/instructions.md" contains "Read AGENTS.md completely."
+    And the generated adapter at "adapters/delta/instructions.md" contains "Read AGENTS.md completely."
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario Outline: An empty harness profile roster refuses before adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        profiles: []
+      """
+    And the repository contains:
+      | path                           | content               |
+      | AGENTS.md                      | Canonical instruction |
+      | adapters/alpha/instructions.md | Existing adapter      |
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "at least one adapter profile is required"
+    And the repository is unchanged by the inspection
+
+    Examples:
+      | command                     |
+      | harness\|adapters\|generate |
+      | harness\|adapters\|validate |
+
+  Scenario Outline: A profile without any native output refuses before adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        profiles:
+          - id: alpha
+      """
+    And the repository contains:
+      | path                           | content               |
+      | AGENTS.md                      | Canonical instruction |
+      | adapters/alpha/instructions.md | Existing adapter      |
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "declares no native adapter representation"
+    And the repository is unchanged by the inspection
+
+    Examples:
+      | command                     |
+      | harness\|adapters\|generate |
+      | harness\|adapters\|validate |
+
   Scenario: Canonical adapters generate once and then become a deterministic no-op
     Given the configuration file is this text:
       """

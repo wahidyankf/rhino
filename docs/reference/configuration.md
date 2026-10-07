@@ -9,7 +9,7 @@ the generated schema, modelines, and predecessor handling; this page indexes its
 ## Groups
 
 - `repository` and `scan` — Repository-wide declarations and traversal scope.
-- `harness` — Portable requirements and exactly three opaque adapter profiles.
+- `harness` — Portable requirements and a nonempty list of opaque adapter profiles.
 - `policies.markdown` — Opt-in frontmatter, heading-hierarchy, internal-link, metadata, Mermaid, filename, and
   README-index policy. The Mermaid keys are in [Mermaid policy](v0-4-configuration.md#mermaid-policy).
 - `policies.governance` — Configured vendor, layer, traceability, word-budget, directory-map, and quality-gate policy.
