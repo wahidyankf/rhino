@@ -30,6 +30,10 @@ operations use separate, narrow boundaries.
 
 ## Install
 
+The download and extraction sequence below was not exercised during this documentation pass.
+
+Source validation evidence does not verify a downloaded release artifact.
+
 Download a published, immutable release tag and verify its checksum before extracting it. Each release carries one
 checksum manifest for all four supported archives.
 
@@ -81,8 +85,8 @@ replace its command with arguments after `--`.
 
 Environment initialization and toolchain provision plan first and require `--apply` for a declared mutation. Environment
 backup and restore require a repository-relative `--dir`; restore additionally requires `--force` before it replaces an
-existing target. Harness adapter generation validates the complete three-profile projection before it replaces declared
-adapter families and exact instruction-adapter files.
+existing target. Harness adapter generation validates the complete declared profile projection before it replaces
+declared adapter families and exact instruction-adapter files.
 
 ## v0.3 to v0.4 migration
 

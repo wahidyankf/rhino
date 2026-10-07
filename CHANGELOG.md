@@ -9,6 +9,16 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.12.0] — 2026-10-07
+
+Adapter rosters follow repository declarations, so a repository can generate one, three, four, or more profiles.
+
+### Added
+
+- `harness adapters validate` and `generate` accept any nonempty `harness.profiles` roster. Profile identifiers remain
+  opaque, and each selected profile retains its declared capability, tier, dispatch, and output checks. An empty roster
+  is still refused before any write. Existing three-profile configurations continue to work unchanged.
+
 ## [v0.11.0] — 2026-10-04
 
 Spawn grants follow the dispatch list. A translation can now target agents without a list, and an agent whose binding

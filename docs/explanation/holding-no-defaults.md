@@ -27,9 +27,9 @@ should". Exit `1` is never a matter of taste, which is what makes it safe to put
 **Configuration is the specification.** `repo-config.yml` is the whole policy in one readable file. A maintainer asking
 "what does this repository enforce?" reads it, rather than reading the tool's source and subtracting the overrides.
 
-**Adding a fourth repository is configuration, not code.** Adapter generation names no harness. `harness` declares three
-opaque profiles, and each profile's paths, format, and fields come from the configuration. A repository with no coding
-harness omits the group.
+**Adding a fourth repository is configuration, not code.** Adapter generation names no harness. `harness` declares a
+nonempty list of opaque profiles, and each profile's paths, format, and fields come from the configuration. A repository
+with no coding harness omits the group.
 
 ## What the rule costs
 

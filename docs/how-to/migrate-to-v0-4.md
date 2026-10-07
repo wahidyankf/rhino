@@ -31,7 +31,7 @@ modeline. Rhino validates local bytes and never fetches that URL.
     old hook arguments.
 - **Harness parity**
   - Grouped v2 owner: `harness`
-  - Migration rule: Define portable requirements and exactly three non-overlapping profiles, then validate before
+  - Migration rule: Define portable requirements and one or more non-overlapping profiles, then validate before
     generation.
 - **Frontmatter, heading hierarchy, links, metadata, Mermaid, naming, README presence**
   - Grouped v2 owner: `policies.markdown`

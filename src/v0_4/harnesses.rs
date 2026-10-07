@@ -275,8 +275,8 @@ fn plan(
     tree: &dyn Tree,
     resolution: Resolution<'_>,
 ) -> Result<(Plan, Vec<String>), String> {
-    if harness.profiles.len() != 3 {
-        return Err("harness: exactly three adapter profiles are required".to_string());
+    if harness.profiles.is_empty() {
+        return Err("harness: at least one adapter profile is required".to_string());
     }
     let (roots, exact_paths) = validate_profiles(
         &harness.profiles,
@@ -2039,6 +2039,72 @@ mod typed_tests {
     }
 
     #[test]
+    fn nonempty_declared_rosters_generate_every_agent_and_skill_family() {
+        for count in [1, 3, 4] {
+            let tree = canonical_tree();
+            let mut harness = complete_harness("read");
+            harness.profiles = ["alpha", "beta", "gamma", "delta"][..count]
+                .iter()
+                .map(|id| profile(id, "read"))
+                .collect();
+            let store = MemoryAdapterStore::new(&tree);
+            let generated = generate(
+                Some(&harness),
+                None,
+                &tree,
+                &store,
+                &NoModelResolver,
+                Format::Json,
+            );
+            assert_eq!(
+                generated.exit_code, 0,
+                "{count} profiles: {}",
+                generated.stderr
+            );
+            for profile in &harness.profiles {
+                for path in [
+                    format!("adapters/{}/agents/reviewer.md", profile.id),
+                    format!("adapters/{}/skills/review/SKILL.md", profile.id),
+                ] {
+                    assert!(tree.read(&path).is_ok(), "no adapter generated at {path}");
+                }
+            }
+            let validated = validate(Some(&harness), None, &tree, Format::Json);
+            assert_eq!(validated.exit_code, 0, "{}", validated.stderr);
+        }
+    }
+
+    #[test]
+    fn an_unrepresentable_fourth_profile_refuses_before_any_family_is_written() {
+        let tree = canonical_tree();
+        let mut harness = complete_harness("read");
+        harness.profiles.push(profile("delta", "write"));
+        let store = MemoryAdapterStore::new(&tree);
+        let generated = generate(
+            Some(&harness),
+            None,
+            &tree,
+            &store,
+            &NoModelResolver,
+            Format::Json,
+        );
+        assert_eq!(generated.exit_code, 2);
+        assert!(
+            generated
+                .stderr
+                .contains("profile `delta` cannot represent required capability `read`"),
+            "{}",
+            generated.stderr
+        );
+        for profile in &harness.profiles {
+            assert!(
+                tree.read(&format!("adapters/{}/agents/reviewer.md", profile.id))
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
     fn typed_generation_is_a_byte_identical_no_op() {
         let tree = canonical_tree();
         let mut harness = complete_harness("read");
@@ -2378,13 +2444,13 @@ mod typed_tests {
     fn closed_profile_shapes_refuse_before_source_discovery() {
         let tree = canonical_tree();
 
-        let mut wrong_count = complete_harness("read");
-        wrong_count.profiles.pop();
+        let mut no_profiles = complete_harness("read");
+        no_profiles.profiles.clear();
         assert!(
-            plan(&wrong_count, &tree, Resolution::Recorded)
+            plan(&no_profiles, &tree, Resolution::Recorded)
                 .err()
                 .unwrap()
-                .contains("exactly three")
+                .contains("at least one")
         );
 
         let mut absent_shape = complete_harness("read");

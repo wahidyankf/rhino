@@ -183,6 +183,26 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "One declared harness profile generates and validates its adapter",
+    ),
+    (
+        "v0-4-contract",
+        "Three declared harness profiles generate and validate every adapter",
+    ),
+    (
+        "v0-4-contract",
+        "Four declared harness profiles generate and validate every adapter",
+    ),
+    (
+        "v0-4-contract",
+        "An empty harness profile roster refuses before adapter writes",
+    ),
+    (
+        "v0-4-contract",
+        "A profile without any native output refuses before adapter writes",
+    ),
+    (
+        "v0-4-contract",
         "An unrepresentable canonical requirement refuses before adapter generation",
     ),
     (

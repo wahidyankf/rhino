@@ -21,6 +21,10 @@ membership for each surface.
 
 ## 2. Call one surface from each caller
 
+The pre-commit and pull-request caller sequences below were not exercised during this documentation pass.
+
+They start the children declared by the target repository. Source-test evidence does not establish that lifecycle.
+
 ```sh
 #!/bin/sh
 # .husky/pre-commit or .git/hooks/pre-commit
