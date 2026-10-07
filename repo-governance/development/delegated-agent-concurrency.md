@@ -8,7 +8,7 @@ three run, so a session holds four agents at most.
 - The count covers every delegated agent alive in the session, foreground or background, at any depth: an agent that a
   delegated agent spawns takes a slot of its own.
 - It binds in every harness whose session can spawn delegated agents, whatever that harness calls them: the Claude Code
-  `Agent` tool, Codex spawned agents, and the OpenCode `task` tool alike.
+  `Agent` tool, Codex spawned agents, OpenCode `task`, and Command Code `agent` alike.
 - Work beyond the cap waits until a running agent returns; it is never launched over the cap. When a slot frees and
   independent work is waiting, the next agent launches, because the cap limits the instantaneous count rather than the
   batch total.

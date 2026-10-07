@@ -20,7 +20,7 @@ stronger local rule wins over an adopted one, and every difference is recorded h
 | `plan`      | one plan folder under `plans/`                                   |
 | `docs`      | every `README.md`, `docs/`, `specs/`, and `CHANGELOG.md`         |
 | `rules`     | `AGENTS.md`, `repo-governance/`, agents, and skills              |
-| `harness`   | the Claude Code, Codex, and OpenCode bindings                    |
+| `harness`   | the bindings declared in `repo-config.yml`                       |
 | `ci`        | `.github/workflows/`, `.husky/`, and the `repo-config.yml` gates |
 | `pr-review` | one pull request                                                 |
 | `specs`     | listed folders under `specs/`                                    |

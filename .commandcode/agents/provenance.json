@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "profile": "opencode",
+  "profile": "commandcode",
   "sources": [
     {
       "id": "agent/ci-checker",
@@ -96,11 +96,6 @@
       "id": "agent/swe-developer",
       "path": ".agents/agents/swe-developer.md",
       "digest": "d5c2f462c6ab6d3dbdd35c6c7bb96b3cb74780e55480a70645bfc5da63b15c64"
-    },
-    {
-      "id": "agent/swe-orchestrator",
-      "path": ".agents/agents/swe-orchestrator.md",
-      "digest": "c71b78c3a3c5ee447a12717036e80b83583af40ab693fe9f00b43c155b38015e"
     },
     {
       "id": "agent/swe-releaser",

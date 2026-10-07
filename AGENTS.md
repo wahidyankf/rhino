@@ -81,7 +81,7 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 
 ## Harnesses
 
-- Claude Code, Codex, and OpenCode reach the same rules under
+- Claude Code, Codex, OpenCode, and Command Code share rules under
   [the contract](repo-governance/conventions/coding-harness-contract.md);
   [change](repo-governance/workflows/quality/harness-propagation.md) and
   [verify](repo-governance/workflows/quality/harness-parity-verification.md) it through its workflows.

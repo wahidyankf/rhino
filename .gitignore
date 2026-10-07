@@ -19,3 +19,7 @@ lcov.info
 # them. Only the placeholder is tracked; a worktree never enters history.
 /worktrees/*
 !/worktrees/.gitkeep
+
+# Personal native harness state stays local; generated agents remain tracked.
+/.commandcode/settings.local.json
+/.commandcode/taste/
