@@ -70,10 +70,13 @@ Pointing it at a third repository found the same rule leaking the other way. A r
 capability server at all still could not be described, because a non-empty roster forced `required-mcp` — a claim about
 how one repository is arranged, wearing the clothes of a schema rule.
 
-RHINO has since become that third shape itself. Its configuration declares three profiles — `claude`, `codex`, and
-`opencode` — over its canonical skills and agents, and no capability server at all. Only `claude` declares a skill
-adapter and an instruction adapter; `codex` and `opencode` declare agent adapters alone. Every one of those is a shape
-the schema had to permit without preferring.
+RHINO has since become that third shape itself. Its configuration declares four profiles — `claude`, `codex`,
+`opencode`, and `commandcode` — over its canonical skills and agents, and no capability server at all. Only `claude`
+declares a skill adapter and an instruction adapter; `codex`, `opencode`, and `commandcode` declare agent adapters
+alone. Command Code has 22 generated leaf adapters with static parity verified and no model or effort pins. Native
+runtime discovery and enforcement remain unverified. Its coordinating role runs from the complete canonical definition
+in the main session; native leaves cannot dispatch nested agents. Every one of those is a shape the schema had to permit
+without preferring.
 
 That is the value of the rule stated as a practice. A tool that holds no defaults will still smuggle assumptions in
 through required keys, and the only way to find them is to point it at a repository that is not the one it grew up in.

@@ -9,6 +9,7 @@ convention says how this repository does something where more than one way would
   included.
 - [Coding-harness contract](coding-harness-contract.md) — one instruction body, one prompt per agent, adapters that
   route rather than copy.
+- [Coding-harness contract modules](coding-harness-contract/README.md) — native profile discovery and boundaries.
 - [Command-line interface](command-line-interface.md) — the two-layer contract a command-line tool presents to its
   callers: one closed exit vocabulary, and a body that says what happened.
 - [Command-line interface modules](command-line-interface/README.md) — the eight modules that entrypoint indexes.

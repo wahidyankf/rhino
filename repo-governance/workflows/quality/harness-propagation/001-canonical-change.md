@@ -72,7 +72,7 @@ Review findings by kind, field, harness, and path. Matching counts are not proof
 
 Never weaken the validator, remove a denial, or exclude a path to make the gate pass. Restore the missing route or
 adapter, correct the mapping, and rerun. If a harness cannot express a required capability, stop and record the gap; do
-not claim three-harness parity until the contract or the supported-harness set changes explicitly.
+not claim parity across the declared harnesses until the contract or the supported-harness set changes explicitly.
 
 ## Outcome
 

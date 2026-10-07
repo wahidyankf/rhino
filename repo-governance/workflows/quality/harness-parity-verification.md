@@ -24,7 +24,7 @@ Confirm the intended sources and adapters before interpreting the gate:
 
 - root `AGENTS.md` and the exact root `CLAUDE.md` import;
 - every `.agents/skills/<name>/` bundle and its adapter on each harness that has a native skill surface; and
-- every `.agents/agents/<name>.md` and its one adapter per harness.
+- every `.agents/agents/<name>.md` and its native adapter or declared main-session role under the contract.
 
 Do not infer parity from matching names or counts. Content digests and routes are authoritative; native permissions,
 denials, and constraints are authoritative wherever the documented adapter format declares them.

@@ -9,3 +9,4 @@ specs/fixtures
 .claude/skills
 .codex/agents
 .opencode/agents
+.commandcode/agents/
