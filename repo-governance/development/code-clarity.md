@@ -11,7 +11,8 @@ statements belong together, and a function it has formatted can still be an undi
 ## Comments
 
 Comment the non-obvious: a safety invariant, a lifecycle boundary, a decision whose alternative looks equally
-reasonable, an ordering that matters for a reason the code cannot show. Say why, not what.
+reasonable, an ordering that matters for a reason the code cannot show. Keep comments brief and say why the code is
+needed or shaped this way, not what the code already shows.
 
 Do not narrate line by line. A comment restating the statement below it is noise that ages into a lie the first time the
 statement changes and the comment does not.
