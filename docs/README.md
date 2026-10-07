@@ -46,23 +46,29 @@ and that disagreement is a bug worth reporting.
 
 ## Project context
 
-RHINO is one of the **OSE Code Repositories** — the repositories
-[Open Sharia Enterprise](https://github.com/wahidyankf/ose-public) is built and maintained in. The public ones are:
+RHINO is one of the seven **`ose-projects`** repositories — the repositories
+[Open Sharia Enterprise](https://github.com/wahidyankf/ose-public) is built and maintained in. Each entry gives the
+repository's role, then how it relates to RHINO:
 
-| Repository                                                 | What it does                          |
-| ---------------------------------------------------------- | ------------------------------------- |
-| [`ose-public`](https://github.com/wahidyankf/ose-public)   | The OSE product platform and research |
-| **`rhino`**                                                | Repository hygiene — this repository  |
-| [`hippo`](https://github.com/wahidyankf/hippo)             | Host resource coordination            |
-| [`beaver-nest`](https://github.com/wahidyankf/beaver-nest) | An independent family product         |
+- **[`rhino`](https://github.com/wahidyankf/rhino)** — repository hygiene. This repository.
+- [`hippo`](https://github.com/wahidyankf/hippo) — host resource coordination. Upstream consumption both ways: RHINO
+  guards its local compute with a pinned HIPPO release, and HIPPO's contributor gates pin RHINO releases.
+- [`ose-public`](https://github.com/wahidyankf/ose-public) — the OSE product platform and research. Upstream consumption
+  both ways: it pins RHINO releases, and RHINO pins its FERRET release.
+- _(unnamed, private)_ — authorized operations. Upstream consumption: it pins RHINO releases.
+- [`beaver-nest`](https://github.com/wahidyankf/beaver-nest) — an independent family product. Upstream consumption: it
+  pins RHINO releases.
+- [`ose-rules`](https://github.com/wahidyankf/ose-rules) — the reference catalog of governance, planning, agent, and
+  skill artifacts. Knowledge sharing: RHINO adopts its artifacts by explicit one-off copy and owns each copy. It also
+  pins RHINO releases.
+- [`py-typekit`](https://github.com/wahidyankf/py-typekit) — typed functional primitives for Python. Upstream
+  consumption: it pins RHINO releases.
 
-The set also contains repositories that are not public. This table lists what a reader can actually open; a name nobody
-outside the organisation can reach is not navigation, and publishing one says something about a private repository that
-its owner did not publish.
+The private one stays unnamed on purpose: a name nobody outside the organisation can reach is not navigation, and
+publishing one says something about a private repository that its owner did not publish.
 
-RHINO supplies repository hygiene to the rest of the set and is being adopted across them; it consumes
-[HIPPO](https://github.com/wahidyankf/hippo) for local resource coordination. Nothing else crosses.
-
-**That name is navigation, not coupling.** Each is developed, versioned, and released independently — no shared version
-number, no shared release cadence, no monorepo, and no parent repository above them. Membership means only that a reader
-who finds one can find the others. RHINO is usable entirely on its own and has no OSE-specific values compiled into it.
+**That label is navigation, not coupling.** `ose-projects` is a routing label only — not an organisation, a parent
+repository, a parity group, or a shared release. The seven are developed, versioned, gated, and released independently,
+with no shared version number, release cadence, or monorepo. Membership obliges each member only to name the others, so
+a reader who finds one can find the other six, and nothing more. RHINO is usable entirely on its own and has no
+OSE-specific values compiled into it.

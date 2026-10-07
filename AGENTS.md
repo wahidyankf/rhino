@@ -1,6 +1,7 @@
 # RHINO Rules
 
-RHINO validates repository hygiene. Rules live in [`repo-governance/`](repo-governance/README.md).
+RHINO validates repository hygiene. Rules live in [`repo-governance/`](repo-governance/README.md). Related repositories:
+[`ose-projects`](docs/README.md#project-context), a navigation label only.
 
 Use clear, simple, natural English that non-native speakers can understand, including replies. Follow
 [Language](repo-governance/conventions/language.md) for repository writing.
@@ -12,8 +13,7 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 - Exit codes, `version --json`, commands, flags, and configuration keys are
   [a public contract](repo-governance/development/public-contract.md); moving is major-version work.
 - Tree validators are read-only, network-free, process-free, and path-contained. Declared gate children, toolchain
-  probes/provision, and adapter generation use separate narrow boundaries. `#![forbid(unsafe_code)]` and those
-  boundaries are [enforced by tests](repo-governance/development/software-quality-enforcement.md).
+  probes/provision, and adapter generation use separate narrow boundaries.
 
 ## Specifications
 
