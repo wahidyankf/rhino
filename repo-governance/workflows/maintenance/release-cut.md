@@ -1,7 +1,6 @@
 # Release Cut
 
-A published release is permanent. A tag is never replaced, and a consumer that pinned it must get the same bytes
-forever. Everything below makes a mistake impossible rather than recoverable.
+Published releases are permanent: never replace tags; pinned consumers must receive identical bytes forever.
 
 Run this from the **primary checkout on local `main`**, never from a `worktrees/` checkout.
 
