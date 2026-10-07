@@ -7,8 +7,9 @@ This repository is public and its consumers are not known in advance. English is
 toolchain, and its issue tracker already use, so a second language in one corner would be a barrier rather than an
 accommodation.
 
-Use plain English. Prefer the shorter word, expand an abbreviation on first use, and do not assume the reader shares
-this repository's history.
+Use clear, simple, natural English that readers who learned English later can understand. Prefer the shorter word,
+expand an abbreviation on first use, and do not assume the reader shares this repository's history. Keep work notes
+brief and explain the reason for a code choice instead of repeating what the code shows.
 
 ## Related
 
