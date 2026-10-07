@@ -3,9 +3,9 @@
 Git keeps no undo for uncommitted work, and a rewrite of pushed history reaches every clone that holds it. Assume
 someone else is using the same machine and remote at the same moment.
 
-Adapted from the catalog rule of the same name. What changed: a branch whose pull request merged is still deleted with
-`-D` where [dev artifact clean-up](../workflows/maintenance/dev-artifact-clean-up.md) establishes that the change is on
-`origin/main`, and that workflow's own refusals stand beside this rule.
+Adapted from the catalog rule of the same name. What changed: an unused task branch is deleted with `-D` where
+[dev artifact clean-up](../workflows/maintenance/dev-artifact-clean-up.md#when--d-refuses) establishes that it landed or
+went stale, after preserving a stale tip, and that workflow's own refusals stand beside this rule.
 
 ## The Rule Is the Effect
 
@@ -36,7 +36,9 @@ command destroys and who made it, not whether it appears below.
   - Use instead: leave the entries
 - `git branch -D`, `git update-ref -d`
   - Destroys: a branch, skipping the merged check
-  - Use instead: `git branch -d`
+  - Use instead: `git branch -d`; the one exception is an unused task branch under the landed or stale proof of
+    [dev artifact clean-up](../workflows/maintenance/dev-artifact-clean-up.md#when--d-refuses), and any other `-D` still
+    needs approval
 - **expiring the reflog and pruning at once**
   - Destroys: the recovery path itself
   - Use instead: let automatic maintenance run
