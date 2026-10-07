@@ -19,6 +19,11 @@ Adapter rosters follow repository declarations, so a repository can generate one
   opaque, and each selected profile retains its declared capability, tier, dispatch, and output checks. An empty roster
   is still refused before any write. Existing three-profile configurations continue to work unchanged.
 
+### Fixed
+
+- Native distribution builds remap compiler source locations under the builder's home directory, keeping those private
+  paths out of the packaged executable.
+
 ## [v0.11.0] — 2026-10-04
 
 Spawn grants follow the dispatch list. A translation can now target agents without a list, and an agent whose binding

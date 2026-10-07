@@ -339,6 +339,22 @@ fn every_executable_reports_the_revision_it_was_built_from() {
     );
 }
 
+/// Compiler source locations are executable strings, so stripping symbols is
+/// not proof that an archive omits the builder's private directory names.
+#[test]
+fn the_native_executable_omits_builder_source_paths() {
+    let bytes = std::fs::read(dist().join("rhino"))
+        .expect("the staged native executable exists; run cargo xtask dist");
+    let home = std::env::var("HOME").expect("the native build environment declares HOME");
+    let prefix = format!("{}/", home.trim_end_matches('/'));
+    assert!(
+        !bytes
+            .windows(prefix.len())
+            .any(|window| window == prefix.as_bytes()),
+        "the staged executable retains a builder home source location"
+    );
+}
+
 /// Measured out of every archive, not just the one this machine can run.
 ///
 /// The identity assertion above is limited to the host executable because only

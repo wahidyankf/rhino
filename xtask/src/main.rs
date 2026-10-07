@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 use sha2::{Digest, Sha256};
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -238,7 +239,21 @@ fn dist() -> Result<(), String> {
     let target = host_target()?;
     let output = root.join("dist");
 
-    run("cargo", &["build", "--release"])?;
+    let home = std::env::var_os("HOME")
+        .ok_or_else(|| "release assembly requires the builder's HOME".to_string())?;
+    let flags = release_rustflags(
+        &home,
+        std::env::var_os("CARGO_ENCODED_RUSTFLAGS"),
+        std::env::var_os("RUSTFLAGS"),
+    )?;
+    let status = Command::new("cargo")
+        .args(["build", "--release"])
+        .env("CARGO_ENCODED_RUSTFLAGS", flags)
+        .status()
+        .map_err(|error| format!("failed to start the release build: {error}"))?;
+    if !status.success() {
+        return Err("cargo build --release failed".to_string());
+    }
 
     std::fs::create_dir_all(&output).map_err(|error| format!("creating dist: {error}"))?;
 
@@ -269,6 +284,41 @@ fn dist() -> Result<(), String> {
     println!("dist/{archive}");
     println!("stripped executable: {size} bytes");
     Ok(())
+}
+
+/// Keep Cargo's environment flag priority and argument boundaries, then append
+/// one source-path remap. Symbols are stripped separately; source-location
+/// strings also need remapping before dependencies and the executable compile.
+/// This only scopes flags to the ordinary native dist child, not other tasks.
+fn release_rustflags(
+    home: &OsStr,
+    encoded: Option<OsString>,
+    whitespace: Option<OsString>,
+) -> Result<OsString, String> {
+    let home = home
+        .to_str()
+        .filter(|value| !value.is_empty() && !value.contains('\u{1f}'))
+        .ok_or_else(|| "builder HOME cannot be encoded as one compiler argument".to_string())?;
+    let mut flags = if let Some(encoded) = encoded {
+        encoded
+    } else if let Some(whitespace) = whitespace {
+        whitespace
+            .to_str()
+            .ok_or_else(|| "RUSTFLAGS is not valid text".to_string())?
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join("\u{1f}")
+            .into()
+    } else {
+        OsString::new()
+    };
+    if !flags.is_empty() {
+        flags.push("\u{1f}");
+    }
+    flags.push("--remap-path-prefix=");
+    flags.push(home);
+    flags.push("=/build-home");
+    Ok(flags)
 }
 
 /// Rewrite `dist/checksums.txt` from whatever archives are there now.
@@ -382,6 +432,58 @@ mod tests {
         assert!(is_release_asset("rhino-aarch64-unknown-linux-gnu.tar.gz"));
         assert!(is_release_asset(SCHEMA_ASSET));
         assert!(!is_release_asset("checksums.txt"));
+    }
+
+    #[test]
+    fn release_remapping_keeps_spaces_inside_one_compiler_argument() {
+        let flags = release_rustflags(OsStr::new("/synthetic home"), None, None).unwrap();
+        assert_eq!(flags, "--remap-path-prefix=/synthetic home=/build-home");
+    }
+
+    #[test]
+    fn release_remapping_preserves_encoded_over_whitespace_flag_priority() {
+        let flags = release_rustflags(
+            OsStr::new("/synthetic-home"),
+            Some("--cfg\u{1f}a=\"space inside\"".into()),
+            Some("--cfg ignored".into()),
+        )
+        .unwrap();
+        assert_eq!(
+            flags,
+            "--cfg\u{1f}a=\"space inside\"\u{1f}--remap-path-prefix=/synthetic-home=/build-home"
+        );
+    }
+
+    #[test]
+    fn an_explicit_empty_encoded_flag_list_still_overrides_whitespace_flags() {
+        let flags = release_rustflags(
+            OsStr::new("/synthetic-home"),
+            Some(OsString::new()),
+            Some("--cfg ignored".into()),
+        )
+        .unwrap();
+        assert_eq!(flags, "--remap-path-prefix=/synthetic-home=/build-home");
+    }
+
+    #[test]
+    fn release_remapping_keeps_cargos_whitespace_flag_splitting() {
+        let flags = release_rustflags(
+            OsStr::new("/synthetic-home"),
+            None,
+            Some(" --cfg\tfeature=\"example\"\n-C opt-level=z ".into()),
+        )
+        .unwrap();
+        assert_eq!(
+            flags,
+            "--cfg\u{1f}feature=\"example\"\u{1f}-C\u{1f}opt-level=z\u{1f}--remap-path-prefix=/synthetic-home=/build-home"
+        );
+    }
+
+    #[test]
+    fn release_remapping_refuses_an_empty_home_or_a_flag_separator() {
+        for home in ["", "/synthetic\u{1f}home"] {
+            assert!(release_rustflags(OsStr::new(home), None, None).is_err());
+        }
     }
 }
 
