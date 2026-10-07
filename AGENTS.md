@@ -1,15 +1,13 @@
 # RHINO Rules
 
-RHINO is a repository-hygiene validator. Every rule lives in [`repo-governance/`](repo-governance/README.md), stated
-once.
+RHINO validates repository hygiene. Rules live in [`repo-governance/`](repo-governance/README.md).
 
-When writing in English, including replies to users, use clear, simple, and natural English that is easy for non-native
-speakers to understand. Follow
-[Language](repo-governance/conventions/language.md) for all repository writing.
+Use clear, simple, natural English that non-native speakers can understand, including replies. Follow
+[Language](repo-governance/conventions/language.md) for repository writing.
 
 ## The Product
 
-- Ship no repository-specific default, repository, harness, or organization name in `src/`; the
+- Ship no repository-specific defaults, repository, harness, or organization names in `src/`;
   [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
 - Exit codes, `version --json`, commands, flags, and configuration keys are
   [a public contract](repo-governance/development/public-contract.md); moving is major-version work.
@@ -20,7 +18,7 @@ speakers to understand. Follow
 ## Specifications
 
 - `specs/` is canonical. Assess [behaviours and architecture](repo-governance/development/specification-maintenance.md)
-  before every change; record a verified no-op over churn.
+  before changes; record verified no-ops.
 - Gherkin first, prove the [red for the stated reason](repo-governance/development/test-driven-development.md), then
   implement. Write scenarios and bindings under [BDD](repo-governance/development/behaviour-driven-development.md); keep
   [the C4 model](repo-governance/development/architecture-specifications.md) true.
@@ -39,8 +37,8 @@ speakers to understand. Follow
 
 ## Change Discipline
 
-- [Understand, reuse, minimize, verify](repo-governance/principles/minimal-sufficiency.md). A new dependency carries
-  [its own record](repo-governance/development/dependency-selection.md).
+- [Understand, reuse, minimize, verify](repo-governance/principles/minimal-sufficiency.md). Record
+  [new dependencies](repo-governance/development/dependency-selection.md).
 - Keep `README.md`, `docs/`, and `CHANGELOG.md`
   [true to the binary](repo-governance/workflows/quality/docs-propagation.md) under
   [Diátaxis](repo-governance/conventions/documentation-architecture.md). Follow
@@ -49,16 +47,16 @@ speakers to understand. Follow
   [links](repo-governance/conventions/markdown-links.md), and
   [directory maps](repo-governance/conventions/directory-maps.md).
 - Dispatch coding work to fitting `swe-*` agents per [SWE Delegation](repo-governance/conventions/swe-delegation.md).
-- Cap [delegated agents](repo-governance/development/delegated-agent-concurrency.md) at three. Track work in
-  [granular items](repo-governance/conventions/task-tracking.md) and a written progress record, preserve rules through
+- Cap [delegated agents](repo-governance/development/delegated-agent-concurrency.md) at three. Track
+  [granular items](repo-governance/conventions/task-tracking.md) and a written progress record; preserve rules through
   [compaction](repo-governance/principles/governance-continuity.md),
   [ask last](repo-governance/conventions/last-resort-questions.md), and name files in
   [lowercase kebab-case](repo-governance/conventions/file-naming.md).
-- Plans are working records under [`plans/`](plans/README.md), never architecture: the
+- Plans are working records under [`plans/`](plans/README.md), never architecture. Follow the
   [plans convention](repo-governance/conventions/plans.md),
   [local additions](repo-governance/conventions/plan-lifecycle.md),
   [specification changes](repo-governance/conventions/plan-specification-changes.md), and
-  [validator contract](repo-governance/conventions/plan-validator-contract.md) structure answers to.
+  [validator contract](repo-governance/conventions/plan-validator-contract.md).
 - [Quality gates](repo-governance/development/workflow/quality-gate-contract.md) need explicit request or a listed
   caller; the [execution check](repo-governance/workflows/plan/plan-execution-check.md) blocks archival.
 
