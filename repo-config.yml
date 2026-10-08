@@ -772,7 +772,7 @@ gates:
         executable: bash
         args:
           - literal: -c
-          - literal: "cargo run --quiet --bin rhino -- harness adapters validate && exec bash .commandcode/hooks/agent-policy-selector.test.sh"
+          - literal: "cargo run --quiet --bin rhino -- harness adapters validate && bash .commandcode/hooks/agent-policy-selector.test.sh && exec bash .commandcode/hooks/git-fixture-isolation.test.sh"
       run-on: { pre-push: {}, pull-request: {} }
     - id: internal-link
       type: check
