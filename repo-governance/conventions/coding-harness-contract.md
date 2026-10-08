@@ -77,3 +77,12 @@ line endings, sorts ordinally, hashes with SHA-256, and fails on a missing, extr
 semantically weaker adapter. `harness adapters generate` first validates the complete projection in memory, then
 atomically replaces only declared adapter roots with catalog and provenance in the same transaction. It cannot prove
 that a vendor honoured what it read, so a runtime smoke check stays a separate, human act.
+
+## Repository Policy
+
+Native policy bindings invoke [`scripts/agent-policy-hook.sh`](../../scripts/agent-policy-hook.sh) for this physical
+checkout. Claude Code, OpenCode, and Command Code cross-repository operations use neutral destination routing. OpenCode
+Serena registration is deferred; Claude Code and Command Code retain semantic integration. Codex retains its existing
+guards; new routing and Serena are deferred. Protected-path data lives in
+[`.agents/agent-policy.json`](../../.agents/agent-policy.json); semantic indexing exclusions live in the tracked
+[Serena project config](../../.serena/project.yml). Shared MCP and capture integrations remain user-global.
