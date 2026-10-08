@@ -49,3 +49,12 @@ review above is still required, and why a clean gate is not a substitute for rea
 
 Do not repeat the value in diagnostics or reports. Treat a credential as compromised and rotate it. Preserve evidence
 without exposing the value, report the affected scope, and obtain authority before rewriting shared history.
+
+## Agent Tool Access
+
+Agent tools must not directly read, write, or edit `.env*` files, except `.env.example`. Paths under `secrets/` and
+`credentials/` are also protected. The repository owns these restrictions.
+[`.agents/agent-policy.json`](../../.agents/agent-policy.json) declares the path patterns for
+`scripts/agent-policy-hook.sh`; the tracked `.serena/project.yml` excludes the same paths from semantic indexing. Claude
+Code, OpenCode, and Command Code native bindings enforce their own physical checkout; neutral routing covers
+cross-repository operations. Compute-admission exemptions do not waive these restrictions.

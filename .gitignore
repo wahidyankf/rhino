@@ -23,3 +23,8 @@ lcov.info
 # Personal native harness state stays local; generated agents remain tracked.
 /.commandcode/settings.local.json
 /.commandcode/taste/
+
+# Track Serena project policy; keep generated and personal state local.
+/.serena/*
+!/.serena/project.yml
+!/.serena/README.md
