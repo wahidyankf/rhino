@@ -74,4 +74,4 @@ changes — that is the one condition a local hook cannot observe.
 
 ## Related
 
-- [Quality gates](quality-gates.md)
+- [Nx](resource-aware-development/README.md)
