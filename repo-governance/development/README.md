@@ -26,3 +26,4 @@ Engineering standards, within every higher level. These govern how the product i
 - [Upstream tool defects](upstream-tool-defects.md) — a pinned HIPPO or FERRET defect: an idea brief at its owner, or a
   bug-fix plan when it blocks with no workaround.
 - [Workflow standards](workflow/README.md) — the quality-gate contract, its writer contract, and the adapter.
+- [Resource modules](resource-aware-development/README.md) — external Nx cache awareness.
