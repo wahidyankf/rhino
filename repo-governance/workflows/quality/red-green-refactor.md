@@ -3,6 +3,10 @@
 Use this workflow for each behaviour increment required by
 [test-driven development](../../development/test-driven-development.md).
 
+Follow
+[Focused Runs and Regression Gates](../../development/test-driven-development.md#focused-runs-and-regression-gates) for
+local selections, execution evidence, and complete boundary verification.
+
 ## Prerequisites
 
 - Assess `specs/behaviours/` and `specs/architecture.md` for impact first, under
