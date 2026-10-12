@@ -35,14 +35,20 @@ rule nobody finds.
 Ceilings are fixed, per [Document Word Budget](../../../conventions/directory-maps.md#word-budget): no raise, exemption,
 or ignore entry pays for a placement.
 
-When an admitted rule finds no room, rank the file's current entries by the same necessity test and relocate the
-weakest, never the oldest or the last. A weak entry points to a fuller statement elsewhere, describes rather than binds,
-or has an owning document a reader would try first.
+When an admitted rule finds no room, disclose progressively first: keep the entrypoint, with the obligation and its
+reason, where its audience looks, and move scope, boundaries, observations, and disposition into numbered modules under
+a sibling directory named after the entrypoint.
+
+Shortening runs one direction only: a tighter sentence that still states the whole obligation, audience, scope,
+exception, and condition. An addition a surface cannot hold must split, never compress meaning to fit.
+
+Relocation of the weakest entry is the fallback, only for a subject that cannot split. Rank the file's current entries
+by the same necessity test and relocate the weakest, never the oldest or the last. A weak entry points to a fuller
+statement elsewhere, describes rather than binds, or has an owning document a reader would try first.
 
 Relocation moves the substance to its owner and leaves at most a link. Deleting an entry outright is allowed only when
-it was already superseded, and it is then recorded as a supersession. Compressing an entry in place counts only when the
-shorter form still states the whole obligation.
+it was already superseded, and it is then recorded as a supersession.
 
-The relocation lands in the same change as the admission, because a deferred one leaves the file over its ceiling.
-Measure the result rather than predicting it, including any harness file that shares the root file's ceiling, and record
-what moved, where it went, and which admission it paid for.
+The split or relocation lands in the same change as the admission, because a deferred one leaves the file over its
+ceiling. Measure the result rather than predicting it, including any harness file that shares the root file's ceiling,
+and record what moved, where it went, and which admission it paid for.
