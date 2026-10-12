@@ -1,6 +1,6 @@
 # Coding-Harness Contract
 
-Claude Code, Codex, OpenCode, and Command Code must reach the same repository-owned rules, skill procedures, and
+Claude Code, Codex, OpenCode, Command Code, and Muse must reach the same repository-owned rules, skill procedures, and
 custom-agent prompts. Each generated adapter routes to the canonical source. Where a vendor documents a native control
 for a canonical capability or denial, the adapter uses that strongest control; vendor system prompts, built-in tools,
 models, credentials, local memory, plugins, and approval interfaces remain outside this contract.
