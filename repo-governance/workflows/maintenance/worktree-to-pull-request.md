@@ -19,8 +19,10 @@ for the same work is a defect.
 ## Per Delivery Unit
 
 1. **Sync.** `git fetch origin && git rebase origin/main`. Never auto-stash and never auto-resolve; an unclean tree or a
-   conflict stops the work. When the sync brings in commits, read the whole incoming diff and reconcile the task against
-   it before continuing.
+   conflict outside the
+   [owned, settled sync contract](../../conventions/no-destructive-git-operations/001-authorized-task-branch-sync.md)
+   stops the work. When the sync brings in commits, read the whole incoming diff and reconcile the task against it
+   before continuing.
 2. **Commit** in [thematic commits](../../conventions/thematic-commits.md), with authorization under
    [commit authorization](../../conventions/commit-authorization.md).
 3. **Push.** First pass the [push review](../quality/pr-leak-review/002-push-review.md) of every outgoing commit; a
