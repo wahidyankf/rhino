@@ -48,3 +48,8 @@ silence:
 - **Editor pre-edit trigger:** the same notice earlier, in one harness; a convenience that can be switched off.
 
 Record the routes taken and the delivery route. Every trigger reads one recorded list of rule-bearing paths.
+
+## Beyond This Repository
+
+A fan-out across members, at minimum ose-projects, lands in the catalog first. Members adopt only from its published
+head, never from a branch or worktree. A member adoption names the catalog head it copies.
