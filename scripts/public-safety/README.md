@@ -80,9 +80,10 @@ trufflehog <source> --json --no-verification --no-update --fail --fail-on-scan-e
 
 ## The canary
 
-Before any repository material is read, the wrapper generates a real key in a temporary directory outside the
-repository, scans it, and requires that the scanner reported a finding, that the generated value reached neither stream
-nor any retained file, and that the directory was removed. A canary failure blocks.
+Before any repository material is read, the wrapper assembles an inert, unissued token-shaped marker in a temporary
+directory outside the repository and scans it with verification disabled. A real detection is required, and none of the
+marker may appear in sanitized output. Missing detection, scanner errors, or disclosure block as scan errors; temporary
+canary data is removed before continuation. It creates and reads no private key.
 
 This is also what makes `PUBLIC_SAFETY_SCANNER` safe to expose: naming a different scanner can make the wrapper refuse,
 and cannot make it pass, because a scanner that finds nothing fails the canary.
@@ -111,3 +112,5 @@ The contract is [`public-safety.feature`](public-safety.feature) and each case i
 scenario it binds. The offline suite drives a stub scanner so it is fast enough to sit on a hook; the online run
 additionally bootstraps, verifies, and canaries the real pinned binary, and is reported as skipped rather than passed
 when it does not run.
+
+`130-canary-fails-closed` covers missing detection, disclosure, scanner failures, and interrupted cleanup.

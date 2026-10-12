@@ -10,7 +10,7 @@
 # suite is offline, deterministic, and fast enough to sit on a Git hook.
 #
 # The stub is not a bypass. The wrapper proves detection and non-disclosure with
-# a credential it generates at runtime before it reads any repository material,
+# an inert marker it assembles at runtime before it reads any repository material,
 # so a scanner that finds nothing fails the canary and blocks. Substituting a
 # scanner can make the wrapper refuse; it cannot make the wrapper pass.
 #
@@ -100,10 +100,11 @@ write_stub_scanner() {
 		esac
 		found=0
 		while IFS= read -r file; do
-			line=$(grep -n -- '-----BEGIN' "$file" 2>/dev/null | head -1 | cut -d: -f1)
+			line=$(grep -nE -- 'ghp_[A-Za-z0-9_]{36,255}' "$file" 2>/dev/null | head -1 | cut -d: -f1)
 			[[ -z "$line" ]] && continue
 			found=1
-			printf '{"DetectorName":"PrivateKey","Raw":"REDACTED-BY-NOBODY","SourceMetadata":{"Data":{"Filesystem":{"file":"%s","line":%s}}}}\n' "$file" "$line"
+			value=$(grep -oE -- 'ghp_[A-Za-z0-9_]{36,255}' "$file" 2>/dev/null | head -1)
+			printf '{"DetectorName":"Github","Raw":"%s","RawV2":"REDACTED-BY-NOBODY","SourceMetadata":{"Data":{"Filesystem":{"file":"%s","line":%s}}}}\n' "$value" "$file" "$line"
 		done < <(find "$dir" -type f 2>/dev/null | sort)
 		[[ "$found" -eq 1 ]] && exit 183
 		exit 0
@@ -124,6 +125,12 @@ write_synthetic_shapes() {
 		printf 'maintainer-path regex /Users/%s(/|$)\n' "$SYNTHETIC_NAME"
 		printf 'internal-host regex synthetic-host-[0-9]{4}[.]invalid\n'
 	} >"$1"
+}
+
+# Fabricated locally, never issued by a service. Assemble the detector shape
+# only at runtime; neither a private key nor a complete token is stored here.
+write_inert_credential() {
+	printf '%s%s%s%s%s%s\n' 'ghp' '_' '8nW3cP6aB' '4yL9dU2xD' '7eS0qJ5rG' '1tM8vK3fZ' >"$1"
 }
 
 shopt -s nullglob
