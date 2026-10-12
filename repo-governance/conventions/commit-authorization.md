@@ -3,6 +3,14 @@
 Commit and push only when the user has authorized it, when an approved plan step authorizes it, or when an adopted
 [upstream tool defects](../development/upstream-tool-defects.md) standard lands a defect's brief or bug-fix plan.
 
+## Ongoing Task Delivery
+
+A single-action grant covers that action once. Authorization to deliver a named task covers its staging, thematic
+commits, synchronization, publication, and landing until that task is finished. Do not request permission again for
+those routine steps; [authorized task sync](no-destructive-git-operations/001-authorized-task-branch-sync.md) owns the
+rebase and lease-push safeguards. Resuming the same unfinished task retains its recorded authority after scope and
+current state are verified. It covers no unrelated work, later task, hook bypass, or release.
+
 ## Requirements
 
 - Authorization to make a change is not authorization to commit it. Authorization to commit is not authorization to
