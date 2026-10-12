@@ -4,8 +4,8 @@ Feature: Public output is screened before it leaves the repository
   `specs/behaviours/`. Everything in that directory is discovered by RHINO's
   Gherkin harness and must be bound in Rust at the unit, integration, and end
   to end adapters with no exemption at unit. The subject here is a shell leaf
-  with no Rust port, and its cheapest honest proof runs a scanner and generates
-  a credential, which is not what the unit adapter is for. The executable
+  with no Rust port, and its cheapest honest proof runs a scanner against an inert
+  runtime marker, which is not what the unit adapter is for. The executable
   binding is `tests/run.sh`: one case per scenario, named after it.
 
   Background:
@@ -42,12 +42,20 @@ Feature: Public output is screened before it leaves the repository
   Rule: Detection and non-disclosure are proved before real material is read
 
     Scenario: A synthetic canary proves the scanner detects
-      Given a credential generated at runtime outside the repository
+      Given an inert, unissued token-shaped marker assembled at runtime outside the repository
       When the wrapper runs its canary
       Then the scanner reports a finding
       And the canary value appears in no stream and in no retained file
       And the canary directory is removed
       And a canary that detects nothing blocks the repository scan
+      And no private key is created or read
+
+    Scenario: Canary fails closed
+      Given a canary scan with missing detection, disclosure, or scanner failure
+      When the wrapper runs its canary
+      Then it exits 2 before scanning outbound material
+      And sanitized output contains none of the inert marker
+      And temporary canary data is removed, including when the wrapper is interrupted
 
   Rule: A finding says enough to act on and nothing more
 

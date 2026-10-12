@@ -15,16 +15,14 @@ run() {
 	write_synthetic_shapes "$shapes"
 	unset PUBLIC_SAFETY_SCANNER
 
-	openssl genrsa -out "$CASE_TMP/canary.pem" 2048 2>/dev/null || {
-		echo "    cannot generate a canary key" >&2
-		return 1
-	}
-	canary=$(sed -n '3p' "$CASE_TMP/canary.pem")
+	write_inert_credential "$CASE_TMP/inert.txt"
+	canary=$(<"$CASE_TMP/inert.txt")
 
-	out=$("$WRAPPER" --surface release --shapes "$shapes" --file "$CASE_TMP/canary.pem" 2>&1)
+	out=$("$WRAPPER" --surface release --shapes "$shapes" --file "$CASE_TMP/inert.txt" 2>&1)
 	rc=$?
-	assert_exit 1 "$rc" "exit code from the real scanner over a real key" || return 1
+	assert_exit 1 "$rc" "exit code from the real scanner over an inert fixture" || return 1
 	assert_absent "$canary" "$out" "diagnostic" || return 1
+	assert_absent "${canary#*_}" "$out" "diagnostic" || return 1
 
 	printf 'nothing private here\n' >"$CASE_TMP/clean.txt"
 	out=$("$WRAPPER" --surface release --shapes "$shapes" --file "$CASE_TMP/clean.txt" 2>&1)
