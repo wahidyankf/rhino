@@ -23,6 +23,7 @@ Engineering standards, within every higher level. These govern how the product i
 - [Specification maintenance](specification-maintenance.md) — Gherkin first, bind everywhere, exempt only at a real
   boundary.
 - [Test-driven development](test-driven-development.md) — red, green, refactor with named evidence.
+- [Test-driven development modules](test-driven-development/README.md) — the ordered modules of that standard.
 - [Upstream tool defects](upstream-tool-defects.md) — a pinned HIPPO or FERRET defect: an idea brief at its owner, or a
   bug-fix plan when it blocks with no workaround.
 - [Workflow standards](workflow/README.md) — the quality-gate contract, its writer contract, and the adapter.
