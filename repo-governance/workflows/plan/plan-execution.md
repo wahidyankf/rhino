@@ -14,13 +14,16 @@ Use this only after an explicit direction to execute one formal plan.
 3. If the plan is queued, move it to `plans/in-progress/<slug>/` with its status and both stage maps, in one change.
    Never copy it.
 4. Read `learnings.md` before touching anything. Mirror every unchecked executable delivery item into the
-   [task list](../../conventions/task-tracking.md), preserving wording, owner label, order, and references. Leave
-   dormant recovery items dormant.
+   [task list](../../conventions/task-tracking.md), preserving wording, owner label, and references, ordered by the
+   dependency graph rather than list position. Leave dormant recovery items dormant. See
+   [Dependency Graph and Recovery](../../conventions/plans/011-dependency-graph-and-recovery.md).
 
 ## Execute
 
-1. Work in order, one active item at a time unless genuinely independent. Stop at any pending `[HUMAN]` input. Pass
-   every phase checkpoint before the next phase starts.
+1. Work ready items concurrently. Dispatch every item whose dependencies are terminal, up to the concurrency cap,
+   reusing the plan's one worktree per repository; a failure blocks only its downstream. Stop at any pending `[HUMAN]`
+   input. Pass every phase checkpoint before the next phase starts. A more optimal order found mid-run revises
+   `delivery.md` first, keeping acceptance criteria and the end result; a material change re-passes the quality gate.
 2. Resolve each item atomically once its stated outcome and stated proof both hold: tick the box, then record a dated
    result saying what proved it, what changed, and what surprised — one step, never a batch of ticks, since a tick alone
    never says what it found. Every behaviour-changing item names its establishing layer under
@@ -31,7 +34,9 @@ Use this only after an explicit direction to execute one formal plan.
    [`plans/ideas/`](../../../plans/ideas/README.md) for overlap: merge into an existing brief, or write one distinct
    brief and link it.
 5. Land work in delivery units through [worktree to pull request](../maintenance/worktree-to-pull-request.md), reusing
-   the plan's one worktree throughout. A unit is complete at pull-request merge, not when its code is written.
+   the plan's one worktree throughout. Independent units land in any order, each refreshed with its gates re-run, per
+   [Delivery Seams and Ownership](../../development/planning-capabilities/005-delivery-seams-and-ownership.md). A unit
+   is complete at pull-request merge, not when its code is written.
 6. Run each unit's required automation and record evidence
    [data safety](../../conventions/public-repository-data-safety.md) permits.
 7. Apply every applicable repository rule; neither a plan nor a task list expands authority. A failing gate stops the
@@ -58,9 +63,4 @@ Use this only after an explicit direction to execute one formal plan.
 
 ## Recovery
 
-At any pause the plan itself carries resume state: the current checkout, the last terminal gate, the next unresolved
-item, and any bounded budget partly spent. A resumed session continues a budget; it never resets one.
-
-Interrupted work stays accurately in progress and resumes from its recorded state; only a material plan change needs a
-fresh directed quality-gate verdict. If archival verification fails, restore the folder, its status, and both maps.
-Never leave a plan split across two stages, and never archive incomplete work.
+Pause, resume, and budget rules live in [Execution Recovery](plan-execution-recovery.md).
