@@ -20,8 +20,8 @@ repository maps them.
 - [Harness quality gate](harness-quality-gate.md) — judges the harness bindings for upstream drift.
 - [Plan propagation](plan-propagation.md) — the `plan` family's writer, inside one plan folder.
 - [Plan quality gate](plan-quality-gate.md) — judges a complete plan draft for what structural validation cannot reach.
-- [PR leak review](pr-leak-review.md) — the private review before every push and the posted, current-head review a merge
-  requires.
+- [PR leak review](pr-leak-review.md) — the private review before every push and the current-head review the delivery
+  harness runs before a merge.
 - [PR leak review modules](pr-leak-review/README.md) — leak classes, the push review, and enforcement, in reading order.
 - [PR review](pr-review.md) — one semantic review pass of a pinned pull-request head.
 - [PR review propagation](pr-review-propagation.md) — the `pr-review` family's writer: answers every blocking finding.

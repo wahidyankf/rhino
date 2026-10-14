@@ -48,8 +48,8 @@ for the same work is a defect.
 6. **Repair at the cause.** A failing job is fixed where it broke, under
    [push-hook verification](../../conventions/push-hook-verification.md). Never weaken the gate.
 7. **Ready, then merge.** Flip to ready only when the work is finished, then verify all five
-   [merge preconditions](../../conventions/pull-request-merge.md) — including a posted
-   [leak review](../quality/pr-leak-review.md) `pass` for the exact head and its `leak-review` status — and merge.
+   [merge preconditions](../../conventions/pull-request-merge.md) — including a harness
+   [leak review](../quality/pr-leak-review.md) `pass` for the exact head — and merge.
 
    ```sh
    gh pr merge <number> --rebase --match-head-commit <head>

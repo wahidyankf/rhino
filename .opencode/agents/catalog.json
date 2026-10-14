@@ -33,6 +33,11 @@
       "digest": "ff7da2dc523f718af6c670350ce191972eaa861114ad5609de59b519a99f40a4"
     },
     {
+      "id": "agent/leak-reviewer",
+      "path": ".agents/agents/leak-reviewer.md",
+      "digest": "eaf3b315def83cb0b387501125b7f660e2aa330062bc7bccbfbee0d888465634"
+    },
+    {
       "id": "agent/plan-checker",
       "path": ".agents/agents/plan-checker.md",
       "digest": "9a78e9bdef4e4ad74b6db4eaaa48c8dda4f49e0ca1ca7dc8cb4770a356db7576"
@@ -210,12 +215,12 @@
     {
       "id": "skill/worktree-to-pr",
       "path": ".agents/skills/worktree-to-pr/SKILL.md",
-      "digest": "932f81ba05965c8eb1b468269a97b961da10d4a2cc93d1a1d5d2b101454dadd8"
+      "digest": "afe6dde9cb657a1eae82fb51c4d4deb57c6d5f87a4a54ffb825539c16fd05dc9"
     },
     {
       "id": "instruction",
       "path": "AGENTS.md",
-      "digest": "30bcc769d54f35fc308fc3aebb9a8c9c14c1a3d7363698fbf2b81e20958eef89"
+      "digest": "fa6e45db263aaa6441d693018558413c708999c54db64433dba0e0643a75ffdd"
     }
   ]
 }

@@ -1,51 +1,53 @@
 # Enforcement
 
-A precondition stated only in prose is a convention someone forgets. The leak review is enforced in three layers; each
-fails closed.
+A precondition stated only in prose is a convention someone forgets, so the leak review's refusal is made mechanical
+where a mechanism exists. Here the delivery harness is that mechanism, and nothing shared with the forge enforces it.
 
 ## The Screen
 
-[`scripts/public-safety/`](../../../../scripts/public-safety/README.md) runs at the `pre-push` hook and on every
-pull-request range. Its `public-safety-range` gate in [`repo-config.yml`](../../../../repo-config.yml) screens the range
-commit by commit: each commit's added lines at the line numbers they occupy, its file names, and its message. A merge
+The repository's outbound screen runs at the pre-push hook. It screens the outgoing range commit by commit: each
+commit's added lines at the line numbers they occupy, its file names, its message, and the ref names. A merge
 contributes what it resolved beyond the automatic merge. Content the range did not add is not screened again, so the
-screen binds from adoption onward. The `public-safety-tree` gate still screens the whole tracked tree and the branch
-name beside it. Its shapes include absolute home paths, private addresses, and internal hostnames, beside a credential
-scanner.
+screen binds from adoption onward. Its shapes include absolute home paths, private addresses, and internal hostnames,
+beside a credential scanner.
 
-At `pre-push` the range comes from the ref updates Git hands the hook, read through `--push-updates-stdin`; a ref the
-remote lacks starts from `refs/remotes/origin/main`. On a pull request it is the review range the replay is given.
+The screen matches shapes; the review reads context. Neither replaces the other. A pull-request replay of the same
+screen can run in a repository's hosted pipeline for composition reasons; the harness's refusal does not depend on it.
 
-The screen matches shapes; the review reads context. Neither replaces the other.
+## Harness Refusal
 
-## Hosted Checks
+The delivery harness, not the forge, enforces the leak review:
 
-- **Range screen.** The `Quality gate` check from
-  [`pr-quality-gate.yml`](../../../../.github/workflows/pr-quality-gate.yml) replays the pull-request surface, including
-  the range gate, over the pull request's base-to-head range, because a local hook can be skipped and a hosted check
-  cannot.
-- **Record check.** [`leak-review.yml`](../../../../.github/workflows/leak-review.yml) runs
-  [`record-status.sh`](../../../../scripts/leak-review/README.md) when the pull request changes and when a review is
-  submitted. It publishes the `leak-review` commit status on the live head, `success` only when the repository owner's
-  latest undismissed review on that head carries a `pass` record naming this repository, the pull request, and the head.
-  Posting the record turns it green without a new commit.
+- **Merge.** It merges a pull request only on a `pass` verdict for the head it is about to merge, after a live-head
+  check immediately before the merge.
+- **Push.** It pushes a range only on a `pass` verdict for that range, after confirming the local head has not moved.
+- **Refusal.** A `findings`, `failed`, or `stale` outcome refuses the merge or push.
 
-Both are required status checks on `main` through its ruleset. A waiver of other gates never covers either.
+No required status check, branch-protection rule, or designated reviewer identity is part of this design, and the
+harness posts nothing that gates. The only public record is the optional audit comment in
+[Sequence](../pr-leak-review.md#sequence), which nothing reads as authority.
+
+## Enforcement Disposition
+
+The merge gate is enforced by the harness alone, and a server cannot force it: no forge rule can read a verdict this
+design never posts. The rule that refuses a merge or push without a `pass` verdict is therefore **unenforced by
+decision**, for that reason. The screen stays covered by a named check: the pre-push gate fails on any shape or
+credential it matches.
 
 ## Fresh-Context Judgement
 
-The record check proves who posted and which head the record names; no forge record can prove who judged. Freshness is
-therefore unenforced by decision, with this reason: the harness spawns the reviewer, and a spawn failure or an
-unreadable pin ends the run as `failed` before anything posts, so the mechanical layers still fail closed on every
-outcome a machine can observe. A self-judged verdict is a rule breach, not a passing record with a caveat.
+The harness spawns a new `leak-reviewer` for each head or range and never judges itself. A spawn failure ends the run as
+`failed` before any verdict exists, so the refusal holds on every outcome the harness can observe. No artifact the
+harness leaves can prove which context judged, so freshness is **unenforced by decision**, for that reason.
 
-## This Repository's Decisions
+The reviewer's read-only constraint and its duties never to post and never to copy a value are judgements its body
+states. The harness grants only the declared capabilities, and no check reads a verdict for values, so these too are
+**unenforced by decision**.
 
-Recorded once; the marker never changes afterward.
+## Adopter Decision: Integration Path
 
-| Decision          | Here                                            |
-| ----------------- | ----------------------------------------------- |
-| Record marker     | `ose-pr-leak-review`                            |
-| Reviewer identity | the repository owner                            |
-| Required checks   | `Quality gate` (range screen) and `leak-review` |
-| Integration path  | pull request; `main` refuses every direct push  |
+Record once, in the adopting repository's own conventions, whether its integration path is a pull request or a direct
+push to the default branch. A direct-push repository has no pull request to gate, so its push review is its only review,
+and the harness's refusal on push is the whole gate.
+
+This repository's integration path is a pull request, and `main` refuses every direct push.
