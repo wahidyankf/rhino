@@ -18,8 +18,8 @@ Two entries share one judgement:
 - **Push.** Before any push to `origin`, review the outgoing range privately per
   [Push Review](pr-leak-review/002-push-review.md): nothing is posted, and a finding blocks the push.
 - **Merge.** A pull request is open, and no `pass` record from the repository owner exists for its current head.
-  `pull-request` (`string`, required): its number or address. It is a
-  [merge precondition](../../conventions/pull-request-merge.md): no posted `pass`, no merge.
+  The delivery harness runs this workflow for that head before merge. `pull-request` (`string`, required): its number
+  or address. It is a [merge precondition](../../conventions/pull-request-merge.md): no posted `pass`, no merge.
 
 ## Sequence
 
