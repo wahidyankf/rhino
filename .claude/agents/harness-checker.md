@@ -1,7 +1,7 @@
 ---
 description: |-
   Audits a repository's harness bindings for internal parity with their canonical sources and for drift from each harness's current documented conventions, and returns rated findings without editing.
-effort: xhigh
+effort: high
 model: haiku
 name: harness-checker
 tools: |-

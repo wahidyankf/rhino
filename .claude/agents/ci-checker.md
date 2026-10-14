@@ -1,7 +1,7 @@
 ---
 description: |-
   Audits each project's test targets, local hooks, and pipeline definitions against the adopted gate standards and returns rated findings, without modifying anything.
-effort: xhigh
+effort: high
 model: haiku
 name: ci-checker
 tools: |-
