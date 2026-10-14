@@ -1,7 +1,7 @@
 ---
 description: |-
   Audits explicitly listed specification folders for index quality, scenario format, cross-folder consistency, architecture views, references, and implementation alignment, and returns rated findings without modifying anything.
-effort: xhigh
+effort: high
 model: haiku
 name: specs-checker
 tools: |-

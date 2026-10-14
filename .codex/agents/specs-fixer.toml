@@ -4,5 +4,5 @@ Before acting, read the complete canonical agent definition at the repository-ro
 .agents/agents/specs-fixer.md
 and follow it as authoritative. If it cannot be read, stop and report the missing path."""
 model = "gpt-6-luna"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "high"
 name = "specs-fixer"
