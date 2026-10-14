@@ -4,9 +4,10 @@ Use this only after an explicit direction to execute one formal plan.
 
 ## Start
 
-1. Select one plan in `backlog/` or `in-progress/`. Require a current verdict, any of the four, from the user-directed
-   [plan quality gate](../quality/plan-quality-gate.md). Authority to execute is not authority to run that gate: with no
-   current verdict, stop and say so. For a bug-fix plan, an adopted Upstream Tool Defects standard directs both.
+1. Select one plan in `backlog/` or `in-progress/`. A quality-gate verdict is optional manual history: execution
+   starts with or without one and never runs the gate itself. A missing verdict is recorded as
+   `plan-quality-gate: not run (manual-only)`. For a bug-fix plan, an adopted Upstream Tool Defects standard remains
+   available direction when explicitly invoked.
 2. Enter the plan's worktree before any file or Git mutation, initializing if new, under
    [the integration path](../../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
    its sync gate there, and read the whole incoming diff against the plan when the sync adds commits. Before starting
