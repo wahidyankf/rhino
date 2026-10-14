@@ -2,7 +2,7 @@
 description: |-
   Audits explicitly listed specification folders for index quality, scenario format, cross-folder consistency, architecture views, references, and implementation alignment, and returns rated findings without modifying anything.
 effort: xhigh
-model: sonnet
+model: haiku
 name: specs-checker
 tools: |-
   Read, Glob, Grep, Bash, mcp__serena__activate_project, mcp__serena__initial_instructions, mcp__serena__get_current_config, mcp__serena__get_symbols_overview, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__find_implementations, mcp__serena__find_declaration, mcp__serena__get_diagnostics_for_file, mcp__serena__get_diagnostics_for_symbol, mcp__serena__search_for_pattern, mcp__serena__read_memory, mcp__serena__list_memories
