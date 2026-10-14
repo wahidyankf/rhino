@@ -71,9 +71,8 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 - Make [thematic commits](repo-governance/conventions/thematic-commits.md) when
   [authorized](repo-governance/conventions/commit-authorization.md). Never commit prohibited
   [data](repo-governance/conventions/public-repository-data-safety.md); [public safety](scripts/public-safety/README.md)
-  gates every surface first without bypass; before each push the
-  [leak review](repo-governance/workflows/quality/pr-leak-review.md) reads every outgoing commit, and every merge needs
-  its posted exact-head `pass` (`leak-review` status). Fix
+  gates every surface first without bypass; before each push and merge, the delivery harness refuses unless a fresh
+  [leak review](repo-governance/workflows/quality/pr-leak-review.md) of the exact head passes. Fix
   [hook failures](repo-governance/conventions/push-hook-verification.md) at the cause. Keep
   [working tree](repo-governance/conventions/working-tree.md) clean and
   [poll GitHub](repo-governance/conventions/github-polling.md) every three minutes.

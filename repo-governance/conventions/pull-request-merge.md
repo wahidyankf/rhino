@@ -13,13 +13,12 @@ All five must hold at the moment of merge:
 - **Exact-head quality gate.** The `Quality gate` check from
   [`pr-quality-gate.yml`](../../.github/workflows/pr-quality-gate.yml) is green for the pull request's current head SHA
   against its current base. A run against an earlier head or a different base is stale evidence and authorizes nothing.
-- **Posted leak review of that same head.** Every push that built the branch first passed the
-  [push review](../workflows/quality/pr-leak-review/002-push-review.md) of each outgoing commit. One
-  [leak review](../workflows/quality/pr-leak-review.md) by the repository owner is posted on the pull request, names the
-  head it read, and reports `pass`, and the required `leak-review` status on that head reads `success`. A push that
-  moves the head voids the result; review the new head once rather than accumulating a streak of clean runs. Report a
-  finding by class, location, and remediation, never by repeating the value. An inspection nobody posted is not this
-  precondition.
+- **Harness leak verdict of that same head.** Every push that built the branch first passed the
+  [push review](../workflows/quality/pr-leak-review/002-push-review.md) of each outgoing commit. Before the merge, the
+  delivery harness runs a [leak review](../workflows/quality/pr-leak-review.md) of the exact head through a
+  fresh-context `leak-reviewer` agent, and merges only on a `pass` for that head. A push that moves the head voids the
+  result; review the new head once rather than accumulating a streak of clean runs. Report a finding by class, location,
+  and remediation, never by repeating the value. An inspection the harness did not run is not this precondition.
 - **Branch currency.** The branch is current with `main`, brought forward by rebase, and GitHub reports no conflict.
 - **Conversations.** Every review conversation is resolved, or dismissed by the user.
 - **Surface gates.** Every deterministic check the changed reachable behaviour requires has a passing terminal result. A
