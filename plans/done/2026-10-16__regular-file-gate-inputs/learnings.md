@@ -19,4 +19,5 @@ contracts explicit and preserves the full mutation snapshot boundary.
 The release workflow carries version-specific prior-stable note baselines. The new minor release must add its baseline
 there and use the same baseline for the screened preview.
 
-Disposition: pending execution; intended durable owner is the additive branch in `.github/workflows/release.yml`.
+Disposition: resolved by the prior-stable release-notes mapping in `.github/workflows/release.yml`. R2–R4 verified the
+screened `v0.12.0` preview and the published notes for `v0.13.0`; no follow-up is needed.

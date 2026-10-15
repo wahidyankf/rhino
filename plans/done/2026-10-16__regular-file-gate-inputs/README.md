@@ -1,10 +1,16 @@
 # Regular File Gate Inputs
 
-Status: In progress. The plan-only delivery and separate governance adoption have merged; the plan quality gate is
-terminally blocked by unavailable structural tooling. It found no semantic issues; the missing structural proof is owned
-by the Q0 gate caller under the existing advisory contract. T0 returned no-change. T1–T5 implementation and D0/D1
-documentation are complete; V0 version preparation and V1 Docs Quality Gate are complete. The post-commit
-self-validation passed 19/19 checks. V2 delivery and Release Cut remain pending.
+Status: Completed.
+
+Completed: 2026-10-16 (Asia/Jakarta).
+
+Substantive delivery is complete: the plan, governance adoption, and feature are merged, and `v0.13.0` is published and
+verified. C0 acceptance reconciliation and C1 learning dispositions are recorded. The Plan Quality Gate remains
+terminally blocked because structural tooling is unavailable; it found no semantic issues, and its unmet structural
+proof remains owned by the Q0 gate caller under the advisory contract. T0 returned no-change. C3's eligible cleanup and
+prepared archival PR body are complete. C2 permits archival with zero blocking findings. This dated archive records
+substantive completion and readiness; C4's final merge/reconciliation proof and C5's actual cleanup proof remain
+assigned to the archival PR body after merge.
 
 RHINO needs an explicit way to pass changed regular files to a formatter while retaining tracked compatibility links as
 link data. This plan adds an opt-in input and releases it through the existing delivery route. It owns only RHINO;
@@ -44,13 +50,14 @@ merges**, retaining one checkout through completion and recording final cleanup 
 cleanup first with a separate archival route; open alternatives and discussion remained available. This preserves the
 one-checkout delivery boundary without claiming cleanup before it occurs.
 
-The portable rule correction landed in its canonical catalog, and this plan and the separate RHINO governance adoption
-have since merged; [the delivery record](delivery.md) records their published revisions and evidence. The Plan Quality
-Gate returned `BLOCKED` because its structural validator is unavailable, after finding no semantic issues. The Q0 gate
-caller owns the unmet structural proof. Under the existing advisory contract, the approved work continued at T0, which
-returned no-change. T1–T5 implementation and D0/D1 documentation are complete; architecture/scenario reviews passed, V0
-prepared `0.13.0`, and V1 reached its terminal verdict. The post-commit self-validation passed 19/19 checks. V2 delivery
-and Release Cut remain pending; the Q0 structural proof remains unmet.
+The portable rule correction landed in its canonical catalog, and this plan, the separate RHINO governance adoption, and
+the feature delivery have merged; [the delivery record](delivery.md) records their revisions and evidence. The Plan
+Quality Gate returned `BLOCKED` because its structural validator is unavailable, after finding no semantic issues. The
+Q0 gate caller owns the unmet structural proof. Under the existing advisory contract, the approved work continued at T0,
+which returned no-change. T1–T5, D0/D1, V0/V1, V2, and R0–R4 are complete. Release verification confirms `v0.13.0`
+matches its commit and assets. C0 acceptance reconciliation, C1 learning dispositions, and C3's eligible cleanup and
+prepared PR procedure are recorded. C2 permits archival. This change prepares C4's dated archive; the archival PR body
+records its final delivery proof and C5's actual cleanup after merge, without another archived-plan edit.
 
 ## Directory Map
 
