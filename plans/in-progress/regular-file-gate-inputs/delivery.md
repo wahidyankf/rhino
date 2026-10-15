@@ -122,23 +122,27 @@ the merged archival PR and makes no further archived-plan edit. Recovery nodes a
   > `S cargo xtask self-validate` result and scoped formatting results remain the applicable checks: exit 0, with all 19
   > declared gates passed. Their logs and exit statuses are listed under P2. Implementation, feature-verification,
   > release, and publishing commands below remain prescribed work and were not exercised.
-- [ ] [AI] P4 — Deliver U0 through Worktree to Pull Request with required public safety, exact-head fresh-context leak
+- [x] [AI] P4 — Deliver U0 through Worktree to Pull Request with required public safety, exact-head fresh-context leak
       review, review, and CI; paths: plan and stage map only; proof: merged PR,
       `git merge-base --is-ancestor <plan-commit> origin/main` exit 0, then primary
       `git rev-list --left-right --count HEAD...origin/main` reports `0 0`. Include no governance-adoption changes in
-      this PR; retain G0 as pending. Acceptance: AC-RF-12.
+      this PR; retain G0 as a separate delivery. Acceptance: AC-RF-12.
+  > 2026-10-15: [plan PR 154](https://github.com/wahidyankf/rhino/pull/154) merged at 15:02:34 UTC as
+  > `11da192fa4b012d9aa58bec92a6ad6feca85f703`. Reviewed head: `6aa3343`; reviewed and landed trees both equal
+  > `0cec5f70b82e136b9e58561b014b7f4336968012`. The plan commit is an ancestor of `origin/main` (check exit 0); primary
+  > `main` matched `origin/main` at `0 0`.
 
 Post-write decision gate — 2026-10-15: complete-draft inspection found the cleanup/archive ordering conflict. The owner
 selected A: keep the one checkout through the archival PR merge, then remove it and its task branches. Record final
 evidence in that PR. The competing cleanup-first route was rejected because it would require another archival route. The
 catalog correction publishes before final plan checks and the plan-only merge; RHINO adopts it afterward through its own
 separate PR, before the Plan Quality Gate. This ordering lets each transaction land from the same cleanly synced
-checkout. The material branch is closed, source publication is proven, and P2's final deterministic checks passed. The
-P3 frozen-input review returned `no-change` and reuses that validation evidence. The plan-only delivery and owner
-adoption remain pending. No quality verdict exists.
+checkout. The material branch is closed, source publication is proven, and P2's final deterministic checks passed for
+the original seven-file plan input; P3's frozen-input review returned `no-change` on that same input. Subsequent
+delivery is recorded below. No Plan Quality Gate verdict exists, so implementation remains blocked.
 
-Governance source: `769d6d21f3f48947d17410a1dcb10b5d3f9bd27a` (P2A complete). Explicit owner adoption revision: pending
-(G0). Do not claim adoption complete before its actual proof exists.
+Governance source: `769d6d21f3f48947d17410a1dcb10b5d3f9bd27a` (P2A). RHINO adoption merged as
+`5a3fb75b50113ed94d8a19aa78239c0a275bfe8e` (G0); the adoption proof follows below.
 
 The source inspection covered `repo-governance/conventions/structure/plans/014-dependency-graph-and-recovery.md`,
 `repo-governance/development/agents/planning-capabilities/007-execution-review.md`,
@@ -150,21 +154,34 @@ RHINO's differently located governance or generated bindings have already adopte
 
 ## Phase 1 — Governance Adoption and Plan Quality
 
-Blocked by P4, because the plan lands alone before the separate governance adoption and quality gate.
+P4 and G0 are complete. Q0 remains the next required checkpoint; implementation stays blocked until it has a terminal
+verdict and every blocking row has an owner.
 
-- [ ] [AI] G0 — From the same now-clean task checkout, fetch and sync from refreshed `origin/main`, inspect the incoming
+- [x] [AI] G0 — From the same now-clean task checkout, fetch and sync from refreshed `origin/main`, inspect the incoming
       plan merge, then deliver the separately owned U0A governance-adoption PR from P2A's actual published catalog SHA.
       Proof: its exact source mapping and generated bindings verify, owner checks and required review/CI pass, adoption
       merges, `git merge-base --is-ancestor <adoption-commit> origin/main` exits 0, and primary
       `git rev-list --left-right --count HEAD...origin/main` reports `0 0`. Record the published source/adoption
       revisions here only after these proofs exist. Do not run Q0 before G0. Acceptance: AC-RF-12.
 
+  > 2026-10-15: [adoption PR 155](https://github.com/wahidyankf/rhino/pull/155) merged at 15:52:33 UTC as
+  > `5a3fb75b50113ed94d8a19aa78239c0a275bfe8e`, adopting catalog source `769d6d21f3f48947d17410a1dcb10b5d3f9bd27a`.
+  > Reviewed head: `495a485`; reviewed and landed trees both equal `ff3e7377c37773a47ed947502562896c79b49bae`. Ready CI
+  > run `38763091941` passed all jobs; all 19 native gates passed on the adoption candidate. Fresh merge leak review
+  > passed all three counts at 0, with zero final API threads and the reviewed head, base, text, and clean state
+  > unchanged. The adoption commit is an ancestor of `origin/main` (check exit 0). Primary `main` and `origin/main` both
+  > resolved to this merge, with divergence `0 0`.
+
+  > After the merge, the same task checkout was clean-synced to `5a3fb75` on
+  > `worktree/regular-file-inputs-implementation`; its incoming tree diff against the reviewed adoption candidate was
+  > empty. No second checkout was created.
+
 - [ ] [AI] Q0 — After G0, sync this same task checkout from refreshed `origin/main`, inspect the incoming adoption diff,
       and run Plan Quality Gate on `plans/in-progress/regular-file-gate-inputs` with `mode normal`, `max-cycles 3`;
       proof: structural checks exit 0, a frozen checker ledger and separate fixer outcomes exist, and a terminal verdict
       is recorded here. Assign each open blocking row to a concrete owner before T0. Acceptance: AC-RF-12.
 
-plan-quality-gate: pending (plan-only delivery and the separate published governance adoption precede the gate).
+plan-quality-gate: pending (P4 and G0 are complete; Q0 is next).
 
 ## Phase 2 — Test-First Implementation
 
