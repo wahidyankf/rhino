@@ -15,4 +15,5 @@ disposition rather than a checkmark. Then the same workflow performs the collisi
 
 ## Directory Map
 
-This stage holds no plan folder, so this README has no siblings to map.
+- [Regular file gate inputs](regular-file-gate-inputs/README.md) plans explicit regular-file selection and a compatible
+  verified release.
