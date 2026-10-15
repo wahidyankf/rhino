@@ -26,6 +26,8 @@ const CHILD_MARKER: &str = crate::binding::CHILD_MARKER;
 
 pub struct Sandbox {
     root: PathBuf,
+    base: Option<String>,
+    head: Option<String>,
     /// Directories this sandbox made beside its root for links to lead out
     /// to. Created and removed by the sandbox itself, so a scenario about
     /// leaving the repository still touches nothing it did not create.
@@ -58,6 +60,8 @@ impl Sandbox {
 
         let mut sandbox = Self {
             root,
+            base: None,
+            head: None,
             outside: Vec::new(),
         };
         for (path, content) in repository.files {
@@ -103,6 +107,10 @@ impl Sandbox {
         for id in repository.unstartable_models {
             let _ = std::fs::remove_file(sandbox.root.join(format!("{MODELS}/{id}.sh")));
         }
+        if repository.indexed_regular_paths.is_some() || repository.changed_regular_paths.is_some()
+        {
+            sandbox.git_snapshot(repository);
+        }
         // Permissions last: a file has to be written before it can be closed.
         for path in repository.unreadable {
             sandbox.seal(path);
@@ -121,23 +129,25 @@ impl Sandbox {
     fn recorder(&self, id: &str, code: i32) {
         use std::os::unix::fs::PermissionsExt;
         let path = format!("{GATES}/{id}.sh");
+        let journal = self.root.join(JOURNAL).to_string_lossy().into_owned();
         self.write(
             &path,
             &format!(
                 r#"#!/bin/sh
-journal="$PWD/{JOURNAL}"
+journal='{journal}'
 arguments=""
 for argument in "$@"; do
   if [ -z "$arguments" ]; then arguments="$argument"; else arguments="$arguments|$argument"; fi
 done
 input=$(cat)
-printf 'start\t{id}\t%s\t%s\t%s\t%s\n' "$arguments" "$RHINO_GATE_SURFACE" "$input" "$PWD" >> "$journal"
+printf 'start\t{id}\t%s\t%s\t%s\t%s\tRHINO_FILE=%s\n' "$arguments" "$RHINO_GATE_SURFACE" "$input" "$PWD" "${{RHINO_FILE-}}" >> "$journal"
 printf '{marker} {id}\n'
 printf '{marker} {id}\n' >&2
 printf 'stop\t{id}\n' >> "$journal"
 exit {code}
 "#,
                 marker = CHILD_MARKER,
+                journal = journal,
             ),
         );
         let target = self.root.join(&path);
@@ -250,6 +260,97 @@ exit {code}
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub fn revisions(&self) -> Option<(&str, &str)> {
+        Some((self.base.as_deref()?, self.head.as_deref()?))
+    }
+
+    fn git_snapshot(&mut self, repository: &Repository<'_>) {
+        self.git(&["init", "--quiet"]);
+        self.git(&["config", "user.email", "fixture@example.invalid"]);
+        self.git(&["config", "user.name", "Rhino Fixture"]);
+        self.git(&["add", "-A"]);
+        self.git(&[
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "regular-file baseline",
+        ]);
+        self.base = Some(self.git_text(&["rev-parse", "HEAD"]));
+
+        if let Some(paths) = repository.changed_regular_paths {
+            for path in paths {
+                let file = self.root.join(path);
+                let mut content = std::fs::read(&file).unwrap_or_else(|error| {
+                    panic!("range selection `{path}` is readable: {error}")
+                });
+                content.extend_from_slice(b"range snapshot version\n");
+                std::fs::write(file, content).expect("the changed range version is written");
+                self.git(&["add", "--", path]);
+            }
+            self.git(&[
+                "commit",
+                "--quiet",
+                "--allow-empty",
+                "-m",
+                "regular-file range",
+            ]);
+        }
+        self.head = Some(self.git_text(&["rev-parse", "HEAD"]));
+
+        if let Some(paths) = repository.indexed_regular_paths {
+            for path in paths {
+                let file = self.root.join(path);
+                let mut content = std::fs::read(&file).unwrap_or_else(|error| {
+                    panic!("index selection `{path}` is readable: {error}")
+                });
+                content.extend_from_slice(b"index snapshot version\n");
+                std::fs::write(file, content).expect("the staged index version is written");
+                self.git(&["add", "--", path]);
+            }
+        }
+
+        for (path, target) in repository.regular_working_links {
+            let link = self.root.join(path);
+            std::fs::remove_file(&link).expect("the contrasting working file is removed");
+            std::os::unix::fs::symlink(target, link)
+                .expect("the contrasting working-tree symlink is created");
+        }
+    }
+
+    fn git(&self, arguments: &[&str]) {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args(arguments)
+            .output()
+            .expect("Git starts for the isolated scenario snapshot");
+        assert!(
+            output.status.success(),
+            "Git fixture command {arguments:?} failed with {}: {}",
+            output.status.code().unwrap_or(2),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn git_text(&self, arguments: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args(arguments)
+            .output()
+            .expect("Git starts for the isolated scenario snapshot");
+        assert!(
+            output.status.success(),
+            "Git fixture command {arguments:?} failed with {}",
+            output.status.code().unwrap_or(2)
+        );
+        String::from_utf8(output.stdout)
+            .expect("the synthetic Git revision is UTF-8")
+            .trim()
+            .to_string()
     }
 
     fn write(&self, path: &str, content: &str) {

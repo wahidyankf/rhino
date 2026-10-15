@@ -19,7 +19,11 @@ impl Driver for E2eDriver {
         let sandbox = Sandbox::build(repository);
 
         let root = sandbox.root().to_string_lossy().into_owned();
-        let arguments = world::with_root(arguments, &root, &format!("{root}/no-such-directory"));
+        let arguments = match sandbox.revisions() {
+            Some((base, head)) => world::with_revisions(arguments, base, head),
+            None => arguments.to_vec(),
+        };
+        let arguments = world::with_root(&arguments, &root, &format!("{root}/no-such-directory"));
 
         let before = sandbox::observe(sandbox.root());
         // Standard input is always a pipe, closed when nothing was supplied, so

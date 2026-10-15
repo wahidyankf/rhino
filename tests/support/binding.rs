@@ -296,6 +296,43 @@ fn dispatch<D: Driver>(world: &mut World<D>, step: &Step, matched: &Match) -> Ou
                 "the step promised a table of files and carried none".to_string(),
             )
         }
+        "the Git index selects the regular file {string}" => {
+            world
+                .indexed_regular_paths
+                .get_or_insert_with(Default::default)
+                .insert(matched.string(0).to_string());
+            Outcome::Passed
+        }
+        "the Git index selects no regular files" => {
+            world.indexed_regular_paths = Some(Default::default());
+            Outcome::Passed
+        }
+        "the explicit range selects the regular file {string}" => {
+            let path = matched.string(0).to_string();
+            world
+                .changed_paths
+                .get_or_insert_with(Default::default)
+                .insert(path.clone());
+            world
+                .changed_regular_paths
+                .get_or_insert_with(Default::default)
+                .insert(path);
+            Outcome::Passed
+        }
+        "the explicit range selects no regular files" => {
+            world.changed_regular_paths = Some(Default::default());
+            Outcome::Passed
+        }
+        "the declared mutation runs against its isolated snapshot" => {
+            world.run_mutations = true;
+            Outcome::Passed
+        }
+        "the working tree path {string} is a symbolic link to {string}" => {
+            world
+                .regular_working_links
+                .insert(matched.string(0).to_string(), matched.string(1).to_string());
+            Outcome::Passed
+        }
         "the repository contains a symbolic link at {string}" => {
             world.links.insert(matched.string(0).to_string());
             Outcome::Passed
@@ -2613,6 +2650,13 @@ Body.
             2,
             matched.string(1),
             "argument vector",
+        ),
+        "the gate {string} received the environment projection {string}" => gate_field(
+            world,
+            matched.string(0),
+            6,
+            matched.string(1),
+            "environment projection",
         ),
         "the gate {string} read the standard input {string}" => gate_field(
             world,

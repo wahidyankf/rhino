@@ -2,7 +2,9 @@
 
 Status: In progress. The plan-only delivery and separate governance adoption have merged; the plan quality gate is
 terminally blocked by unavailable structural tooling. It found no semantic issues; the missing structural proof is owned
-by the Q0 gate caller under the existing advisory contract. Implementation has not started.
+by the Q0 gate caller under the existing advisory contract. T0 returned no-change. T1–T5 implementation is complete;
+as-built documentation is updated. Architecture and scenario reviews passed; the post-commit full self-validation
+remains pending.
 
 RHINO needs an explicit way to pass changed regular files to a formatter while retaining tracked compatibility links as
 link data. This plan adds an opt-in input and releases it through the existing delivery route. It owns only RHINO;
@@ -45,8 +47,9 @@ one-checkout delivery boundary without claiming cleanup before it occurs.
 The portable rule correction landed in its canonical catalog, and this plan and the separate RHINO governance adoption
 have since merged; [the delivery record](delivery.md) records their published revisions and evidence. The Plan Quality
 Gate returned `BLOCKED` because its structural validator is unavailable, after finding no semantic issues. The Q0 gate
-caller owns the unmet structural proof. Under the existing advisory contract, the approved work may continue at T0; the
-structural proof remains unmet and no product implementation has started.
+caller owns the unmet structural proof. Under the existing advisory contract, the approved work continued at T0, which
+returned no-change. T1–T5 implementation is complete; D0/D1 documentation is updated and architecture/scenario reviews
+passed. The post-commit full self-validation remains pending; the structural proof remains unmet.
 
 ## Directory Map
 

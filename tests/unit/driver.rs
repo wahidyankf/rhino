@@ -53,8 +53,22 @@ impl Driver for UnitDriver {
         for (link, target) in repository.inside_links {
             tree.mark_link_to(link, target);
         }
+        for (path, target) in repository.regular_working_links {
+            tree.mark_link_to(path, target);
+        }
         for path in repository.empty_directories {
             tree.mark_directory(path);
+        }
+        if let Some(paths) = repository.indexed_regular_paths {
+            tree.set_indexed_regular_files(paths.iter());
+        }
+        const BASE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const HEAD: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        if let Some(paths) = repository.changed_paths {
+            tree.set_changed_files(BASE, HEAD, paths.iter());
+        }
+        if let Some(paths) = repository.changed_regular_paths {
+            tree.set_changed_regular_files(BASE, HEAD, paths.iter());
         }
 
         // Read back through the port on both sides rather than cloning the map
@@ -63,7 +77,8 @@ impl Driver for UnitDriver {
         // `.` is this tree seen from itself, and a name nothing starts with
         // is a root that is not there -- the same two claims the filesystem
         // adapters make with real paths.
-        let arguments = world::with_root(arguments, ".", "no-such-directory");
+        let arguments = world::with_revisions(arguments, BASE, HEAD);
+        let arguments = world::with_root(&arguments, ".", "no-such-directory");
 
         let before = observe(&tree);
         // Adapter generation receives its own in-memory transaction boundary;
@@ -75,13 +90,17 @@ impl Driver for UnitDriver {
             true => &NoLauncher as &dyn rhino::runtime::Launcher,
             false => &recorder as &dyn rhino::runtime::Launcher,
         };
+        let mutations = match repository.run_mutations {
+            true => &recorder as &dyn rhino::runtime::MutationRunner,
+            false => &NoMutationRunner as &dyn rhino::runtime::MutationRunner,
+        };
         let outcome = rhino::execute_using_with_boundaries(
             &tree,
             &arguments,
             repository.stdin,
             ExecutionBoundaries {
                 launcher,
-                mutations: &NoMutationRunner,
+                mutations,
                 adapters: &adapters,
                 environments: &environments,
                 toolchains: &NoToolchainRunner,

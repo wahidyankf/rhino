@@ -742,6 +742,46 @@ pub const BINDINGS: &[Binding] = &[
         "quality-gates",
         "A split workflow that fits its word budget as one file is reported (QG11)",
     ),
+    (
+        "regular-files",
+        "A regular-files input accepts a Git index binding",
+    ),
+    (
+        "regular-files",
+        "A regular-files input accepts an explicit-range binding",
+    ),
+    (
+        "regular-files",
+        "A regular-files input refuses an unsupported source",
+    ),
+    (
+        "regular-files",
+        "Regular-files index projection uses the selected Git snapshot",
+    ),
+    (
+        "regular-files",
+        "Regular-files range projection uses the immutable Git snapshot",
+    ),
+    (
+        "regular-files",
+        "Regular-files projections preserve argv and environment values",
+    ),
+    (
+        "regular-files",
+        "Skip an empty regular-files mutation on pre-commit",
+    ),
+    (
+        "regular-files",
+        "Skip an empty regular-files mutation on pull-request",
+    ),
+    (
+        "regular-files",
+        "Run a mixed-input mutation when a legacy file input selects a path",
+    ),
+    (
+        "regular-files",
+        "Run a regular-files check when its selection is empty",
+    ),
 ];
 
 /// Bindings this layer legitimately does not have. Each must name the concrete

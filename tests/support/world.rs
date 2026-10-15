@@ -411,6 +411,16 @@ pub struct World<D> {
     /// order. A scenario states this rather than shipping a script, so the same
     /// sentence means the same thing at a boundary that cannot spawn anything.
     pub gate_outcomes: Vec<(String, i32)>,
+    /// Paths explicitly selected by the legacy changed-file range.
+    pub changed_paths: Option<BTreeSet<String>>,
+    /// Whether this scenario exercises a successful mutation boundary.
+    pub run_mutations: bool,
+    /// Regular paths explicitly present in the declared Git index snapshot.
+    pub indexed_regular_paths: Option<BTreeSet<String>>,
+    /// Regular paths explicitly present at the declared immutable range head.
+    pub changed_regular_paths: Option<BTreeSet<String>>,
+    /// Working-tree links that deliberately contrast with selected Git blobs.
+    pub regular_working_links: BTreeMap<String, String>,
     /// Gates whose child cannot be started at all, which is a different fact
     /// from a child that started and failed.
     pub unlaunchable_gates: BTreeSet<String>,
@@ -441,6 +451,11 @@ impl<D> World<D> {
             empty_directories: &self.empty_directories,
             stdin: self.stdin.as_deref(),
             gate_outcomes: &self.gate_outcomes,
+            changed_paths: self.changed_paths.as_ref(),
+            run_mutations: self.run_mutations,
+            indexed_regular_paths: self.indexed_regular_paths.as_ref(),
+            changed_regular_paths: self.changed_regular_paths.as_ref(),
+            regular_working_links: &self.regular_working_links,
             unlaunchable_gates: &self.unlaunchable_gates,
             model_outputs: &self.model_outputs,
             unstartable_models: &self.unstartable_models,
@@ -500,6 +515,11 @@ pub struct Repository<'a> {
     /// The gate children this repository is to answer with, in declaration
     /// order, and the ones that cannot be started at all.
     pub gate_outcomes: &'a [(String, i32)],
+    pub changed_paths: Option<&'a BTreeSet<String>>,
+    pub run_mutations: bool,
+    pub indexed_regular_paths: Option<&'a BTreeSet<String>>,
+    pub changed_regular_paths: Option<&'a BTreeSet<String>>,
+    pub regular_working_links: &'a BTreeMap<String, String>,
     pub unlaunchable_gates: &'a BTreeSet<String>,
     /// The model-listing commands this repository answers with, and the ones
     /// that cannot be started at all.
@@ -535,6 +555,18 @@ pub fn with_root(arguments: &[String], root: &str, missing: &str) -> Vec<String>
         .map(|argument| match argument.as_str() {
             ROOT => root.to_string(),
             MISSING_ROOT => missing.to_string(),
+            other => other.to_string(),
+        })
+        .collect()
+}
+
+/// Replace immutable range placeholders with the revisions the adapter made.
+pub fn with_revisions(arguments: &[String], base: &str, head: &str) -> Vec<String> {
+    arguments
+        .iter()
+        .map(|argument| match argument.as_str() {
+            "{base}" => base.to_string(),
+            "{head}" => head.to_string(),
             other => other.to_string(),
         })
         .collect()

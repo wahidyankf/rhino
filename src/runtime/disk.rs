@@ -7,6 +7,7 @@
 //! read-only; a later, separately named mutation runner will own the narrow
 //! index and disposable-replay write boundary.
 
+use super::git_paths::{is_repository_path, regular_file_paths};
 use super::{
     AdapterError, AdapterStore, AdapterTransaction, EnvironmentError, EnvironmentStore,
     EnvironmentTransaction, Launch, LaunchError, Launched, Launcher, LinkTarget, ModelResolver,
@@ -333,6 +334,31 @@ impl Tree for DiskTree {
         Ok(paths)
     }
 
+    fn indexed_regular_files(&self) -> Result<Vec<String>, String> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args([
+                "diff",
+                "--cached",
+                "--raw",
+                "-z",
+                "--no-renames",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--",
+            ])
+            .output()
+            .map_err(|error| format!("could not read regular files from the Git index: {error}"))?;
+        if !output.status.success() {
+            return Err(format!(
+                "Git refused the regular-file index query with status {}",
+                output.status.code().unwrap_or(2)
+            ));
+        }
+        regular_file_paths(&output.stdout)
+    }
+
     fn changed_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
         let range = format!("{base}..{head}");
         let output = Command::new("git")
@@ -368,6 +394,32 @@ impl Tree for DiskTree {
         paths.sort();
         paths.dedup();
         Ok(paths)
+    }
+
+    fn changed_regular_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
+        let range = format!("{base}..{head}");
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args([
+                "diff",
+                "--raw",
+                "-z",
+                "--no-renames",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--end-of-options",
+                &range,
+                "--",
+            ])
+            .output()
+            .map_err(|error| {
+                format!("could not read regular files for the declared Git range: {error}")
+            })?;
+        if !output.status.success() {
+            return Err("Git refused the declared regular-file range".to_string());
+        }
+        regular_file_paths(&output.stdout)
     }
 
     fn resolve_git_ref(&self, reference: &str) -> Result<String, String> {
@@ -571,14 +623,6 @@ impl Tree for DiskTree {
         // the selected repository never excluded.
         Ok(Box::new(Self::new(candidate)?))
     }
-}
-
-fn is_repository_path(path: &str) -> bool {
-    !path.is_empty()
-        && !Path::new(path).is_absolute()
-        && path
-            .split('/')
-            .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
 }
 
 /// The only real mutation boundary. It materializes a Git-index snapshot or a

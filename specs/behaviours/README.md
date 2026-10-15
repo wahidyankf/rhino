@@ -10,3 +10,5 @@ survive only as rejection fixtures.
   and stable predecessor-rejection contracts.
 - [quality-gates.feature](quality-gates.feature) — the quality-gate structure checks QG01–QG11 under
   `policies.governance.quality-gates`.
+- [regular-files.feature](regular-files.feature) — acceptance scenarios for explicit Git destination-mode input
+  selection.

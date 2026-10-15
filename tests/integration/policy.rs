@@ -19,7 +19,7 @@ use rhino::runtime::{
     EnvironmentFile, EnvironmentRestoreFile, EnvironmentRestoreTransaction, EnvironmentStore,
     EnvironmentTransaction, ModelResolver, MutationLaunch, MutationRunner, NoAdapterStore,
     NoEnvironmentStore, NoLauncher, NoModelResolver, NoMutationRunner, NoToolchainRunner,
-    ResolveLaunch, ToolchainLaunch, ToolchainRunner, Tree, TreeError,
+    ProcessLauncher, ResolveLaunch, ToolchainLaunch, ToolchainRunner, Tree, TreeError,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -91,6 +91,24 @@ impl IndexFixture {
         );
         output.stdout
     }
+
+    fn assert_raw_object_width(&self, arguments: &[&str], expected: usize) {
+        let raw = self.git_stdout(arguments);
+        let header = raw
+            .split(|byte| *byte == 0)
+            .next()
+            .filter(|header| !header.is_empty())
+            .expect("the raw Git fixture has a record header");
+        let header = std::str::from_utf8(header).expect("the raw Git header is ASCII");
+        let fields: Vec<_> = header.split(' ').collect();
+        assert_eq!(fields.len(), 5, "the raw Git header has five fields");
+        assert_eq!(fields[2].len(), expected, "the source ID is abbreviated");
+        assert_eq!(
+            fields[3].len(),
+            expected,
+            "the destination ID is abbreviated"
+        );
+    }
 }
 
 impl Drop for IndexFixture {
@@ -133,6 +151,42 @@ fn disk_tree_reads_only_staged_paths_from_the_git_index() {
 }
 
 #[test]
+fn disk_tree_reads_index_raw_records_with_core_abbrev_four() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    fixture.git(&["config", "core.abbrev", "4"]);
+    std::fs::write(fixture.root.join("notes.md"), "base bytes\n")
+        .expect("the baseline file is written");
+    fixture.git(&["add", "--", "notes.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    std::fs::write(fixture.root.join("notes.md"), "staged bytes\n")
+        .expect("the changed index file is written");
+    fixture.git(&["add", "--", "notes.md"]);
+    fixture.assert_raw_object_width(
+        &[
+            "diff",
+            "--cached",
+            "--raw",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--",
+        ],
+        4,
+    );
+
+    let tree = DiskTree::new(&fixture.root).expect("the Git fixture is a tree");
+    assert_eq!(
+        tree.indexed_regular_files()
+            .expect("four-digit raw index IDs are valid"),
+        vec!["notes.md"]
+    );
+}
+
+#[test]
 fn disk_tree_reads_only_changed_paths_from_an_immutable_range() {
     let fixture = IndexFixture::new();
     fixture.git(&["init", "--quiet"]);
@@ -167,6 +221,249 @@ fn disk_tree_reads_only_changed_paths_from_an_immutable_range() {
         tree.changed_files(&base, &head)
             .expect("the immutable Git range is readable"),
         vec!["notes/added name.md", "notes/changed.md"]
+    );
+}
+
+#[test]
+fn disk_tree_reads_range_raw_records_with_core_abbrev_four() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    fixture.git(&["config", "core.abbrev", "4"]);
+    std::fs::write(fixture.root.join("notes.md"), "base bytes\n")
+        .expect("the baseline file is written");
+    fixture.git(&["add", "--", "notes.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture base"]);
+    let base = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the base commit ID is UTF-8")
+        .trim()
+        .to_string();
+
+    std::fs::write(fixture.root.join("notes.md"), "head bytes\n")
+        .expect("the changed head file is written");
+    fixture.git(&["add", "--", "notes.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture head"]);
+    let head = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the head commit ID is UTF-8")
+        .trim()
+        .to_string();
+    let range = format!("{base}..{head}");
+    fixture.assert_raw_object_width(
+        &[
+            "diff",
+            "--raw",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--end-of-options",
+            &range,
+            "--",
+        ],
+        4,
+    );
+
+    let tree = DiskTree::new(&fixture.root).expect("the Git fixture is a tree");
+    assert_eq!(
+        tree.changed_regular_files(&base, &head)
+            .expect("four-digit raw range IDs are valid"),
+        vec!["notes.md"]
+    );
+}
+
+#[test]
+fn disk_tree_selects_index_files_by_destination_mode_and_change_kind() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::write(fixture.root.join("executable.sh"), "before\n")
+        .expect("the executable candidate is written");
+    std::fs::write(fixture.root.join("file-to-link"), "before\n")
+        .expect("the file-to-link candidate is written");
+    symlink("before-target", fixture.root.join("link-to-file"))
+        .expect("the link-to-file candidate is written");
+    std::fs::write(fixture.root.join("deleted.md"), "before\n")
+        .expect("the deletion candidate is written");
+    std::fs::write(fixture.root.join("renamed-old.md"), "before\n")
+        .expect("the rename source is written");
+    fixture.git(&[
+        "add",
+        "--",
+        "executable.sh",
+        "file-to-link",
+        "link-to-file",
+        "deleted.md",
+        "renamed-old.md",
+    ]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture baseline"]);
+    let commit = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the fixture commit ID is UTF-8")
+        .trim()
+        .to_string();
+
+    std::fs::set_permissions(
+        fixture.root.join("executable.sh"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .expect("the executable bit is set");
+    std::fs::remove_file(fixture.root.join("file-to-link"))
+        .expect("the regular file is removed before becoming a link");
+    symlink("after-target", fixture.root.join("file-to-link"))
+        .expect("the file-to-link becomes a symlink");
+    std::fs::remove_file(fixture.root.join("link-to-file"))
+        .expect("the old symlink is removed before becoming a regular file");
+    std::fs::write(fixture.root.join("link-to-file"), "after\n")
+        .expect("the link-to-file becomes a regular file");
+    std::fs::remove_file(fixture.root.join("deleted.md")).expect("the deleted path is removed");
+    std::fs::rename(
+        fixture.root.join("renamed-old.md"),
+        fixture.root.join("renamed-new.md"),
+    )
+    .expect("the regular rename destination is written");
+    fixture.git(&["add", "--all"]);
+    fixture.git(&[
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        &format!("160000,{commit},submodule"),
+    ]);
+
+    let tree = DiskTree::new(&fixture.root).expect("the Git fixture is a tree");
+    assert_eq!(
+        tree.indexed_regular_files()
+            .expect("the real index raw records are readable"),
+        vec!["executable.sh", "link-to-file", "renamed-new.md",]
+    );
+}
+
+#[test]
+fn disk_tree_selects_immutable_range_head_modes_not_working_tree_types() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::write(fixture.root.join("executable.sh"), "before\n")
+        .expect("the executable candidate is written");
+    std::fs::write(fixture.root.join("file-to-link"), "before\n")
+        .expect("the file-to-link candidate is written");
+    symlink("before-target", fixture.root.join("link-to-file"))
+        .expect("the link-to-file candidate is written");
+    std::fs::write(fixture.root.join("deleted.md"), "before\n")
+        .expect("the deletion candidate is written");
+    std::fs::write(fixture.root.join("renamed-old.md"), "before\n")
+        .expect("the rename source is written");
+    fixture.git(&[
+        "add",
+        "--",
+        "executable.sh",
+        "file-to-link",
+        "link-to-file",
+        "deleted.md",
+        "renamed-old.md",
+    ]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture base"]);
+    let base = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the base commit ID is UTF-8")
+        .trim()
+        .to_string();
+
+    std::fs::set_permissions(
+        fixture.root.join("executable.sh"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .expect("the executable bit is set");
+    std::fs::remove_file(fixture.root.join("file-to-link"))
+        .expect("the regular file is removed before becoming a link");
+    symlink("after-target", fixture.root.join("file-to-link"))
+        .expect("the file-to-link becomes a symlink");
+    std::fs::remove_file(fixture.root.join("link-to-file"))
+        .expect("the old symlink is removed before becoming a regular file");
+    std::fs::write(fixture.root.join("link-to-file"), "after\n")
+        .expect("the link-to-file becomes a regular file");
+    std::fs::remove_file(fixture.root.join("deleted.md")).expect("the deleted path is removed");
+    std::fs::rename(
+        fixture.root.join("renamed-old.md"),
+        fixture.root.join("renamed-new.md"),
+    )
+    .expect("the regular rename destination is written");
+    fixture.git(&["add", "--all"]);
+    fixture.git(&[
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        &format!("160000,{base},submodule"),
+    ]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture head"]);
+    let head = String::from_utf8(fixture.git_stdout(&["rev-parse", "HEAD"]))
+        .expect("the head commit ID is UTF-8")
+        .trim()
+        .to_string();
+
+    // Make the checked-out paths disagree with the immutable head modes.
+    std::fs::remove_file(fixture.root.join("link-to-file"))
+        .expect("the committed regular file is removed from the worktree");
+    symlink("working-target", fixture.root.join("link-to-file"))
+        .expect("the committed regular file becomes a working symlink");
+    std::fs::remove_file(fixture.root.join("file-to-link"))
+        .expect("the committed symlink is removed from the worktree");
+    std::fs::write(fixture.root.join("file-to-link"), "working regular file\n")
+        .expect("the committed symlink becomes a working regular file");
+
+    let tree = DiskTree::new(&fixture.root).expect("the Git fixture is a tree");
+    assert_eq!(
+        tree.changed_regular_files(&base, &head)
+            .expect("the real immutable range raw records are readable"),
+        vec!["executable.sh", "link-to-file", "renamed-new.md",]
+    );
+}
+
+#[test]
+fn disk_tree_refuses_a_real_unmerged_index() {
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::write(fixture.root.join("conflict.md"), "base\n")
+        .expect("the conflict fixture is written");
+    fixture.git(&["add", "--", "conflict.md"]);
+    fixture.git(&["commit", "--quiet", "-m", "fixture base"]);
+    let base_branch = String::from_utf8(fixture.git_stdout(&["branch", "--show-current"]))
+        .expect("the base branch name is UTF-8")
+        .trim()
+        .to_string();
+
+    fixture.git(&["checkout", "--quiet", "-b", "conflicting-branch"]);
+    std::fs::write(fixture.root.join("conflict.md"), "side\n")
+        .expect("the side conflict is written");
+    fixture.git(&["commit", "--quiet", "-am", "side change"]);
+    fixture.git(&["checkout", "--quiet", &base_branch]);
+    std::fs::write(fixture.root.join("conflict.md"), "main\n")
+        .expect("the main conflict is written");
+    fixture.git(&["commit", "--quiet", "-am", "main change"]);
+    let merge = Command::new("git")
+        .arg("-C")
+        .arg(&fixture.root)
+        .args(["merge", "--no-edit", "conflicting-branch"])
+        .output()
+        .expect("Git starts the isolated conflicting merge");
+    assert!(
+        !merge.status.success(),
+        "the merge must leave unmerged stages"
+    );
+
+    let tree = DiskTree::new(&fixture.root).expect("the conflicted Git fixture is a tree");
+    let error = tree
+        .indexed_regular_files()
+        .expect_err("the raw Git index query must refuse unmerged records");
+    assert!(
+        error.contains("unmerged") || error.contains("unsupported raw change status"),
+        "{error}"
     );
 }
 
@@ -280,6 +577,180 @@ fn disk_mutation_updates_only_the_selected_index_blob() {
         std::fs::read(fixture.root.join("notes/staged.md")).expect("working bytes remain readable"),
         b"unstaged bytes\n"
     );
+}
+
+#[test]
+fn regular_files_host_selection_preserves_nine_indexed_links_and_partial_staging() {
+    use std::os::unix::fs::symlink;
+
+    let fixture = IndexFixture::new();
+    fixture.git(&["init", "--quiet"]);
+    fixture.git(&["config", "user.email", "fixture@example.invalid"]);
+    fixture.git(&["config", "user.name", "Rhino Fixture"]);
+    std::fs::create_dir_all(fixture.root.join("docs"))
+        .expect("the selected file directory is created");
+    std::fs::write(fixture.root.join("docs/selected.md"), "base bytes\n")
+        .expect("the selected regular file is created");
+    std::fs::write(fixture.root.join("docs/unrelated.md"), "unrelated bytes\n")
+        .expect("the unrelated regular file is created");
+    let mut links = Vec::new();
+    for index in 0..9 {
+        let path = format!("link-{index:02}");
+        symlink(format!("target-{index:02}"), fixture.root.join(&path))
+            .expect("the synthetic symlink is created");
+        links.push(path);
+    }
+    let mut added: Vec<&str> = vec!["add", "--", "docs/selected.md", "docs/unrelated.md"];
+    added.extend(links.iter().map(String::as_str));
+    fixture.git(&added);
+    fixture.git(&["commit", "--quiet", "-m", "nine links and one regular file"]);
+    std::fs::write(fixture.root.join("docs/selected.md"), "index bytes\n")
+        .expect("the selected index version is written");
+    for (index, path) in links.iter().enumerate() {
+        std::fs::remove_file(fixture.root.join(path)).expect("the baseline link is removed");
+        symlink(format!("staged-target-{index:02}"), fixture.root.join(path))
+            .expect("the staged link target is written");
+    }
+    let mut staged: Vec<&str> = vec!["add", "--", "docs/selected.md"];
+    staged.extend(links.iter().map(String::as_str));
+    fixture.git(&staged);
+    std::fs::write(fixture.root.join("docs/selected.md"), "unstaged bytes\n")
+        .expect("the unrelated working-tree version is written");
+
+    let argv_log = fixture.root.join(".formatter-argv");
+    let argv_log_yaml = argv_log.to_string_lossy().replace('\'', "''");
+    let gate_config = |input_kind: &str| {
+        r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: regular-format
+      type: mutation
+      inputs:
+        files: { kind: INPUT_KIND }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: sh
+        args:
+          - { literal: -c }
+          - { literal: "printf '%s\\n' \"$@\" > \"$0\"; for path in \"$@\"; do printf 'formatted:%s\\n' \"$path\" > \"$path\"; done" }
+          - { literal: 'ARGV_LOG_PATH' }
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#
+        .replace("INPUT_KIND", input_kind)
+        .replace("ARGV_LOG_PATH", &argv_log_yaml)
+    };
+    let config_path = fixture.root.join("repo-config.yml");
+    std::fs::write(&config_path, gate_config("files"))
+        .expect("the legacy mutation gate is declared first");
+    let tree = DiskTree::new(&fixture.root).expect("the fixture is a disk tree");
+    let legacy_selected = tree
+        .indexed_files()
+        .expect("the legacy Git index paths are readable");
+    assert_eq!(legacy_selected.len(), 10);
+    assert!(legacy_selected.contains(&"docs/selected.md".to_string()));
+    for link in &links {
+        assert!(legacy_selected.contains(link));
+    }
+    let legacy_outcome = rhino::execute_using_with_boundaries(
+        &tree,
+        &[
+            "gate".to_string(),
+            "run".to_string(),
+            "--surface".to_string(),
+            "pre-commit".to_string(),
+        ],
+        None,
+        ExecutionBoundaries {
+            launcher: &ProcessLauncher,
+            mutations: &DiskMutationRunner,
+            adapters: &NoAdapterStore,
+            environments: &DiskEnvironmentStore,
+            toolchains: &NoToolchainRunner,
+            models: &NoModelResolver,
+        },
+    );
+    assert_ne!(
+        legacy_outcome.exit_code, 0,
+        "legacy Files reaches symlink refusal"
+    );
+    let legacy_output = format!("{}\n{}", legacy_outcome.stdout, legacy_outcome.stderr);
+    assert!(
+        legacy_output.contains("selected index path is a symbolic link"),
+        "legacy Files refuses its selected links: {legacy_output}"
+    );
+    assert!(
+        !argv_log.exists(),
+        "the legacy symlink refusal happens before the formatter starts"
+    );
+
+    std::fs::write(&config_path, gate_config("regular-files"))
+        .expect("the regular-files mutation gate replaces the legacy characterization");
+    let outcome = rhino::execute_using_with_boundaries(
+        &tree,
+        &[
+            "gate".to_string(),
+            "run".to_string(),
+            "--surface".to_string(),
+            "pre-commit".to_string(),
+        ],
+        None,
+        ExecutionBoundaries {
+            launcher: &ProcessLauncher,
+            mutations: &DiskMutationRunner,
+            adapters: &NoAdapterStore,
+            environments: &DiskEnvironmentStore,
+            toolchains: &NoToolchainRunner,
+            models: &NoModelResolver,
+        },
+    );
+    assert_eq!(outcome.exit_code, 0, "{outcome:?}");
+    assert_eq!(
+        std::fs::read_to_string(&argv_log).expect("the formatter records every argv path"),
+        "docs/selected.md\n"
+    );
+    assert_eq!(
+        fixture.git_stdout(&["show", ":docs/selected.md"]),
+        b"formatted:docs/selected.md\n"
+    );
+    assert_eq!(
+        fixture.git_stdout(&["show", ":docs/unrelated.md"]),
+        b"unrelated bytes\n"
+    );
+    assert_eq!(
+        std::fs::read(fixture.root.join("docs/selected.md")).expect("working bytes are readable"),
+        b"unstaged bytes\n"
+    );
+    assert_eq!(
+        std::fs::read(fixture.root.join("docs/unrelated.md"))
+            .expect("unrelated working bytes are readable"),
+        b"unrelated bytes\n"
+    );
+    for (index, link) in links.iter().enumerate() {
+        assert_eq!(
+            fixture.git_stdout(&["cat-file", "blob", &format!(":{link}")]),
+            format!("staged-target-{index:02}").as_bytes(),
+            "the indexed target of {link} remains opaque link data"
+        );
+        assert_eq!(
+            std::fs::read_link(fixture.root.join(link)).expect("working link is readable"),
+            std::path::PathBuf::from(format!("staged-target-{index:02}")),
+            "the working-tree target of {link} remains unchanged"
+        );
+        let mode = fixture.git_stdout(&["ls-files", "--stage", "--", link]);
+        assert!(String::from_utf8_lossy(&mode).starts_with("120000 "));
+    }
 }
 
 #[test]
@@ -1255,5 +1726,18 @@ fn a_symbolic_link_out_of_the_root_is_not_followed() {
         !tree.files().contains(&"rules/elsewhere.md".to_string()),
         "the walk followed a link out of the repository: {:?}",
         tree.files()
+    );
+}
+
+#[test]
+fn regular_files_contract_runs_only_its_bound_scenarios() {
+    let selected: Vec<_> = crate::bindings::BINDINGS
+        .iter()
+        .copied()
+        .filter(|(feature, _)| *feature == "regular-files")
+        .collect();
+    crate::runner::run_bound_scenarios::<crate::driver::IntegrationDriver>(
+        "integration regular-files contract",
+        &selected,
     );
 }

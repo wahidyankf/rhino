@@ -927,6 +927,7 @@ pub(crate) struct GateInput {
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum InputKind {
     Files,
+    RegularFiles,
     CommitMessage,
     CommitRange,
     RepositoryState,
@@ -1577,7 +1578,8 @@ fn validate_command(gate: &Gate, command: &GateCommand) -> Result<(), ConfigErro
             (None, Some(reference), Some(expansion)) => {
                 let (name, kind, field) = validate_reference(gate, reference)?;
                 if expansion == ArgumentExpansion::Repeat
-                    && !(kind == InputKind::Files && field == "paths")
+                    && !(matches!(kind, InputKind::Files | InputKind::RegularFiles)
+                        && field == "paths")
                 {
                     return semantic(
                         reference,
@@ -1655,6 +1657,9 @@ fn source_accepts(kind: InputKind, source: InputSource) -> bool {
             InputKind::Files,
             InputSource::GitIndex | InputSource::ExplicitRange | InputSource::Checkout
         ) | (
+            InputKind::RegularFiles,
+            InputSource::GitIndex | InputSource::ExplicitRange
+        ) | (
             InputKind::CommitMessage,
             InputSource::HookMessageFile | InputSource::ExplicitRange
         ) | (
@@ -1667,7 +1672,7 @@ fn source_accepts(kind: InputKind, source: InputSource) -> bool {
 fn input_has_field(kind: InputKind, field: &str) -> bool {
     matches!(
         (kind, field),
-        (InputKind::Files, "paths")
+        (InputKind::Files | InputKind::RegularFiles, "paths")
             | (InputKind::CommitMessage, "text")
             | (InputKind::CommitRange, "base" | "head")
             | (InputKind::RepositoryState, "root")
@@ -1677,6 +1682,7 @@ fn input_has_field(kind: InputKind, field: &str) -> bool {
 fn input_kind_name(kind: InputKind) -> &'static str {
     match kind {
         InputKind::Files => "files",
+        InputKind::RegularFiles => "regular-files",
         InputKind::CommitMessage => "commit-message",
         InputKind::CommitRange => "commit-range",
         InputKind::RepositoryState => "repository-state",
@@ -1766,6 +1772,41 @@ mod tests {
         assert!(
             error.to_string().contains(expected),
             "expected `{expected}` in `{error}`"
+        );
+    }
+
+    #[test]
+    fn regular_files_accepts_git_snapshot_bindings_in_schema_and_reader() {
+        let text = r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: format-files
+      type: check
+      inputs:
+        files: { kind: regular-files }
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#;
+        let schema: Value = serde_json::from_slice(&schema_bytes().expect("schema serializes"))
+            .expect("schema is JSON");
+        let instance: Value = yaml_serde::from_str(text).expect("fixture is YAML");
+        let schema_accepts = jsonschema::draft202012::is_valid(&schema, &instance);
+        let runtime = parse(text);
+        assert!(
+            schema_accepts && runtime.is_ok(),
+            "schema accepts: {schema_accepts}; runtime result: {runtime:?}"
         );
     }
 

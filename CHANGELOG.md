@@ -9,6 +9,19 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.13.0] — 2026-10-16
+
+Formatters can opt into regular Git destinations while preserving compatibility links and partial staging.
+
+### Added
+
+- Gate inputs accept `kind: regular-files` with `git-index` or an explicit immutable range. Selection uses Git
+  destination modes: regular and executable files are included; symbolic links, gitlinks, and deletions are excluded.
+  The input supports the existing path, argument, and environment projections.
+- A mutation declaring `regular-files` passes without starting its child when all bound file inputs resolve to an
+  empty combined selection. Nonempty mixed selections still run. Legacy `files` inputs and check gates retain their
+  existing behavior.
+
 ## [v0.12.0] — 2026-10-07
 
 Adapter rosters follow repository declarations, so a repository can generate one, three, four, or more profiles.

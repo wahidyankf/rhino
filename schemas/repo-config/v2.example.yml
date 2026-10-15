@@ -38,5 +38,27 @@ policies:
   plans: {}
 environment: {}
 toolchains: {}
-gates: {}
+gates:
+  entries:
+    - id: format-files
+      type: mutation
+      inputs:
+        files: { kind: regular-files }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
 extensions: {}
