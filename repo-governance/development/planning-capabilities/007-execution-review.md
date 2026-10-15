@@ -11,7 +11,7 @@ performed by [`plan-execution-check`](../../workflows/plan/plan-execution-check.
 | 2   | requirements       | is every acceptance criterion terminal, and does its evidence establish it?          |
 | 3   | checklist evidence | does every completed item carry a result that matches the repository's state?        |
 | 4   | gates              | did every declared gate run and return a terminal result?                            |
-| 5   | cleanup            | are task-owned artifacts gone, and is their absence proven?                          |
+| 5   | cleanup            | is pre-archive cleanup proven, with later cleanup recorded as pending?               |
 | 6   | knowledge capture  | is every learning promoted to a durable owner or discarded with a reason?            |
 
 The order is fixed because each step assumes the previous one held. Checking evidence before checking scope produces
@@ -24,8 +24,10 @@ Reordering does not merely change the sequence of findings; it changes which fin
 
 The review records one terminal verdict. Archival proceeds only on a verdict that permits it.
 
-An unresolved acceptance criterion, an unproven cleanup, or an unrouted learning blocks archival. The remedy is to
-resolve the item and re-run the review — never to archive with a note explaining what was left open.
+An unresolved acceptance criterion, unproven cleanup due before archival, or unrouted learning blocks archival. Required
+post-delivery cleanup is marked `pending`, never `met`, and does not block archive readiness; it stays open until actual
+cleanup and proof are recorded in the final delivery record outside `plans/done/` (the archival PR body for this route).
+Resolve blocking items and re-run the review; never archive with a substantive blocker.
 
 ## Why Review and Archival Are Separate Steps
 
