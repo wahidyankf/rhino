@@ -1,7 +1,7 @@
 # RHINO Rules
 
 RHINO validates repository hygiene. Rules live in [`repo-governance/`](repo-governance/README.md). Related repositories:
-[`ose-projects`](docs/README.md#project-context), a navigation label only.
+[`ose-projects`](docs/README.md#project-context).
 
 Use clear, simple, natural English that non-native speakers can understand, including replies. Follow
 [Language](repo-governance/conventions/language.md) for repository writing.
@@ -46,17 +46,16 @@ Use clear, simple, natural English that non-native speakers can understand, incl
   [Markdown](repo-governance/conventions/markdown-line-length.md),
   [links](repo-governance/conventions/markdown-links.md), and
   [directory maps](repo-governance/conventions/directory-maps.md).
-- Dispatch coding work to fitting `swe-*` agents per [SWE Delegation](repo-governance/conventions/swe-delegation.md).
+- Dispatch every create, modify, update, or delete of code or declarative configuration to the fitting `swe-*` agent,
+  except a harness without subagents or a tool repin with no `swe-releaser`, per
+  [SWE Delegation](repo-governance/conventions/swe-delegation.md).
 - Cap [delegated agents](repo-governance/development/delegated-agent-concurrency.md) at three. Track
   [granular items](repo-governance/conventions/task-tracking.md) and a written progress record; preserve rules through
   [compaction](repo-governance/principles/governance-continuity.md),
   [ask last](repo-governance/conventions/last-resort-questions.md), and name files in
   [lowercase kebab-case](repo-governance/conventions/file-naming.md).
 - Plans are working records under [`plans/`](plans/README.md), never architecture. Follow the
-  [plans convention](repo-governance/conventions/plans.md),
-  [local additions](repo-governance/conventions/plan-lifecycle.md),
-  [specification changes](repo-governance/conventions/plan-specification-changes.md), and
-  [validator contract](repo-governance/conventions/plan-validator-contract.md).
+  [plans convention](repo-governance/conventions/plans.md) and its companions.
 - [Quality gates](repo-governance/development/workflow/quality-gate-contract.md) need explicit request or a listed
   caller; the [execution check](repo-governance/workflows/plan/plan-execution-check.md) blocks archival.
 

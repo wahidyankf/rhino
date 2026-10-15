@@ -48,7 +48,8 @@ convention says how this repository does something where more than one way would
 - [Structure](structure/README.md) — where each kind of artifact adopted from the shared catalog lives.
 - [SWE agent procedures](swe-agent-procedures/README.md) — the procedure sections moved out of three `swe-*` agent
   definitions to fit their word budget.
-- [SWE delegation](swe-delegation.md) — coding work goes to the fitting `swe-*` agent, with three exceptions.
+- [SWE delegation](swe-delegation.md) — coding work, including declarative configuration, goes to the fitting `swe-*`
+  agent, and its exceptions.
 - [Task tracking](task-tracking.md) — granular items kept synchronized with the work.
 - [Thematic commits](thematic-commits.md) — one theme per commit, in Conventional Commits form.
 - [Working tree](working-tree.md) — what is ignored, and why every tree-walking tool needs telling separately.

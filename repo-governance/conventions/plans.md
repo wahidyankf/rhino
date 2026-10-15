@@ -21,6 +21,12 @@ is what a validator checks against.
 10. [Bug-Fix Plan](plans/010-bug-fix-plan.md)
 11. [Dependency Graph and Recovery](plans/011-dependency-graph-and-recovery.md)
 
+## Companions
+
+These companion conventions sit beside the modules and bind this repository's plans: the
+[local additions](plan-lifecycle.md), [specification changes](plan-specification-changes.md), and
+[validator contract](plan-validator-contract.md).
+
 ## What This Convention Does Not Decide
 
 It does not decide what a repository should plan, how large a plan should be, or which delivery mode — pull request,

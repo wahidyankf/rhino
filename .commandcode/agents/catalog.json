@@ -10,7 +10,7 @@
     {
       "id": "agent/ci-fixer",
       "path": ".agents/agents/ci-fixer.md",
-      "digest": "ff131c39d48162a072c31b8e8ebabf14de4e53db80defbce2cb356b1a73b7752"
+      "digest": "1f105419bef0cad0fb4a6250c2c44896c04228ba4da0e2e0646529d1e0db0eb0"
     },
     {
       "id": "agent/docs-checker",
@@ -30,7 +30,7 @@
     {
       "id": "agent/harness-fixer",
       "path": ".agents/agents/harness-fixer.md",
-      "digest": "ff7da2dc523f718af6c670350ce191972eaa861114ad5609de59b519a99f40a4"
+      "digest": "e1edbbec757064aa753b01a8896d3ad8cdf30d49daf1f3f61515a402617e877e"
     },
     {
       "id": "agent/leak-reviewer",
@@ -65,7 +65,7 @@
     {
       "id": "agent/pr-review-fixer",
       "path": ".agents/agents/pr-review-fixer.md",
-      "digest": "ef5b7037c8d6bd5047624e04d9d0ba5bb920ee8c41df9ef1e94ea73c149d0015"
+      "digest": "a747484be4506a599c28322a5054e1376d083d9dadc01f56ee149d6f0308e916"
     },
     {
       "id": "agent/rules-checker",
@@ -75,7 +75,7 @@
     {
       "id": "agent/rules-fixer",
       "path": ".agents/agents/rules-fixer.md",
-      "digest": "d24d5d2075c17a106c9dfdabde1fa0068c3e4df6f1707b36b602c89804eacf9d"
+      "digest": "e478b45d6bc5b281604e456474e3ba037e0f02a88699905e1819ac88cf6a72b6"
     },
     {
       "id": "agent/specs-checker",
@@ -95,7 +95,7 @@
     {
       "id": "agent/swe-debugger",
       "path": ".agents/agents/swe-debugger.md",
-      "digest": "055dd4846fa46ec388d6d2d63b5ee2e7b3e35e9309b04df2245825e400f75d54"
+      "digest": "ade5a77b52f89787cde3828ddae332c34c2c75a1ad61beffba3aafe8210f8896"
     },
     {
       "id": "agent/swe-developer",
@@ -110,12 +110,12 @@
     {
       "id": "agent/swe-reviewer",
       "path": ".agents/agents/swe-reviewer.md",
-      "digest": "0d3e43f7a5f91fd0f347e7f9fa589020d1fc258175d5bf52d52ee2d38aee7e41"
+      "digest": "087c0ebf1fc60d2d9f97ced6a4f2915c5cbcc4554f88c7f54adbea80de8ec076"
     },
     {
       "id": "agent/swe-usability-tester",
       "path": ".agents/agents/swe-usability-tester.md",
-      "digest": "8e80333efca7e9157d7a089949b871e5ecbafd486150671a621d3b83682daa87"
+      "digest": "d9280795a37235732379716d0cdde070f21afe22f4ee705cbf308a87a1e342e2"
     },
     {
       "id": "skill/applying-maker-checker-fixer",
@@ -215,7 +215,7 @@
     {
       "id": "instruction",
       "path": "AGENTS.md",
-      "digest": "fa6e45db263aaa6441d693018558413c708999c54db64433dba0e0643a75ffdd"
+      "digest": "5c3391bb8efd17137c7db80df46b0e24caba35a4da46982f5a8b3a5512af2c53"
     }
   ]
 }
