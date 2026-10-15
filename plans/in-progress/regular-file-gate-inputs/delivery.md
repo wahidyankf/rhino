@@ -139,7 +139,9 @@ catalog correction publishes before final plan checks and the plan-only merge; R
 separate PR, before the Plan Quality Gate. This ordering lets each transaction land from the same cleanly synced
 checkout. The material branch is closed, source publication is proven, and P2's final deterministic checks passed for
 the original seven-file plan input; P3's frozen-input review returned `no-change` on that same input. Subsequent
-delivery is recorded below. No Plan Quality Gate verdict exists, so implementation remains blocked.
+delivery and the later Q0 verdict are recorded below. Q0 returned `BLOCKED` because structural tooling is unavailable;
+the semantic audit found no issues. The Q0 gate caller owns the unmet structural proof. Under the existing advisory
+contract, approved work can continue; the structural proof remains unmet and product implementation has not started.
 
 Governance source: `769d6d21f3f48947d17410a1dcb10b5d3f9bd27a` (P2A). RHINO adoption merged as
 `5a3fb75b50113ed94d8a19aa78239c0a275bfe8e` (G0); the adoption proof follows below.
@@ -154,8 +156,9 @@ RHINO's differently located governance or generated bindings have already adopte
 
 ## Phase 1 — Governance Adoption and Plan Quality
 
-P4 and G0 are complete. Q0 remains the next required checkpoint; implementation stays blocked until it has a terminal
-verdict and every blocking row has an owner.
+P4 and G0 are complete. Q0 returned a terminal `BLOCKED` verdict because structural tooling is unavailable. Its semantic
+audit found no issues; the missing structural proof is assigned to the Q0 gate caller. Under the existing advisory
+contract, approved work may continue with T0 while that proof remains unmet.
 
 - [x] [AI] G0 — From the same now-clean task checkout, fetch and sync from refreshed `origin/main`, inspect the incoming
       plan merge, then deliver the separately owned U0A governance-adoption PR from P2A's actual published catalog SHA.
@@ -181,11 +184,15 @@ verdict and every blocking row has an owner.
       proof: structural checks exit 0, a frozen checker ledger and separate fixer outcomes exist, and a terminal verdict
       is recorded here. Assign each open blocking row to a concrete owner before T0. Acceptance: AC-RF-12.
 
-plan-quality-gate: pending (P4 and G0 are complete; Q0 is next).
+plan-quality-gate: BLOCKED (unavailable structural tooling; 1 cycle; 0 semantic findings; entry GREEN; structural
+subcheck unavailable; exit not due). The Q0 gate caller owns the unmet structural proof; under the advisory contract,
+approved work continues at T0.
 
 ## Phase 2 — Test-First Implementation
 
-Blocked by Q0. Every RED names an intended behavioral failure and must compile/run far enough to establish it; a typo,
+Q0 is terminally `BLOCKED`; its missing structural proof is owned by the gate caller. Under the existing advisory
+contract, the approved work continues at T0. No general validator implementation is in scope, and the structural proof
+remains unmet. Every RED names an intended behavioral failure and must compile/run far enough to establish it; a typo,
 undefined Gherkin step, or missing fixture is not the stated red. Keep focused outputs with revision and timestamp.
 
 - [ ] [AI] T0 — Start Rules Propagation for the changed gate acceptance rule before product edits; paths:
