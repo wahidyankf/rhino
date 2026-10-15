@@ -12,7 +12,7 @@
 //! what every step is before its validator is ported.
 
 /// Every sentence the corpus is allowed to use.
-pub const VOCABULARY: [&str; 28] = [
+pub const VOCABULARY: [&str; 37] = [
     "I invoke the CLI with {string}",
     "I run the {string} validator",
     "stderr contains {string}",
@@ -39,6 +39,15 @@ pub const VOCABULARY: [&str; 28] = [
     "the repository contains a symbolic link at {string} to a directory outside it holding {string}",
     "the repository contains a symbolic link at {string} to {string} inside it",
     "the repository is unchanged by the inspection",
+    "the Git index selects the regular file {string}",
+    "the Git index selects no regular files",
+    "the explicit range selects the regular file {string}",
+    "the explicit range selects no regular files",
+    "the declared mutation runs against its isolated snapshot",
+    "the working tree path {string} is a symbolic link to {string}",
+    "the gate {string} received the environment projection {string}",
+    "the gate {string} received the argument vector {string}",
+    "the gate {string} exits {int}",
     "the standard input is:",
     "the two runs are byte-identical",
 ];

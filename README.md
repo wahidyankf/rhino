@@ -83,6 +83,10 @@ harness, environment, and toolchain groups only when the repository can name the
 pull-request composition before `gate run --surface <name>` dispatches a declared typed argv projection. A gate cannot
 replace its command with arguments after `--`.
 
+Formatter gates can opt into `regular-files` to select changed regular-file destinations from the staged index or an
+immutable range; see
+[how to wire RHINO into your gates](./docs/how-to/wire-rhino-into-your-gates.md#3-select-regular-git-destinations).
+
 Environment initialization and toolchain provision plan first and require `--apply` for a declared mutation. Environment
 backup and restore require a repository-relative `--dir`; restore additionally requires `--force` before it replaces an
 existing target. Harness adapter generation validates the complete declared profile projection before it replaces

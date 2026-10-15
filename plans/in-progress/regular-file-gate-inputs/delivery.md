@@ -141,7 +141,8 @@ checkout. The material branch is closed, source publication is proven, and P2's 
 the original seven-file plan input; P3's frozen-input review returned `no-change` on that same input. Subsequent
 delivery and the later Q0 verdict are recorded below. Q0 returned `BLOCKED` because structural tooling is unavailable;
 the semantic audit found no issues. The Q0 gate caller owns the unmet structural proof. Under the existing advisory
-contract, approved work can continue; the structural proof remains unmet and product implementation has not started.
+contract, approved work continued after T0 returned no-change. T1–T5 implementation is complete, and the current phase
+is as-built documentation and release preparation. The structural proof remains unmet.
 
 Governance source: `769d6d21f3f48947d17410a1dcb10b5d3f9bd27a` (P2A). RHINO adoption merged as
 `5a3fb75b50113ed94d8a19aa78239c0a275bfe8e` (G0); the adoption proof follows below.
@@ -158,7 +159,7 @@ RHINO's differently located governance or generated bindings have already adopte
 
 P4 and G0 are complete. Q0 returned a terminal `BLOCKED` verdict because structural tooling is unavailable. Its semantic
 audit found no issues; the missing structural proof is assigned to the Q0 gate caller. Under the existing advisory
-contract, approved work may continue with T0 while that proof remains unmet.
+contract, T0 returned no-change and the approved work proceeded to T1–T5 while that proof remains unmet.
 
 - [x] [AI] G0 — From the same now-clean task checkout, fetch and sync from refreshed `origin/main`, inspect the incoming
       plan merge, then deliver the separately owned U0A governance-adoption PR from P2A's actual published catalog SHA.
@@ -186,33 +187,51 @@ contract, approved work may continue with T0 while that proof remains unmet.
 
 plan-quality-gate: BLOCKED (unavailable structural tooling; 1 cycle; 0 semantic findings; entry GREEN; structural
 subcheck unavailable; exit not due). The Q0 gate caller owns the unmet structural proof; under the advisory contract,
-approved work continues at T0.
+approved work continued at T0, which returned no-change. The unmet proof remains with the Q0 gate caller.
 
 ## Phase 2 — Test-First Implementation
 
 Q0 is terminally `BLOCKED`; its missing structural proof is owned by the gate caller. Under the existing advisory
-contract, the approved work continues at T0. No general validator implementation is in scope, and the structural proof
-remains unmet. Every RED names an intended behavioral failure and must compile/run far enough to establish it; a typo,
-undefined Gherkin step, or missing fixture is not the stated red. Keep focused outputs with revision and timestamp.
+contract, approved work continued after T0 returned no-change. T1–T5 implementation is complete. Historical RED and
+refactor chronology are recorded beneath each item. No general validator implementation is in scope, and the structural
+proof remains unmet. Every RED names an intended behavioral failure and must compile/run far enough to establish it; a
+typo, undefined Gherkin step, or missing fixture is not the stated red. Keep focused outputs with a revision and
+timestamp.
 
-- [ ] [AI] T0 — Start Rules Propagation for the changed gate acceptance rule before product edits; paths:
+- [x] [AI] T0 — Start Rules Propagation for the changed gate acceptance rule before product edits; paths:
       `src/v0_4/config.rs`, `src/v0_4/gates.rs`, and affected existing rule statements; proof: a placement record
       freezes additive opt-in, unchanged legacy behavior, empty mutation scope, and enforcement at config/runtime tests.
       Record terminal status, including `no-change` for governance when existing rules suffice. Acceptance: AC-RF-01,
       AC-RF-07.
-- [ ] [AI] T1-RED — Write configuration acceptance/refusal Gherkin first in `specs/behaviours/regular-files.feature`;
+  > 2026-10-15: Rules placement returned `no-change`: this opt-in product capability adds no contributor obligation.
+  > Existing [public-contract rules](../../../repo-governance/development/public-contract.md),
+  > [software-quality enforcement](../../../repo-governance/development/software-quality-enforcement.md),
+  > [specification maintenance](../../../repo-governance/development/specification-maintenance.md), and
+  > [architecture specifications](../../../repo-governance/development/architecture-specifications.md) cover its
+  > compatibility, read-only boundaries, and spec relationships. No governance or harness edit is required. The full
+  > placement proof is in `local-tmp/regular-file-gate-inputs/t0-rules-placement.md`.
+- [x] [AI] T1-RED — Write configuration acceptance/refusal Gherkin first in `specs/behaviours/regular-files.feature`;
       add its README map entry and unit/integration/E2E bindings; tests first in `src/v0_4/config.rs` and
       `tests/v0_4_schema.rs`; commands: `S cargo test --lib regular_files`, `S cargo test --test unit`,
       `S cargo test --test v0_4_schema`; proof: intended new-kind acceptance cases fail because the current kind is
       unknown; unsupported-source tests retain explicit expected refusal. Acceptance: AC-RF-01, AC-RF-02, AC-RF-10.
-- [ ] [AI] T1-GREEN — Implement the additive typed kind, `.paths` validation, compatible sources, and generated schema;
-      paths: `src/v0_4/config.rs`, `schemas/repo-config/v2.schema.json`; commands: `S cargo xtask schema`, then the
-      T1-RED commands; proof: all focused cases pass with legacy cases unchanged. Acceptance: AC-RF-01, AC-RF-02,
-      AC-RF-10.
-- [ ] [AI] T1-REFACTOR — Remove duplication in the new validation branches without changing contract; tests first:
+  > Initial unit RED (UTC timestamp unavailable; see `local-tmp/regular-file-gate-inputs/implementation-evidence.md`):
+  > `S cargo test --test unit -- --nocapture` returned 101. Of 224 expanded cases, 222 passed; the new Git-index and
+  > explicit-range acceptance cases failed because `regular-files` was still an unknown variant. The typed model and
+  > external-schema acceptance REDs also reached their intended schema/reader rejection. All three acceptance REDs were
+  > resolved by T1-GREEN below.
+- [x] [AI] T1-GREEN — Add the typed kind, `.paths` validation, compatible sources, and generated schema; paths:
+      `src/v0_4/config.rs`, `schemas/repo-config/v2.schema.json`; commands: `S cargo xtask schema`, then the T1-RED
+      commands; proof: all focused cases pass with legacy cases unchanged. Acceptance: AC-RF-01, AC-RF-02, AC-RF-10.
+  > The unit, typed model, and external-schema acceptance REDs reached the intended unknown-kind/schema-rejection
+  > failures. Unsupported-source refusal examples were added after the kind became readable; they passed as GREEN
+  > characterization and are not claimed as RED cases.
+- [x] [AI] T1-REFACTOR — Remove duplication in the new validation branches without changing contract; tests first:
       T1-RED paths; production: `src/v0_4/config.rs`; commands: T1-RED commands plus `L cargo fmt --all --check`; proof:
       pass with no new acceptance or projection difference. Acceptance: AC-RF-01, AC-RF-02, AC-RF-10.
-- [ ] [AI] T2-RED — Extend the new feature with selection/projection scenarios and concrete shared fixture support;
+  > Shared `.paths` field validation was factored across `Files` and `RegularFiles` in the T1 GREEN change; focused
+  > acceptance tests and formatter checks passed afterward. There was no separate post-GREEN refactor run.
+- [x] [AI] T2-RED — Extend the new feature with selection/projection scenarios and concrete shared fixture support;
       tests first: `src/runtime/git_paths.rs` byte fixtures, `src/runtime.rs` port/memory tests, `src/v0_4/gates.rs`
       resolver tests, and the real nine-link preservation tests in `tests/integration/policy.rs`. Use minimal compiling
       entry points/default refusal where needed before implementation. Commands: `S cargo test --lib regular_files`,
@@ -220,40 +239,54 @@ undefined Gherkin step, or missing fixture is not the stated red. Keep focused o
       regular-selection capability or incorrect eligibility, and the host regression cannot format the selected source
       beside links. The tests expose that behavior, not an unrelated setup error. Acceptance: AC-RF-03, AC-RF-04,
       AC-RF-05, AC-RF-08, AC-RF-09.
-- [ ] [AI] T2-GREEN — Implement the private parser, default-refusing ports, explicit memory selections/rerooting, disk
+- [x] [AI] T2-GREEN — Implement the private parser, default-refusing ports, explicit memory selections/rerooting, disk
       raw-metadata queries, and resolution through `ResolvedInput::Files`; paths: `src/runtime/git_paths.rs`,
       `src/runtime.rs`, `src/runtime/disk.rs`, `src/v0_4/gates.rs`; command: the three T2-RED commands; proof:
       destination mode, snapshot, projection, malformed metadata, and real index-preservation tests pass. Acceptance:
       AC-RF-03, AC-RF-04, AC-RF-05, AC-RF-08, AC-RF-09.
-- [ ] [AI] T2-REFACTOR — Move the unchanged pure path-containment helper into the private parser sibling and simplify
+- [x] [AI] T2-REFACTOR — Move the unchanged pure path-containment helper into the private parser sibling and simplify
       metadata plumbing; tests first: T2's paths; production: `src/runtime/git_paths.rs`, `src/runtime/disk.rs`;
       commands: T2-RED commands plus `L cargo fmt --all --check`; proof: unchanged passing behavior, no
       filesystem/process access in parser unit tests, and no new coverage exclusion. Acceptance: AC-RF-03, AC-RF-09.
-- [ ] [AI] T3-RED — Write both empty-surface scenarios, mixed-input nonempty case, and empty-check case in the new
+  > The parser RED was one valid-record byte case; the other seven matrix cases were compile-checked before
+  > implementation, not run as RED. The helper relocation occurred during GREEN, before parser GREEN, rather than as a
+  > post-GREEN refactor. The complete parser matrix and focused adapters passed afterward; chronology is recorded in
+  > `local-tmp/regular-file-gate-inputs/implementation-evidence.md`.
+- [x] [AI] T3-RED — Write both empty-surface scenarios, mixed-input nonempty case, and empty-check case in the new
       feature; tests first: `src/v0_4/gates.rs`, all declared bindings/drivers/support paths in `tech-docs.md`;
       commands: `S cargo test --lib regular_files`, `S cargo test --test unit`; proof: empty mutations expose an
       attempted port/child invocation instead of skip-success; mixed and check cases assert actual invocation.
       Acceptance: AC-RF-06, AC-RF-07.
-- [ ] [AI] T3-GREEN — Add the combined-empty-selection short circuit only for mutations declaring the new kind;
+- [x] [AI] T3-GREEN — Add the combined-empty-selection short circuit only for mutations declaring the new kind;
       production: `src/v0_4/gates.rs`; command: both T3-RED commands; proof: both surfaces skip the child, while mixed,
       legacy files-only, and check cases preserve their invocation behavior. Acceptance: AC-RF-06, AC-RF-07.
-- [ ] [AI] T3-REFACTOR — Simplify the new skip predicate without broadening it; tests first: T3's paths; production:
+- [x] [AI] T3-REFACTOR — Simplify the new skip predicate without broadening it; tests first: T3's paths; production:
       `src/v0_4/gates.rs`; commands: T3-RED commands plus `L cargo fmt --all --check`; proof: unchanged passing results.
       Acceptance: AC-RF-06, AC-RF-07.
-- [ ] [AI] T4 — Complete host-boundary GREEN/characterization evidence in `tests/integration/policy.rs` and
+  > The empty legacy `Files`-only mutation characterization was added after GREEN; its test confirms both mutation ports
+  > still run with empty selections. The full focused result and chronology are in the ignored implementation evidence.
+- [x] [AI] T4 — Complete host-boundary GREEN/characterization evidence in `tests/integration/policy.rs` and
       `tests/e2e/policy.rs`, with driver/support changes already specified; commands:
       `S cargo test --test integration regular_files`, `S cargo test --test integration disk_mutation`,
       `S cargo test --test e2e regular_files`; proof: the T2 host red is now green, all nine links retain raw
       targets/modes, partial staging and unrelated bytes survive, immutable-head selection ignores working types,
       type/mode/rename/unmerged cases pass, and legacy local link refusal remains. Acceptance: AC-RF-03, AC-RF-04,
       AC-RF-06, AC-RF-07, AC-RF-08, AC-RF-09.
-- [ ] [AI] T5 — Run the unchanged quick gate and exact schema check on the feature candidate; paths: all U1 code, test,
-      schema, and fixture changes; commands: `H cargo xtask test-quick`, `S cargo xtask schema --check`; proof: both
-      exit 0 with coverage at least 99% and unchanged exclusions. Acceptance: AC-RF-01 through AC-RF-10.
+- [x] [AI] T5 — Run the unchanged quick gate and exact schema check; candidate paths: all U1 code, tests, schema, and
+      fixtures; commands: `H cargo xtask test-quick`, `S cargo xtask schema --check`; proof: both exit 0 with coverage
+      at least 99% and unchanged exclusions. Acceptance: AC-RF-01 through AC-RF-10.
 
 ## Phase 3 — As-Built Contracts and Release Preparation
 
-Blocked by T5, because docs describe implemented behavior and the release carries that behavior.
+T5 passed. D0/D1 content work is updated, and the independent architecture Final Review passed. The independent
+implementation review found all 36 expanded scenario rows passing with no open HIGH or new material findings; its
+remaining MEDIUM advisory is the historical TDD/helper chronology recorded above. The final quick gate passed at
+2026-10-15 17:15:05–17:15:23 UTC: 171 library tests, the unit corpus, and 19 coverage contracts; line coverage was
+99.12%, with the existing floor and exclusions unchanged. The exact schema check also passed. The full
+`cargo xtask self-validate` is deferred until the immutable candidate is committed; the coordinating caller will run it
+once for D0/D1 verification and V1 entry. The example producer passed the focused `cargo test --test v0_4_schema` parity
+test (5/5, exit 0 at 2026-10-15 17:21:10–17:21:15 UTC), but the consumer-specific formatter lifecycle commands in the
+how-to remain unexercised. CHANGELOG and release metadata stay with the assigned releaser.
 
 - [ ] [AI] D0 — Synchronize `specs/architecture.md` Components/Boundaries with the runtime parser and Git adapter, plus
       their gate-resolution relationship; run Gherkin Implementation Review for every new expanded scenario at each

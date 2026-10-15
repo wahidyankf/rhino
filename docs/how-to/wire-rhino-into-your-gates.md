@@ -48,13 +48,54 @@ given, and then also hands the records, unmodified, to each gate child's standar
 or waits on standard input, and each child's standard input is empty. The command refuses the wrong surface/input
 combination with exit `2`.
 
-## 3. Keep mutations explicit
+## 3. Select regular Git destinations
+
+Use `regular-files` when a formatter should receive only regular destinations changed in the staged index or an
+immutable pull-request range. The selected paths still use the typed `.paths` projection:
+
+```yaml
+gates:
+  entries:
+    - id: format-files
+      type: mutation
+      inputs:
+        files: { kind: regular-files }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+```
+
+Replace `formatter` with the repository's declared formatter executable. Git destination modes `100644` and `100755` are
+selected; symlinks, gitlinks, and deletions are excluded. If all bound file inputs resolve to an empty selection, this
+mutation passes without starting the formatter. The canonical mode and empty-selection rules are in the
+[grouped v2 configuration reference](../reference/v0-4-configuration.md#lifecycle-gates).
+
+The matching declaration in `schemas/repo-config/v2.example.yml` passed the focused schema/runtime parity test
+(`cargo test --test v0_4_schema`, 5/5). This guide's consumer-specific YAML and the `gate validate` / `gate run`
+lifecycle were not exercised here: RHINO has no consumer formatter or matching gate configuration, so no formatter child
+was started.
+
+## 4. Keep mutations explicit
 
 A mutation pairs local `apply-index` behavior with CI `verify-clean` behavior. RHINO refuses to substitute the mutable
 working tree for the declared index or disposable replay boundary. Environment initialization and toolchain provision
 likewise require their own reviewed plan and explicit `--apply` authorization.
 
-## 4. Handle results at the caller
+## 5. Handle results at the caller
 
 | Exit code | Caller action                                                  |
 | --------- | -------------------------------------------------------------- |

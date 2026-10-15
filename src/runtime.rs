@@ -8,6 +8,7 @@
 //! mistake.
 
 pub mod disk;
+mod git_paths;
 
 pub use disk::{
     DiskAdapterStore, DiskEnvironmentStore, DiskModelResolver, DiskMutationRunner,
@@ -412,11 +413,22 @@ pub trait Tree {
         Err("this tree has no Git index snapshot boundary".to_string())
     }
 
+    /// Regular destination paths selected by the Git index. The default refuses
+    /// because a tree without a snapshot boundary cannot infer this from files.
+    fn indexed_regular_files(&self) -> Result<Vec<String>, String> {
+        Err("this tree has no regular-file Git index snapshot boundary".to_string())
+    }
+
     /// The paths changed between two already validated immutable commits. A
     /// pull-request mutation receives only that reviewed selection, never the
     /// complete checkout or a mutable working-tree approximation.
     fn changed_files(&self, _base: &str, _head: &str) -> Result<Vec<String>, String> {
         Err("this tree has no changed-file range boundary".to_string())
+    }
+
+    /// Regular destination paths selected by an immutable commit range.
+    fn changed_regular_files(&self, _base: &str, _head: &str) -> Result<Vec<String>, String> {
+        Err("this tree has no regular-file changed-file range boundary".to_string())
     }
 
     /// Resolve a repository-declared comparison ref to one immutable commit.
@@ -555,6 +567,8 @@ pub struct MemoryTree {
     empty: BTreeSet<String>,
     indexed: Option<Vec<String>>,
     changed_files: BTreeMap<(String, String), Vec<String>>,
+    indexed_regular: Option<Vec<String>>,
+    changed_regular_files: BTreeMap<(String, String), Vec<String>>,
     git_refs: BTreeMap<String, String>,
     commit_messages: BTreeMap<(String, String), String>,
     hook_message_file: Option<String>,
@@ -654,6 +668,37 @@ impl MemoryTree {
         paths.sort();
         paths.dedup();
         self.changed_files
+            .insert((base.to_string(), head.to_string()), paths);
+    }
+
+    /// State the explicitly selected regular destinations in the Git index.
+    pub fn set_indexed_regular_files<I, S>(&mut self, paths: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut paths: Vec<String> = paths
+            .into_iter()
+            .map(|path| path.as_ref().trim_start_matches('/').to_string())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        self.indexed_regular = Some(paths);
+    }
+
+    /// State the explicitly selected regular destinations for one Git range.
+    pub fn set_changed_regular_files<I, S>(&mut self, base: &str, head: &str, paths: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut paths: Vec<String> = paths
+            .into_iter()
+            .map(|path| path.as_ref().trim_start_matches('/').to_string())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        self.changed_regular_files
             .insert((base.to_string(), head.to_string()), paths);
     }
 
@@ -901,11 +946,24 @@ impl Tree for MemoryTree {
             .ok_or_else(|| "this tree has no Git index snapshot boundary".to_string())
     }
 
+    fn indexed_regular_files(&self) -> Result<Vec<String>, String> {
+        self.indexed_regular
+            .clone()
+            .ok_or_else(|| "this tree has no regular-file Git index snapshot boundary".to_string())
+    }
+
     fn changed_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
         self.changed_files
             .get(&(base.to_string(), head.to_string()))
             .cloned()
             .ok_or_else(|| "this tree has no changed-file range boundary".to_string())
+    }
+
+    fn changed_regular_files(&self, base: &str, head: &str) -> Result<Vec<String>, String> {
+        self.changed_regular_files
+            .get(&(base.to_string(), head.to_string()))
+            .cloned()
+            .ok_or_else(|| "this tree has no regular-file changed-file range boundary".to_string())
     }
 
     fn resolve_git_ref(&self, reference: &str) -> Result<String, String> {
@@ -1019,6 +1077,25 @@ impl Tree for MemoryTree {
             }),
             changed_files: self
                 .changed_files
+                .iter()
+                .map(|((base, head), paths)| {
+                    (
+                        (base.clone(), head.clone()),
+                        paths
+                            .iter()
+                            .filter_map(|held| held.strip_prefix(&prefix).map(str::to_string))
+                            .collect(),
+                    )
+                })
+                .collect(),
+            indexed_regular: self.indexed_regular.as_ref().map(|paths| {
+                paths
+                    .iter()
+                    .filter_map(|held| held.strip_prefix(&prefix).map(str::to_string))
+                    .collect()
+            }),
+            changed_regular_files: self
+                .changed_regular_files
                 .iter()
                 .map(|((base, head), paths)| {
                     (
@@ -1270,7 +1347,9 @@ mod tests {
         let tree = ReadOnlyTree;
         assert!(tree.links().is_empty());
         assert!(tree.indexed_files().is_err());
+        assert!(tree.indexed_regular_files().is_err());
         assert!(tree.changed_files("aaaaaaa", "bbbbbbb").is_err());
+        assert!(tree.changed_regular_files("aaaaaaa", "bbbbbbb").is_err());
         assert!(tree.resolve_git_ref("main").is_err());
         assert!(tree.commit_messages("aaaaaaa", "bbbbbbb").is_err());
         assert!(tree.hook_message_file("COMMIT_EDITMSG").is_err());
@@ -1286,6 +1365,11 @@ mod tests {
             tree.rooted_at("docs").unwrap().files(),
             vec!["docs/guide.md".to_string()]
         );
+
+        let memory = MemoryTree::default();
+        memory.write("docs/visible.md", "working tree only");
+        assert!(memory.indexed_regular_files().is_err());
+        assert!(memory.changed_regular_files("aaaaaaa", "bbbbbbb").is_err());
         assert_eq!(tree.directories(), vec!["docs".to_string()]);
         assert_eq!(tree.children("docs"), vec!["docs/guide.md".to_string()]);
         assert!(tree.is_directory("docs"));
@@ -1404,6 +1488,12 @@ mod tests {
             "bbbbbbbb",
             ["nested/guide.md", "outside/ignored.md"],
         );
+        tree.set_indexed_regular_files(["nested/new.md"]);
+        tree.set_changed_regular_files(
+            "aaaaaaa",
+            "bbbbbbbb",
+            ["nested/range.md", "outside/ignored.md"],
+        );
         let rerooted = tree.rooted_at("nested").unwrap();
         assert_eq!(rerooted.read("guide.md").unwrap(), "synthetic\n");
         assert_eq!(
@@ -1413,6 +1503,29 @@ mod tests {
         assert_eq!(
             rerooted.changed_files("aaaaaaa", "bbbbbbbb").unwrap(),
             vec!["guide.md".to_string()]
+        );
+        assert_eq!(
+            rerooted.indexed_regular_files().unwrap(),
+            vec!["new.md".to_string()]
+        );
+        assert_eq!(
+            rerooted
+                .changed_regular_files("aaaaaaa", "bbbbbbbb")
+                .unwrap(),
+            vec!["range.md".to_string()]
+        );
+
+        let mut empty_snapshot = MemoryTree::default();
+        empty_snapshot.write("nested/anchor.md", "");
+        empty_snapshot.set_indexed_regular_files(Vec::<&str>::new());
+        empty_snapshot.set_changed_regular_files("ccccccc", "ddddddd", ["outside/only.md"]);
+        let rerooted_empty = empty_snapshot.rooted_at("nested").unwrap();
+        assert!(rerooted_empty.indexed_regular_files().unwrap().is_empty());
+        assert!(
+            rerooted_empty
+                .changed_regular_files("ccccccc", "ddddddd")
+                .unwrap()
+                .is_empty()
         );
 
         tree.write("COMMIT_EDITMSG", "feat: synthetic hook\n");

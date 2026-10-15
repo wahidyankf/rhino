@@ -10,8 +10,8 @@ use crate::sandbox::{self, Sandbox};
 use crate::world::{self, CommandResult, Driver, Repository, Run, differences};
 use rhino::ExecutionBoundaries;
 use rhino::runtime::{
-    DiskAdapterStore, DiskEnvironmentStore, DiskTree, NoLauncher, NoMutationRunner,
-    NoToolchainRunner,
+    DiskAdapterStore, DiskEnvironmentStore, DiskMutationRunner, DiskTree, NoLauncher,
+    NoMutationRunner, NoToolchainRunner,
 };
 
 #[derive(Default)]
@@ -27,7 +27,11 @@ impl Driver for IntegrationDriver {
         // claim is that the validator wrote nothing, not that it wrote nothing
         // the validator can see.
         let root = sandbox.root().to_string_lossy().into_owned();
-        let arguments = world::with_root(arguments, &root, &format!("{root}/no-such-directory"));
+        let arguments = match sandbox.revisions() {
+            Some((base, head)) => world::with_revisions(arguments, base, head),
+            None => arguments.to_vec(),
+        };
+        let arguments = world::with_root(&arguments, &root, &format!("{root}/no-such-directory"));
 
         let before = sandbox::observe(sandbox.root());
         let recorder = Recorder::new(repository, &root);
@@ -35,13 +39,17 @@ impl Driver for IntegrationDriver {
             true => &NoLauncher as &dyn rhino::runtime::Launcher,
             false => &recorder as &dyn rhino::runtime::Launcher,
         };
+        let mutations = match repository.run_mutations {
+            true => &DiskMutationRunner as &dyn rhino::runtime::MutationRunner,
+            false => &NoMutationRunner as &dyn rhino::runtime::MutationRunner,
+        };
         let outcome = rhino::execute_using_with_boundaries(
             &tree,
             &arguments,
             repository.stdin,
             ExecutionBoundaries {
                 launcher,
-                mutations: &NoMutationRunner,
+                mutations,
                 adapters: &DiskAdapterStore,
                 environments: &DiskEnvironmentStore,
                 toolchains: &NoToolchainRunner,
@@ -49,6 +57,8 @@ impl Driver for IntegrationDriver {
             },
         );
         let after = sandbox::observe(sandbox.root());
+        let mut journal = recorder.journal();
+        journal.extend(sandbox.journal());
 
         Run {
             result: CommandResult {
@@ -63,7 +73,7 @@ impl Driver for IntegrationDriver {
                 "adapters".to_string(),
                 "generate".to_string(),
             ]),
-            journal: recorder.journal(),
+            journal,
         }
     }
 }

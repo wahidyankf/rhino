@@ -10,6 +10,28 @@ use serde_json::Value;
 const PRODUCER: &str = include_str!("../schemas/repo-config/v2.example.yml");
 const CONSUMER: &str = include_str!("../specs/fixtures/v0-4/consumer-repo-config.yml");
 const CHECKED_IN_SCHEMA: &[u8] = include_bytes!("../schemas/repo-config/v2.schema.json");
+const REGULAR_FILES_GATE: &str = r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: format-files
+      type: check
+      inputs:
+        files: { kind: regular-files }
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#;
 
 fn schema() -> Value {
     serde_json::from_slice(&rhino::config::v0_4_schema_bytes().expect("schema serializes"))
@@ -44,6 +66,20 @@ fn structural_fixtures_agree_between_json_schema_and_rhino() {
             "the fixture satisfies Rhino's local reader"
         );
     }
+}
+
+#[test]
+fn regular_files_gate_input_is_accepted_by_schema_and_reader() {
+    let schema = schema();
+    let instance = yaml(REGULAR_FILES_GATE);
+    let schema_accepts = jsonschema::draft202012::is_valid(&schema, &instance);
+    let runtime = rhino::config::parse(REGULAR_FILES_GATE)
+        .map(|_| ())
+        .map_err(|error| error.to_string());
+    assert!(
+        schema_accepts && runtime.is_ok(),
+        "schema accepts: {schema_accepts}; runtime result: {runtime:?}"
+    );
 }
 
 #[test]

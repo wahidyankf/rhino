@@ -6,8 +6,9 @@ this file describes structure. Where the two disagree, the scenarios are canonic
 ## Scope
 
 RHINO validates one repository's Markdown, instruction files, and harness adapters against declared policy. Explicit
-gate, toolchain, and adapter commands use separately injected process or transaction ports; ordinary tree validation
-remains a single short-lived, read-only process.
+gate, toolchain, and adapter commands use separately injected process or transaction ports. A gate with a
+`regular-files` input also reads Git's staged-change or immutable-range metadata through the disk tree adapter before it
+decides whether to dispatch its declared child; ordinary tree validation remains a short-lived, read-only process.
 
 Four constraints shape every box below, and none of them is a convention that could be relaxed later:
 
@@ -68,7 +69,8 @@ binary holds argument parsing, output writing, and the exit code.
 ## Components
 
 The command tree dispatches to grouped checks and operation owners; every check that reads Markdown shares one scan, and
-all file access converges on the runtime filesystem port. Tags mark entry points, checks, and shared components.
+tree file access converges on the runtime filesystem port. The opt-in `regular-files` gate input uses a separate Git
+metadata boundary in the disk tree adapter. Tags mark entry points, checks, and shared components.
 
 ```text
 cli -- command tree [entry]
@@ -87,12 +89,21 @@ cli -- command tree [entry]
  |                                                                          |
  +--> harness adapters [check] -------------------------------------------->+
  +--> environment and toolchains ------------------------------------------>+--> runtime -- filesystem port [shared]
- +--> lifecycle gates [entry]
+ +--> lifecycle gates [entry] --> gate resolver [shared] --> Tree port [shared] --> disk tree
+                                      |                            |                +--> Git metadata
+                                      |                            |                       --> raw parser [shared]
+                                      +--> launcher port [shared]  |
+                                      +--> mutation runner port [shared]
 ```
 
-Every validator reaches the filesystem through one port trait rather than through `std::fs` directly. That is what makes
-the unit adapter able to drive the whole corpus against an in-memory tree, and it is also the seam the read-only
-constraint is enforced at: the port exposes no write operation, so a validator cannot write even by mistake.
+Tree validators reach the inspected filesystem through one port trait rather than through `std::fs` directly. That is
+what lets the unit adapter drive the corpus against an in-memory tree, and it is also the seam that keeps validators
+read-only: the port exposes no write operation. `regular-files` is an explicit gate selection capability. The gate
+resolver asks the tree for indexed or immutable-range regular destinations before projecting paths to the declared
+child. The disk tree obtains raw Git metadata with fixed local queries; the private `runtime::git_paths` parser
+interprets the NUL-delimited bytes without filesystem or process access. The in-memory tree supplies explicit selections
+for tests. The gate resolver separately dispatches checks through the launcher port and mutations through the mutation
+runner port; the disk metadata adapter starts neither.
 
 The Markdown validators share one scan so the tree is walked once per invocation. Directory maps use the declared
 directory projection; harness adapters use their own named inputs and transaction boundary.
@@ -118,6 +129,10 @@ the author had in mind.
 - **Filesystem**
   - Where it is: The port trait in `runtime`
   - How it is held: Substituted wholesale by the unit adapter
+- **Git metadata**
+  - Where it is: The disk tree adapter's fixed index and immutable-range queries, parsed by `runtime::git_paths`
+  - How it is held: Queried only for a declared Git-backed gate input; parser tests use bytes, and the unit tree uses
+    explicit selections
 - **Host process**
   - Where it is: Launcher, toolchain-runner, and model-resolver ports in `runtime`
   - How it is held: Declared typed argv only; no shell or output report

@@ -12,7 +12,8 @@
 
 use crate::world::Repository;
 use rhino::runtime::{
-    Launch, LaunchError, Launched, Launcher, ModelResolver, ResolveError, ResolveLaunch,
+    Launch, LaunchError, Launched, Launcher, ModelResolver, Mutated, MutationError, MutationLaunch,
+    MutationRunner, ResolveError, ResolveLaunch,
 };
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -72,6 +73,12 @@ impl Launcher for Recorder {
                 launch.surface,
                 launch.stdin.unwrap_or_default(),
                 &directory,
+                &launch
+                    .environment
+                    .iter()
+                    .map(|(name, value)| format!("{name}={value}"))
+                    .collect::<Vec<_>>()
+                    .join(";"),
             ]
             .join("\t"),
         );
@@ -88,6 +95,51 @@ impl Launcher for Recorder {
             .find(|(named, _)| *named == id)
             .map_or(0, |(_, code)| *code);
         Ok(Launched { code })
+    }
+}
+
+impl MutationRunner for Recorder {
+    fn apply_index(&self, launch: MutationLaunch<'_>) -> Result<Mutated, MutationError> {
+        self.record_mutation(launch, "pre-commit");
+        Ok(Mutated {
+            code: 0,
+            changes: Vec::new(),
+            divergences: Vec::new(),
+        })
+    }
+
+    fn verify_clean(&self, launch: MutationLaunch<'_>) -> Result<Mutated, MutationError> {
+        self.record_mutation(launch, "pull-request");
+        Ok(Mutated {
+            code: 0,
+            changes: Vec::new(),
+            divergences: Vec::new(),
+        })
+    }
+}
+
+impl Recorder {
+    fn record_mutation(&self, launch: MutationLaunch<'_>, surface: &str) {
+        let Some((program, arguments)) = launch.arguments.split_first() else {
+            return;
+        };
+        let id = identifier(program);
+        let directory = if launch.directory == self.root {
+            crate::world::ROOT.to_string()
+        } else {
+            launch.directory.to_string()
+        };
+        let arguments = arguments.join("|");
+        let environment = launch
+            .environment
+            .iter()
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect::<Vec<_>>()
+            .join(";");
+        self.journal.borrow_mut().push(format!(
+            "start\t{id}\t{arguments}\t{surface}\t\t{directory}\t{environment}"
+        ));
+        self.journal.borrow_mut().push(format!("stop\t{id}"));
     }
 }
 

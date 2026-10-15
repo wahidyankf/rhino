@@ -176,6 +176,15 @@ pub(crate) fn run(
         if gate.kind == GateKind::Mutation {
             let root = tree.root();
             let selected_paths = selected_paths(&resolved, membership.bind.iter());
+            let has_regular_files_input = gate
+                .inputs
+                .values()
+                .any(|input| input.kind == InputKind::RegularFiles);
+            if has_regular_files_input && selected_paths.is_empty() {
+                report.push_str(&format!("[gate] {} passed\n", gate.id));
+                completed.push(gate.id.as_str());
+                continue;
+            }
             let mutation = MutationLaunch {
                 arguments: &arguments,
                 directory: &root,
@@ -422,6 +431,31 @@ fn resolve_inputs<'a>(
                 let paths = tree.changed_files(base, head).map_err(|reason| {
                     git(format!(
                         "cannot read changed files for the explicit range: {reason}"
+                    ))
+                })?;
+                ResolvedInput::Files(paths)
+            }
+            (InputKind::RegularFiles, InputSource::GitIndex) => {
+                ResolvedInput::Files(tree.indexed_regular_files().map_err(|reason| {
+                    git(format!(
+                        "cannot resolve regular files from the Git index: {reason}"
+                    ))
+                })?)
+            }
+            (InputKind::RegularFiles, InputSource::ExplicitRange) => {
+                let (Some(base), Some(head)) =
+                    (invocation.base.as_deref(), invocation.head.as_deref())
+                else {
+                    return Err(incomplete(
+                        "requires both `--base` and `--head` for an explicit regular-file range",
+                    ));
+                };
+                if !is_commit(base) || !is_commit(head) {
+                    return Err(not_commits());
+                }
+                let paths = tree.changed_regular_files(base, head).map_err(|reason| {
+                    git(format!(
+                        "cannot read regular files for the explicit range: {reason}"
                     ))
                 })?;
                 ResolvedInput::Files(paths)
@@ -961,6 +995,304 @@ gates:
             vec![(
                 vec!["formatter".to_string(), "notes/staged.md".to_string()],
                 vec!["notes/staged.md".to_string()],
+            )]
+        );
+    }
+
+    #[test]
+    fn regular_files_empty_pre_commit_skips_mutation_port() {
+        let document = parse(
+            r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: staged-format
+      type: mutation
+      inputs:
+        files: { kind: regular-files }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#,
+        )
+        .expect("the empty regular-files mutation parses");
+        let mut tree = MemoryTree::default();
+        tree.set_indexed_regular_files(Vec::<&str>::new());
+        let mutations = CapturingMutations::default();
+        let outcome = run(
+            document.gates.as_ref(),
+            &Invocation {
+                category: "gate",
+                surface: Some("pre-commit".to_string()),
+                ..Invocation::default()
+            },
+            &tree,
+            None,
+            &CapturingLauncher::default(),
+            &mutations,
+        );
+
+        assert_eq!(outcome.exit_code, 0);
+        assert!(mutations.apply_index.into_inner().is_empty());
+    }
+
+    #[test]
+    fn regular_files_empty_pull_request_skips_mutation_port() {
+        let document = parse(
+            r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: candidate-format
+      type: mutation
+      inputs:
+        files: { kind: regular-files }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#,
+        )
+        .expect("the empty regular-files mutation parses");
+        let mut tree = MemoryTree::default();
+        tree.set_changed_regular_files(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            Vec::<&str>::new(),
+        );
+        let mutations = CapturingMutations::default();
+        let outcome = run(
+            document.gates.as_ref(),
+            &Invocation {
+                category: "gate",
+                surface: Some("pull-request".to_string()),
+                base: Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
+                head: Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string()),
+                ..Invocation::default()
+            },
+            &tree,
+            None,
+            &CapturingLauncher::default(),
+            &mutations,
+        );
+
+        assert_eq!(outcome.exit_code, 0);
+        assert!(mutations.verify_clean.into_inner().is_empty());
+    }
+
+    #[test]
+    fn regular_files_empty_union_still_runs_mixed_mutation() {
+        let document = parse(
+            r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: staged-format
+      type: mutation
+      inputs:
+        regular: { kind: regular-files }
+        legacy: { kind: files }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: formatter
+        args:
+          - { input: regular.paths, expand: repeat }
+          - { input: legacy.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            regular: { source: git-index }
+            legacy: { source: git-index }
+        pull-request:
+          bind:
+            regular: { source: explicit-range, range: explicit }
+            legacy: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#,
+        )
+        .expect("the mixed-input mutation parses");
+        let mut tree = MemoryTree::default();
+        tree.set_indexed_regular_files(Vec::<&str>::new());
+        tree.set_indexed_files(["notes/legacy.md"]);
+        let mutations = CapturingMutations::default();
+        let outcome = run(
+            document.gates.as_ref(),
+            &Invocation {
+                category: "gate",
+                surface: Some("pre-commit".to_string()),
+                ..Invocation::default()
+            },
+            &tree,
+            None,
+            &CapturingLauncher::default(),
+            &mutations,
+        );
+
+        assert_eq!(outcome.exit_code, 0);
+        assert_eq!(
+            mutations.apply_index.into_inner(),
+            vec![(
+                vec!["formatter".to_string(), "notes/legacy.md".to_string()],
+                vec!["notes/legacy.md".to_string()],
+            )]
+        );
+    }
+
+    #[test]
+    fn regular_files_empty_check_still_runs_child() {
+        let document = parse(
+            r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: staged-check
+      type: check
+      inputs:
+        files: { kind: regular-files }
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#,
+        )
+        .expect("the empty regular-files check parses");
+        let mut tree = MemoryTree::default();
+        tree.set_indexed_regular_files(Vec::<&str>::new());
+        let launcher = CapturingLauncher::default();
+        let outcome = run(
+            document.gates.as_ref(),
+            &Invocation {
+                category: "gate",
+                surface: Some("pre-commit".to_string()),
+                ..Invocation::default()
+            },
+            &tree,
+            None,
+            &launcher,
+            &NoMutationRunner,
+        );
+
+        assert_eq!(outcome.exit_code, 0);
+        assert_eq!(
+            launcher.calls.into_inner(),
+            vec![(vec!["formatter".to_string()], BTreeMap::new())]
+        );
+    }
+
+    #[test]
+    fn legacy_empty_file_mutation_still_calls_both_mutation_ports() {
+        let document = parse(
+            r#"schema: rhino/repo-config/v2
+gates:
+  entries:
+    - id: staged-format
+      type: mutation
+      inputs:
+        files: { kind: files }
+      mutation:
+        local: apply-index
+        ci: verify-clean
+      command:
+        executable: formatter
+        args:
+          - { input: files.paths, expand: repeat }
+      run-on:
+        pre-commit:
+          bind:
+            files: { source: git-index }
+        pull-request:
+          bind:
+            files: { source: explicit-range, range: explicit }
+  composition:
+    pull-request:
+      relation: exact
+"#,
+        )
+        .expect("the legacy empty-file mutation parses");
+        let mut tree = MemoryTree::default();
+        tree.set_indexed_files(Vec::<&str>::new());
+        tree.set_changed_files(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            Vec::<&str>::new(),
+        );
+        let mutations = CapturingMutations::default();
+        let pre_commit = run(
+            document.gates.as_ref(),
+            &Invocation {
+                category: "gate",
+                surface: Some("pre-commit".to_string()),
+                ..Invocation::default()
+            },
+            &tree,
+            None,
+            &CapturingLauncher::default(),
+            &mutations,
+        );
+        let pull_request = run(
+            document.gates.as_ref(),
+            &Invocation {
+                category: "gate",
+                surface: Some("pull-request".to_string()),
+                base: Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
+                head: Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string()),
+                ..Invocation::default()
+            },
+            &tree,
+            None,
+            &CapturingLauncher::default(),
+            &mutations,
+        );
+
+        assert_eq!(pre_commit.exit_code, 0);
+        assert_eq!(pull_request.exit_code, 0);
+        assert_eq!(
+            mutations.apply_index.into_inner(),
+            vec![(vec!["formatter".to_string()], Vec::new())]
+        );
+        assert_eq!(
+            mutations.verify_clean.into_inner(),
+            vec![(
+                vec!["formatter".to_string()],
+                Vec::new(),
+                Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string()),
             )]
         );
     }

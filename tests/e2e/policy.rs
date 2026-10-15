@@ -12,6 +12,19 @@ use crate::sandbox::{self, Sandbox};
 use crate::world::{World, differences};
 use std::process::{Command, Stdio};
 
+#[test]
+fn regular_files_contract_runs_only_its_bound_scenarios() {
+    let selected: Vec<_> = crate::bindings::BINDINGS
+        .iter()
+        .copied()
+        .filter(|(feature, _)| *feature == "regular-files")
+        .collect();
+    crate::runner::run_bound_scenarios::<crate::driver::E2eDriver>(
+        "e2e regular-files contract",
+        &selected,
+    );
+}
+
 /// Every command path the tool answers, as a caller would type it.
 const LEAVES: &[&[&str]] = &[
     &["governance", "word-budget", "validate"],

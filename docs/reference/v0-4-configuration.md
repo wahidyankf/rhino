@@ -515,6 +515,20 @@ replay. The latter resolves only changed repository-relative paths from the immu
 the complete checkout into a formatter argument list. `checkout` remains for a check that intentionally reads every
 visible path or repository-state.
 
+An opt-in `regular-files` input accepts only `git-index` or `explicit-range` with `range: explicit`. RHINO reads raw Git
+metadata for changed paths and exposes eligible repository-relative destinations through the same `.paths` projection.
+Destination modes `100644` and `100755` are included; symlinks (`120000`), gitlinks (`160000`), and deletions (`000000`)
+are excluded. Malformed or unmerged records make selection fail. This selects by Git's recorded destination mode, not by
+the current working-tree type. It is useful when a formatter should receive regular-file destinations while tracked
+links stay outside its argument list.
+
+For a mutation that declares `regular-files`, RHINO resolves and projects all bound paths first. If their combined file
+selection is empty, the mutation passes without starting its child; a nonempty selection that also includes a legacy
+`files` input still runs, and check gates keep their existing empty-input invocation. The legacy `files` input retains
+its existing selection and selected-link behavior. See
+[How to wire RHINO into your gates](../how-to/wire-rhino-into-your-gates.md#3-select-regular-git-destinations) for a
+formatter declaration.
+
 The same `commit-message` input can bind `hook-message-file` at `commit-msg` and `explicit-range` with `range: explicit`
 at `pull-request`. For the latter, Rhino reads the non-merge commit-message text in the immutable `base..head` range
 after it has validated both commit IDs. The gate keeps its one semantic ID, command, and typed `message.text`
@@ -529,8 +543,9 @@ no head to inspect. Rhino refuses an absent, invalid, or unresolved fallback rat
 A mutation pairs `local: apply-index` with `ci: verify-clean`. Rhino refuses to run it until its index/disposable-replay
 boundary is available, rather than falling back to the mutable working tree.
 
-The index snapshot retains an unselected tracked symlink as opaque link data; it never resolves that target. A selected
-symlink is refused before the declared mutator starts, so a formatter cannot follow it outside the snapshot.
+For the legacy `files` input, the index snapshot retains an unselected tracked symlink as opaque link data; it never
+resolves that target. A selected symlink is refused before the declared mutator starts, so a formatter cannot follow it
+outside the snapshot. The `regular-files` input instead excludes non-regular Git destinations from its selection.
 
 A mutation child runs from its disposable boundary, but a relative `PATH` segment keeps the meaning it had for the
 calling repository. Rhino resolves that segment from the original repository root before the child starts; an absolute

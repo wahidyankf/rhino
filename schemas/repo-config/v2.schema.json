@@ -827,7 +827,13 @@
       "type": "object"
     },
     "InputKind": {
-      "enum": ["files", "commit-message", "commit-range", "repository-state"],
+      "enum": [
+        "files",
+        "regular-files",
+        "commit-message",
+        "commit-range",
+        "repository-state"
+      ],
       "type": "string"
     },
     "InputSource": {
