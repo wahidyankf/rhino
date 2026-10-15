@@ -14,10 +14,7 @@ destination rather than merging, overwriting, or adding a suffix; records comple
 folder from [`../in-progress/`](../in-progress/README.md); updates both stage indexes and maps in one change; and then
 verifies the archive itself.
 
-## Completed Plans
-
-No plan has been completed in this repository yet.
-
 ## Directory Map
 
-This stage holds no plan folder, so this README has no siblings to map.
+- [2026-10-16 — Regular file gate inputs](2026-10-16__regular-file-gate-inputs/README.md) records the implemented
+  regular-file input, verified v0.13.0 release, and final delivery/cleanup proof assigned to the archival PR.

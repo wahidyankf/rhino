@@ -15,5 +15,4 @@ disposition rather than a checkmark. Then the same workflow performs the collisi
 
 ## Directory Map
 
-- [Regular file gate inputs](regular-file-gate-inputs/README.md) plans explicit regular-file selection and a compatible
-  verified release.
+No plan is currently in progress.

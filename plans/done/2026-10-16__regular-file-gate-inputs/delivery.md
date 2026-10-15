@@ -285,8 +285,8 @@ session. The earlier quick-gate result remains separate: 171 library tests, unit
 passed at 99.12% on 2026-10-15 17:15:05–17:15:23 UTC, with the existing floor and exclusions unchanged. Architecture
 Final Review and the 36-row scenario review passed. The checked-in producer example passed
 `cargo test --test v0_4_schema` (5/5, exit 0 at 2026-10-15 17:21:10–17:21:15 UTC); consumer-specific formatter lifecycle
-commands remain unexercised. The independent release-preparation and producer-example review passed; V2 delivery,
-Release Cut, and consumer adoption remain pending.
+commands remain unexercised. The independent release-preparation and producer-example review passed. V2 delivery and
+Release Cut are now complete; consumer adoption remains outside this plan.
 
 - [x] [AI] D0 — Synchronize `specs/architecture.md` Components/Boundaries with the runtime parser and Git adapter, plus
       their gate-resolution relationship; run Gherkin Implementation Review for every new expanded scenario at each
@@ -311,78 +311,164 @@ Release Cut, and consumer adoption remain pending.
       paths: its complete docs/spec scope; proof: terminal verdict recorded with separate fixer outcomes and every open
       blocking row owned. Fix any documented behavior the binary violates before release. Acceptance: AC-RF-11.
       docs-quality-gate: PASS_WITH_FINDINGS (all; normal; 2 cycles; 1 MEDIUM open).
-- [ ] [AI] V2 — Deliver U1 through Worktree to Pull Request after current-main sync; paths: complete coherent U1
+- [x] [AI] V2 — Deliver U1 through Worktree to Pull Request after current-main sync; paths: complete coherent U1
       surface; commands: `H cargo xtask test-quick`, `S cargo xtask schema --check`, affected focused integration/E2E
       commands from T4; proof: pass on the candidate, independent review, exact-head fresh-context leak review, required
       hosted CI, merged PR, task ancestry on refreshed `origin/main`, and primary `main...origin/main` equals `0 0`.
       Acceptance: AC-RF-01 through AC-RF-12.
 
+  > 2026-10-15 18:17:06 UTC: [feature PR 156](https://github.com/wahidyankf/rhino/pull/156) merged as
+  > `bb32a5c968c4ad85ee410efe42bd01b93c46181d`. Reviewed head `5aa680e` and landed commit both resolve to tree
+  > `562dfca`. Ready CI run `38783231603` passed all six jobs. Fresh merge leak review passed all three classes with
+  > zero findings, zero final threads, and clean state. R0 ancestry and primary reconciliation checks below passed on
+  > the merged revision.
+
 ## Phase 4 — Release Cut
 
-Blocked by V2. Release authorization is already provided; do not ask again solely because publication matters.
+V2 is complete. Release Cut published and verified `v0.13.0`; consumer adoption remains separate from this plan.
 
-- [ ] [AI] R0 — Admit the exact merged release revision from clean primary `main`; paths: release manifests/schema;
+- [x] [AI] R0 — Admit the exact merged release revision from clean primary `main`; paths: release manifests/schema;
       commands: `git status --porcelain`, `git merge-base --is-ancestor HEAD origin/main`,
       `git rev-list --left-right --count HEAD...origin/main`, `H cargo xtask test-quick`,
       `S cargo xtask schema --check`; proof: clean tree, ancestry exit 0, `0 0`, and both gates pass on that revision.
       Acceptance: AC-RF-11, AC-RF-12.
-- [ ] [AI] R1 — Build/check the local release archive and schema using Release Cut; paths: ignored `dist/` assets;
+
+  > 2026-10-15 UTC: primary `main` and `origin/main` both resolved to `bb32a5c`; the worktree was clean, ancestry exited
+  > 0, and divergence was `0 0`. Quick gate session `34088` and schema check session `71628` exited 0. The quick gate
+  > passed 171 library tests, the unit corpus, and 19 coverage contracts at 99.12%, with the existing floor and
+  > exclusions unchanged.
+
+- [x] [AI] R1 — Build/check the local release archive and schema using Release Cut; paths: ignored `dist/` assets;
       commands: `H cargo xtask dist`, `S cargo xtask checksums`, `S cargo test --package xtask` with declared release
       version/commit environment; proof: local native archive/schema/checksum tests pass and unpacked `version --json`
       identifies the intended version and commit. Acceptance: AC-RF-11.
-- [ ] [AI] R2 — Generate the exact release-note preview from prior stable `v0.12.0`, screen notes and the chosen tag
+
+  > 2026-10-15 UTC: native distribution session `39362`, checksum session `48509`, artifact suite `76862`, and unpacked
+  > native identity check `1855` all exited 0. The artifact suite passed six task unit tests and nine artifact tests;
+  > the native executable reported `v0.13.0` and the exact merged commit.
+
+- [x] [AI] R2 — Generate the exact release-note preview from prior stable `v0.12.0`, screen notes and the chosen tag
       through `scripts/public-safety/public-safety.sh --surface release`, and publish the tag through Release Cut;
       proof: tag absent before creation, screen exit 0, tag points to the exact release commit, release workflow starts.
       Keep exact commands and sanitized results here; do not commit raw generated notes. Acceptance: AC-RF-11.
-- [ ] [AI] R3 — Observe all four native release matrix legs and aggregate publication; paths: workflow run and assets;
+
+  > 2026-10-15 UTC: the local and remote `v0.13.0` tag checks were empty before publication. The screened notes used
+  > prior stable `v0.12.0`; the authorized tag push was observed complete by 18:27:07 UTC and points to `bb32a5c`. The
+  > release workflow started for that exact tag and commit.
+
+- [x] [AI] R3 — Observe all four native release matrix legs and aggregate publication; paths: workflow run and assets;
       proof: successful provenance, native archive identity/artifact tests for every target, aggregate release suite,
       four archives, schema, and `checksums.txt`. Poll hosted state at the owner's three-minute interval. Acceptance:
       AC-RF-11.
-- [ ] [AI] R4 — Download published archives/schema/checksums into ignored scratch storage and verify every asset digest;
+
+  > 2026-10-15 18:30:47 UTC: all six jobs in release workflow `38785671600` were observed successful. The publish job
+  > completed at 18:30:44 UTC; publication occurred at 18:30:41 UTC. The workflow published four platform archives, the
+  > grouped schema, and `checksums.txt` for `v0.13.0` at commit `bb32a5c`.
+
+- [x] [AI] R4 — Download published archives/schema/checksums into ignored scratch storage and verify every asset digest;
       execute the matching native archive's `version --json`; proof: all manifest comparisons pass and downloaded native
       identity matches the tag/commit, with the other native identities established by R3. Hand the verified release
       URL, version, commit, schema, and checksums to the coordinating caller. Acceptance: AC-RF-11.
 
+  > 2026-10-15 18:32:10 UTC: release `v0.13.0` was verified at
+  > [the published release](https://github.com/wahidyankf/rhino/releases/tag/v0.13.0). All six assets were downloaded;
+  > all five manifest digest rows passed (the manifest does not hash `checksums.txt` itself). The schema matched the
+  > checked-in schema; the native identity reported `v0.13.0` and `bb32a5c`; and the published notes matched the
+  > screened preview. Machine proof is retained in primary `main`'s ignored
+  > `local-tmp/regular-file-gate-release/verified-release.json`.
+
 ## Phase 5 — Substantive Reconciliation and Archival Admission
 
-Blocked by R4; release verification precedes substantive reconciliation. C3's eligible cleanup and prepared final PR
-procedure precede C2's terminal execution review. Final checkout and task-branch cleanup remain C5.
+R4 is verified. Substantive delivery is complete; C3's eligible cleanup and prepared final PR procedure precede C2's
+terminal execution review. Final checkout and task-branch cleanup remain C5.
 
-- [ ] [AI] C0 — Reconcile every acceptance criterion and dormant recovery trigger against recorded evidence; paths: this
+- [x] [AI] C0 — Reconcile every acceptance criterion and dormant recovery trigger against recorded evidence; paths: this
       plan's `delivery.md`; proof: AC-RF-01 through AC-RF-12 each has a met or justified inapplicable disposition,
       substantive tasks through R4 are terminal, and no unowned blocking gate finding remains. The final archival merge
       and checkout-removal proofs remain explicitly assigned to C4 and C5. Acceptance: AC-RF-12.
-- [ ] [AI] C1 — Resolve every `learnings.md` entry to one durable owner or a reasoned discard; search `plans/ideas/`
+
+  > 2026-10-15 UTC: AC-RF-01/02/10 are supported by T1 typed configuration, generated schema, and the producer-example
+  > schema/reader test; AC-RF-03/04/05/08/09 by T2/T4 parser, projection, snapshot, and real Git preservation evidence;
+  > AC-RF-06/07 by T3/T4 mutation-skip and legacy invocation/refusal evidence. T5 and the 36-row review cover
+  > AC-RF-01–10; R0–R4 meet AC-RF-11. P4, G0, V2, and R0 prove AC-RF-12 via ancestry and primary reconciliation. Q0
+  > remains `BLOCKED` on unavailable structural tooling with zero semantic findings; its gate caller still owns the
+  > unmet proof under the advisory contract. X1 recovery is recorded below; X2 and X3 were not triggered. C4 archival
+  > and C5 removal are still pending.
+
+- [x] [AI] C1 — Resolve every `learnings.md` entry to one durable owner or a reasoned discard; search `plans/ideas/`
       before adding a follow-up; proof: no pending disposition remains and all named owners exist. Acceptance: AC-RF-12.
-- [ ] [AI] C3 — Clean expendable task-owned scratch and release downloads, and record the final checkout/branch removal
+
+  > 2026-10-15 UTC: the snapshot/mutation learning is resolved by the real Git preservation regression in
+  > `tests/integration/policy.rs`. The release-notes baseline learning is resolved by the prior-stable mapping in
+  > `.github/workflows/release.yml` and the screened-preview/published-notes equality verified at R2–R4. No new
+  > follow-up was needed; the existing owners are sufficient.
+
+- [x] [AI] C3 — Clean expendable task-owned scratch and release downloads, and record the final checkout/branch removal
       obligation and prepared archival PR body text before execution review; paths: only owned ignored artifacts and
       this delivery record; proof: cleanup command results identify removed artifacts, required evidence and the
       prepared PR body remain available, unrelated work remains, and the recorded body text names C5's post-merge
       procedure and required proof. C4 will verify the actual opened PR carries this text. Retain the one checkout and
       task branches while U2 needs them; do not delete an artifact still required by C2 or C4. Acceptance: AC-RF-12.
-- [ ] [AI] C2 — After C0, C1, and C3, run Plan Execution Check in its fixed order; paths: the six plan documents and
+
+  > 2026-10-15 18:40–18:41 UTC: guarded cleanup `43425` and absence/retention check `10988` exited 0. Removed the six
+  > owned release downloads, two native unpacked executables, their empty download directories, and the temporary
+  > quick-log copy after comparing it with the retained log. Release JSON, terminal workflow job/step JSON, notes, logs,
+  > debug evidence, and task-review records remain. Distribution outputs with uncertain prior ownership remain
+  > untouched. The one task checkout and its four branches remain because U2 still needs them.
+
+  > Prepared PR body: `local-tmp/regular-file-gate-inputs/closure-pr.md`. Its C5 text requires a merged exact-head PR, a
+  > clean checkout, no unpushed work or active task process, and preserved evidence before removal. From primary `main`,
+  > fetch/prune, fast-forward, prove `0 0`, remove the sole checkout without force, and remove only the four named task
+  > branches locally and remotely. Use the documented rebase-merge branch-deletion exception only with merged-head or
+  > landed-cherry proof. Record actual removal time, absence listings, retained evidence, and final primary `0 0` in the
+  > merged PR body; C5 remains pending and adds no later edit to the archived plan.
+
+- [x] [AI] C2 — After C0, C1, and C3, run Plan Execution Check in its fixed order; paths: the six plan documents and
       their cited implementation/evidence; proof: terminal execution verdict recorded here verifies substantive work,
       acceptance evidence, resolved learnings, all cleanup already due, and the recorded C5 procedure for checkout/task
       branches retained through U2's merge under the adopted ordering. Archival requires a permitting verdict; the
       deferred C5 removal is not claimed complete. Acceptance: AC-RF-12.
 
-plan-execution-check: pending.
+plan-execution-check: PERMITS ARCHIVAL (0 blocking findings; C5 pending after the archival merge).
+
+2026-10-15 UTC: the independent checker audited scope, requirements, checklist evidence, gates, cleanup, and knowledge
+in that order against `bb32a5c` plus the frozen three-document closure diff. It confirmed ancestry, primary `0 0`,
+actual cleanup absence and retained evidence, both durable learning owners, and the prepared C5 procedure. Q0 remains
+`BLOCKED` under the advisory contract; neither a structural pass nor a permanent waiver is inferred. C4 must verify the
+actual archival PR carries the cleanup text. Final checkout/branch removal remains pending at C5.
 
 ### Conditional Recovery
 
-- [ ] [AI] X1 — Trigger: an owned pre-publication candidate cannot pass its required gates; decision owner: delivery
+- [x] [AI] X1 — Trigger: an owned pre-publication candidate cannot pass its required gates; decision owner: delivery
       orchestrator. Procedure: preserve failure evidence and checkout, diagnose the cause, repair owned code or revert
       the complete unshipped delivery unit through a dedicated PR; never suppress a check or drop links. Proof: the
       required gate exits 0 on the repaired/reverted candidate and disposition names the revision. Acceptance: AC-RF-07,
       AC-RF-12.
+
+  > 2026-10-15 UTC: the owned quick gate failed Clippy at 17:13:15–17:13:22 on two unnecessary borrows in the new host
+  > regression. The SWE debugger made two borrow-only code repairs; quick session `17825` passed at 17:15:05–17:15:23:
+  > 171 library tests, the unit corpus, and 19 coverage contracts at 99.12%. The exact merged candidate `bb32a5c` also
+  > passed R0 quick session `34088`. During tag delivery, push attempt `73564` and narrow check `57367` found missing
+  > primary-checkout dependencies (no MD013 finding). Locked `npm ci` session `74154` and the original 376-file check
+  > session `27696` then passed; same-tag retry `6506` passed all 14 hooks. Setup recovery changed no tracked files or
+  > tag and suppressed no gate. Detailed output remains in the ignored implementation and release records.
+
 - [ ] [AI] X2 — Trigger: a published asset fails verification; decision owner: release orchestrator. Procedure: stop
       verified-release handoff, preserve the immutable tag/assets, diagnose and prepare a new patch version, repeat the
       owner's release-prep/Review/Release Cut sequence, then verify new assets. Proof: the replacement version's
       downloaded bytes and identities pass; the previous assets remain unchanged. Acceptance: AC-RF-11.
+
+  > 2026-10-16 (Asia/Jakarta): Not triggered. R4 verified the published assets, checksums, schema, and native identity.
+
 - [ ] [AI] X3 — Trigger: Rules/Docs/Plan Quality Gate reaches its declared ceiling with blocking rows; decision owner:
       gate caller. Procedure: freeze terminal verdict, assign each row a plan item, idea brief, or issue; do not extend
       the cycle budget or let the maker repair frozen findings. Proof: every row has an owner and execution records
       whether its affected outcome can proceed. Acceptance: AC-RF-12.
+
+  > 2026-10-16 (Asia/Jakarta): Not triggered. Q0 stopped after one cycle because structural tooling was unavailable,
+  > with zero semantic findings; it did not reach the three-cycle ceiling with blocking rows. V1 ended before its
+  > three-cycle ceiling with one MEDIUM finding, not a blocking row. Q0's structural proof remains caller-owned and
+  > unmet under the advisory contract.
 
 At reconciliation, every dormant X item receives a dated evidenced `Not triggered` disposition and stays unticked; an
 activated item records the actual procedure and proof. No dormant trigger is silently treated as executed.
@@ -397,6 +483,19 @@ Blocked by C0–C3 and a permitting execution verdict. This is separate from sub
       delivery reaches `origin/main`, primary divergence is `0 0`, and the actual opened archival PR body carries C3's
       prepared C5 post-merge cleanup procedure and required proof before merge. The recorded execution verdict must
       permit this ordering. Acceptance: AC-RF-12.
+
+2026-10-16 (Asia/Jakarta): C2 permits this archive. The destination did not exist when the six-document folder moved at
+01:46:22 WIB; both stage maps now refer to this dated archive. Archived-state validation and actual PR cleanup-text
+verification precede merge. C4's final merge/reconciliation proof and C5's removal proof are recorded in that same
+merged PR body. Their boxes remain unticked here because those results cannot exist before this archival delivery lands;
+substantive completion and archive readiness do not claim those future proofs.
+
+2026-10-15 UTC: the actual eight-document index passed pre-commit (`66771`, exit 0, 18:54:05–18:54:13). The archived
+working tree passed complete self-validation (`64258`, exit 0, 19/19 gates, 18:54:30–18:56:27), including quick's
+coverage floor and Markdown/link/map checks. Its immutable range was the genuine published `2e97835..bb32a5c`, not
+outgoing archive history. Both runs preserved index tree `41917f1` with no unstaged changes. The earlier equal-range
+attempt `31148` failed before scanning because its required commit-message stream was empty; that failure remains
+recorded. After the normal archival commit, its actual outgoing range receives separate validation before publication.
 
 ### Terminal Cleanup After the Archival Merge
 
