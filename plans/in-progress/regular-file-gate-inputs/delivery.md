@@ -278,34 +278,39 @@ timestamp.
 
 ## Phase 3 — As-Built Contracts and Release Preparation
 
-T5 passed. D0/D1 content work is updated, and the independent architecture Final Review passed. The independent
-implementation review found all 36 expanded scenario rows passing with no open HIGH or new material findings; its
-remaining MEDIUM advisory is the historical TDD/helper chronology recorded above. The final quick gate passed at
-2026-10-15 17:15:05–17:15:23 UTC: 171 library tests, the unit corpus, and 19 coverage contracts; line coverage was
-99.12%, with the existing floor and exclusions unchanged. The exact schema check also passed. The full
-`cargo xtask self-validate` is deferred until the immutable candidate is committed; the coordinating caller will run it
-once for D0/D1 verification and V1 entry. The example producer passed the focused `cargo test --test v0_4_schema` parity
-test (5/5, exit 0 at 2026-10-15 17:21:10–17:21:15 UTC), but the consumer-specific formatter lifecycle commands in the
-how-to remain unexercised. CHANGELOG and release metadata stay with the assigned releaser.
+T5 passed. D0, D1, V0, and V1 are complete. On 2026-10-15 17:40:00–17:41:59 UTC, `cargo xtask self-validate` passed
+19/19 checks on clean candidate `0aaab0f`, based on the adopted `5a3fb75` tree. Its quick check invoked the coverage
+contracts; no separate `cargo test --test coverage` command was run. No new coverage percentage is reported for this
+session. The earlier quick-gate result remains separate: 171 library tests, unit corpus, and 19 coverage contracts
+passed at 99.12% on 2026-10-15 17:15:05–17:15:23 UTC, with the existing floor and exclusions unchanged. Architecture
+Final Review and the 36-row scenario review passed. The checked-in producer example passed
+`cargo test --test v0_4_schema` (5/5, exit 0 at 2026-10-15 17:21:10–17:21:15 UTC); consumer-specific formatter lifecycle
+commands remain unexercised. The independent release-preparation and producer-example review passed; V2 delivery,
+Release Cut, and consumer adoption remain pending.
 
-- [ ] [AI] D0 — Synchronize `specs/architecture.md` Components/Boundaries with the runtime parser and Git adapter, plus
+- [x] [AI] D0 — Synchronize `specs/architecture.md` Components/Boundaries with the runtime parser and Git adapter, plus
       their gate-resolution relationship; run Gherkin Implementation Review for every new expanded scenario at each
       applicable adapter; commands: `S cargo test --test coverage`, `S cargo xtask self-validate`; proof: semantic
       review rows contain no FAIL, every scenario binds at unit, current corpus remains, and commands exit 0.
       Acceptance: AC-RF-01 through AC-RF-10.
-- [ ] [AI] D1 — Run Docs Propagation over the complete U1 change; paths: `README.md`, `CHANGELOG.md`,
+- [x] [AI] D1 — Run Docs Propagation over the complete U1 change; paths: `README.md`, `CHANGELOG.md`,
       `docs/reference/v0-4-configuration.md`, `docs/how-to/wire-rhino-into-your-gates.md`, schema example, and as-built
       specs; command: `S cargo xtask self-validate`; proof: terminal status, canonical reference/example consistency,
       safe commands exercised or marked unexercised, and exit 0. Acceptance: AC-RF-01, AC-RF-02, AC-RF-06, AC-RF-07,
       AC-RF-10.
-- [ ] [AI] V0 — Verify next unused minor tag locally/remotely and prepare expected `0.13.0`; paths: `Cargo.toml`,
+- [x] [AI] V0 — Verify next unused minor tag locally/remotely and prepare expected `0.13.0`; paths: `Cargo.toml`,
       `Cargo.lock`, `CHANGELOG.md`, `.github/workflows/release.yml`; commands: `git tag -l 'v0.13.0'` and
       `git ls-remote --tags origin 'v0.13.0'`; proof: neither names an existing tag, version files agree, and the
       workflow explicitly uses `v0.12.0` as the new version's notes baseline. If occupied, stop this item and record the
       next unused compatible version before editing its baseline. Acceptance: AC-RF-11.
-- [ ] [AI] V1 — Run Docs Quality Gate with subject `all`, mode `normal`, max-cycles `3`, before the release-prep PR;
+  > 2026-10-15 17:16:50 UTC: local and remote lookups for `v0.13.0` were empty (exit 0). `Cargo.toml` and `Cargo.lock`
+  > were prepared at `0.13.0`; `CHANGELOG.md` is dated 2026-10-16 and `.github/workflows/release.yml` uses `v0.12.0` as
+  > the notes baseline. Independent review passed for release-preparation metadata and the producer example. Preparation
+  > is not a release.
+- [x] [AI] V1 — Run Docs Quality Gate with subject `all`, mode `normal`, max-cycles `3`, before the release-prep PR;
       paths: its complete docs/spec scope; proof: terminal verdict recorded with separate fixer outcomes and every open
       blocking row owned. Fix any documented behavior the binary violates before release. Acceptance: AC-RF-11.
+      docs-quality-gate: PASS_WITH_FINDINGS (all; normal; 2 cycles; 1 MEDIUM open).
 - [ ] [AI] V2 — Deliver U1 through Worktree to Pull Request after current-main sync; paths: complete coherent U1
       surface; commands: `H cargo xtask test-quick`, `S cargo xtask schema --check`, affected focused integration/E2E
       commands from T4; proof: pass on the candidate, independent review, exact-head fresh-context leak review, required

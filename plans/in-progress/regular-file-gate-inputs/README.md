@@ -2,9 +2,9 @@
 
 Status: In progress. The plan-only delivery and separate governance adoption have merged; the plan quality gate is
 terminally blocked by unavailable structural tooling. It found no semantic issues; the missing structural proof is owned
-by the Q0 gate caller under the existing advisory contract. T0 returned no-change. T1–T5 implementation is complete;
-as-built documentation is updated. Architecture and scenario reviews passed; the post-commit full self-validation
-remains pending.
+by the Q0 gate caller under the existing advisory contract. T0 returned no-change. T1–T5 implementation and D0/D1
+documentation are complete; V0 version preparation and V1 Docs Quality Gate are complete. The post-commit
+self-validation passed 19/19 checks. V2 delivery and Release Cut remain pending.
 
 RHINO needs an explicit way to pass changed regular files to a formatter while retaining tracked compatibility links as
 link data. This plan adds an opt-in input and releases it through the existing delivery route. It owns only RHINO;
@@ -48,8 +48,9 @@ The portable rule correction landed in its canonical catalog, and this plan and 
 have since merged; [the delivery record](delivery.md) records their published revisions and evidence. The Plan Quality
 Gate returned `BLOCKED` because its structural validator is unavailable, after finding no semantic issues. The Q0 gate
 caller owns the unmet structural proof. Under the existing advisory contract, the approved work continued at T0, which
-returned no-change. T1–T5 implementation is complete; D0/D1 documentation is updated and architecture/scenario reviews
-passed. The post-commit full self-validation remains pending; the structural proof remains unmet.
+returned no-change. T1–T5 implementation and D0/D1 documentation are complete; architecture/scenario reviews passed, V0
+prepared `0.13.0`, and V1 reached its terminal verdict. The post-commit self-validation passed 19/19 checks. V2 delivery
+and Release Cut remain pending; the Q0 structural proof remains unmet.
 
 ## Directory Map
 
