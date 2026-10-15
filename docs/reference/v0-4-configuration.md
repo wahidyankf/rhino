@@ -544,8 +544,10 @@ A mutation pairs `local: apply-index` with `ci: verify-clean`. Rhino refuses to 
 boundary is available, rather than falling back to the mutable working tree.
 
 For the legacy `files` input, the index snapshot retains an unselected tracked symlink as opaque link data; it never
-resolves that target. A selected symlink is refused before the declared mutator starts, so a formatter cannot follow it
-outside the snapshot. The `regular-files` input instead excludes non-regular Git destinations from its selection.
+resolves that target. On the local `apply-index` surface, a selected symlink is refused before the declared mutator
+starts, so a formatter cannot follow it outside the snapshot. The CI `verify-clean` surface runs the mutator on a
+disposable candidate checkout without that selected-symlink preflight. The `regular-files` input excludes non-regular
+Git destinations from its selection.
 
 A mutation child runs from its disposable boundary, but a relative `PATH` segment keeps the meaning it had for the
 calling repository. Rhino resolves that segment from the original repository root before the child starts; an absolute
