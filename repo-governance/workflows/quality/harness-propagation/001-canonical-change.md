@@ -16,6 +16,9 @@ independently maintained trees.
 
 ## Procedure
 
+Step 1 edits Markdown the session writes itself. Steps 2 and 3 change declarative configuration and code, so
+`swe-developer` makes those edits, per [SWE Delegation](../../../conventions/swe-delegation.md).
+
 ### 1. Edit the canonical source first
 
 - **Rules** — root `AGENTS.md`. Root `CLAUDE.md` stays the exact `@AGENTS.md` import. Add no nested or harness-specific
