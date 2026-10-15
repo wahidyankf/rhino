@@ -1,8 +1,8 @@
 Feature: Rhino v0.4 contracts
 
-  The v0.4 surface is repository-neutral and closed. These scenarios name the
-  first observable contracts before their implementation exists; each one is
-  expected to be RED until its owning delivery phase supplies the behavior.
+  The v0.4 surface is repository-neutral and closed. These scenarios define
+  the observable contracts for v0.4. Their status follows the current
+  implementation and test results; the specification does not presume they are RED.
 
   Scenario: A grouped v0.4 configuration is accepted
     Given the configuration file is this text:
