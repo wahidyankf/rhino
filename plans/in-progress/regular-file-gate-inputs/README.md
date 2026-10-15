@@ -1,6 +1,7 @@
 # Regular File Gate Inputs
 
-Status: In progress. The owner plan is being prepared for its plan-only delivery; implementation has not started.
+Status: In progress. The plan-only delivery and separate governance adoption have merged; the plan quality gate is
+pending, and implementation has not started.
 
 RHINO needs an explicit way to pass changed regular files to a formatter while retaining tracked compatibility links as
 link data. This plan adds an opt-in input and releases it through the existing delivery route. It owns only RHINO;
@@ -40,10 +41,10 @@ merges**, retaining one checkout through completion and recording final cleanup 
 cleanup first with a separate archival route; open alternatives and discussion remained available. This preserves the
 one-checkout delivery boundary without claiming cleanup before it occurs.
 
-The portable rule correction has landed in its canonical catalog; [the delivery record](delivery.md) identifies the
-published source. This plan lands alone with owner adoption explicitly pending; the separate RHINO adoption PR follows
-from the same cleanly synced checkout before the quality gate. The adoption revision remains pending. No product
-implementation starts before the plan quality checkpoint.
+The portable rule correction landed in its canonical catalog, and this plan and the separate RHINO governance adoption
+have since merged; [the delivery record](delivery.md) records their published revisions and evidence. The Plan Quality
+Gate is the next checkpoint. No product implementation starts before its verdict is recorded and every blocking row has
+an owner.
 
 ## Directory Map
 
