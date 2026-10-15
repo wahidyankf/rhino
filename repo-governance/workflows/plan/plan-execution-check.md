@@ -2,7 +2,9 @@
 
 ## Entry
 
-Every substantive item in `delivery.md` is terminal. Archival has not started.
+Every substantive item in `delivery.md` is terminal. Archival has not started. Post-delivery cleanup may remain
+explicitly `pending` under
+[Dependency Graph and Recovery](../../conventions/plans/011-dependency-graph-and-recovery.md).
 
 ## Sequence
 
@@ -14,20 +16,25 @@ produces findings that contradict each other.
 3. **Checklist evidence.** Does every completed item carry a result, and does the result match what the repository now
    contains?
 4. **Gates.** Did every declared gate run and return a terminal result, including the ones that returned findings?
-5. **Cleanup.** Are the task-owned artifacts gone, and is their absence proven rather than assumed?
+5. **Cleanup.** Is cleanup due before archival complete and proven? Are later removals recorded as `pending` in
+   `delivery.md` until every delivery unit using the checkout, including archival, has landed?
 6. **Knowledge capture.** Is every `learnings.md` entry resolved to a durable owner or discarded with a reason?
 
 ## Exit
 
-One terminal verdict is recorded. Archival proceeds only on a verdict that permits it.
+One archive-readiness verdict is recorded. Archival proceeds only on a verdict that permits it. It does not claim
+post-delivery cleanup is complete; the task remains open until actual cleanup and proof are recorded outside
+`plans/done/` in the final delivery record (the archival PR body for this route).
 
 ## Archival Is Blocked, Not Warned
 
-An unresolved acceptance criterion, an unproven cleanup, or an unrouted learning blocks archival outright.
+An unresolved acceptance criterion, unproven cleanup due before archival, or unrouted learning blocks archival. Required
+post-delivery cleanup is `pending`, never `met`, and does not block archive readiness. It remains a task obligation
+until actual cleanup and proof are recorded in the final delivery record.
 
-This is stricter than it looks, and deliberately so. A plan in `plans/done/` reads as finished — that is the entire
-signal the lifecycle root carries. Filing an unfinished plan does not merely record something inaccurate; it destroys
-the meaning of the root for every plan already in it.
+This is strict by design. A plan in `plans/done/` records completed substantive execution and archive readiness.
+Explicitly pending post-delivery cleanup remains visible in the archived checklist, and the final delivery record must
+prove it before the task is complete.
 
-The remedy is always the same: resolve the item, then re-run the check. There is no partial archival and no archival
-with a note explaining what was left open.
+Resolve a blocking item and re-run the check. There is no partial archival and no archival with an unresolved acceptance
+criterion, pre-archive cleanup, or unrouted learning.

@@ -34,25 +34,25 @@ Use this only after an explicit direction to execute one formal plan.
 4. Capture learnings as they happen, never reconstructing them at the end. Search
    [`plans/ideas/`](../../../plans/ideas/README.md) for overlap: merge into an existing brief, or write one distinct
    brief and link it.
-5. Land work in delivery units through [worktree to pull request](../maintenance/worktree-to-pull-request.md), reusing
-   the plan's one worktree throughout. Independent units land in any order, each refreshed with its gates re-run, per
+5. Land work through [worktree to pull request](../maintenance/worktree-to-pull-request.md), reusing the plan's one
+   worktree. Independent units land in any order with gates re-run on refreshed state, per
    [Delivery Seams and Ownership](../../development/planning-capabilities/005-delivery-seams-and-ownership.md). A unit
-   is complete at pull-request merge, not when its code is written.
+   completes at pull-request merge, not code completion.
 6. Run each unit's required automation and record evidence
    [data safety](../../conventions/public-repository-data-safety.md) permits.
 7. Apply every applicable repository rule; neither a plan nor a task list expands authority. A failing gate stops the
    line: repair the cause, update `delivery.md` and `learnings.md`, then resume.
-8. Fix what fails, including pre-existing failures. A check red before this plan started is red because of this plan's
-   work by the time it ships. Pre-existing is an explanation, not an exemption.
+8. Fix every failure, including pre-existing ones; a check red before the plan is still red at ship time, never exempt.
 
 ## Complete and Archive
 
-1. Run [plan execution check](plan-execution-check.md) once every substantive item is terminal, and record its verdict.
-   It alone closes the plan; the quality gate judges plans, not delivered work. Never require a full E2E run as a
-   completion condition for plan execution or a plan phase; full E2E is a separately batched set. Archival is blocked,
-   not warned, by an unresolved criterion, an unproven cleanup, or an unrouted learning.
-2. Tear down what the plan created — its worktree, local branch, and that branch on `origin` — once every delivery unit
-   has landed. A failed run keeps its worktree and records why. Record proof of each removal.
+1. Run [plan execution check](plan-execution-check.md) when substantive items are terminal; its archive-readiness
+   verdict alone permits archival. The quality gate judges plans, not delivered work. Full E2E is separately batched,
+   never a completion condition for plan execution or a phase. The check proves substantive requirements and cleanup due
+   before archival; later cleanup stays pending.
+2. Keep the worktree and local/remote task branches until every using unit lands, including archival. After archival
+   lands, clean up checkout, branches, and eligible artifacts; record proof outside `plans/done/` in the archival PR
+   body. Keep task completion pending until proof. A failed run keeps its worktree and records why.
 3. Give every dormant conditional a dated, evidenced `Not triggered` disposition; never claim unexecuted work as
    executed. The plan stays in progress while any required outcome, activated conditional, gate, or human action
    remains.

@@ -17,9 +17,12 @@ Every plan with more than one phase, or with any node that runs concurrently wit
 - which nodes are concurrent and which are serial, with the reason for each serial edge — a node reads what another
   writes, not merely that it is listed later;
 - the concurrency limit the repository permits, and why the plan departs from it where it does; and
-- cleanup as the terminal node, depending on every delivery node, so cleanup never removes a working copy, branch, or
-  artifact that an in-flight node still needs. Cleanup completes, and is recorded, before the archival move, so no
-  cleanup record is ever added to a plan in `done/`.
+- cleanup as the terminal node after every delivery node, so it cannot remove a working copy, branch, or artifact an
+  in-flight unit needs. Keep the worktree and task branches until every unit using them has landed, including archival.
+  Before archival, review substantive requirements and cleanup due before that move. Record later cleanup as `pending`,
+  never `met`, in `delivery.md`; it does not block archive readiness. After final delivery lands, remove the checkout,
+  branches, and eligible outputs. Record actual cleanup and proof outside `plans/done/` in the final delivery record
+  (archival PR body for a PR route). The task is not complete until this proof is recorded.
 
 Two nodes are independent only when neither reads what the other writes. A shared output file, a shared branch, or a
 shared ordering constraint makes them dependent, however separable they look.
