@@ -6,6 +6,9 @@ whether a diagram parses.
 > Filed 2026-10-06 by a consuming repository under its Upstream Tool Defects standard. First seen by that consumer on
 > 2026-07-22, when a deliberately corrupted diagram passed its gate. Reproduced on released `v0.11.0`
 > (`db711617a95ed67700f42d6652c5a9c271a166e6`) and on trunk `6d31682fe724e3a5331a13af94b40d0cc85ce160`.
+>
+> Updated 2026-10-16 with a reproducible escape: a diagram this validator passes that the host cannot render. See
+> [Further evidence](#further-evidence-2026-10-16).
 
 ## Problem and evidence
 
@@ -154,6 +157,29 @@ The consumer that found this mandates Mermaid across its documentation, plans, a
 pull request on this command. Its plans cite the gate as the Mermaid-correctness check, and a diagram-remediation
 backlog it intends to verify with the gate could go green with broken diagrams. Nothing is blocked today, because a
 separate parse step works, so this is important rather than urgent.
+
+## Further evidence (2026-10-16)
+
+Mermaid's own parser (`mermaid@11.16.1` under `jsdom@26.1.0` on Node.js 24) rejects each body below with
+`Parse error on line 2` (line 5 for the last row). Each is a minimal, generic body (the flowchart rows omit the first
+line, `flowchart LR`). The same parser accepts the quoted hexagon form `B{{"Later stage<br/> (before release)"}}`.
+
+| Class                                 | Minimal body                                                          |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| Parentheses, hexagon (the escape)     | `A[Start] --> B{{Later stage<br/> (before release)}}`                 |
+| Parentheses, rectangle                | `A[new Builder()] --> B[End]`                                         |
+| A literal `\|` in node text           | `A[Union<br/>Type \| Type] --> B[End]`                                |
+| Text that starts with `@`             | `A[@scope/package] --> B[End]`                                        |
+| `classDef` inside a `sequenceDiagram` | `sequenceDiagram`, two participants, a message, then `classDef x ...` |
+
+What this changes in the idea:
+
+- A cheap partial step exists if a full parser is out of reach: a quoting check for node text that holds parentheses,
+  `|` or a leading `@` would catch the first four classes without a grammar. It cannot catch the `classDef` class or
+  participant-state errors (for example deactivating the same participant in both branches of an `alt`), which need a
+  real parser.
+- A strict stage would need an opt-in period and a way to mark intentionally broken examples in documentation about
+  diagrams.
 
 ## Prior art
 
