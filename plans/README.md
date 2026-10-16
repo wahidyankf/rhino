@@ -48,14 +48,8 @@ means the head starts only after the tail; a dotted arrow means the tail should 
 is updated in the same change that moves, adds, or removes a plan, per
 [Plan-Order Graph](../repo-governance/conventions/plans/012-plan-order-graph.md).
 
-```mermaid
-flowchart LR
-  accTitle: Plan order
-  accDescr: One live plan with no dependencies.
-  HARD["🔜 harden-rhino-validation-edge-cases"]:::backlog
-  classDef backlog fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
-  classDef inprogress fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
-  classDef default fill:#FFFFFF,stroke:#000000,color:#000000
+```text
+[🔜 harden-rhino-validation-edge-cases]
 ```
 
 Legend: 🔜 blue = backlog; 🏗️ teal = in progress. Hexagon credentialed-machine steps do not apply here. The single live
