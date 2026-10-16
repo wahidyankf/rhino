@@ -40,3 +40,23 @@ sibling would be exactly the automatic propagation this repository refuses.
 - [Done](done/README.md) preserves completed plans as dated delivery records.
 - [Ideas](ideas/README.md) indexes rough two-pager briefs by urgency and importance.
 - [In progress](in-progress/README.md) holds the plans being executed now.
+
+## Plan Order
+
+Every plan in `backlog/` and `in-progress/` appears here. Plans with no arrow between them run in parallel. An arrow
+means the head starts only after the tail; a dotted arrow means the tail should land first without blocking. The graph
+is updated in the same change that moves, adds, or removes a plan, per
+[Plan-Order Graph](../repo-governance/conventions/plans/012-plan-order-graph.md).
+
+```mermaid
+flowchart LR
+  accTitle: Plan order
+  accDescr: One live plan with no dependencies.
+  HARD["🔜 harden-rhino-validation-edge-cases"]:::backlog
+  classDef backlog fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+  classDef inprogress fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
+  classDef default fill:#FFFFFF,stroke:#000000,color:#000000
+```
+
+Legend: 🔜 blue = backlog; 🏗️ teal = in progress. Hexagon credentialed-machine steps do not apply here. The single live
+plan has no dependencies.
