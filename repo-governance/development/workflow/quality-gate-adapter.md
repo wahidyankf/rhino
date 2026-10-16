@@ -73,6 +73,6 @@ operation here states its own bound.
 - **Shape.** Adopted workflows drop front matter, as every workflow here does, while these standards keep it. A table
   wider than the 120-column line limit becomes a list, and a module folder's table folds into its directory map.
 - **Plan gate.** The plans convention it audits includes the local additions, specification changes, and validator
-  contract `AGENTS.md` lists.
+  contract `AGENTS.md` lists. Essential-findings wording adopts catalog head `8816d23a7725ac1431c99a050a9c938d6b038eee`.
 - **Validation reports.** The `generating-validation-reports` skill's frozen-ledger section is amended to this
   contract's ledger columns; the catalog copy still says gate rows carry no confidence.
