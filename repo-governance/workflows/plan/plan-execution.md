@@ -7,9 +7,8 @@ Use this only after an explicit direction to execute one formal plan.
 1. Select one plan in `backlog/` or `in-progress/`. A quality-gate verdict is optional manual history: execution starts
    with or without one and never runs the gate itself. A missing verdict is recorded as
    `plan-quality-gate: not run (manual-only)`. For a bug-fix plan, an adopted Upstream Tool Defects standard remains
-   available direction when explicitly invoked. Before starting, resolve every dependency the plan declares under
-   [Plan-Order Graph](../../conventions/plans/012-plan-order-graph.md): each must already be satisfied, or the run stops
-   and names the unmet one. A missing declaration reads as no dependencies.
+   available direction when explicitly invoked. Before starting, resolve the plan's declared dependencies per
+   [Plan-Order Graph](../../conventions/plans/012-plan-order-graph.md).
 2. Enter the plan's worktree before any file or Git mutation, initializing if new, under
    [the integration path](../../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
    its sync gate there, and read the whole incoming diff against the plan when the sync adds commits. Before starting
