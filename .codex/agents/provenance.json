@@ -45,7 +45,7 @@
     {
       "id": "agent/plan-execution-checker",
       "path": ".agents/agents/plan-execution-checker.md",
-      "digest": "96f7803ae3686f1a4d81a54381819ca46599a4e45af2ed1d41141ed0e0bbbb6a"
+      "digest": "6318f9ccfaa4b886487b41c5c2b164347a1906b876c1c5ed262e1d843f50ca8d"
     },
     {
       "id": "agent/plan-fixer",
