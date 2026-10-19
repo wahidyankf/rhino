@@ -52,7 +52,8 @@ generate. Absent means "there is nothing to generate", and every other rule stil
 It does not bend for **values**. There is no fallback limit, no built-in palette, no assumed directory. The fixed names
 inside RHINO — `README.md` for the file a directory map lives in, and the canonical sources adapter generation reads,
 `AGENTS.md`, `.agents/agents/*.md`, and `.agents/skills/*/SKILL.md` — are the tool's own behaviour, the input its
-generator is defined over, not a consumer's layout.
+generator is defined over, not a consumer's layout. The agents tree lives at `.agents/agents/` unless `harness` names
+another root; the [configuration reference](../reference/v0-4-configuration.md#canonical-agents-root) states the rule.
 
 The quality-gate check holds the same kind of fixed behaviour. Its file names — `<family>-quality-gate.md`,
 `<family>-propagation.md`, `<family>-checker.md`, `<family>-fixer.md`, `NNN-*.md` modules, and a `README.md` index — and
