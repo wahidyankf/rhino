@@ -9,6 +9,19 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.14.0] — 2026-10-19
+
+Harness adapter generation supports per-agent exact-path outputs, so a repository can keep native agent files beside
+canonical sources.
+
+### Added
+
+- An agent adapter may declare an exact output path shaped `.agents/agents/{name}/AGENT.md`: one `{name}` placeholder
+  with a literal path segment after it, under the canonical agents tree. Each rendered file is managed individually:
+  generation merges instead of replacing the directory, and validation never reports surviving neighbours as stale.
+  Flat `.agents/agents/{name}.md` and root `AGENTS.md` paths are still refused, so a canonical source can never be
+  overwritten.
+
 ## [v0.13.0] — 2026-10-16
 
 Formatters can opt into regular Git destinations while preserving compatibility links and partial staging.

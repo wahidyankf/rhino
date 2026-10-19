@@ -73,7 +73,7 @@ how one repository is arranged, wearing the clothes of a schema rule.
 RHINO has since become that third shape itself. Its configuration declares four profiles — `claude`, `codex`,
 `opencode`, and `commandcode` — over its canonical skills and agents, and no capability server at all. Only `claude`
 declares a skill adapter and an instruction adapter; `codex`, `opencode`, and `commandcode` declare agent adapters
-alone. Command Code has 22 generated leaf adapters with static parity verified and no model or effort pins. Native
+alone. Command Code has 23 generated leaf adapters with static parity verified and no model or effort pins. Native
 runtime discovery and enforcement remain unverified. Its coordinating role runs from the complete canonical definition
 in the main session; native leaves cannot dispatch nested agents. Every one of those is a shape the schema had to permit
 without preferring.

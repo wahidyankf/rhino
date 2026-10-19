@@ -194,9 +194,13 @@ and `.agents/skills/*/SKILL.md`.
 
 An agent or skill adapter has one `{name}` output placeholder, a native `front-matter` or `toml` format, an identity
 mapping, optional fixed fields, capability translations, and an exact route containing one `{path}` placeholder. An
-`instruction-adapter` is an individual managed file, rather than ownership of its parent directory. The transaction
-replaces only the directory families derived from agent and skill paths plus those exact instruction-adapter files;
-unrelated siblings remain outside its authority.
+`instruction-adapter` is an individual managed file, rather than ownership of its parent directory. An agent adapter
+shaped `.agents/agents/{name}/AGENT.md` — one `{name}` plus a literal trailing segment under `.agents/agents/` — is
+likewise an individual managed file: generation merges each rendered file into the canonical agents tree instead of
+replacing the directory. A flat `.agents/agents/{name}.md` has no trailing segment and still refuses, as does root
+`AGENTS.md`, so generation can never overwrite a canonical source. The transaction replaces only the directory families
+derived from agent and skill paths plus those exact instruction-adapter and exact-agent files; unrelated siblings remain
+outside its authority.
 
 ```yaml
 harness:
