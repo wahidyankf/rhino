@@ -3894,3 +3894,103 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "md|mermaid|validate|--output|json"
     Then the exit code is 0
     And stdout JSON property "inspected" is 2
+
+  Scenario: Adapter generation without a configured agents root keeps the current tree
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}/AGENT.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at ".agents/agents/reviewer/AGENT.md" contains "Read .agents/agents/reviewer.md completely."
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the last adapter generation makes no repository change
+    And the two runs are byte-identical
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario: A configured canonical agents root moves discovery and adapter outputs
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        agents-root: agents
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: "adapters/muse/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | agents/reviewer.md         | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/stale.md    | Not a canonical agent                                                   |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at "adapters/muse/agents/reviewer.md" contains "Read agents/reviewer.md completely."
+    And the generated adapter at "adapters/muse/agents/reviewer.md" does not contain ".agents/agents"
+    And no generated adapter exists at ".agents/agents/reviewer/AGENT.md"
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario Outline: A declared canonical agents root that does not exist refuses before adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        agents-root: agents
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: "adapters/muse/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+      """
+    And the repository contains:
+      | path      | content               |
+      | AGENTS.md | Canonical instruction |
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "canonical agents root `agents` is missing"
+    And the repository is unchanged by the inspection
+
+    Examples:
+      | command                     |
+      | harness\|adapters\|generate |
+      | harness\|adapters\|validate |
+
+  Scenario Outline: A canonical agents root outside the repository refuses before adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        agents-root: ../outside
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: "adapters/muse/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+      """
+    And the repository contains:
+      | path      | content               |
+      | AGENTS.md | Canonical instruction |
+    When I invoke the CLI with "<command>"
+    Then the exit code is 2
+    And stderr contains "invalid canonical agents root `../outside`"
+    And the repository is unchanged by the inspection
+
+    Examples:
+      | command                     |
+      | harness\|adapters\|generate |
+      | harness\|adapters\|validate |

@@ -679,6 +679,22 @@ pub const BINDINGS: &[Binding] = &[
         "A configuration with none of the new keys behaves as v0.7.0 did",
     ),
     (
+        "v0-4-contract",
+        "Adapter generation without a configured agents root keeps the current tree",
+    ),
+    (
+        "v0-4-contract",
+        "A configured canonical agents root moves discovery and adapter outputs",
+    ),
+    (
+        "v0-4-contract",
+        "A declared canonical agents root that does not exist refuses before adapter writes",
+    ),
+    (
+        "v0-4-contract",
+        "A canonical agents root outside the repository refuses before adapter writes",
+    ),
+    (
         "quality-gates",
         "A repository whose gates follow the declared structure passes",
     ),

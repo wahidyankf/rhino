@@ -524,6 +524,15 @@ pub(crate) struct ToolchainProvision {
 pub struct Harness {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) canonical: Option<Canonical>,
+    /// The repository root holding the canonical agent definitions, as a
+    /// relative path. Omitted, discovery reads the historical
+    /// `.agents/agents/` tree.
+    #[serde(
+        default,
+        rename = "agents-root",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) agents_root: Option<String>,
     #[serde(default)]
     pub(crate) requirements: Requirements,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

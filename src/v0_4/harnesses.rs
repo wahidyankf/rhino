@@ -283,7 +283,28 @@ fn plan(
         &harness.requirements,
         harness.canonical.as_ref(),
     )?;
-    let sources = discover(tree, harness.canonical.as_ref(), &harness.profiles)?;
+    let agents_root = agents_root(harness)?;
+    // A declared root names a tree the repository must hold: refusing a
+    // missing one here keeps generation from writing adapters for an empty
+    // discovery. An omitted root keeps the historical tree, which every
+    // existing repository already holds, so no existence check applies there.
+    if harness.agents_root.is_some()
+        && !tree
+            .files()
+            .iter()
+            .any(|path| path.starts_with(&agents_root))
+    {
+        return Err(format!(
+            "canonical agents root `{}` is missing",
+            agents_root.trim_end_matches('/')
+        ));
+    }
+    let sources = discover(
+        tree,
+        harness.canonical.as_ref(),
+        &harness.profiles,
+        &agents_root,
+    )?;
     for profile in &harness.profiles {
         require_selected_sources(profile, &sources)?;
     }
@@ -778,10 +799,27 @@ fn require_axis(
     Ok(())
 }
 
+/// The canonical agents root this run discovers, with its trailing separator.
+///
+/// An omitted `agents-root` keeps the historical `.agents/agents/` tree, so a
+/// repository that declares nothing discovers exactly what it always did. A
+/// declared root is normalized like every other repository path; one that
+/// climbs out of the repository, or is empty, refuses here before discovery
+/// reads it.
+fn agents_root(harness: &Harness) -> Result<String, String> {
+    match harness.agents_root.as_deref() {
+        None => Ok(AGENTS_ROOT.to_string()),
+        Some(root) => normal_adapter_path(root)
+            .map(|root| format!("{root}/"))
+            .ok_or_else(|| format!("harness: invalid canonical agents root `{root}`")),
+    }
+}
+
 fn discover(
     tree: &dyn Tree,
     canonical: Option<&Canonical>,
     profiles: &[Profile],
+    agents_root: &str,
 ) -> Result<Vec<Source>, String> {
     let instruction = read_source(
         tree,
@@ -800,12 +838,12 @@ fn discover(
             .and_then(|shape| shape.agents.as_ref())
             .expect("profile validation proved canonical agent metadata exists");
         for path in tree.files().into_iter().filter(|path| {
-            path.strip_prefix(AGENTS_ROOT).is_some_and(|relative| {
+            path.strip_prefix(agents_root).is_some_and(|relative| {
                 relative.ends_with(".md") && !relative.contains('/') && relative != "README.md"
             })
         }) {
             let relative = path
-                .strip_prefix(AGENTS_ROOT)
+                .strip_prefix(agents_root)
                 .expect("the filter proved this prefix");
             let name = source_id(relative).to_string();
             let source = read_source(
@@ -2079,6 +2117,7 @@ mod typed_tests {
     fn complete_harness(capability: &str) -> Harness {
         Harness {
             canonical: Some(canonical()),
+            agents_root: None,
             requirements: requirements(capability),
             profiles: vec![
                 profile("alpha", capability),
@@ -3005,7 +3044,8 @@ mod typed_tests {
             discover(
                 &missing,
                 missing_harness.canonical.as_ref(),
-                &missing_harness.profiles
+                &missing_harness.profiles,
+                AGENTS_ROOT
             )
             .is_err()
         );
