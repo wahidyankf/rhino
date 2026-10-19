@@ -3,9 +3,9 @@
 RHINO tree validators open files and print. They write nothing, spawn nothing, and connect to nothing. Explicit
 operations are separate: `gate run` starts only a declared child argv, toolchain commands start declared typed argv
 without a shell or reported output, `env validate` runs one `git diff --cached` query for the staged paths when
-`environment.staged` is declared, and adapter generation replaces only declared adapter families and exact
-instruction-adapter files after planning every output in memory, starting at most a tier's declared `model-resolve`
-argv. These are enforced as tests, not incidental properties of the current implementation.
+`environment.staged` is declared, and adapter generation replaces only declared adapter families and exact adapter files
+after planning every output in memory, starting at most a tier's declared `model-resolve` argv. These are enforced as
+tests, not incidental properties of the current implementation.
 
 ## The four boundaries
 
