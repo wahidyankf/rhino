@@ -9,6 +9,18 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [v0.15.0] — 2026-10-19
+
+Harness adapter generation can read canonical agents from a configured root instead of only `.agents/agents/`.
+
+### Added
+
+- `harness` accepts an optional `agents-root` relative path naming the repository root that holds the canonical agent
+  definitions. Omitted, discovery reads the historical `.agents/agents/` tree and every adapter output is byte-identical
+  to generation without the key. Declared, discovery and every `{path}` route resolve against that root instead, and the
+  old tree is no longer read. A root that holds nothing, climbs out of the repository, or is empty refuses before any
+  write.
+
 ## [v0.14.0] — 2026-10-19
 
 Harness adapter generation supports per-agent exact-path outputs, so a repository can keep native agent files beside
