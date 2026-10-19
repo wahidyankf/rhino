@@ -2076,6 +2076,159 @@ Feature: Rhino v0.4 contracts
     And stderr contains ".codex/config.toml: stale-marker"
     And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "name: reviewer"
 
+  Scenario: A native-shaped agent adapter path generates and validates
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}/AGENT.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at ".agents/agents/reviewer/AGENT.md" contains "Read .agents/agents/reviewer.md completely."
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario: A flat agent adapter path under the canonical tree refuses validation
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 2
+    And stderr contains "profile `muse` has an invalid adapter path"
+    And the repository is unchanged by the inspection
+
+  Scenario: A flat agent adapter path refuses generation before adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 2
+    And stderr contains "profile `muse` has an invalid adapter path"
+    And the repository is unchanged by the inspection
+
+  Scenario: A native-shaped agent adapter generation preserves canonical sources
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}/AGENT.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at ".agents/agents/reviewer/AGENT.md" contains "Read .agents/agents/reviewer.md completely."
+    And the file ".agents/agents/reviewer.md" still contains "Canonical agent"
+    And the file "AGENTS.md" still contains "Canonical instruction"
+
+  Scenario: An exact agent adapter path merges unmanaged neighbours without stale findings
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}/AGENT.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                                | content                                                                 |
+      | AGENTS.md                           | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md          | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/reviewer/notes.txt   | Local notes                                                             |
+      | .agents/agents/notes.txt            | Tree notes                                                              |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at ".agents/agents/reviewer/AGENT.md" contains "Read .agents/agents/reviewer.md completely."
+    And the file ".agents/agents/reviewer/notes.txt" still contains "Local notes"
+    And the file ".agents/agents/notes.txt" still contains "Tree notes"
+    And the file ".agents/agents/reviewer.md" still contains "Canonical agent"
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario: An exact agent adapter regeneration refreshes managed files alone
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: ".agents/agents/{name}/AGENT.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                              | content                                                                 |
+      | AGENTS.md                         | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md        | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .agents/agents/reviewer/AGENT.md  | Old adapter                                                             |
+      | .agents/agents/notes.txt          | Tree notes                                                              |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 0
+    And the generated adapter at ".agents/agents/reviewer/AGENT.md" contains "Read .agents/agents/reviewer.md completely."
+    And the file ".agents/agents/notes.txt" still contains "Tree notes"
+    And the file ".agents/agents/reviewer.md" still contains "Canonical agent"
+    When I invoke the CLI with "harness|adapters|validate"
+    Then the exit code is 0
+
+  Scenario: A root agent adapter path refuses generation before adapter writes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        profiles:
+          - id: muse
+            agent-adapter: {path: "AGENTS.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name, description: description}}
+      """
+    And the repository contains:
+      | path                       | content                                                                 |
+      | AGENTS.md                  | Canonical instruction                                                   |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+    When I invoke the CLI with "harness|adapters|generate"
+    Then the exit code is 2
+    And stderr contains "profile `muse` has an invalid adapter path"
+    And the repository is unchanged by the inspection
+
   Scenario: A declared marker surface holding no generated marker is clean
     Given the configuration file is this text:
       """
