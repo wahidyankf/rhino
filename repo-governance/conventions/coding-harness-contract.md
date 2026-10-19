@@ -33,7 +33,8 @@ commit.
 - `AGENTS.md` is the only project-rule body. Root `CLAUDE.md` contains only `@AGENTS.md`, apart from a BOM, line-ending
   differences, or surrounding blank lines.
 - `.agents/skills/<name>/SKILL.md` and every regular file below it form one canonical skill bundle.
-- `.agents/agents/<name>.md` is the only full custom-agent prompt and the only source of its capability boundary.
+- `agents/<name>.md` (configured `harness.agents-root`) is the only full custom-agent prompt and the only source of its
+  capability boundary.
 
 ## No Capability Server
 

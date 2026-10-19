@@ -15,6 +15,7 @@ scan:
     - worktrees
 
 harness:
+  agents-root: agents
   canonical:
     agents:
       name: name
@@ -496,7 +497,7 @@ policies:
       surfaces:
         - glob: ".agents/skills/*/SKILL.md"
           schema: skill
-        - glob: ".agents/agents/*.md"
+        - glob: "agents/*.md"
           schema: agent
         - glob: ".agents/agents/README.md"
           schema: governance
@@ -538,7 +539,7 @@ policies:
     # Owner: repo-governance/development/workflow/quality-gate-adapter.md
     quality-gates:
       root: repo-governance/workflows
-      agents: .agents/agents
+      agents: agents
       groups: [plan, quality, maintenance]
       gate-group: quality
       gate-headings:

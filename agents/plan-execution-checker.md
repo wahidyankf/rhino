@@ -38,7 +38,7 @@ An audit that reads only `delivery.md` confirms that the plan is consistent with
 An unresolved acceptance criterion, unproven cleanup due before archival, or unrouted learning blocks archival. Required
 post-delivery cleanup is recorded as `pending`, never `met`, and does not block archive readiness. It remains open until
 actual cleanup and proof are recorded outside `plans/done/` in the final delivery record, as
-[Execution Check](../../repo-governance/workflows/plan/plan-execution-check.md) defines. The verdict says plainly when a
+[Execution Check](../repo-governance/workflows/plan/plan-execution-check.md) defines. The verdict says plainly when a
 blocking condition remains rather than passing with a caveat.
 
 A plan in the done root reads as finished. That signal is worth more than any individual plan's convenience, and it is

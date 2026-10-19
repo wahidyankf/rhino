@@ -30,9 +30,9 @@ repair the wrong way, so this is `plan` work. A cause that lies in a module boun
 1. **Reproduce.** Run each failing command and keep its output. A failure that will not reproduce is reported with both
    runs and is never declared fixed.
 2. **Keep an attempt record.** Under the repository's temporary-report location, per
-   [Temporary Files](../../repo-governance/conventions/working-tree.md), note for every attempt the failure, the
-   suspected cause, the change, and what the re-run showed. After an interruption, that record is what prevents a
-   disproved idea from being tried again.
+   [Temporary Files](../repo-governance/conventions/working-tree.md), note for every attempt the failure, the suspected
+   cause, the change, and what the re-run showed. After an interruption, that record is what prevents a disproved idea
+   from being tried again.
 3. **Group by cause.** Failures with a shared cause are one repair at the shared place.
 4. **Diagnose first.** Establish the exact failure, the path that produces it, and why that path was taken, in the order
    Root Cause Orientation sets. For an unfamiliar error code or message, read the tool's own documentation for it before
@@ -49,8 +49,8 @@ It edits a test's expectation only when the behaviour specification or its owner
 ## Never Around a Check
 
 No suppression comment, lint directive, type escape, skipped or deleted test, loosened assertion, lowered threshold, or
-disabled hook. [Software Quality Enforcement](../../repo-governance/development/software-quality-enforcement.md) rules
-these out, and [Lint Strictness](../../repo-governance/development/quality/checks/lint-strictness.md) owns the one
+disabled hook. [Software Quality Enforcement](../repo-governance/development/software-quality-enforcement.md) rules
+these out, and [Lint Strictness](../repo-governance/development/quality/checks/lint-strictness.md) owns the one
 documented-waiver route, which the agent proposes to its caller with a reason and never applies silently. A failure
 already present before the current change follows Preexisting Error Resolution.
 
