@@ -743,6 +743,10 @@
       "additionalProperties": false,
       "description": "Canonical requirements and the adapter profiles that must preserve them.\n\nThe canonical bodies themselves are deliberately not duplicated here: they\nremain the repository's root instruction and `.agents` trees. This group\nstates only the portable meaning each profile must be able to carry.",
       "properties": {
+        "agents-root": {
+          "description": "The repository root holding the canonical agent definitions, as a\nrelative path. Omitted, discovery reads the historical\n`.agents/agents/` tree.",
+          "type": ["string", "null"]
+        },
         "canonical": {
           "anyOf": [
             {

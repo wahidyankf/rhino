@@ -189,8 +189,9 @@ A tree that omits the key, or sets `true` or `false`, is checked exactly as befo
 `harness` declares the portable requirements and a nonempty list of opaque profiles. Each profile explicitly lists the
 capabilities, grants, denials, constraints, routes, and identities its documented native adapter can represent. The
 canonical field vocabulary and each native adapter representation are also declared, so Rhino does not assume a
-harness's path, format, front-matter keys, or route syntax. Canonical source remains `AGENTS.md`, `.agents/agents/*.md`,
-and `.agents/skills/*/SKILL.md`.
+harness's path, format, front-matter keys, or route syntax. Canonical source remains `AGENTS.md`,
+`.agents/skills/*/SKILL.md`, and the flat `*.md` files (excluding `README.md`) directly under the canonical agents root,
+which is `.agents/agents/` unless `agents-root` names another root.
 
 An agent or skill adapter has one `{name}` output placeholder, a native `front-matter` or `toml` format, an identity
 mapping, optional fixed fields, capability translations, and an exact route containing one `{path}` placeholder. An
@@ -276,6 +277,20 @@ harness:
 `harness adapters validate` is read-only. `harness adapters generate` first validates and renders the entire projection,
 then replaces only its declared families and exact files as one recoverable transaction. An unrepresentable requirement,
 malformed source metadata, invalid native representation, or conflicting output refuses before any write.
+
+### Canonical agents root
+
+`agents-root` is an optional relative path under `harness` naming the repository root that holds the canonical agent
+definitions. Omitted, discovery reads the historical `.agents/agents/` tree and every adapter output is byte-identical
+to generation without the key. Declared, discovery and every `{path}` route resolve against that root instead, and the
+old tree is no longer read. A declared root that holds nothing refuses with `rhino.harness.refused` naming the missing
+root, and a root that climbs out of the repository, or is empty, refuses as an invalid path; both refuse before any
+write.
+
+```yaml
+harness:
+  agents-root: agents
+```
 
 ### Tiers, absent fields, and capability translations
 
