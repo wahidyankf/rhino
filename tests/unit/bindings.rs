@@ -117,6 +117,34 @@ pub const BINDINGS: &[Binding] = &[
     ),
     (
         "v0-4-contract",
+        "A native-shaped agent adapter path generates and validates",
+    ),
+    (
+        "v0-4-contract",
+        "A flat agent adapter path under the canonical tree refuses validation",
+    ),
+    (
+        "v0-4-contract",
+        "A flat agent adapter path refuses generation before adapter writes",
+    ),
+    (
+        "v0-4-contract",
+        "A native-shaped agent adapter generation preserves canonical sources",
+    ),
+    (
+        "v0-4-contract",
+        "An exact agent adapter path merges unmanaged neighbours without stale findings",
+    ),
+    (
+        "v0-4-contract",
+        "An exact agent adapter regeneration refreshes managed files alone",
+    ),
+    (
+        "v0-4-contract",
+        "A root agent adapter path refuses generation before adapter writes",
+    ),
+    (
+        "v0-4-contract",
         "A canonical denial removes native member projections",
     ),
     (

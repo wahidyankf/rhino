@@ -278,7 +278,7 @@ fn plan(
     if harness.profiles.is_empty() {
         return Err("harness: at least one adapter profile is required".to_string());
     }
-    let (roots, exact_paths) = validate_profiles(
+    let (roots, static_exact) = validate_profiles(
         &harness.profiles,
         &harness.requirements,
         harness.canonical.as_ref(),
@@ -295,6 +295,18 @@ fn plan(
         let models = resolve_models(profile, tree, resolution, &mut warnings);
         render_profile(profile, &sources, &models, &mut desired)?;
     }
+    // Per-agent exact outputs merge into the canonical agents tree: every
+    // desired file outside every family root is an individually managed file.
+    // Family files stay under their roots; instruction files are the static
+    // exact set. The remainder is the exact agent set.
+    let mut exact_paths = static_exact;
+    for path in desired.keys() {
+        if !roots.iter().any(|root| under_root(path, root)) && !exact_paths.contains(path) {
+            exact_paths.push(path.clone());
+        }
+    }
+    let exact_paths = adapter_exact_paths(&roots, &exact_paths)
+        .map_err(|error| format!("harness: {}", error.0))?;
     let files = desired
         .iter()
         .map(|(path, contents)| AdapterFile {
@@ -472,7 +484,11 @@ fn validate_profiles(
         }
         let mut declares_output = false;
         if let Some(adapter) = &profile.agent_adapter {
-            roots.push(validate_adapter(&profile.id, adapter, true)?);
+            if is_exact_agent_pattern(&adapter.path) {
+                validate_exact_agent(&profile.id, adapter)?;
+            } else {
+                roots.push(validate_adapter(&profile.id, adapter, true)?);
+            }
             declares_output = true;
         }
         if let Some(adapter) = &profile.skill_adapter {
@@ -545,12 +561,61 @@ fn validate_profiles(
     Ok((roots, exact_paths))
 }
 
+/// Whether an agent pattern writes one file per agent inside the canonical
+/// agents tree instead of replacing a family directory.
+///
+/// The shape is exactly one `{name}` placeholder with a literal path segment
+/// after it, under the canonical agents directory: `.agents/agents/{name}`
+/// plus `/` and more. A flat `.agents/agents/{name}.md` has no such segment
+/// and stays invalid, so generation can never overwrite a canonical source.
+fn is_exact_agent_pattern(pattern: &str) -> bool {
+    let Some((head, tail)) = pattern.split_once("{name}") else {
+        return false;
+    };
+    if pattern.matches("{name}").count() != 1 {
+        return false;
+    }
+    if !tail.starts_with('/') || tail.len() <= 1 {
+        return false;
+    }
+    if head.contains('{') || head.contains('}') || tail.contains('{') || tail.contains('}') {
+        return false;
+    }
+    let sample = pattern.replace("{name}", "adapter");
+    let Some(normalized) = normal_adapter_path(&sample) else {
+        return false;
+    };
+    if normalized != sample {
+        return false;
+    }
+    let root = head.trim_end_matches('/');
+    let Some(normalized_root) = normal_adapter_path(root) else {
+        return false;
+    };
+    if normalized_root != root {
+        return false;
+    }
+    normalized_root == AGENTS_ROOT.trim_end_matches('/')
+}
+
+fn validate_exact_agent(profile: &str, adapter: &Adapter) -> Result<(), String> {
+    if !is_exact_agent_pattern(&adapter.path) {
+        return Err(format!("profile `{profile}` has an invalid adapter path"));
+    }
+    validate_adapter_fields(profile, adapter, true)
+}
+
 fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<String, String> {
     let root = adapter_root(&adapter.path)
         .ok_or_else(|| format!("profile `{profile}` has an invalid adapter path"))?;
     if root.starts_with(".agents/") || root == ROOT_INSTRUCTION {
         return Err(format!("profile `{profile}` has an invalid adapter path"));
     }
+    validate_adapter_fields(profile, adapter, agent)?;
+    Ok(root)
+}
+
+fn validate_adapter_fields(profile: &str, adapter: &Adapter, agent: bool) -> Result<(), String> {
     validate_route(profile, &adapter.route)?;
     if (adapter.format == AdapterFormat::FrontMatter) != (adapter.route_field == "body") {
         return Err(format!(
@@ -655,7 +720,7 @@ fn validate_adapter(profile: &str, adapter: &Adapter, agent: bool) -> Result<Str
     }) {
         return Err(format!("profile `{profile}` has invalid tier fields"));
     }
-    Ok(root)
+    Ok(())
 }
 
 /// A dispatch field is one native field, or one map field and its key; an
@@ -3418,6 +3483,52 @@ mod typed_tests {
             .err()
             .unwrap()
             .contains("non-list `dispatches`")
+        );
+    }
+
+    #[test]
+    fn exact_agent_patterns_merge_inside_the_canonical_agents_tree() {
+        assert!(is_exact_agent_pattern(".agents/agents/{name}/AGENT.md"));
+        assert!(is_exact_agent_pattern(
+            ".agents/agents/{name}/docs/AGENT.md"
+        ));
+        for pattern in [
+            "AGENTS.md",
+            ".agents/agents/{name}.md",
+            ".agents/agents/{name}/",
+            "{name}/AGENT.md",
+            "/.agents/agents/{name}/AGENT.md",
+            "adapters/alpha/{name}/AGENT.md",
+            ".agents/agents/{name}/{path}",
+            ".agents/{other}/{name}/AGENT.md",
+            ".agents/agents/{name}/../AGENT.md",
+            ".agents/../agents/{name}/AGENT.md",
+            "a/{name}/b/{name}/c",
+        ] {
+            assert!(!is_exact_agent_pattern(pattern), "{pattern}");
+        }
+        assert!(
+            validate_exact_agent(
+                "test",
+                &adapter(
+                    ".agents/agents/{name}/AGENT.md",
+                    AdapterFormat::FrontMatter,
+                    "body",
+                ),
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_exact_agent(
+                "test",
+                &adapter(
+                    ".agents/agents/{name}.md",
+                    AdapterFormat::FrontMatter,
+                    "body",
+                ),
+            )
+            .unwrap_err()
+            .contains("invalid adapter path")
         );
     }
 }
