@@ -19,12 +19,12 @@ project every denial their documented formats express.
 Command Code discovers root `AGENTS.md` and canonical `.agents/skills/` natively. Add no instruction shim or skill copy.
 Generate only `.commandcode/agents/` native leaf adapters, with every documented grant and denial.
 
-Roles declaring `subagent` or nonempty `dispatches`, here
-[SWE Orchestrator](../../../.agents/agents/swe-orchestrator.md), are read completely and coordinated in the main session
-under their canonical dispatch allowlist. Native leaves cannot dispatch: deny `agent` and `agent_output`. The explicit
-selection must equal every canonical leaf, excluding exactly those main-session roles; update it with canonical agent
-changes in the same commit and audit coverage after regeneration. Semantic main-session compliance remains unenforced by
-decision, with review and the session report carrying it.
+Roles declaring `subagent` or nonempty `dispatches`, here [SWE Orchestrator](../../../agents/swe-orchestrator.md), are
+read completely and coordinated in the main session under their canonical dispatch allowlist. Native leaves cannot
+dispatch: deny `agent` and `agent_output`. The explicit selection must equal every canonical leaf, excluding exactly
+those main-session roles; update it with canonical agent changes in the same commit and audit coverage after
+regeneration. Semantic main-session compliance remains unenforced by decision, with review and the session report
+carrying it.
 
 Omit tier mappings and model, featureModels, effort, and reasoningEffort pins from this profile, adapters, settings,
 global sources, and smoke commands. The active session supplies the model; omitted reasoning fields use the harness

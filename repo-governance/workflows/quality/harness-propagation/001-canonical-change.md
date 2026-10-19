@@ -25,7 +25,8 @@ Step 1 edits Markdown the session writes itself. Steps 2 and 3 change declarativ
   instruction file.
 - **Skills** — the complete `.agents/skills/<name>/` bundle, `SKILL.md` and every supporting file. Directory name and
   front-matter `name` must match.
-- **Agents** — `.agents/agents/<name>.md`, including the prompt and its semantic `capabilities` and `constraints`.
+- **Agents** — `agents/<name>.md`, the file under the configured `harness.agents-root`, including the prompt and its
+  semantic `capabilities` and `constraints`.
 
 ### 2. Reconcile every adapter in the same change
 

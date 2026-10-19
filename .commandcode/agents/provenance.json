@@ -3,121 +3,6 @@
   "profile": "commandcode",
   "sources": [
     {
-      "id": "agent/ci-checker",
-      "path": ".agents/agents/ci-checker.md",
-      "digest": "99361b68712f6c6fd5c2c2632b7f7f9eb79ec801f1d7fd802c5ea96133c39b97"
-    },
-    {
-      "id": "agent/ci-fixer",
-      "path": ".agents/agents/ci-fixer.md",
-      "digest": "1f105419bef0cad0fb4a6250c2c44896c04228ba4da0e2e0646529d1e0db0eb0"
-    },
-    {
-      "id": "agent/docs-checker",
-      "path": ".agents/agents/docs-checker.md",
-      "digest": "6a04326674d96a1d5596c97162bef3e0f269ef8ec857c79c969137377713c8ba"
-    },
-    {
-      "id": "agent/docs-fixer",
-      "path": ".agents/agents/docs-fixer.md",
-      "digest": "0c2ca15f993011aa9d5ccddbceef07277c041883ecb6ace3a71edb3044423034"
-    },
-    {
-      "id": "agent/harness-checker",
-      "path": ".agents/agents/harness-checker.md",
-      "digest": "c290209882d79589a3fb1f540fdea2804ead99de34a3028b62de30a2dfd7695c"
-    },
-    {
-      "id": "agent/harness-fixer",
-      "path": ".agents/agents/harness-fixer.md",
-      "digest": "e1edbbec757064aa753b01a8896d3ad8cdf30d49daf1f3f61515a402617e877e"
-    },
-    {
-      "id": "agent/leak-reviewer",
-      "path": ".agents/agents/leak-reviewer.md",
-      "digest": "eaf3b315def83cb0b387501125b7f660e2aa330062bc7bccbfbee0d888465634"
-    },
-    {
-      "id": "agent/plan-checker",
-      "path": ".agents/agents/plan-checker.md",
-      "digest": "9a78e9bdef4e4ad74b6db4eaaa48c8dda4f49e0ca1ca7dc8cb4770a356db7576"
-    },
-    {
-      "id": "agent/plan-execution-checker",
-      "path": ".agents/agents/plan-execution-checker.md",
-      "digest": "6318f9ccfaa4b886487b41c5c2b164347a1906b876c1c5ed262e1d843f50ca8d"
-    },
-    {
-      "id": "agent/plan-fixer",
-      "path": ".agents/agents/plan-fixer.md",
-      "digest": "25083852f1824e1910854b4164c6719a49397739dc2e0aef1a2d1e697db9709b"
-    },
-    {
-      "id": "agent/plan-maker",
-      "path": ".agents/agents/plan-maker.md",
-      "digest": "96c5276a8e2a7b62995bb02e3e9f98d21f0efa8f075acacd9b4c9623583a37e7"
-    },
-    {
-      "id": "agent/pr-review-checker",
-      "path": ".agents/agents/pr-review-checker.md",
-      "digest": "f2dbe7cab8c8494c853e2e1fe3bbf6bf3ac042a3412942f415bf64a72827cf20"
-    },
-    {
-      "id": "agent/pr-review-fixer",
-      "path": ".agents/agents/pr-review-fixer.md",
-      "digest": "a747484be4506a599c28322a5054e1376d083d9dadc01f56ee149d6f0308e916"
-    },
-    {
-      "id": "agent/rules-checker",
-      "path": ".agents/agents/rules-checker.md",
-      "digest": "0509179cb97f39ea14f288d1a58e823e4d767dc5e9dc823f4a8be6959768e07e"
-    },
-    {
-      "id": "agent/rules-fixer",
-      "path": ".agents/agents/rules-fixer.md",
-      "digest": "e478b45d6bc5b281604e456474e3ba037e0f02a88699905e1819ac88cf6a72b6"
-    },
-    {
-      "id": "agent/specs-checker",
-      "path": ".agents/agents/specs-checker.md",
-      "digest": "2f6182560d7b4bbb73e9477e5e19c296345d611d5d199ad7f033c6e8be1533c5"
-    },
-    {
-      "id": "agent/specs-fixer",
-      "path": ".agents/agents/specs-fixer.md",
-      "digest": "7ca2f598b897722ea0b9cc38199c0bf4f6bcb6f7ae1818e51b99d5da45eda6a3"
-    },
-    {
-      "id": "agent/swe-architect",
-      "path": ".agents/agents/swe-architect.md",
-      "digest": "260db77996c4c65aef66dbf0a360a65268b61ba58753fb341bfff250d431e55e"
-    },
-    {
-      "id": "agent/swe-debugger",
-      "path": ".agents/agents/swe-debugger.md",
-      "digest": "ade5a77b52f89787cde3828ddae332c34c2c75a1ad61beffba3aafe8210f8896"
-    },
-    {
-      "id": "agent/swe-developer",
-      "path": ".agents/agents/swe-developer.md",
-      "digest": "d5c2f462c6ab6d3dbdd35c6c7bb96b3cb74780e55480a70645bfc5da63b15c64"
-    },
-    {
-      "id": "agent/swe-releaser",
-      "path": ".agents/agents/swe-releaser.md",
-      "digest": "fb5e52eb2516c2afa85f7c91a264e162ebcdc4a2f246dc3604624beec2f0cb56"
-    },
-    {
-      "id": "agent/swe-reviewer",
-      "path": ".agents/agents/swe-reviewer.md",
-      "digest": "087c0ebf1fc60d2d9f97ced6a4f2915c5cbcc4554f88c7f54adbea80de8ec076"
-    },
-    {
-      "id": "agent/swe-usability-tester",
-      "path": ".agents/agents/swe-usability-tester.md",
-      "digest": "d9280795a37235732379716d0cdde070f21afe22f4ee705cbf308a87a1e342e2"
-    },
-    {
       "id": "skill/applying-maker-checker-fixer",
       "path": ".agents/skills/applying-maker-checker-fixer/SKILL.md",
       "digest": "50c63c9084c1ce85e8a0284d2ad04af1608dbce77cb94aa47110b8aad188d664"
@@ -216,6 +101,121 @@
       "id": "instruction",
       "path": "AGENTS.md",
       "digest": "5c3391bb8efd17137c7db80df46b0e24caba35a4da46982f5a8b3a5512af2c53"
+    },
+    {
+      "id": "agent/ci-checker",
+      "path": "agents/ci-checker.md",
+      "digest": "031d1229554f99bd2edf76d8a7a4062046147c10556deadacc0dbce70262ca05"
+    },
+    {
+      "id": "agent/ci-fixer",
+      "path": "agents/ci-fixer.md",
+      "digest": "838a7a06d6cedeeccc877db729fd62e70ae174dd7625033eef6b272d00f12cf7"
+    },
+    {
+      "id": "agent/docs-checker",
+      "path": "agents/docs-checker.md",
+      "digest": "d65c23dc2ce0fc26156281b7d9602ac40c1b79217a809c1affe4fc1f07b82aa6"
+    },
+    {
+      "id": "agent/docs-fixer",
+      "path": "agents/docs-fixer.md",
+      "digest": "0fdc3d0418e70c562712cbd4fae01599e9cab36a974e8255fe55e84064d2cf06"
+    },
+    {
+      "id": "agent/harness-checker",
+      "path": "agents/harness-checker.md",
+      "digest": "f0425788822978525f73d7d2556b34ac604203ce3aa4dd3f75d8ea60404a62d1"
+    },
+    {
+      "id": "agent/harness-fixer",
+      "path": "agents/harness-fixer.md",
+      "digest": "28ab40f0de1069c5886bca8760287a0bd6e56a12e5ef842e9aed448147b1689b"
+    },
+    {
+      "id": "agent/leak-reviewer",
+      "path": "agents/leak-reviewer.md",
+      "digest": "0d89afbc5f369ff6f9fb717317bc3a516544bc64ac4ec72f62f81b51fd0726e7"
+    },
+    {
+      "id": "agent/plan-checker",
+      "path": "agents/plan-checker.md",
+      "digest": "3d6da2e595f0ddd770f0a832c3e60a8fd3fdadae3e793bf74bd176315719b61e"
+    },
+    {
+      "id": "agent/plan-execution-checker",
+      "path": "agents/plan-execution-checker.md",
+      "digest": "60394cf7b7d9de1696c9a398c1f1c82bdc37617c193798950ef8f92d529fa8bc"
+    },
+    {
+      "id": "agent/plan-fixer",
+      "path": "agents/plan-fixer.md",
+      "digest": "a07edcb60c332fcd5c2ef11ec86ab9189b9c69244799aba8e2cc03e11b0b742a"
+    },
+    {
+      "id": "agent/plan-maker",
+      "path": "agents/plan-maker.md",
+      "digest": "80b389040d54797d17c614ed88efd9a20f18b289a6752aaaa037ff24ac3cbaa8"
+    },
+    {
+      "id": "agent/pr-review-checker",
+      "path": "agents/pr-review-checker.md",
+      "digest": "b2efa1a43812b5e87cf9e2cb6d1fc4d4b66d9f0720cff491a93b976e74effec7"
+    },
+    {
+      "id": "agent/pr-review-fixer",
+      "path": "agents/pr-review-fixer.md",
+      "digest": "e11f216ba00cadca7f382f80dc0e51f0f36d61714106fb318cd50b714e49cc29"
+    },
+    {
+      "id": "agent/rules-checker",
+      "path": "agents/rules-checker.md",
+      "digest": "e21712a08b01426f91c84e0b3e55c256b586b04bb53f97b18917d92f88dad272"
+    },
+    {
+      "id": "agent/rules-fixer",
+      "path": "agents/rules-fixer.md",
+      "digest": "d6cd78645f1a6a05e3dc94fe55bbfaa116977fa45f4ba61af9448fec30d4e25b"
+    },
+    {
+      "id": "agent/specs-checker",
+      "path": "agents/specs-checker.md",
+      "digest": "9ce6ec527cd4c69f9723b1187fba4956451884fa1a07fe4f0d5c0e3ccab3a326"
+    },
+    {
+      "id": "agent/specs-fixer",
+      "path": "agents/specs-fixer.md",
+      "digest": "15d4ebf64be4f0c28deb572ffe1be8ae8f9def3c27c03cd6747620152985508b"
+    },
+    {
+      "id": "agent/swe-architect",
+      "path": "agents/swe-architect.md",
+      "digest": "225e86fcf5f7de36ccac0c2347b1e6dd1aae6957a5af29923fce3d59b9daaf6c"
+    },
+    {
+      "id": "agent/swe-debugger",
+      "path": "agents/swe-debugger.md",
+      "digest": "07f89f2d4cb924fcf74b3e9ed03ea0652f958caa3d34e6805484e39e71af7d2b"
+    },
+    {
+      "id": "agent/swe-developer",
+      "path": "agents/swe-developer.md",
+      "digest": "48062fbdebb853e888c8d1907a35dca625407a2c7dae4dd7e6b828b33f6b8858"
+    },
+    {
+      "id": "agent/swe-releaser",
+      "path": "agents/swe-releaser.md",
+      "digest": "99b652880b19909e0e376ec72c9bc9c6a94e4a8d4ad03eb314fce17964662b8b"
+    },
+    {
+      "id": "agent/swe-reviewer",
+      "path": "agents/swe-reviewer.md",
+      "digest": "2d19c413986ca6ef1363d4d81c321337d25654c84d5fc5483244570b6d7f42c2"
+    },
+    {
+      "id": "agent/swe-usability-tester",
+      "path": "agents/swe-usability-tester.md",
+      "digest": "62f198b78b3918e4dab0cbb8866231362a45c796c98d71c20217460fa0bf3cf1"
     }
   ]
 }

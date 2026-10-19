@@ -10,3 +10,6 @@ specs/fixtures
 .codex/agents
 .opencode/agents
 .commandcode/agents/
+.agents/agents/*/AGENT.md
+.agents/agents/catalog.json
+.agents/agents/provenance.json
