@@ -35,15 +35,13 @@ commit.
 - `.agents/skills/<name>/SKILL.md` and every regular file below it form one canonical skill bundle.
 - `agents/<name>.md` (configured `harness.agents-root`) is the only full custom-agent prompt and the only source of its
   capability boundary.
+- Which tree each harness discovers, including the Muse-only generated agent tree, is recorded under Native Profiles.
 
 ## No Capability Server
 
 This repository declares no `required-mcp` and no per-harness capability block. It uses no workspace task runner and
 needs no credential-free capability vector, and the schema treats the absence as an answer rather than an omission.
 Declaring one half without the other is refused, so both stay absent.
-
-Nothing is lost. The parity claim here is one instruction body, one prompt per agent, one bundle per skill, and adapters
-that route rather than copy.
 
 ## Instruction Boundary
 
