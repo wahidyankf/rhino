@@ -14,6 +14,19 @@ canonical boundary through `developer_instructions`, but this repository makes n
 a capability denial. Such a denial is not listed as a native Codex profile requirement. Claude and OpenCode continue to
 project every denial their documented formats express.
 
+## Muse
+
+Muse discovers project subagents only as `.agents/agents/<id>/AGENT.md`; `.muse/agents/` in either flat or directory
+form is not a discovery root. The generated adapter carries the `muse` profile's tier mapping (model and effort)
+rendered from the canonical `tier`, and routes its body to the canonical agent. No other harness in this contract reads
+that tree, and no other harness's model names appear in it.
+
+## Skill Discovery
+
+Muse, Codex, OpenCode, and Command Code read canonical skill bundles under `.agents/skills/` directly. Claude Code does
+not read them; it reads only its generated `.claude/skills/` routes, which is why only the `claude` profile declares a
+skill adapter.
+
 ## Command Code
 
 Command Code discovers root `AGENTS.md` and canonical `.agents/skills/` natively. Add no instruction shim or skill copy.
