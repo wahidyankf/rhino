@@ -4,63 +4,68 @@ Use this only after an explicit direction to execute one formal plan.
 
 ## Start
 
-1. Select one plan in `backlog/` or `in-progress/`. A quality-gate verdict is optional manual history: execution starts
-   with or without one and never runs the gate itself. A missing verdict is recorded as
-   `plan-quality-gate: not run (manual-only)`. For a bug-fix plan, an adopted Upstream Tool Defects standard remains
-   available direction when explicitly invoked. Before starting, resolve the plan's declared dependencies per
-   [Plan-Order Graph](../../conventions/plans/012-plan-order-graph.md).
+1. Select one plan in `backlog/` or `in-progress/`. A quality-gate verdict is optional history, never run here; missing
+   records as `plan-quality-gate: not run (manual-only)`. Upstream Tool Defects stays available on explicit invocation.
+   Resolve declared dependencies per [Plan-Order Graph](../../conventions/plans/012-plan-order-graph.md): each
+   satisfied, or stop at the unmet one; a mid-run graph change in a reviewed merged PR is authoritative — adapt.
 2. Enter the plan's worktree before any file or Git mutation, initializing if new, under
-   [the integration path](../../conventions/integration-path.md). Executing from the primary checkout is forbidden. Pass
-   its sync gate there, and read the whole incoming diff against the plan when the sync adds commits. Before starting
-   plan execution or creating a new worktree, sync the execution checkout from the latest origin/main.
-3. If the plan is queued, move it to `plans/in-progress/<slug>/` with its status and both stage maps, in one change.
-   Never copy it.
-4. Read `learnings.md` before touching anything. Mirror every unchecked executable delivery item into the
-   [task list](../../conventions/task-tracking.md), preserving wording, owner label, and references, ordered by the
-   dependency graph rather than list position. Leave dormant recovery items dormant. See
-   [Dependency Graph and Recovery](../../conventions/plans/011-dependency-graph-and-recovery.md).
+   [the integration path](../../conventions/integration-path.md) — never the primary checkout. Pass its sync gate,
+   reading incoming diff. Sync from latest `origin/main` first. Then prove access from the plan's scope — least
+   privilege, infra secrets only for infra scope, portable versus machine-bound per need; missing access stops the run.
+3. Promote a queued plan by its own pull request moving only it to `plans/in-progress/<slug>/` with status, stage maps,
+   graph node, before Phase 0. Worktree from that fresh trunk; the promotion branch dies at merge.
+4. Read `learnings.md` first. Mirror every unchecked executable item into the
+   [task list](../../conventions/task-tracking.md) — wording, owner, references kept — in dependency order; dormant
+   recoveries stay dormant, per
+   [Dependency Graph and Recovery](../../conventions/plans/011-dependency-graph-and-recovery.md). Mirror the ledger from
+   ignored `local-tmp/` into one per-run Issue as the claim; prove sole ownership from lease, branches, open PRs; a
+   stale lease yields only to an explicit caller override. Inputs: `plan`; caps `max-worktrees-per-plan-repo`,
+   `max-active-worktrees` (defaults `1`, caller-raised only).
 
 ## Execute
 
-1. Work ready items concurrently. Dispatch every item whose dependencies are terminal, up to the concurrency cap,
-   reusing the plan's one worktree per repository; a failure blocks only its downstream. Stop at any pending `[HUMAN]`
-   input. Pass every phase checkpoint before the next phase starts. A more optimal order found mid-run revises
-   `delivery.md` first, keeping acceptance criteria and the end result; a material change re-passes the quality gate.
-2. Resolve each item atomically once its stated outcome and stated proof both hold: tick the box, then record a dated
-   result saying what proved it, what changed, and what surprised — one step, never a batch of ticks, since a tick alone
-   never says what it found. Every behaviour-changing item names its establishing layer under
-   [verification routing](../../development/planning-capabilities/006-verification-routing.md).
-3. Keep the plan and task list synchronized, activating a conditional item on its trigger. Add a discovered task to both
-   lists only when it serves an outcome the plan already has, labelled and explained.
-4. Capture learnings as they happen, never reconstructing them at the end. Search
-   [`plans/ideas/`](../../../plans/ideas/README.md) for overlap: merge into an existing brief, or write one distinct
-   brief and link it.
-5. Land work through [worktree to pull request](../maintenance/worktree-to-pull-request.md), reusing the plan's one
-   worktree. Independent units land in any order with gates re-run on refreshed state, per
+1. Work ready items under the worktree lock: dependency-terminal items, one `in_progress` per worktree, every compute
+   node through one guard per [Resource-Aware Development](../../development/resource-aware-development.md) — a deferred
+   guard queues: retry, never bypass or abandon. Failures block only downstream. Stop at pending `[HUMAN]` input; pass
+   every phase checkpoint first. Reorder only by revising `delivery.md`; material changes re-pass the quality gate.
+2. Resolve each item atomically on outcome plus proof: tick, then a dated result (proof, change, surprise) — never
+   batched ticks. Behaviour changes name their layer per
+   [verification routing](../../development/planning-capabilities/006-verification-routing.md). Ship code in batched
+   cycles — one RED plus one GREEN per batch, selection frozen — per
+   [Batched Cycles](../../development/test-driven-development/001-batched-cycles-in-planned-delivery.md).
+3. Keep plan and task list synchronized; discovered tasks join both only for a planned outcome. Capture learnings as
+   they happen; search [`plans/ideas/`](../../../plans/ideas/README.md) for overlap to merge or link.
+4. Land through [worktree to pull request](../maintenance/worktree-to-pull-request.md) on the plan's one worktree;
+   independent units land in any order with gates re-run on refreshed state, per
    [Delivery Seams and Ownership](../../development/planning-capabilities/005-delivery-seams-and-ownership.md). A unit
-   completes at pull-request merge, not code completion.
-6. Run each unit's required automation and record evidence
-   [data safety](../../conventions/public-repository-data-safety.md) permits.
-7. Apply every applicable repository rule; neither a plan nor a task list expands authority. A failing gate stops the
-   line: repair the cause, update `delivery.md` and `learnings.md`, then resume.
-8. Fix every failure, including pre-existing ones; a check red before the plan is still red at ship time, never exempt.
+   completes at merge, not code completion.
+5. Run each unit's automation, recording only what [data safety](../../conventions/public-repository-data-safety.md)
+   permits; no plan or list expands authority. A failing gate stops the line: repair, update `delivery.md` and
+   `learnings.md`, resume. Fix every failure, pre-existing included.
+
+## Status Cadence
+
+Send a five-line heartbeat every **20 minutes** — progress, steps left, blockers, decisions, next `[HUMAN]` timing
+(`delivery.md` weights, else `1` each) — plus phase boundaries and terminal states. A queued node is reported, never a
+stop. Each heartbeat clears owned subagents and processes of stuck work — `in_progress` with no progress since the last
+heartbeat and no guard or error reason: nudge once, escalate if still stuck next.
+
+## Goal and Termination
+
+`pass` is the only success: items terminal, check permits archival, delivery landed, plan in `plans/done/`, worktree and
+branches gone, learnings routed. `handed-off`: `[AI]` ready, only a `[HUMAN]` step remains; resume to `pass`. `partial`:
+findings remain or work unexecuted; plan stays with blockers and unblockers. `fail`: technical error blocks; both stay.
 
 ## Complete and Archive
 
-1. Run [plan execution check](plan-execution-check.md) when substantive items are terminal; its archive-readiness
-   verdict alone permits archival. The quality gate judges plans, not delivered work. Full E2E is separately batched,
-   never a completion condition for plan execution or a phase. The check proves substantive requirements and cleanup due
-   before archival; later cleanup stays pending.
-2. Keep the worktree and local/remote task branches until every using unit lands, including archival. After archival
-   lands, clean up checkout, branches, and eligible artifacts; record proof outside `plans/done/` in the archival PR
-   body. Keep task completion pending until proof. A failed run keeps its worktree and records why.
-3. Give every dormant conditional a dated, evidenced `Not triggered` disposition; never claim unexecuted work as
-   executed. The plan stays in progress while any required outcome, activated conditional, gate, or human action
-   remains.
-4. Archive through the sequence
-   [knowledge capture and archival](../../conventions/plans/008-knowledge-capture-and-archival.md) fixes, using the
-   final checkpoint's local date for the README `Completed` field and the destination folder alike. Refuse an existing
-   destination: never merge, overwrite, or add a suffix. Committing and pushing need separate
+1. Run [plan execution check](plan-execution-check.md) when substantive items are terminal; its verdict alone permits
+   archival. The quality gate judges plans, not work. Full E2E is separately batched.
+2. Keep worktree and task branches until every using unit lands; then clean up, recording proof outside `plans/done/` in
+   the archival PR body. Completion pends on proof. A failed run keeps its worktree.
+3. Give dormant conditionals a dated, evidenced `Not triggered` disposition; never claim unexecuted work. The plan stays
+   in progress while any outcome, conditional, gate, or human action remains.
+4. Archive through [knowledge capture and archival](../../conventions/plans/008-knowledge-capture-and-archival.md),
+   dating README `Completed` and destination alike; refuse an existing destination. Commits and pushes need separate
    [authorization](../../conventions/commit-authorization.md).
 
 ## Recovery
