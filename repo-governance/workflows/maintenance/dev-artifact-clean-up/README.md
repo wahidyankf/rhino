@@ -8,3 +8,5 @@ beyond its own procedure.
 - [001 Other Actors and Bare Clones](001-other-actors-and-bare-clones.md) — reclaiming a crashed session's scratch, when
   another task's cache counts as scratch, never touching another actor's work, and reconciling a clone with no primary
   checkout.
+- [002 Leaked Test Containers](002-leaked-test-containers.md) — detecting and removing the containers, volumes, and
+  networks a task's runs leaked.

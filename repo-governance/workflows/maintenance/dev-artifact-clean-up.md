@@ -6,11 +6,14 @@ is the order, and the checks that make deleting safe.
 
 ## Scope
 
-Six things, and nothing else: the worktree this work provisioned, its local branch, that branch on `origin`, the
-regenerable build output this work produced, the `local-tmp/` scratch it wrote, and the primary checkout's `main` ref.
+Seven things, and nothing else: the worktree this work provisioned, its local branch, that branch on `origin`, the
+regenerable build output this work produced, the `local-tmp/` scratch it wrote, the containers, volumes, and networks
+its runs leaked, and the primary checkout's `main` ref.
 
 Build output means `target/` and the build caches a documented command rebuilds — in the worktree, and the same output
 in the primary checkout. It never means a `.env*` file or any other local secret, in any location.
+
+Leaked containers are removed per [leaked test containers](dev-artifact-clean-up/002-leaked-test-containers.md).
 
 Scratch means what this work itself wrote under `local-tmp/`, never another actor's files; see
 [other actors and bare clones](dev-artifact-clean-up/001-other-actors-and-bare-clones.md).
