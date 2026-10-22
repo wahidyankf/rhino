@@ -44,6 +44,7 @@ convention says how this repository does something where more than one way would
 - [PR review agent procedures](pr-review-agent-procedures/README.md) — the procedure moved out of the
   `pr-review-checker` definition to fit its word budget.
 - [Push-hook verification](push-hook-verification.md) — fix the cause; never bypass unauthorized.
+- [Push-hook verification modules](push-hook-verification/README.md) — the one-push capacity exception and its evidence.
 - [Rules](rules.md) — what a rule is, and how must, should, and may are read.
 - [Structure](structure/README.md) — where each kind of artifact adopted from the shared catalog lives.
 - [SWE agent procedures](swe-agent-procedures/README.md) — the procedure sections moved out of three `swe-*` agent

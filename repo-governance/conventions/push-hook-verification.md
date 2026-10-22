@@ -14,8 +14,9 @@ could not trust; both block, and neither has a bypass.
 - `pre-push` screens the tracked tree and the branch name, then each pushed commit's additions, names, and message, then
   runs `cargo xtask test-quick` under the pinned HIPPO guard. It is the mechanical half of the
   [push review](../workflows/quality/pr-leak-review/002-push-review.md), never the whole of it. Exit `124` means a limit
-  stopped the work, and the reason on stderr says which: retry that same invocation once the condition clears, never
-  bypass it.
+  stopped the work, and the reason on stderr says which: retry that same invocation once the condition clears, unless it
+  stopped before any check started and takes the one-push exception in
+  [Capacity-Held Hook](push-hook-verification/001-capacity-held-hook.md).
 
 ## Requirements
 
