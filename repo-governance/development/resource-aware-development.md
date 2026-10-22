@@ -7,7 +7,7 @@ workstation across every repository the maintainer runs.
 ./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick
 ```
 
-The `pre-push` hook already does this. RHINO has no exemption from the guard and does not grant itself one.
+The `pre-push` hook already does this; RHINO has and grants no exemption.
 
 Use `light` for narrow static checks, `standard` for ordinary checks and writers, and `heavy` for complete gates, full
 builds, full suites, and release assets. A schema-3 waiter keeps one FIFO identity and launches its payload at most
@@ -57,11 +57,11 @@ present, never _which_ class is right; class choice needs intent and stays a jud
 it, and the script is byte-identical to the copy every other consuming repository carries — one file, so a hardening fix
 cannot land in one copy and quietly miss the rest.
 
-Verbs match only in command position, so `rg 'cargo build'` is not refused. A guard that blocks ordinary searching is
-one that gets switched off, and a switched-off guard protects nothing anywhere.
+Verbs match only in command position, so `rg 'cargo build'` is not refused. A guard that blocks ordinary searching gets
+switched off, and then protects nothing anywhere.
 
-Two gaps stay open and recorded. A verb reached through an interpreter or a Makefile target is not in command position
-and passes; text matching cannot close that in principle. And enforcement reaches only what a harness exposes.
+Two gaps stay open and recorded: a verb reached through an interpreter or Makefile target passes, since text matching
+cannot close that in principle, and enforcement reaches only what a harness exposes.
 
 ## Not in CI
 
@@ -70,7 +70,8 @@ ephemeral runner has no contention to arbitrate, so the wrapper could only add a
 an exit-`124` path that cannot occur. The guard stays where the contention is real.
 
 The gate does verify that the wrapper still resolves and runs, on a clean machine, whenever the wrapper or its lock
-changes — that is the one condition a local hook cannot observe.
+changes — that is the one condition a local hook cannot observe. A hook stopped before any check started may take that
+exception in [Capacity-Held Hook](../conventions/push-hook-verification/001-capacity-held-hook.md).
 
 ## Related
 
