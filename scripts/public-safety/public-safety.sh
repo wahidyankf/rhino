@@ -418,7 +418,7 @@ resolve_scanner() {
 		if [[ ! -e "$dir/$stagebase" ]]; then
 			return 0
 		fi
-		rm -rf -- "$dir/$stagebase"
+		rm -rf -- "${dir:?}/${stagebase:?}"
 	else
 		# The winner's entry is complete when it appears, so this run discards its own
 		# staging directory and uses the entry as it stands.
