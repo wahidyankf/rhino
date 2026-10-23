@@ -7,7 +7,10 @@ workstation across every repository the maintainer runs.
 ./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick
 ```
 
-The `pre-push` hook already does this; RHINO has and grants no exemption.
+The `pre-push` hook already does this. Markdown-only runs (`prettier` or `markdownlint-cli2` over `*.md` files alone, in
+any mode) need no HIPPO admission; all other compute stays guarded.
+
+Such passes are bounded and restartable, so queueing them behind heavy runs wastes time for no resource gain.
 
 Use `light` for narrow static checks, `standard` for ordinary checks and writers, and `heavy` for complete gates, full
 builds, full suites, and release assets. A schema-3 waiter keeps one FIFO identity and launches its payload at most
@@ -36,8 +39,7 @@ deadlock.
 Use `./hippo status`, `./hippo watch --source rhino`, and `./hippo history --since 30d --source rhino` from either the
 primary checkout or a contained `worktrees/<task>` checkout. If that worktree has no ignored `hippo.local.json`, its
 wrapper uses the primary checkout's copy. Every checkout uses the shared default state root; set `HIPPO_ROOT` only for
-isolated tests. Raw evidence rolls for seven days and compacted daily summaries roll for 30 days under byte caps, so the
-shared log cannot grow without bound.
+isolated tests.
 
 `hippo.lock` pins executable identity, not governance semantics. Before changing consumer behavior, read the Hippo
 repository at the commit in `hippo.lock`, especially its exit-code and recovery references, then reconcile this rule,
@@ -47,9 +49,9 @@ ordering or copy a release number into the rule.
 ## Enforcement
 
 The `pre-push` hook covers the push path. It does not cover an agent typing a build command directly, and that gap is
-not theoretical: an unguarded fan-out in a sibling repository drove the shared workstation into severe memory pressure
-and forced a restart. HIPPO cannot defer or shed work it was never told about, so the host reached critical pressure
-while the scheduler still reported `normal` — a failure that is unrecoverable after the fact rather than merely slow.
+not theoretical: an unguarded fan-out once drove the shared workstation into severe memory pressure and forced a
+restart. HIPPO cannot defer or shed work it was never told about, so the scheduler still reported `normal` while the
+host failed past recovery.
 
 [`.claude/hooks/require-hippo-boundary.sh`](../../.claude/hooks/require-hippo-boundary.sh) therefore refuses a
 compute-bearing command carrying no outer boundary, before the process spawns. It decides only _whether_ a boundary is
