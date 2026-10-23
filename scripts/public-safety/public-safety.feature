@@ -21,6 +21,15 @@ Feature: Public output is screened before it leaves the repository
       And a platform outside the supported matrix is refused
       And a cached scanner that no longer matches what was extracted is refused
 
+    Scenario: A scanner cache never exposes a scanner without its stamp
+      Given a first-time run has extracted the pinned scanner but not yet stamped it
+      When a second first-time run completes against the same scanner cache
+      Then no scanner appears at the cache path without its stamp
+      And both runs exit 0 and the cache holds exactly one published scanner
+      And a run that loses the publish race keeps the winner's entry exactly as published
+      And a run killed between extraction and stamping leaves no scanner at the cache path
+      And a scanner with no stamp at the cache path is refused with exit 2
+
     Scenario: A malformed shape set makes publication ineligible
       Given a shape set that is absent, unreadable, empty, or malformed
       When the wrapper runs
