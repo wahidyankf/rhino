@@ -58,12 +58,13 @@ checkout: [other actors and bare clones](dev-artifact-clean-up/001-other-actors-
 
 ## When `-d` Refuses
 
-`git branch -d` refuses a branch whose commits `main` does not literally contain, so after a rebase merge — which is how
-this repository merges — it always refuses: the landed commits carry different hashes.
+`git branch -d` refuses a branch whose commits `main` does not literally contain, so after a squash merge — the only
+method the ruleset allows — it always refuses: the landed commit is a new one.
 
 Read the refusal first. After the procedure's fetch and worktree removal, `git branch -D` is correct only for a branch
 that **landed** — its pull request `MERGED` with `headRefOid` equal to the tip, or `git cherry origin/main <branch>`
-printing only `-` lines — or is **stale** — its tip over 72 hours old, with no open pull request.
+printing only `-` lines, which a squashed branch of several commits does not give — or is **stale** — its tip over 72
+hours old, with no open pull request.
 
 When that cherry prints a `+` line, preserve a stale tip first: keep `origin/<branch>` if it holds the tip, else
 `git bundle create <path> origin/main..<branch>` under the primary checkout's ignored `local-tmp/`, recording the path;
