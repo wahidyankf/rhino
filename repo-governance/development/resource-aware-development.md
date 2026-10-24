@@ -39,7 +39,7 @@ deadlock.
 Use `./hippo status`, `./hippo watch --source rhino`, and `./hippo history --since 30d --source rhino` from either the
 primary checkout or a contained `worktrees/<task>` checkout. If that worktree has no ignored `hippo.local.json`, its
 wrapper uses the primary checkout's copy. Every checkout uses the shared default state root; set `HIPPO_ROOT` only for
-isolated tests.
+isolated tests. Raw evidence rolls for seven days and summaries for 30 days.
 
 `hippo.lock` pins executable identity, not governance semantics. Before changing consumer behavior, read the Hippo
 repository at the commit in `hippo.lock`, especially its exit-code and recovery references, then reconcile this rule,
@@ -49,9 +49,8 @@ ordering or copy a release number into the rule.
 ## Enforcement
 
 The `pre-push` hook covers the push path. It does not cover an agent typing a build command directly, and that gap is
-not theoretical: an unguarded fan-out once drove the shared workstation into severe memory pressure and forced a
-restart. HIPPO cannot defer or shed work it was never told about, so the scheduler still reported `normal` while the
-host failed past recovery.
+not theoretical: an unguarded fan-out once forced a restart of the shared workstation under severe memory pressure.
+HIPPO cannot defer or shed work it was never told about, so it still reported `normal`.
 
 [`.claude/hooks/require-hippo-boundary.sh`](../../.claude/hooks/require-hippo-boundary.sh) therefore refuses a
 compute-bearing command carrying no outer boundary, before the process spawns. It decides only _whether_ a boundary is
