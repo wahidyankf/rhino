@@ -14,10 +14,12 @@ Such passes are bounded and restartable, so queueing them behind heavy runs wast
 enforces this exemption. The boundary hook and guard allow exactly two launcher spellings, `npx --no-install <tool>` and
 `npm exec --no -- <tool>`.
 
-Use `light` for narrow static checks, `standard` for ordinary checks and writers, and `heavy` for complete gates, full
-builds, full suites, and release assets. A schema-3 waiter keeps one FIFO identity and launches its payload at most
-once. `hippo.identity.json` labels RHINO in live status and bounded history; `--tag checkout=worktree --tag plan=<slug>`
-adds privacy-safe per-run context without changing the repository source.
+A resource tier is a reservation, not a limit: choose it by what the work needs, never to be admitted faster.
+[Resource tiers](resource-aware-development/002-choosing-a-resource-tier.md) define each tier.
+
+A schema-3 waiter keeps one FIFO identity and launches its payload at most once. `hippo.identity.json` labels RHINO in
+live status and bounded history; `--tag checkout=worktree --tag plan=<slug>` adds privacy-safe per-run context without
+changing the repository source.
 
 ## Exit Codes
 
@@ -75,4 +77,4 @@ exception in [Capacity-Held Hook](../conventions/push-hook-verification/001-capa
 
 ## Related
 
-- [Nx](resource-aware-development/README.md)
+- [Resource modules](resource-aware-development/README.md)
