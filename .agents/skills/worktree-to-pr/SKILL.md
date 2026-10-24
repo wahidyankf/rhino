@@ -37,7 +37,7 @@ One worktree per task, reused for every delivery unit. A second `git worktree ad
 7. `gh pr ready <number>` **re-triggers the whole gate** — the workflow listens for `ready_for_review`. Wait for that
    run, not the previous one.
 8. Verify the five merge preconditions, including a harness leak review `pass` for the exact head, then
-   `gh pr merge <number> --rebase --match-head-commit <head>`.
+   `gh pr merge <number> --squash --match-head-commit <head>`. Squash is the only method the ruleset allows.
 9. Next unit starts at step 1, in the same worktree.
 
 ## When the last unit has landed
