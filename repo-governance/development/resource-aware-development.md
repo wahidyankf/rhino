@@ -7,10 +7,12 @@ workstation across every repository the maintainer runs.
 ./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick
 ```
 
-The `pre-push` hook already does this. Markdown-only runs (`prettier` or `markdownlint-cli2` over `*.md` files alone, in
-any mode) need no HIPPO admission; all other compute stays guarded.
+The `pre-push` hook already does this. Runs of `prettier` and `markdownlint-cli2`, in any mode over any files, need no
+HIPPO admission; all other compute stays guarded.
 
-Such passes are bounded and restartable, so queueing them behind heavy runs wastes time for no resource gain.
+Such passes are bounded and restartable, so queueing them behind heavy runs wastes time for no resource gain. Nothing
+enforces this exemption. The boundary hook and guard allow exactly two launcher spellings, `npx --no-install <tool>` and
+`npm exec --no -- <tool>`.
 
 Use `light` for narrow static checks, `standard` for ordinary checks and writers, and `heavy` for complete gates, full
 builds, full suites, and release assets. A schema-3 waiter keeps one FIFO identity and launches its payload at most
@@ -57,9 +59,6 @@ compute-bearing command carrying no outer boundary, before the process spawns. I
 present, never _which_ class is right; class choice needs intent and stays a judgment. Claude Code and Codex both bind
 it, and the script is byte-identical to the copy every other consuming repository carries — one file, so a hardening fix
 cannot land in one copy and quietly miss the rest.
-
-Verbs match only in command position, so `rg 'cargo build'` is not refused. A guard that blocks ordinary searching gets
-switched off, and then protects nothing anywhere.
 
 Two gaps stay open and recorded: a verb reached through an interpreter or Makefile target passes, since text matching
 cannot close that in principle, and enforcement reaches only what a harness exposes.
