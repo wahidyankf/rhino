@@ -52,10 +52,10 @@ for the same work is a defect.
    [leak review](../quality/pr-leak-review.md) `pass` for the exact head — and merge.
 
    ```sh
-   gh pr merge <number> --rebase --match-head-commit <head>
+   gh pr merge <number> --squash --match-head-commit <head>
    ```
 
-   Rebase keeps history linear, which the ruleset requires.
+   Squash is the only merge method the ruleset allows, and it keeps history linear.
 
 8. **Next unit** starts at step 1 in the same worktree.
 

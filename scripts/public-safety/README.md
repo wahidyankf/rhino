@@ -72,6 +72,10 @@ what was extracted. A later run re-checks the binary against that stamp: a cache
 after it was approved, and the wrapper refuses rather than re-downloading, because a hook may have no network and a gate
 that reaches for one is least available when it is most needed. Delete the cache directory to bootstrap again.
 
+Extraction happens in a staging directory beside the cache entry, and the scanner is published with its stamp by one
+atomic rename, so no run sees a scanner without its stamp. A staging directory left behind by an interrupted run is
+never read as a cache entry.
+
 Run `--print-pin` to see the version and every approved digest. The scan itself is offline:
 
 ```text
