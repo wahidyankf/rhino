@@ -27,7 +27,7 @@ Run from the **primary checkout on local `main`**, never from a `worktrees/` che
 ```sh
 git fetch origin && git merge-base --is-ancestor HEAD origin/main
 git tag -l "v<version>"; git ls-remote --tags origin "v<version>"
-./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask dist
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask dist
 ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask checksums
 ```
 

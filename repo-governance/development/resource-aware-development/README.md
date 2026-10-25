@@ -12,7 +12,8 @@ Read the [resource rule](../resource-aware-development.md), then each companion 
 ## Directory Map
 
 - [External Nx Cache Eviction](001-external-nx-cache-eviction.md) — approval, consequences, and retained state.
-- [Choosing a Resource Tier](002-choosing-a-resource-tier.md) — what each tier reserves and the cost of a wrong one.
+- [Choosing a Resource Tier](002-choosing-a-resource-tier.md) — what each tier reserves, the cost of a wrong one, and
+  the optional settings.
 
 ## Related
 
