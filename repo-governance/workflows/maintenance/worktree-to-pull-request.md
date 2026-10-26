@@ -28,7 +28,12 @@ for the same work is a defect.
 3. **Push.** First pass the [push review](../quality/pr-leak-review/002-push-review.md) of every outgoing commit; a
    finding is fixed in the unpushed history, not by a later commit. The `pre-push` hook screens the pushed range commit
    by commit, then runs the quick gate under the HIPPO guard. Exit `124` means a limit stopped the work: retry that same
-   invocation once the reason on stderr clears, never bypass.
+   invocation once the reason on stderr clears. `--no-verify` on the task branch needs no per-instance prompt under the
+   [worktree-to-PR exception][hook-exception]: the safety screens and the push review must still pass, and the gate must
+   pass on the pushed head before merging.
+
+   [hook-exception]: ../../conventions/push-hook-verification.md#worktree-to-pr-exception
+
 4. **Open as a draft.**
 
    ```sh
