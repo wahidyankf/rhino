@@ -30,7 +30,7 @@ One worktree per task, reused for every delivery unit. A second `git worktree ad
 2. Commit thematically, with authorization.
 3. Pass the push leak review of every outgoing commit, then `git push`. The `pre-push` hook screens the pushed range
    commit by commit and runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped the work:
-   retry the same invocation once it clears, never bypass.
+   retry the same invocation once it clears; `--no-verify` only under the [worktree-to-PR exception][hook-exception].
 4. `gh pr create --draft --base main --title "<type>: <subject>" --body-file <path>`.
 5. `gh pr checks <number>` — at most once every three minutes. Use the interval for independent work.
 6. Repair a failing job at its cause. Never weaken the gate.
@@ -47,6 +47,9 @@ Confirm nothing is unpushed and nothing is running, then remove the worktree, de
 
 ## Refusals
 
-- Never `git push` to `main`, and never `--no-verify` without explicit permission for that operation.
+- Never `git push` to `main`, and `--no-verify` only under the [worktree-to-PR exception][hook-exception]: safety
+  screens and the push review must pass, `commit-msg` stays on, and the PR gate must pass on the pushed head.
 - Never merge on a stale gate run, an earlier head, or a different base.
 - Never open a second pull request from one branch.
+
+[hook-exception]: ../../../repo-governance/conventions/push-hook-verification.md#worktree-to-pr-exception
