@@ -35,6 +35,23 @@ could not trust; both block, and neither has a bypass.
   [last-resort questions](last-resort-questions.md).
 - Even when a bypass is authorized, disclose which safeguards are skipped and any unresolved failure before proceeding.
 
+## HIPPO-Congestion Exception
+
+The maintainer pre-authorizes `--no-verify` on `git commit` and `git push` for a task-owned branch that lands through a
+pull request, with no per-instance prompt, when every condition below holds. This is the only standing exception to the
+requirements above.
+
+- The hook cannot run because the pinned HIPPO guard deferred or failed it (exit `124` never-started, exit `125`,
+  abnormal latency), not because a gate found a violation.
+- The manual screens pass: the tree and branch screens plus each pushed commit's additions, names, and message are
+  screened and exit `0`, with no push-review finding. The `commit-msg` hook stays enabled.
+- Formatting is done by hand or editor; the pull-request gate verifies it.
+- The bypass cites the HIPPO receipt and screen evidence in the push and PR notes, and never carries into a later
+  operation.
+
+Direct pushes to `main` stay outside this exception: explicit per-instance authorization still applies, strongly
+discouraged except for manual override.
+
 ## Deliberately Failing Fixtures
 
 Constructing a commit that is _meant_ to fail — to prove a gate refuses it — still requires the bypass permission above,
