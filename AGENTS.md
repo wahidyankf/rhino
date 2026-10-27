@@ -34,13 +34,6 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
   read its reason, `125` replan or drain, `2` fix the call. Route
   [HIPPO and FERRET defects](repo-governance/development/upstream-tool-defects.md) to their owners.
-- Run it as
-  `./hippo run --class <ephemeral|transactional|service> --resource-tier <light|standard|heavy> --disk-path . -- <cmd>`.
-  `124` names the limit: `storage-blocked` means free disk first, since waiting frees none; `capacity-deferred` means
-  retry when the host is quieter. `125` means HIPPO refused and only `never-started` receipts apply. v0.13.0 adds opt-in
-  proportional thresholds (`coordination.memoryPolicy`, schema 3 only) and an opt-in per-machine swap gate
-  (`coordination.swapUsedMaxMultiple`); omitted keys keep the legacy behavior, and no production percents, floors, or
-  multiples are set anywhere yet.
 
 ## Change Discipline
 
