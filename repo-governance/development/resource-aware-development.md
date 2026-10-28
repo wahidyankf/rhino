@@ -1,7 +1,7 @@
 # Resource-Aware Development
 
 Local compute runs under the checksum-pinned [`./hippo`](../../hippo) wrapper, which arbitrates contention on one shared
-workstation across every repository the maintainer runs.
+workstation across every repository the maintainer runs; a dispatched node's one boundary sits on the target host.
 
 ```sh
 ./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick
@@ -65,16 +65,8 @@ cannot land in one copy and quietly miss the rest.
 Two gaps stay open and recorded: a verb reached through an interpreter or Makefile target passes, since text matching
 cannot close that in principle, and enforcement reaches only what a harness exposes.
 
-## Not in CI
-
-The [pull-request gate](../../.github/workflows/pr-quality-gate.yml) does not wrap its jobs in `./hippo`. A dedicated
-ephemeral runner has no contention to arbitrate, so the wrapper could only add a download, a checksum verification, and
-an exit-`124` path that cannot occur. The guard stays where the contention is real.
-
-The gate does verify that the wrapper still resolves and runs, on a clean machine, whenever the wrapper or its lock
-changes — that is the one condition a local hook cannot observe. A hook stopped before any check started may take that
-exception in [Capacity-Held Hook](../conventions/push-hook-verification/001-capacity-held-hook.md).
-
 ## Related
 
 - [Resource modules](resource-aware-development/README.md)
+- [Remote dispatch](resource-aware-development/003-remote-dispatch.md) — when a dispatch may leave this machine.
+- [Quality gates](quality-gates.md) — why the pull-request gate does not wrap its jobs in HIPPO.
