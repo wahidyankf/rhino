@@ -11,4 +11,4 @@ when_to_use: >-
 
 ## Directory Map
 
-- [Capacity-Held Hook](001-capacity-held-hook.md) — the one-push exception, its conditions, and its evidence.
+- [Capacity-Held Hook](001-capacity-held-hook.md) — pointer to the canonical worktree-to-PR exception.
