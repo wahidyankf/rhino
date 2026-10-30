@@ -46,7 +46,7 @@ and that disagreement is a bug worth reporting.
 
 ## Project context
 
-RHINO is one of the seven **`ose-projects`** repositories — the repositories
+RHINO is one of the eight **`ose-projects`** repositories — the repositories
 [Open Sharia Enterprise](https://github.com/wahidyankf/ose-public) is built and maintained in. Each entry gives the
 repository's role, then how it relates to RHINO:
 
@@ -64,12 +64,14 @@ repository's role, then how it relates to RHINO:
   pins RHINO releases.
 - [`py-typekit`](https://github.com/wahidyankf/py-typekit) — typed functional primitives for Python. Upstream
   consumption: it pins RHINO releases.
+- [`ex-bdd`](https://github.com/wahidyankf/ex-bdd) — behaviour-driven development testing for Elixir. Upstream
+  consumption: it pins RHINO releases.
 
 `ose-private`'s link resolves only for authorized maintainers. Its owner made its name and link public; its contents
 stay private, and this repository publishes nothing about it beyond its name, link, and role.
 
 **That label is navigation, not coupling.** `ose-projects` is a routing label only — not an organisation, a parent
-repository, a parity group, or a shared release. The seven are developed, versioned, gated, and released independently,
-with no shared version number, release cadence, or monorepo. Membership obliges each member only to name the others, so
-a reader who finds one can find the other six, and nothing more. RHINO is usable entirely on its own and has no
-OSE-specific values compiled into it.
+repository, a parity group, or a shared release. The eight are developed, versioned, gated, and released
+independently, with no shared version number, release cadence, or monorepo. Membership obliges each member only to name
+the others, so a reader who finds one can find the other seven, and nothing more. RHINO is usable entirely on its own
+and has no OSE-specific values compiled into it.
