@@ -61,7 +61,7 @@ jobs:
           set -eu
           mkdir -p dist
           CGO_ENABLED=0 go build -trimpath -o dist/rhino ./cmd/rhino
-          tar --sort-name --mtime="@$(git log -1 --format=%ct)" --owner=0 --group=0 --mode=755 \
+          tar --sort=name --mtime="@$(git log -1 --format=%ct)" --owner=0 --group=0 --mode=755 \
             -czf "dist/rhino-${TARGET}.tar.gz" -C dist rhino
           rm dist/rhino
 
