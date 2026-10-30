@@ -10,7 +10,6 @@ scan:
   exclude-directories:
     - .git
     - node_modules
-    - target
     - local-tmp
     - worktrees
 
@@ -728,9 +727,7 @@ gates:
           - { literal: --disk-path }
           - { literal: . }
           - { literal: -- }
-          - { literal: cargo }
-          - { literal: xtask }
-          - { literal: test-quick }
+          - { literal: ./scripts/test-quick.sh }
       run-on:
         pre-push: {}
         pull-request: {}
@@ -747,14 +744,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: repo-config },
               { literal: validate },
             ],
@@ -764,14 +758,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: governance },
               { literal: word-budget },
               { literal: validate },
@@ -782,14 +773,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: governance },
               { literal: directory-map },
               { literal: validate },
@@ -800,14 +788,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: governance },
               { literal: quality-gates },
               { literal: validate },
@@ -820,20 +805,17 @@ gates:
         executable: bash
         args:
           - literal: -c
-          - literal: "cargo run --quiet --bin rhino -- harness adapters validate && bash .muse/hooks/run-policy-hook.test.sh && bash .commandcode/hooks/agent-policy-selector.test.sh && exec bash .commandcode/hooks/git-fixture-isolation.test.sh"
+          - literal: "go run ./cmd/rhino harness adapters validate && bash .muse/hooks/run-policy-hook.test.sh && bash .commandcode/hooks/agent-policy-selector.test.sh && exec bash .commandcode/hooks/git-fixture-isolation.test.sh"
       run-on: { pre-push: {}, pull-request: {} }
     - id: internal-link
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: md },
               { literal: internal-link },
               { literal: validate },
@@ -844,14 +826,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: md },
               { literal: mermaid },
               { literal: validate },
@@ -869,14 +848,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: md },
               { literal: naming },
               { literal: validate },
@@ -887,14 +863,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: md },
               { literal: heading-hierarchy },
               { literal: validate },
@@ -905,14 +878,11 @@ gates:
       type: check
       command:
         {
-          executable: cargo,
+          executable: go,
           args:
             [
               { literal: run },
-              { literal: --quiet },
-              { literal: --bin },
-              { literal: rhino },
-              { literal: -- },
+              { literal: ./cmd/rhino },
               { literal: convention },
               { literal: emoji },
               { literal: validate },
@@ -927,11 +897,7 @@ extensions:
       rhino:
         path: .
         kind: app
-        stacks: [rust]
-      xtask:
-        path: xtask
-        kind: tooling
-        stacks: [rust]
+        stacks: [go]
       repo-scripts:
         path: scripts
         kind: tooling

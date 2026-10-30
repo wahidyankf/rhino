@@ -1,12 +1,12 @@
 {
   "name": "rhino-contributor-tooling",
   "private": true,
-  "description": "Contributor tooling only. The shipped artifact is the Rust binary; nothing here is published.",
+  "description": "Contributor tooling only. The shipped artifact is the Go binary; nothing here is published.",
   "scripts": {
     "prepare": "husky",
     "check:hippo-consumer": "./hippo run --class ephemeral --resource-tier light --disk-path . -- ./scripts/check-hippo-consumer.sh",
     "check:complete": "npm run check:hippo-consumer && npm run test:quick",
-    "test:quick": "./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick"
+    "test:quick": "./hippo run --class ephemeral --resource-tier heavy --disk-path . -- ./scripts/test-quick.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",

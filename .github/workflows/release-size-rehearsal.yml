@@ -49,10 +49,21 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Assemble the native candidate artifact
-        run: cargo xtask dist
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -eu
+          mkdir -p dist
+          CGO_ENABLED=0 go build -trimpath -o dist/rhino ./cmd/rhino
+          tar --sort-name --mtime="@$(git log -1 --format=%ct)" --owner=0 --group=0 --mode=755 \
+            -czf "dist/rhino-${TARGET}.tar.gz" -C dist rhino
+          rm dist/rhino
 
       - name: Record executable and archive byte counts
         env:

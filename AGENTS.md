@@ -8,7 +8,7 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 
 ## The Product
 
-- Ship no repository-specific defaults, repository, harness, or organization names in `src/`;
+- Ship no repository-specific defaults, repository, harness, or organization names in product code;
   [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
 - Exit codes, `version --json`, commands, flags, and configuration keys are
   [a public contract](repo-governance/development/public-contract.md); moving is major-version work.
@@ -27,7 +27,7 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 
 ## Testing
 
-- `cargo xtask test-quick` is [the quick gate](repo-governance/development/quality-gates.md); integration and
+- `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); integration and
   [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook.
 - The 99% coverage floor and two declared exclusions are
   [not negotiable](repo-governance/development/software-quality-enforcement.md).

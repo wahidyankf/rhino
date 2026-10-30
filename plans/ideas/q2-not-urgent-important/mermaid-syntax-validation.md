@@ -145,7 +145,7 @@ macOS on arm64. The released `v0.11.0` archive and a `cargo build --release` of 
 - `rhino --help`: "Check Mermaid diagrams for label length and colour contrast."
 - [Findings](../../../docs/reference/findings.md#mermaid) lists accessibility, legibility, and authoring-rule findings,
   and says "a listed type RHINO cannot parse still receives the checks that need no grammar".
-- The module comment in [`src/markdown/mermaid.rs`](../../../src/markdown/mermaid.rs) says which syntaxes RHINO "can
+- The package comment in [`internal/application/mermaid.go`](../../../internal/application/mermaid.go) says which syntaxes RHINO "can
   parse" is a property of the tool, meaning read well enough to measure labels and colours.
 
 The behaviour matches the help text. It does not match what "can parse" suggests, or the role consumers give the

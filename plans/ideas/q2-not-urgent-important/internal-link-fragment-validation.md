@@ -52,8 +52,8 @@ that carry a path; the fragment-only link is skipped.
 
 ### Environment
 
-macOS on arm64. The released `v0.11.0` archive and a `cargo build --release` of trunk. The code path is `local()` in
-[`src/markdown/internal_link.rs`](../../../src/markdown/internal_link.rs), which drops a fragment-only destination and
+macOS on arm64. The released `v0.11.0` archive and a `cargo build --release` of trunk. The code path is `linkLocal` in
+[`internal/application/link.go`](../../../internal/application/link.go), which drops a fragment-only destination and
 splits every other destination at `#` before resolving it.
 
 ### Documentation consulted

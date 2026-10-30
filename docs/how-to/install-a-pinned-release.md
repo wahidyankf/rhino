@@ -69,17 +69,18 @@ The clone and release-build sequence below was not exercised during this documen
 
 Separate source-gate evidence does not demonstrate this installation sequence.
 
-RHINO is a single Rust binary. Its checked-in configuration schema derives from the typed model and is verified
+RHINO is a single Go binary. Its checked-in configuration schema derives from the typed model and is verified
 separately; a release archive never fetches it while running.
 
 ```sh
 git clone https://github.com/wahidyankf/rhino
 cd rhino
-cargo build --release
-./target/release/rhino version
+go build -o rhino ./cmd/rhino
+./rhino version
 ```
 
-The toolchain is pinned in `rust-toolchain.toml`, so `cargo` will fetch the right compiler rather than fail on whichever
+Pinned release archives come from `scripts/build-release.sh`, which refuses a dirty checkout or a commit that is not
+HEAD. The toolchain is pinned in `go.mod`, so the Go command fetches the right compiler rather than fail on whichever
 one you happen to have.
 
 ## Keep the pin visible

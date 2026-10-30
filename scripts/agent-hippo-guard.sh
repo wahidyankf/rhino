@@ -279,7 +279,7 @@ while IFS= read -r seg; do
 		esac
 		;;
 	cargo)
-		# `xtask` is included because it is the entry point rhino actually uses; it delegates
+		# `xtask` stays denied because it was the entry point the removed Rust tree used; it delegates
 		# to a full workspace build. `metadata` and `tree` spawn nothing and are absent.
 		case "$second" in
 		build | test | run | check | clippy | bench | doc | install | xtask | fmt | nextest) deny "'cargo $second'" ;;

@@ -1,11 +1,8 @@
-# The slow half of the suite, kept out of the quick gate and out of every Git
-# hook on purpose: an adapter that touches a real filesystem or spawns a process
-# is slow enough to train a maintainer into bypassing the hook that runs it.
+# The daily re-run of the quick gate, kept out of every Git hook on purpose:
+# even a fast suite trains a maintainer into bypassing the hook that runs it
+# when the machine is busy.
 #
-# Integration runs first and E2E second, and E2E runs unfiltered. The order is
-# the point: a defect that exists on disk is cheaper to read at the integration
-# boundary than through a process's exit code, so the boundary that can explain
-# it should be the one that reports first.
+# A failure here means the main line drifted red outside any pull request.
 name: Scheduled
 
 on:
@@ -22,16 +19,17 @@ permissions:
   contents: read
 
 jobs:
-  slow-adapters:
+  daily-quick-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Integration
-        run: cargo test --test integration
-      - name: End-to-end
-        # Unfiltered: no name filter, no `--skip`, nothing selected by hand.
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Quick gate, unfiltered
+        # No name filter, no skips, nothing selected by hand.
         # A scheduled run that quietly narrowed itself would report a green
         # suite for a subset nobody chose.
-        run: cargo test --test e2e
+        run: ./scripts/test-quick.sh

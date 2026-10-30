@@ -13,9 +13,6 @@ for file in "$@"; do
 		# Reformatting them would make a generated adapter stale immediately.
 		continue
 		;;
-	*.rs)
-		bash scripts/format-staged-rust.sh "$file"
-		;;
 	*.md | *.json | *.yml | *.yaml)
 		prettier --write "$file"
 		;;
