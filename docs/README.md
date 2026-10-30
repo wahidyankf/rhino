@@ -71,7 +71,7 @@ repository's role, then how it relates to RHINO:
 stay private, and this repository publishes nothing about it beyond its name, link, and role.
 
 **That label is navigation, not coupling.** `ose-projects` is a routing label only — not an organisation, a parent
-repository, a parity group, or a shared release. The eight are developed, versioned, gated, and released
-independently, with no shared version number, release cadence, or monorepo. Membership obliges each member only to name
-the others, so a reader who finds one can find the other seven, and nothing more. RHINO is usable entirely on its own
-and has no OSE-specific values compiled into it.
+repository, a parity group, or a shared release. The eight are developed, versioned, gated, and released independently,
+with no shared version number, release cadence, or monorepo. Membership obliges each member only to name the others, so
+a reader who finds one can find the other seven, and nothing more. RHINO is usable entirely on its own and has no
+OSE-specific values compiled into it.

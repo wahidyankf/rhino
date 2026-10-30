@@ -128,9 +128,9 @@ currently closed while the engineering patterns stabilize.
 
 RHINO is one of eight **`ose-projects`** repositories, with `hippo`, `ose-public`, `beaver-nest`, `ose-rules`,
 `py-typekit`, `ex-bdd`, and [`ose-private`](https://github.com/wahidyankf/ose-private) (Private), and remains usable on
-its own.
-The label is navigation only, not product coupling: repositories choose their own policy, version, release cadence, and
-configuration. See [project context](./docs/README.md#project-context) for each one's link and relationship.
+its own. The label is navigation only, not product coupling: repositories choose their own policy, version, release
+cadence, and configuration. See [project context](./docs/README.md#project-context) for each one's link and
+relationship.
 
 [ci-badge]: https://github.com/wahidyankf/rhino/actions/workflows/pr-quality-gate.yml/badge.svg
 [ci]: https://github.com/wahidyankf/rhino/actions/workflows/pr-quality-gate.yml
