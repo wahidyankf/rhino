@@ -1,8 +1,8 @@
-/target
 /local-tmp
 /node_modules
 /dist
 lcov.info
+/coverage
 
 # Real environment files hold local secrets that exist nowhere else. Only the
 # template is committable.

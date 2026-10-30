@@ -12,7 +12,7 @@ reported as a failed push.
 
 ### Description
 
-`parse_push_range` in [`src/v0_4/gates.rs`](../../../src/v0_4/gates.rs) returns "received no pre-push update record"
+`parse_push_range` in the removed `src/v0_4/gates.rs` returned "received no pre-push update record"
 when its input has no line, and the dispatcher refuses the run as `rhino.input.unreadable`. Git runs the `pre-push` hook
 even when it has nothing to send and leaves the hook's standard input empty, so the hook fails, Git aborts, and a no-op
 push ends in `error: failed to push some refs`. A script that re-pushes defensively sees a failure where nothing went
@@ -142,7 +142,8 @@ Duplicate check, run 2026-10-06 against `wahidyankf/rhino`:
 
 Precedent inside RHINO, which is the other side of the tension:
 
-- [`wants_stdin`](../../../src/main.rs) reads standard input only when `--push-updates-stdin` or `--file -` selects it,
+- [The `RunArgs` stdin selection](../../../internal/adapters/cli/app.go) reads standard input only
+  when `--push-updates-stdin` or `--file -` selects it,
   so "a run by hand from a terminal ... never waits on it". #83 made that so, because a pre-push run without the flag
   waited for an end-of-file nobody meant to send.
 - #80 fixed `rhino --root . gate run --surface pre-push --push-updates-stdin`, which never read standard input and

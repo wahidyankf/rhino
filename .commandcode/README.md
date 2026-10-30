@@ -2,8 +2,8 @@
 
 The profile in [`repo-config.yml`](../repo-config.yml) selects native leaf agents. Their generated adapters import the
 authoritative definitions in [`.agents/agents/`](../.agents/README.md); change those sources or the profile and
-regenerate with `cargo run --quiet --bin rhino -- harness adapters generate`. Validate with
-`cargo run --quiet --bin rhino -- harness adapters validate`.
+regenerate with `go run ./cmd/rhino -- harness adapters generate`. Validate with
+`go run ./cmd/rhino -- harness adapters validate`.
 
 ## Contents
 

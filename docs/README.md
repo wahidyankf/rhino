@@ -29,7 +29,7 @@ another section probably has the right one.
 
 ## The short version
 
-- **What it is** — a standalone Rust CLI. No daemon or network access; tree validation spawns no subprocess and writes
+- **What it is** — a standalone Go CLI. No daemon or network access; tree validation spawns no subprocess and writes
   nothing to the repository it inspects.
 - **What it does** — reads your `repo-config.yml`, walks the repository, and reports every place the tree disagrees with
   what you declared.

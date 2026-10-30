@@ -7,4 +7,4 @@ export PATH="$root/node_modules/.bin:$PATH"
 
 # The surface declares the order, and the order is the point: the safety gate
 # runs before the formatter, so a staged leak is refused rather than tidied.
-exec cargo run --quiet --bin rhino -- gate run --surface pre-commit
+exec go run ./cmd/rhino gate run --surface pre-commit

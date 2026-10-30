@@ -8,4 +8,4 @@ export PATH="$root/node_modules/.bin:$PATH"
 # What runs here, and in what order, is declared in `repo-config.yml`. Rhino
 # resolves Git's canonical message file and projects its text only to the gates
 # that explicitly declare the typed commit-message input.
-exec cargo run --quiet --bin rhino -- gate run --surface commit-msg --message-file "$1"
+exec go run ./cmd/rhino gate run --surface commit-msg --message-file "$1"

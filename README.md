@@ -3,7 +3,7 @@
 **Repository Hygiene & INtegration Orchestrator** checks that a repository matches the policy it explicitly declares. It
 ships no repository, organization, harness, tree, or threshold defaults.
 
-[![Quality gate][ci-badge]][ci] [![Rust](https://img.shields.io/badge/rust-1.85-000000)](https://www.rust-lang.org/)
+[![Quality gate][ci-badge]][ci] [![Go](https://img.shields.io/badge/go-1.26-00ADD8)](https://go.dev/)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)](#install)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 

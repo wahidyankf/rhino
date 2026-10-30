@@ -6,10 +6,11 @@
 #   1. The tag names a commit on `main`. A release that described a commit
 #      reachable from nowhere would still install and run, and nobody could say
 #      what it contained.
-#   2. Every executable was built by the operating system it claims to run on.
-#      Rust can cross-build, and a cross-built Darwin binary has never started on
-#      Darwin — which is the one thing it needs to demonstrate. Hence a matrix
-#      leg per platform rather than one job with four targets.
+#   2. Every archive was assembled from a clean checkout of exactly the tagged
+#      commit. Go cross-compiles all four platform binaries from one runner, so
+#      one job builds the whole set instead of a matrix leg per platform, and
+#      `scripts/build-release.sh` refuses a dirty checkout or a commit that is
+#      not HEAD before it writes anything.
 #   3. Nothing is published until the assembled set verifies as a set. The
 #      artifact suite runs twice: once per leg on its own archive, and once more
 #      on all four together, where the four-platform assertion becomes total.
@@ -51,60 +52,50 @@ jobs:
           test "$tag_commit" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$tag_commit" origin/main
 
-      - name: The tag names the version the manifest declares
+      - name: The tag names a releasable version
         run: |
           # A prerelease is a prerelease *of* a version, so `v0.1.0-rc.1` is
-          # checked against `0.1.0`. The authoritative comparison is in the
-          # artifact suite, which asks the built executable rather than the
-          # manifest; this one is here only to fail in a minute instead of after
-          # four platform builds.
-          release_core=${GITHUB_REF_NAME%%-*}
-          declared=$(sed -n '/^\[workspace\]/q; s/^version = "\(.*\)"$/\1/p' Cargo.toml)
-          test "$release_core" = "v$declared"
+          # built as `v0.1.0`. The Go module carries no version manifest: the
+          # tag is the version, stamped into the binary at build time, and the
+          # artifact check below asks the built executable to prove it.
+          # This check fails fast on a malformed tag instead of after the build.
+          case "${GITHUB_REF_NAME}" in
+            v[0-9]*.[0-9]*.[0-9]*|v[0-9]*.[0-9]*.[0-9]*-*) ;;
+            *) echo "tag must be v<semver>, with an optional suffix" >&2; exit 1 ;;
+          esac
 
   build:
     needs: provenance
-    strategy:
-      # Every leg reports. One platform failing should not hide whether the
-      # other three would have built.
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            target: aarch64-apple-darwin
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-          - runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
       - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
 
-      - name: Assemble this platform's archive
-        run: cargo xtask dist
+      - name: Assemble all four platform archives
+        # One runner cross-compiles the whole set; the script refuses anything
+        # but a clean checkout of the tagged commit, and writes the digest
+        # file beside the archives.
+        run: scripts/build-release.sh "${GITHUB_REF_NAME%%-*}" "${GITHUB_SHA}" dist
 
-      - name: The archive is named for the platform that built it
-        # `dist` names the archive from `rustc -vV`, so this fails if a runner
-        # is not the architecture the matrix says it is — which is exactly the
-        # mistake a native matrix exists to prevent.
-        run: test -f "dist/rhino-${{ matrix.target }}.tar.gz"
-
-      - name: Verify what was assembled
-        env:
-          RHINO_RELEASE_COMMIT: ${{ github.sha }}
+      - name: The set is complete
         run: |
-          RHINO_RELEASE_VERSION=${GITHUB_REF_NAME%%-*} cargo test --package xtask
+          set -eu
+          ls dist/rhino-*.tar.gz
+          test "$(ls dist/rhino-*.tar.gz | wc -l)" = 4
+          cat dist/checksums.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: rhino-${{ matrix.target }}
-          path: dist/rhino-${{ matrix.target }}.tar.gz
+          name: rhino-archives
+          path: |
+            dist/rhino-*.tar.gz
+            dist/checksums.txt
           if-no-files-found: error
           # The publish job downloads these within the same run; nothing reads
           # them afterwards.
@@ -119,37 +110,34 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: rhino-*
+          pattern: rhino-archives
           merge-multiple: true
 
-      - name: Record one digest for every release asset
-        # The same writer `dist` uses, rather than a second one spelled in
-        # shell: one digest file produced by one implementation, however many
-        # runners contributed to it. The task also stages the checked-in grouped
-        # schema after proving it still matches the typed model.
-        run: cargo xtask checksums
+      - name: Stage the checked-in grouped schema
+        # There is no schema generator in the Go tree: the checked-in Draft
+        # 2020-12 artifact is the source of truth, staged here under the
+        # release asset name.
+        run: cp schemas/repo-config/v2.schema.json dist/rhino-repo-config-v2.schema.json
 
       - name: Unpack the host archive
-        # So the identity and size assertions run the executable out of a
-        # published archive rather than a copy staged beside it. This runner is
-        # `x86_64` Linux, so that is the leg it can execute.
+        # So the identity assertion runs the executable out of a published
+        # archive rather than a copy staged beside it. This runner is `x86_64`
+        # Linux, so that is the leg it can execute.
         run: tar -xzf dist/rhino-x86_64-unknown-linux-gnu.tar.gz -C dist
 
       - name: Verify the assembled release
-        env:
-          RHINO_RELEASE_COMMIT: ${{ github.sha }}
-          # Here, and only here, a missing platform is a failure rather than a
-          # note. Every leg above is legitimately partial; this job is the one
-          # that would otherwise publish three archives as four.
-          RHINO_RELEASE_MATRIX: complete
+        # Here, and only here, a missing platform is a failure rather than a
+        # note: this job is the one that would otherwise publish three
+        # archives as four. The digest file the build wrote covers every
+        # archive; the unpacked executable proves its stamped identity.
         run: |
-          RHINO_RELEASE_VERSION=${GITHUB_REF_NAME%%-*} cargo test --package xtask
+          set -eu
+          test "$(ls dist/rhino-*.tar.gz | wc -l)" = 4
+          (cd dist && sha256sum -c checksums.txt)
+          test "$(./dist/rhino version)" = "${GITHUB_REF_NAME%%-*}"
 
       - name: Publish the release
         env:

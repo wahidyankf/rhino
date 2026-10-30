@@ -84,8 +84,9 @@ selected; symlinks, gitlinks, and deletions are excluded. If all bound file inpu
 mutation passes without starting the formatter. The canonical mode and empty-selection rules are in the
 [grouped v2 configuration reference](../reference/v0-4-configuration.md#lifecycle-gates).
 
-The matching declaration in `schemas/repo-config/v2.example.yml` passed the focused schema/runtime parity test
-(`cargo test --test v0_4_schema`, 5/5). This guide's consumer-specific YAML and the `gate validate` / `gate run`
+The matching declaration in `schemas/repo-config/v2.example.yml` ships as the checked-in example; no gate re-proves it
+since the schema parity test left with the Rust harness. This guide's consumer-specific YAML and the `gate validate` /
+`gate run`
 lifecycle were not exercised here: RHINO has no consumer formatter or matching gate configuration, so no formatter child
 was started.
 

@@ -100,7 +100,7 @@
     {
       "id": "instruction",
       "path": "AGENTS.md",
-      "digest": "5c3391bb8efd17137c7db80df46b0e24caba35a4da46982f5a8b3a5512af2c53"
+      "digest": "ee7a1225a51c7d599c9208a1906e93a9dd27c7afbad1a9c1f9e6b6c8572f3bbe"
     },
     {
       "id": "agent/ci-checker",

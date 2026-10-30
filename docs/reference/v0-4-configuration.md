@@ -587,14 +587,13 @@ binary reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later 
 
 ## Verification
 
-The schema generation and validation sequence below was not exercised during this documentation pass. Separate
+The validation sequence below was not exercised during this documentation pass. Separate
 source-gate evidence does not record execution of this example sequence.
 
-Generate the artifact after changing the model, then verify it before review:
+There is no schema generator in this tree, so a model change cannot regenerate the artifact; that tooling is tracked
+work. Verify local configuration bytes before review:
 
 ```sh
-cargo xtask schema
-cargo xtask schema --check
 rhino repo-config validate
 ```
 
