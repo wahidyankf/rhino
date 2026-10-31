@@ -20,12 +20,12 @@ func TestGateRunForwardsSurfaceAndEnvironmentEndToEnd(t *testing.T) {
 	child := filepath.Join(root, "gate-child")
 	script := "#!/bin/sh\n" +
 		"test \"$RHINO_GATE_SURFACE\" = \"pre-commit\" || exit 3\n" +
-		"test \"$RHINO_CHECK_MESSAGE\" = \"hello\" || exit 4\n" +
+		"test -n \"$RHINO_CHECK_ROOT\" || exit 4\n" +
 		"exit 0\n"
 	if err := os.WriteFile(child, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./gate-child\n        environment:\n          RHINO_CHECK_MESSAGE: hello\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n"
+	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repo: { kind: repository-state }\n      command:\n        executable: ./gate-child\n        environment:\n          RHINO_CHECK_ROOT: { input: repo.root }\n      run-on:\n        pre-commit:\n          bind:\n            repo: { source: checkout }\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n"
 	if err := os.WriteFile(filepath.Join(root, "repo-config.yml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestGateRunForwardsSurfaceAndEnvironmentEndToEnd(t *testing.T) {
 // script gate reading RHINO_GATE_SURFACE is served even with a recording
 // launcher standing in for the process boundary.
 func TestGateRunCarriesSurfaceAndEnvironmentToLauncher(t *testing.T) {
-	tree := gateTree("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./check\n        environment:\n          RHINO_CHECK_MESSAGE: hello\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
+	tree := gateTree("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repo: { kind: repository-state }\n      command:\n        executable: ./check\n        environment:\n          RHINO_CHECK_ROOT: { input: repo.root }\n      run-on:\n        pre-commit:\n          bind:\n            repo: { source: checkout }\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
 	launcher := &stubLauncher{}
 	outcome := application.ExecuteWithLauncher(tree, args("gate", "run", "--surface", "pre-commit"), nil, launcher)
 	if outcome.ExitCode != 0 {
@@ -57,7 +57,7 @@ func TestGateRunCarriesSurfaceAndEnvironmentToLauncher(t *testing.T) {
 	if launch.Surface != "pre-commit" {
 		t.Fatalf("surface not carried to launcher: %+v", launch)
 	}
-	if len(launch.Environment) != 1 || launch.Environment["RHINO_CHECK_MESSAGE"] != "hello" {
+	if len(launch.Environment) != 1 || launch.Environment["RHINO_CHECK_ROOT"] == "" {
 		t.Fatalf("environment not carried to launcher: %+v", launch)
 	}
 }

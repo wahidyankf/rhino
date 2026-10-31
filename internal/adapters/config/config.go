@@ -13,59 +13,57 @@ import (
 // Path is the single configuration file this tool reads.
 const Path = "repo-config.yml"
 
-// Gate is one declared lifecycle gate with a launchable command subset.
+// GateInput is one declared typed input with its portable kind: files,
+// regular-files, commit-message, commit-range, or repository-state.
+type GateInput struct {
+	Kind string
+}
+
+// GateArg is one argv item: either a literal or a resolved input field with
+// its closed expansion mode, single or repeat. A malformed item is kept as
+// decoded so dispatch refuses it with the argv shape message.
+type GateArg struct {
+	Literal    string
+	HasLiteral bool
+	Input      string
+	HasInput   bool
+	Expand     string
+}
+
+// GateEnv is one environment variable, mapped to one declared input
+// field. Values never come from inherited process environment or a shell
+// template.
+type GateEnv struct {
+	Input string
+}
+
+// GateBinding is how one surface supplies one declared input: the generic
+// source, the explicit range selector where the source needs one, and the
+// fallback ref a push-update range resolves for a new ref.
+type GateBinding struct {
+	Source   string
+	Range    string
+	Fallback *string
+}
+
+// GateRunOn is one surface membership: the at-least reason and the input
+// binds the surface supplies.
+type GateRunOn struct {
+	Reason *string
+	Bind   map[string]GateBinding
+}
+
+// Gate is one declared lifecycle gate with its typed inputs, launchable
+// command, and per-surface binds. The gate run resolves every input at
+// dispatch and projects the command from the resolved values.
 type Gate struct {
-	ID         string
-	RunOn      map[string]any
-	Executable string
-	Args       []any
-	// Environment holds the literal environment projections the gate run
-	// forwards to the child. Entries that name an input projection instead
-	// of a literal are recorded in unresolvedEnv and refused at dispatch,
-	// the way Argv refuses unresolved input arguments.
-	Environment   map[string]string
-	unresolvedEnv []string
-}
-
-// Argv projects literal-only arguments. Anything else is refused so a
-// caller never silently runs a narrower command than declared.
-func (g Gate) Argv() ([]string, error) {
-	argv := []string{g.Executable}
-	for _, arg := range g.Args {
-		switch value := arg.(type) {
-		case string:
-			argv = append(argv, value)
-		case map[string]any:
-			if len(value) == 1 {
-				if literal, ok := value["literal"]; ok {
-					text, ok := literal.(string)
-					if !ok {
-						return nil, fmt.Errorf("literal argument names no text")
-					}
-					argv = append(argv, text)
-					continue
-				}
-			}
-			return nil, fmt.Errorf("argument was not resolved for this surface")
-		default:
-			return nil, fmt.Errorf("argument was not resolved for this surface")
-		}
-	}
-	return argv, nil
-}
-
-// Environ projects the literal environment entries. An entry naming an
-// input projection instead of a literal is refused so a caller never runs
-// a child with a narrower environment than declared.
-func (g Gate) Environ() (map[string]string, error) {
-	if len(g.unresolvedEnv) > 0 {
-		return nil, fmt.Errorf("environment variable `%s` was not resolved for this surface", g.unresolvedEnv[0])
-	}
-	out := make(map[string]string, len(g.Environment))
-	for name, value := range g.Environment {
-		out[name] = value
-	}
-	return out, nil
+	ID          string
+	Kind        string
+	Inputs      map[string]GateInput
+	RunOn       map[string]GateRunOn
+	Executable  string
+	Args        []GateArg
+	Environment map[string]GateEnv
 }
 
 // Document is the parsed grouped v0.4 configuration.
@@ -132,6 +130,9 @@ func Parse(text string) (*Document, error) {
 	if err := checkQualityCycleCeiling(raw); err != nil {
 		return nil, err
 	}
+	if err := strictGateShapes(text); err != nil {
+		return nil, err
+	}
 	if gatesRaw, ok := raw["gates"].(map[string]any); ok {
 		document.hasGates = true
 		if err := document.decodeGates(gatesRaw); err != nil {
@@ -158,35 +159,29 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 		}
 		seen[id] = true
 		gate := Gate{ID: id}
+		if kind, ok := mapping["type"].(string); ok {
+			gate.Kind = kind
+		}
+		if inputs, ok := mapping["inputs"].(map[string]any); ok {
+			gate.Inputs = decodeGateInputs(inputs)
+		}
 		if runOn, ok := mapping["run-on"].(map[string]any); ok {
-			gate.RunOn = runOn
 			if _, ok := runOn["ci"]; ok {
 				return fmt.Errorf("%s: run-on surface `ci` is retired; declare a lifecycle surface", Path)
+			}
+			gate.RunOn = decodeGateRunOn(runOn)
+			if err := validatePushFallbacks(gate); err != nil {
+				return err
 			}
 		}
 		if command, ok := mapping["command"].(map[string]any); ok {
 			executable, _ := command["executable"].(string)
 			gate.Executable = executable
 			if args, ok := command["args"].([]any); ok {
-				gate.Args = args
+				gate.Args = decodeGateArgs(args)
 			}
 			if environment, ok := command["environment"].(map[string]any); ok {
-				names := make([]string, 0, len(environment))
-				for name := range environment {
-					names = append(names, name)
-				}
-				sort.Strings(names)
-				for _, name := range names {
-					text, ok := environment[name].(string)
-					if !ok {
-						gate.unresolvedEnv = append(gate.unresolvedEnv, name)
-						continue
-					}
-					if gate.Environment == nil {
-						gate.Environment = map[string]string{}
-					}
-					gate.Environment[name] = text
-				}
+				gate.Environment = decodeGateEnv(environment)
 			}
 		}
 		d.gates = append(d.gates, gate)
@@ -212,10 +207,8 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 			local[gate.ID] = true
 			if surface == "pull-request" {
 				onPR[gate.ID] = true
-				if membership, ok := gate.RunOn[surface].(map[string]any); ok {
-					if reason, ok := membership["reason"].(string); ok && strings.TrimSpace(reason) != "" {
-						reasoned[gate.ID] = true
-					}
+				if reason := gate.RunOn[surface].Reason; reason != nil && strings.TrimSpace(*reason) != "" {
+					reasoned[gate.ID] = true
 				}
 			}
 		}
@@ -263,6 +256,322 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 		}
 	}
 	return nil
+}
+
+// decodeGateInputs projects the declared typed inputs. The kinds stay raw:
+// dispatch resolves only what the run-on binds supply.
+func decodeGateInputs(raw map[string]any) map[string]GateInput {
+	out := make(map[string]GateInput, len(raw))
+	for name, item := range raw {
+		mapping, _ := item.(map[string]any)
+		kind, _ := mapping["kind"].(string)
+		out[name] = GateInput{Kind: kind}
+	}
+	return out
+}
+
+// decodeGateArgs projects argv items: a `{literal: ...}` mapping is a
+// literal, and an `{input, expand}` mapping is a typed projection.
+// Anything else, including a plain string, is kept malformed so dispatch
+// refuses it with the argv shape message: the oracle accepts only the
+// mapping form.
+func decodeGateArgs(raw []any) []GateArg {
+	out := make([]GateArg, 0, len(raw))
+	for _, item := range raw {
+		if _, ok := item.(string); ok {
+			out = append(out, GateArg{})
+			continue
+		}
+		mapping, ok := item.(map[string]any)
+		if !ok {
+			out = append(out, GateArg{})
+			continue
+		}
+		var arg GateArg
+		if literal, ok := mapping["literal"].(string); ok {
+			arg.Literal, arg.HasLiteral = literal, true
+		} else if _, present := mapping["literal"]; present {
+			arg.HasLiteral = true
+		}
+		if input, ok := mapping["input"].(string); ok {
+			arg.Input, arg.HasInput = input, true
+		} else if _, present := mapping["input"]; present {
+			arg.HasInput = true
+		}
+		if expand, ok := mapping["expand"].(string); ok {
+			arg.Expand = expand
+		} else if _, present := mapping["expand"]; present {
+			arg.Expand = "\x00invalid"
+		}
+		out = append(out, arg)
+	}
+	return out
+}
+
+// decodeGateEnv projects environment entries: an `{input: ...}` mapping
+// is a projection. Anything else is kept with an empty reference so the
+// strict shape check refuses it first; dispatch never sees a literal.
+func decodeGateEnv(raw map[string]any) map[string]GateEnv {
+	out := make(map[string]GateEnv, len(raw))
+	for name, item := range raw {
+		mapping, _ := item.(map[string]any)
+		input, _ := mapping["input"].(string)
+		out[name] = GateEnv{Input: input}
+	}
+	return out
+}
+
+// decodeGateRunOn projects the per-surface membership: the at-least reason
+// and the input binds the surface supplies.
+func decodeGateRunOn(raw map[string]any) map[string]GateRunOn {
+	out := make(map[string]GateRunOn, len(raw))
+	for surface, item := range raw {
+		mapping, _ := item.(map[string]any)
+		entry := GateRunOn{}
+		if reason, ok := mapping["reason"].(string); ok {
+			entry.Reason = &reason
+		}
+		if binds, ok := mapping["bind"].(map[string]any); ok {
+			entry.Bind = make(map[string]GateBinding, len(binds))
+			for name, rawBind := range binds {
+				bindMapping, _ := rawBind.(map[string]any)
+				bind := GateBinding{}
+				bind.Source, _ = bindMapping["source"].(string)
+				bind.Range, _ = bindMapping["range"].(string)
+				if fallback, ok := bindMapping["fallback"].(string); ok {
+					bind.Fallback = &fallback
+				}
+				entry.Bind[name] = bind
+			}
+		}
+		out[surface] = entry
+	}
+	return out
+}
+
+// validatePushFallbacks refuses push-update binds without a declared
+// fallback, with an invalid fallback, or with a fallback on another
+// source, exactly like v0.15.0 config validation.
+func validatePushFallbacks(gate Gate) error {
+	surfaces := make([]string, 0, len(gate.RunOn))
+	for surface := range gate.RunOn {
+		surfaces = append(surfaces, surface)
+	}
+	sort.Slice(surfaces, func(left, right int) bool {
+		return surfaceOrder(surfaces[left]) < surfaceOrder(surfaces[right])
+	})
+	for _, surface := range surfaces {
+		membership := gate.RunOn[surface]
+		names := make([]string, 0, len(membership.Bind))
+		for name := range membership.Bind {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			binding := membership.Bind[name]
+			if binding.Fallback != nil && binding.Source != "push-updates" {
+				return fmt.Errorf("%s: line 1: %s: uses `fallback` with a source other than `push-updates`", Path, name)
+			}
+			if binding.Source != "push-updates" {
+				continue
+			}
+			if binding.Fallback == nil {
+				return fmt.Errorf("%s: line 1: %s: uses `push-updates` without a declared fallback ref", Path, name)
+			}
+			fallback := strings.TrimSpace(*binding.Fallback)
+			if fallback == "" || strings.HasPrefix(fallback, "-") || containsWhitespace(fallback) {
+				return fmt.Errorf("%s: line 1: %s: declares an invalid push-update fallback ref", Path, name)
+			}
+		}
+	}
+	return nil
+}
+
+// surfaceOrder matches the oracle's Surface enum order for deterministic
+// validation.
+func surfaceOrder(surface string) int {
+	switch surface {
+	case "pre-commit":
+		return 0
+	case "commit-msg":
+		return 1
+	case "pre-push":
+		return 2
+	case "pull-request":
+		return 3
+	case "main":
+		return 4
+	case "scheduled":
+		return 5
+	case "manual":
+		return 6
+	default:
+		return 7
+	}
+}
+
+// containsWhitespace reports whether the fallback holds any whitespace the
+// oracle rejects, using Unicode space like Rust's `char::is_whitespace`.
+func containsWhitespace(value string) bool {
+	for _, character := range value {
+		if character == ' ' || character == '\t' || character == '\n' || character == '\r' {
+			return true
+		}
+		if character < 0x20 || character == 0x7f {
+			return true
+		}
+		if character == 0x0b || character == 0x0c || character == 0x85 || character == 0xa0 {
+			return true
+		}
+	}
+	return false
+}
+
+// strictGateShapes refuses argv and environment shapes the oracle's serde
+// model refuses before its semantic validation: a plain scalar or sequence
+// where a struct belongs, an unknown field inside one, or an environment
+// mapping missing its `input`. The wording and the line/column match the
+// v0.15.0 malformed errors byte for byte.
+func strictGateShapes(text string) error {
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(text), &root); err != nil {
+		return nil
+	}
+	gates := gateEntriesNodes(&root)
+	for index, entry := range gates {
+		command := mappingValue(entry, "command")
+		if command == nil || command.Kind != yaml.MappingNode {
+			continue
+		}
+		if args := mappingValue(command, "args"); args != nil && args.Kind == yaml.SequenceNode {
+			for position := 0; position < len(args.Content); position++ {
+				item := args.Content[position]
+				path := fmt.Sprintf("gates.entries[%d].command.args[%d]", index, position)
+				if item.Kind != yaml.MappingNode {
+					return fmt.Errorf("%s: %s: %s at line %d column %d", Path, path, serdeTypeName(item, "Argument"), item.Line, item.Column)
+				}
+				for field := 0; field < len(item.Content); field += 2 {
+					key := item.Content[field]
+					name := key.Value
+					if name != "literal" && name != "input" && name != "expand" {
+						return fmt.Errorf("%s: %s: unknown field `%s`, expected one of `literal`, `input`, `expand` at line %d column %d", Path, path, name, key.Line, key.Column)
+					}
+				}
+			}
+		}
+		if environment := mappingValue(command, "environment"); environment != nil && environment.Kind == yaml.MappingNode {
+			for field := 0; field < len(environment.Content); field += 2 {
+				nameNode := environment.Content[field]
+				valueNode := environment.Content[field+1]
+				name := nameNode.Value
+				path := fmt.Sprintf("gates.entries[%d].command.environment.%s", index, name)
+				if valueNode.Kind != yaml.MappingNode {
+					return fmt.Errorf("%s: %s: %s at line %d column %d", Path, path, serdeTypeName(valueNode, "EnvironmentProjection"), valueNode.Line, valueNode.Column)
+				}
+				seenInput := false
+				for inner := 0; inner < len(valueNode.Content); inner += 2 {
+					key := valueNode.Content[inner]
+					if key.Value == "input" {
+						seenInput = true
+						continue
+					}
+					return fmt.Errorf("%s: %s: unknown field `%s`, expected `input` at line %d column %d", Path, path, key.Value, key.Line, key.Column)
+				}
+				if !seenInput {
+					return fmt.Errorf("%s: %s: missing field `input` at line %d column %d", Path, path, valueNode.Line, valueNode.Column)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// gateEntriesNodes locates the gates.entries sequence in document order.
+func gateEntriesNodes(root *yaml.Node) []*yaml.Node {
+	document := root
+	if root.Kind == yaml.DocumentNode && len(root.Content) > 0 {
+		document = root.Content[0]
+	}
+	if document.Kind != yaml.MappingNode {
+		return nil
+	}
+	gates := mappingValue(document, "gates")
+	if gates == nil || gates.Kind != yaml.MappingNode {
+		return nil
+	}
+	entries := mappingValue(gates, "entries")
+	if entries == nil || entries.Kind != yaml.SequenceNode {
+		return nil
+	}
+	return entries.Content
+}
+
+// mappingValue returns the value for one mapping key, or nil.
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	if node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for index := 0; index < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			return node.Content[index+1]
+		}
+	}
+	return nil
+}
+
+// serdeTypeName renders one non-struct YAML node the way serde_yaml names
+// the mismatched type in its malformed errors.
+func serdeTypeName(node *yaml.Node, structure string) string {
+	switch node.Kind {
+	case yaml.SequenceNode:
+		return "invalid type: sequence, expected struct " + structure
+	case yaml.MappingNode:
+		return "invalid type: map, expected struct " + structure
+	case yaml.AliasNode:
+		return "invalid type: sequence, expected struct " + structure
+	default:
+		switch node.Tag {
+		case "!!int":
+			return fmt.Sprintf("invalid type: integer `%s`, expected struct %s", node.Value, structure)
+		case "!!float":
+			return fmt.Sprintf("invalid type: floating point `%s`, expected struct %s", node.Value, structure)
+		case "!!bool":
+			return fmt.Sprintf("invalid type: boolean `%s`, expected struct %s", node.Value, structure)
+		case "!!null":
+			return fmt.Sprintf("invalid type: unit value, expected struct %s", structure)
+		default:
+			return fmt.Sprintf("invalid type: string %s, expected struct %s", quoteSerdeString(node.Value), structure)
+		}
+	}
+}
+
+// quoteSerdeString renders a YAML string the way Rust's debug format does
+// for serde's `string "..."` invalid-type message.
+func quoteSerdeString(value string) string {
+	var out strings.Builder
+	out.WriteByte('"')
+	for _, character := range value {
+		switch character {
+		case '"':
+			out.WriteString("\\\"")
+		case '\\':
+			out.WriteString("\\\\")
+		case '\n':
+			out.WriteString("\\n")
+		case '\r':
+			out.WriteString("\\r")
+		case '\t':
+			out.WriteString("\\t")
+		default:
+			if character < ' ' || character == 0x7f {
+				fmt.Fprintf(&out, "\\u{%x}", character)
+			} else {
+				out.WriteRune(character)
+			}
+		}
+	}
+	out.WriteByte('"')
+	return out.String()
 }
 
 // checkQualityCycleCeiling refuses a configured gate cycle ceiling outside

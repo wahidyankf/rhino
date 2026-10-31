@@ -46,7 +46,11 @@ func (launcher OSLauncher) Launch(launch application.GateLaunch) application.Lau
 	}
 	command := exec.CommandContext(ctx, launch.Argv[0], launch.Argv[1:]...)
 	command.Dir = launch.Directory
-	command.Stdin = nil
+	// A push surface hands its update records to every child unmodified;
+	// any other surface leaves the child with empty standard input.
+	if launch.Stdin != nil {
+		command.Stdin = strings.NewReader(*launch.Stdin)
+	}
 	command.Stdout = nil
 	command.Stderr = nil
 	command.Env = gateEnvironment(launch)

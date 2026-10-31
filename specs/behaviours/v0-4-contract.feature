@@ -441,6 +441,43 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "--root|.|gate|run|--surface|pre-push|--push-updates-stdin|--output|json"
     Then the exit code is 0
 
+  Scenario: A pre-push gate projects its base into the environment
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: base-check
+            type: check
+            inputs:
+              range: { kind: commit-range }
+            command:
+              executable: ./check-base
+              args:
+                - { input: range.base, expand: single }
+              environment:
+                EXPECTED_BASE: { input: range.base }
+            run-on:
+              pre-push:
+                bind:
+                  range: { source: push-updates, fallback: refs/remotes/origin/main }
+              pull-request:
+                bind:
+                  range: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    And the repository contains:
+      | path       | content                                                                                          |
+      | check-base | #!/bin/sh\ntest "$EXPECTED_BASE" = bbbbbbb\n                                                    |
+    And the standard input is:
+      """
+      refs/heads/main aaaaaaa refs/heads/main bbbbbbb
+      """
+    When I invoke the CLI with "gate|run|--surface|pre-push|--push-updates-stdin"
+    Then the exit code is 0
+
   Scenario: Unresolved typed input projections are refused
     Given the configuration file is this text:
       """
