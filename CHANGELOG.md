@@ -68,6 +68,10 @@ the green bar until then.
   loads, and a run-on membership key other than `reason` or `bind` is refused.
 - A license digest written as all zeros keeps its text, instead of loading as a number.
 - A run that a termination signal (`SIGTERM`) ends exits `143`, as `128+N` requires, instead of `130`.
+- Toolchain provisioning matches on macOS. The Go port named the host `darwin`, but the contract names it `macos`, so
+  every provision declaration was refused as undeclared there. Declare `platform: macos`.
+- `--root` accepts a subdirectory of a repository reached through a symbolic link, such as a temporary directory under
+  `/tmp` on macOS. It refused with "escapes the repository root" when the working directory kept the link's spelling.
 
 ### Added
 

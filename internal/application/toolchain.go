@@ -10,7 +10,6 @@ package application
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/wahidyankf/rhino/internal/adapters/config"
@@ -126,10 +125,23 @@ func toolchainValidate(document *config.Document, runner ToolchainRunner, format
 	return Outcome{ExitCode: 1, Stderr: out.String()}
 }
 
+// platformName maps a Go GOOS value to the platform name a provision
+// declaration uses. The name is the Rust oracle's std::env::consts::OS, the
+// contract's reference. Go names macOS darwin and the oracle names it macos.
+// Every other GOOS value with an oracle name is spelled the same way, and the
+// Go targets the oracle has no name for (js, plan9, wasip1) pass through.
+func platformName(goos string) string {
+	if goos == "darwin" {
+		return "macos"
+	}
+	return goos
+}
+
 // provisionToolchains plans each supported provision vector by default.
 // --apply is the explicit confirmation that starts the declared no-shell
-// children in declaration order.
-func provisionToolchains(document *config.Document, runner ToolchainRunner, apply bool, format Format) Outcome {
+// children in declaration order. goos is the host's Go GOOS value, supplied by
+// the caller so the planning path runs for any host.
+func provisionToolchains(document *config.Document, runner ToolchainRunner, goos string, apply bool, format Format) Outcome {
 	toolchains, refusal := decodeToolchains(document)
 	if refusal != nil {
 		return RefuseWith(format, refusal.Code, refusal.Message)
@@ -137,7 +149,7 @@ func provisionToolchains(document *config.Document, runner ToolchainRunner, appl
 	if runner == nil {
 		runner = closedRunner{}
 	}
-	platform := runtime.GOOS
+	platform := platformName(goos)
 	type declared struct {
 		entry  toolchain
 		vector toolchainProvision
