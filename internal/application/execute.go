@@ -49,14 +49,16 @@ type Tree interface {
 }
 
 // GateLaunch is what one gate child is asked to do: the declared vector,
-// the repository root it runs in, the surface that selected it, and the
-// projected environment. It mirrors the oracle's Launch: surface and
+// the repository root it runs in, the surface that selected it, the update
+// records a push surface hands its children, and the projected
+// environment. It mirrors the oracle's Launch: surface, stdin, and
 // environment travel with the vector instead of being inherited by
 // accident.
 type GateLaunch struct {
 	Argv        []string
 	Directory   string
 	Surface     string
+	Stdin       *string
 	Environment map[string]string
 }
 
@@ -319,23 +321,37 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		return RefuseWith(invocation.Format, code,
 			"`--surface` must name one of "+strings.Join(Surfaces, ", "))
 	}
+	if (invocation.Base == nil) != (invocation.Head == nil) {
+		return RefuseWith(invocation.Format, domain.ArgsIncomplete,
+			"`--base` and `--head` must be supplied together")
+	}
 	selected := document.GatesOn(surface)
 	var report strings.Builder
 	var completed []string
 	for _, gate := range selected {
+		// Inputs resolve before the command is read: a deleted push range
+		// skips the gate, and anything unresolvable refuses before any
+		// child starts, the way the oracle orders it.
+		binds := map[string]config.GateBinding(nil)
+		if membership, ok := gate.RunOn[surface]; ok {
+			binds = membership.Bind
+		}
+		resolved, refusal, skipped := resolveGateInputs(gate, binds, invocation, tree, stdin)
+		if skipped {
+			continue
+		}
+		if refusal != nil {
+			return gateRefused(invocation.Format, 2, refusal.code,
+				"gate `"+gate.ID+"`: "+refusal.reason)
+		}
 		if gate.Executable == "" {
-			return gateRefusal(invocation.Format, 2, domain.GateUndeclared, &report,
+			return gateRefused(invocation.Format, 2, domain.GateUndeclared,
 				"gate `"+gate.ID+"` declares no executable command")
 		}
-		argv, err := gate.Argv()
-		if err != nil {
-			return gateRefusal(invocation.Format, 2, domain.ConfigUnusable, &report,
-				"gate `"+gate.ID+"`: "+err.Error())
-		}
-		environment, err := gate.Environ()
-		if err != nil {
-			return gateRefusal(invocation.Format, 2, domain.ConfigUnusable, &report,
-				"gate `"+gate.ID+"`: "+err.Error())
+		argv, environment, reason := projectGateCommand(gate.Executable, gate.Args, gate.Environment, resolved)
+		if reason != "" {
+			return gateRefused(invocation.Format, 2, domain.ConfigUnusable,
+				"gate `"+gate.ID+"`: "+reason)
 		}
 		if launcher == nil {
 			return gateRefusal(invocation.Format, 2, domain.GateChildRefused, &report,
@@ -345,6 +361,7 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 			Argv:        argv,
 			Directory:   tree.Root(),
 			Surface:     surface,
+			Stdin:       stdin,
 			Environment: environment,
 		})
 		switch {
@@ -369,11 +386,6 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 			completed = append(completed, gate.ID)
 		}
 	}
-	// Gate children run with no standard input in this port: the launcher
-	// passes the vector, the working directory, the selecting surface, and
-	// the projected environment, so stdin stays with the document
-	// validators that read it. Only stdin forwarding is out of scope.
-	_ = stdin
 	if invocation.Format == JSON {
 		quoted := make([]string, 0, len(completed))
 		for _, id := range completed {
@@ -400,13 +412,23 @@ func gateOutcome(format Format, code int, completed []string, report, stderr str
 	return Outcome{ExitCode: code, Stdout: report, Stderr: stderr}
 }
 
-func gateRefusal(format Format, status int, code domain.ErrorCode, report *strings.Builder, message string) Outcome {
+// gateRefused renders a refusal that never reached a verdict: stdout stays
+// empty, so a caller parsing the result never mistakes progress for a
+// verdict. Used for resolve, command, and projection refusals, which drop
+// the accumulated progress the way the oracle does.
+func gateRefused(format Format, status int, code domain.ErrorCode, message string) Outcome {
+	return Outcome{ExitCode: status, Stderr: domain.Body(format, code, message)}
+}
+
+// gateRefusal renders a run that reached a child but never reached a
+// verdict. In text mode the completed progress travels on stderr ahead of
+// the diagnostic, so stdout still carries no verdict; in JSON mode a caller
+// parsing stderr wants one document, not prose before it.
+func gateRefusal(format Format, status int, code domain.ErrorCode, progress *strings.Builder, message string) Outcome {
 	if format == JSON {
-		return Outcome{ExitCode: status, Stderr: fmt.Sprintf(
-			"{\"schemaVersion\":1,\"error\":{\"code\":%s,\"message\":%s}}\n",
-			domain.Quote(code.String()), domain.Quote(message))}
+		return Outcome{ExitCode: status, Stderr: domain.Body(format, code, message)}
 	}
-	return Outcome{ExitCode: status, Stdout: report.String(), Stderr: "rhino: " + message + "\n"}
+	return Outcome{ExitCode: status, Stderr: progress.String() + domain.Body(format, code, message)}
 }
 
 func version(format Format) Outcome {

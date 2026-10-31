@@ -10,16 +10,88 @@ import (
 )
 
 type memoryTree struct {
-	files      map[string]string
-	unreadable map[string]bool
-	vanished   map[string]bool
-	binary     map[string]bool
-	links      map[string]bool
-	root       string
+	files           map[string]string
+	unreadable      map[string]bool
+	vanished        map[string]bool
+	binary          map[string]bool
+	links           map[string]bool
+	root            string
+	indexed         []string
+	hasIndex        bool
+	indexedRegular  []string
+	hasRegularIndex bool
+	changed         map[[2]string][]string
+	changedRegular  map[[2]string][]string
+	commitMessages  map[[2]string]string
+	gitRefs         map[string]string
+	hookMessageFile string
+	hasHookFile     bool
 }
 
 func newMemoryTree(root string) *memoryTree {
-	return &memoryTree{files: map[string]string{}, unreadable: map[string]bool{}, vanished: map[string]bool{}, binary: map[string]bool{}, links: map[string]bool{}, root: root}
+	return &memoryTree{files: map[string]string{}, unreadable: map[string]bool{}, vanished: map[string]bool{}, binary: map[string]bool{}, links: map[string]bool{}, root: root, changed: map[[2]string][]string{}, changedRegular: map[[2]string][]string{}, commitMessages: map[[2]string]string{}, gitRefs: map[string]string{}}
+}
+
+// stagePaths sorts and deduplicates one staged selection, the way the
+// oracle's memory tree does when a scenario states it.
+func stagePaths(paths []string) []string {
+	held := append([]string(nil), paths...)
+	sort.Strings(held)
+	out := held[:0]
+	for _, path := range held {
+		if len(out) == 0 || out[len(out)-1] != path {
+			out = append(out, path)
+		}
+	}
+	return out
+}
+
+// setIndexedFiles stages the Git index snapshot the tree reports.
+func (m *memoryTree) setIndexedFiles(paths ...string) {
+	m.indexed = stagePaths(paths)
+	m.hasIndex = true
+}
+
+// setIndexedRegularFiles stages the regular-file index snapshot.
+func (m *memoryTree) setIndexedRegularFiles(paths ...string) {
+	m.indexedRegular = stagePaths(paths)
+	m.hasRegularIndex = true
+}
+
+// setChangedFiles stages the changed paths one explicit range reports.
+func (m *memoryTree) setChangedFiles(base, head string, paths ...string) {
+	m.changed[[2]string{base, head}] = stagePaths(paths)
+}
+
+// setChangedRegularFiles stages the regular-file paths one range reports.
+func (m *memoryTree) setChangedRegularFiles(base, head string, paths ...string) {
+	m.changedRegular[[2]string{base, head}] = stagePaths(paths)
+}
+
+// setCommitMessages stages the message text one explicit range reports.
+func (m *memoryTree) setCommitMessages(base, head, messages string) {
+	m.commitMessages[[2]string{base, head}] = messages
+}
+
+// setGitRef stages one fallback ref resolution.
+func (m *memoryTree) setGitRef(reference, commit string) {
+	m.gitRefs[reference] = commit
+}
+
+// setHookMessageFile names Git's canonical message file for the run.
+func (m *memoryTree) setHookMessageFile(path string) {
+	m.hookMessageFile = path
+	m.hasHookFile = true
+}
+
+// markUnreadable stages a permission failure for one path.
+func (m *memoryTree) markUnreadable(path string) {
+	m.unreadable[path] = true
+}
+
+// markBinary stages non-text bytes for one path.
+func (m *memoryTree) markBinary(path string) {
+	m.binary[path] = true
 }
 
 func (m *memoryTree) Root() string { return m.root }
@@ -91,6 +163,82 @@ func (m *memoryTree) PassesThroughLink(path string) bool {
 		}
 	}
 	return false
+}
+
+// IndexedFiles reports the staged Git index snapshot, or refuses without one.
+func (m *memoryTree) IndexedFiles() ([]string, error) {
+	if !m.hasIndex {
+		return nil, errTest("this tree has no Git index snapshot boundary")
+	}
+	return append([]string(nil), m.indexed...), nil
+}
+
+// IndexedRegularFiles reports the staged regular-file snapshot.
+func (m *memoryTree) IndexedRegularFiles() ([]string, error) {
+	if !m.hasRegularIndex {
+		return nil, errTest("this tree has no regular-file Git index snapshot boundary")
+	}
+	return append([]string(nil), m.indexedRegular...), nil
+}
+
+// ChangedFiles reports the staged changed paths for one explicit range.
+func (m *memoryTree) ChangedFiles(base, head string) ([]string, error) {
+	paths, ok := m.changed[[2]string{base, head}]
+	if !ok {
+		return nil, errTest("this tree has no changed-file range boundary")
+	}
+	return append([]string(nil), paths...), nil
+}
+
+// ChangedRegularFiles reports the staged regular-file paths for one range.
+func (m *memoryTree) ChangedRegularFiles(base, head string) ([]string, error) {
+	paths, ok := m.changedRegular[[2]string{base, head}]
+	if !ok {
+		return nil, errTest("this tree has no regular-file changed-file range boundary")
+	}
+	return append([]string(nil), paths...), nil
+}
+
+// ResolveGitRef resolves one staged fallback ref.
+func (m *memoryTree) ResolveGitRef(reference string) (string, error) {
+	commit, ok := m.gitRefs[reference]
+	if !ok {
+		return "", errTest("the declared fallback ref `" + reference + "` does not resolve")
+	}
+	return commit, nil
+}
+
+// CommitMessages reports the staged message text for one explicit range.
+func (m *memoryTree) CommitMessages(base, head string) (string, error) {
+	messages, ok := m.commitMessages[[2]string{base, head}]
+	if !ok {
+		return "", errTest("this tree has no commit-message range boundary")
+	}
+	return messages, nil
+}
+
+// HookMessageFile reads only Git's canonical message file for the run.
+func (m *memoryTree) HookMessageFile(path string) (string, *application.ReadError) {
+	if !m.hasHookFile {
+		return "", &application.ReadError{Kind: "unreadable", Reason: "the Git hook message-file boundary is unavailable"}
+	}
+	if path != m.hookMessageFile {
+		return "", &application.ReadError{Kind: "unreadable", Reason: "the supplied path is not Git's canonical COMMIT_EDITMSG"}
+	}
+	if m.unreadable[path] {
+		return "", &application.ReadError{Kind: "unreadable", Reason: "permission denied"}
+	}
+	if m.binary[path] {
+		return "", &application.ReadError{Kind: "not-text", Reason: path + ": holds no text"}
+	}
+	if m.vanished[path] {
+		return "", &application.ReadError{Kind: "missing", Reason: path + ": no such file"}
+	}
+	text, ok := m.files[path]
+	if !ok {
+		return "", &application.ReadError{Kind: "missing", Reason: path + ": no such file"}
+	}
+	return text, nil
 }
 
 func (m *memoryTree) RootedAt(path string) (application.Tree, error) {

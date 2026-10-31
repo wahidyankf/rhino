@@ -219,6 +219,177 @@ func (t *DiskTree) IndexedFiles() ([]string, error) {
 	return out, nil
 }
 
+// IndexedRegularFiles selects regular-file destinations from the Git index
+// snapshot. Raw Git metadata decides: destination modes 100644 and 100755
+// are included, while symlinks, gitlinks, and deletions are excluded.
+func (t *DiskTree) IndexedRegularFiles() ([]string, error) {
+	output, err := exec.Command("git", "-C", t.Dir, "diff", "--cached", "--raw",
+		"-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--").Output()
+	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			return nil, fmt.Errorf("Git refused the regular-file index query with status %d", exit.ExitCode())
+		}
+		return nil, fmt.Errorf("could not read regular files from the Git index: %s", err.Error())
+	}
+	return regularFilePaths(output)
+}
+
+// ChangedFiles lists the repository-relative paths changed between two
+// already validated immutable commits. A pull-request gate receives only
+// that reviewed selection, never the complete checkout.
+func (t *DiskTree) ChangedFiles(base, head string) ([]string, error) {
+	output, err := exec.Command("git", "-C", t.Dir, "diff", "--name-only", "-z",
+		"--no-renames", "--end-of-options", base+".."+head).Output()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("Git refused the declared changed-file range")
+		}
+		return nil, fmt.Errorf("could not read changed files for the declared range: %s", err.Error())
+	}
+	if !utf8.Valid(output) {
+		return nil, fmt.Errorf("Git returned a non-UTF-8 changed path")
+	}
+	var paths []string
+	for _, raw := range strings.Split(string(output), "\x00") {
+		if raw == "" {
+			continue
+		}
+		if !gitRepositoryPath(raw) {
+			return nil, fmt.Errorf("Git returned an escaping changed path `%s`", raw)
+		}
+		paths = append(paths, raw)
+	}
+	sort.Strings(paths)
+	out := paths[:0]
+	for _, path := range paths {
+		if len(out) == 0 || out[len(out)-1] != path {
+			out = append(out, path)
+		}
+	}
+	return out, nil
+}
+
+// ChangedRegularFiles selects regular-file destinations changed between two
+// already validated immutable commits, by the same recorded-mode rule the
+// index snapshot uses.
+func (t *DiskTree) ChangedRegularFiles(base, head string) ([]string, error) {
+	output, err := exec.Command("git", "-C", t.Dir, "diff", "--raw", "-z",
+		"--no-renames", "--no-ext-diff", "--no-textconv",
+		"--end-of-options", base+".."+head, "--").Output()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("Git refused the declared regular-file range")
+		}
+		return nil, fmt.Errorf("could not read regular files for the declared Git range: %s", err.Error())
+	}
+	return regularFilePaths(output)
+}
+
+// ResolveGitRef resolves a repository-declared comparison ref to one
+// immutable commit, for a pre-push update that creates a new ref and
+// supplies no remote base object.
+func (t *DiskTree) ResolveGitRef(reference string) (string, error) {
+	if reference == "" || strings.HasPrefix(reference, "-") || strings.ContainsFunc(reference, func(r rune) bool {
+		return r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == '\v' || r == '\f'
+	}) {
+		return "", fmt.Errorf("the declared fallback ref is invalid")
+	}
+	output, err := exec.Command("git", "-C", t.Dir, "rev-parse", "--verify",
+		"--end-of-options", reference+"^{commit}").Output()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("the declared fallback ref does not resolve to a commit")
+		}
+		return "", fmt.Errorf("could not resolve the declared fallback ref: %s", err.Error())
+	}
+	if !utf8.Valid(output) {
+		return "", fmt.Errorf("Git returned a non-UTF-8 fallback commit")
+	}
+	commit := strings.TrimSpace(string(output))
+	for i := 0; i < len(commit); i++ {
+		character := commit[i]
+		if character >= '0' && character <= '9' || character >= 'a' && character <= 'f' || character >= 'A' && character <= 'F' {
+			continue
+		}
+		return "", fmt.Errorf("Git returned an invalid fallback commit")
+	}
+	return commit, nil
+}
+
+// CommitMessages reads the non-merge commit-message text for one already
+// validated immutable range. A pull-request gate consumes the same semantic
+// message input as the commit-msg hook, from the reviewed range instead.
+func (t *DiskTree) CommitMessages(base, head string) (string, error) {
+	output, err := exec.Command("git", "-C", t.Dir, "log", "--format=%B",
+		"--no-merges", "--end-of-options", base+".."+head).Output()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("Git refused the declared commit-message range")
+		}
+		return "", fmt.Errorf("could not read commit messages for the declared range: %s", err.Error())
+	}
+	if !utf8.Valid(output) {
+		return "", fmt.Errorf("Git returned non-UTF-8 commit-message text")
+	}
+	return string(output), nil
+}
+
+// HookMessageFile reads the one message file Git assigned to the current
+// commit-msg hook. The supplied path must be Git's canonical
+// COMMIT_EDITMSG; any other path is refused, never followed elsewhere.
+func (t *DiskTree) HookMessageFile(path string) (string, *TreeError) {
+	output, err := exec.Command("git", "-C", t.Dir, "rev-parse",
+		"--path-format=absolute", "--git-path", "COMMIT_EDITMSG").Output()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return "", &TreeError{Kind: "unreadable", Reason: "the Git hook message-file boundary is unavailable"}
+		}
+		return "", &TreeError{Kind: "unreadable", Reason: "the Git hook message-file boundary is unavailable: " + err.Error()}
+	}
+	if !utf8.Valid(output) {
+		return "", &TreeError{Kind: "unreadable", Reason: "the Git hook message-file boundary returned a non-UTF-8 path"}
+	}
+	canonical := strings.TrimSpace(string(output))
+	if !filepath.IsAbs(canonical) {
+		return "", &TreeError{Kind: "unreadable", Reason: "the Git hook message-file boundary returned a relative path"}
+	}
+	supplied := path
+	if !filepath.IsAbs(supplied) {
+		supplied = filepath.Join(t.Dir, filepath.FromSlash(path))
+	}
+	if supplied != canonical {
+		return "", &TreeError{Kind: "unreadable", Reason: "the supplied path is not Git's canonical COMMIT_EDITMSG"}
+	}
+	data, err := os.ReadFile(canonical)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", &TreeError{Kind: "missing", Reason: path + ": no such file"}
+		}
+		return "", &TreeError{Kind: "unreadable", Reason: path + ": " + err.Error()}
+	}
+	if !utf8.Valid(data) {
+		return "", &TreeError{Kind: "not-text", Reason: path + ": holds no text"}
+	}
+	return string(data), nil
+}
+
+// gitRepositoryPath reports whether a Git-returned path stays inside the
+// repository: non-empty, never absolute, and no empty, current, or parent
+// segment. A record Git cannot place inside the root is refused rather than
+// projected into a child.
+func gitRepositoryPath(path string) bool {
+	if path == "" || strings.HasPrefix(path, "/") {
+		return false
+	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return true
+}
+
 // DiskEnvironmentStore is the only write boundary environment init, backup,
 // and restore hold. It stages every byte before installing, and preserves an
 // overwritten target until its replacement is durable.

@@ -79,8 +79,8 @@ func TestPolicyGroupAndGateIDs(t *testing.T) {
 	}
 }
 
-func TestGateArgvProjectsLiteralsOnly(t *testing.T) {
-	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./rhino\n        args:\n          - repo-config\n          - {literal: validate}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
+func TestGateCommandKeepsLiteralsAndTypedArgs(t *testing.T) {
+	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./rhino\n        args:\n          - {literal: repo-config}\n          - {literal: validate}\n          - {input: repository.root, expand: single}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -88,18 +88,14 @@ func TestGateArgvProjectsLiteralsOnly(t *testing.T) {
 	if len(gates) != 1 {
 		t.Fatalf("expected one gate, got %d", len(gates))
 	}
-	argv, err := gates[0].Argv()
-	if err != nil {
-		t.Fatalf("argv failed: %v", err)
+	args := gates[0].Args
+	if len(args) != 3 || !args[0].HasLiteral || args[0].Literal != "repo-config" {
+		t.Fatalf("literal map not a literal: %+v", args)
 	}
-	if len(argv) != 3 || argv[0] != "./rhino" || argv[2] != "validate" {
-		t.Fatalf("unexpected argv %v", argv)
+	if !args[1].HasLiteral || args[1].Literal != "validate" {
+		t.Fatalf("literal map not a literal: %+v", args)
 	}
-	bad, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./x\n        args:\n          - {input: repository.root}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if _, err := bad.GatesOn("pre-commit")[0].Argv(); err == nil {
-		t.Fatal("unresolved input projected without refusal")
+	if !args[2].HasInput || args[2].Input != "repository.root" || args[2].Expand != "single" {
+		t.Fatalf("typed arg not kept: %+v", args)
 	}
 }
