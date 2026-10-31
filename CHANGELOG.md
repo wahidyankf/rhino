@@ -46,6 +46,55 @@ source of truth with no generator until one is ported. Lifecycle replay (`gate r
 launcher parity for surface, inputs, and stdin before it can report clean; the quick gate (`scripts/test-quick.sh`) is
 the green bar until then.
 
+### Fixed
+
+- A `type: mutation` gate no longer fails every commit and push in the Go port. Pre-commit runs the formatter against a
+  snapshot of the staged files and writes changed bytes back to the index, keeping unstaged edits. Pull-request replays
+  the candidate revision in a disposable checkout and reports a finding when a selected file changes. Mutators find
+  tools in the project's `node_modules/.bin`, and they see `RHINO_GATE_SURFACE` as check children do.
+- A mutation refuses a selected symbolic link, or a change outside its selection, before any write. A deleted selected
+  file is removed from the index as well as the working tree.
+- `gate run --output json` writes one `[gate]` finding line on stderr, not two, and reports `surface` and `completed`
+  next to the documented fields.
+- A model-command probe no longer fails intermittently with "file already closed" under load.
+- A `toolchain validate` or `toolchain provision` run no longer fails intermittently with "could not read toolchain
+  output: read |0: file already closed" when a declared tool exits quickly. A tool that prints more than the 64 KiB
+  bound is now refused as emitting too much output, where it could previously hang until its timeout.
+- A declared surface glob follows a symbolic link only when the link's target stays inside the repository root. A link
+  that leaves the root refuses with `rhino.path.escapes-root`. A link that loops back on itself, or leads to nothing,
+  refuses with `rhino.file.unreadable`.
+- A file read through a directory symbolic link is refused instead of read through the link.
+- `repo-config validate` checks quality-gate declarations. Gate inputs and commands are checked when the configuration
+  loads, and a run-on membership key other than `reason` or `bind` is refused.
+- A license digest written as all zeros keeps its text, instead of loading as a number.
+- A run that a termination signal (`SIGTERM`) ends exits `143`, as `128+N` requires, instead of `130`.
+
+### Added
+
+- `repo-config` accepts `type: mutation` with a paired `mutation` contract: `apply-index` locally and `verify-clean` in
+  CI. A gate that omits either half, names another operation, or runs outside pre-commit and pull-request is refused.
+- `scripts/test.sh`, the full gate: the quick gate, the public-safety wrapper's suite, and a vulnerability scan with
+  `govulncheck`, pinned in `go.mod`.
+- The Main Test workflow runs the full gate on `ubuntu-24.04` and `macos-15` after each push to `main`, builds the
+  Linux archives, and requires a macOS rebuild to match their checksums byte for byte.
+- The release workflow refuses a tag whose commit has no passing Main Test run.
+- The [release notes standard](repo-governance/workflows/maintenance/release-notes.md): five required sections, a
+  verification block, and a full-changelog link.
+- `tests/bdd`, a behaviour suite that runs every scenario in `specs/behaviours` against the built binary. Its run fails
+  on a skipped or unbound scenario, and `scripts/test.sh` runs it under `-race`.
+- `specs/behaviours/cli-surface.feature` covers the `version` identity, the gate child exit codes `126` and `127`, a
+  gate child that interrupts RHINO, scan exclusion for Markdown validators, and toolchain output and timeout bounds.
+
+### Changed
+
+- The pull-request, scheduled, and release-size workflows pin `ubuntu-24.04` instead of `ubuntu-latest`.
+- The release cut is Go-native: `scripts/build-release.sh` builds and checksums the archives, and the procedure in
+  `repo-governance/workflows/maintenance/release-cut.md` replaces the retired `cargo xtask` steps.
+- Refusals for an unknown quality-gate key read `unknown field`, and for an unknown harness profile list read
+  `unknown variant`, as the contract's parser does.
+- The emoji prohibition refusal key is `convention-emoji.prohibited`, where the Go port previously reported
+  `policies.conventions.emoji.prohibited`.
+
 ## [v0.15.0] — 2026-10-19
 
 Harness adapter generation can read canonical agents from a configured root instead of only `.agents/agents/`.

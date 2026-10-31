@@ -613,6 +613,119 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "no index mutation boundary"
 
+  Scenario: A pre-commit mutation formats the staged blob and reports the change
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: format-staged
+            type: mutation
+            inputs:
+              staged:
+                kind: files
+            mutation:
+              local: apply-index
+              ci: verify-clean
+            command:
+              executable: ./scripts/format-staged
+              args:
+                - { input: staged.paths, expand: repeat }
+            run-on:
+              pre-commit:
+                bind:
+                  staged: { source: git-index }
+              pull-request:
+                bind:
+                  staged: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    And the repository contains:
+      | path      | content     |
+      | docs/a.md | draft three |
+    And the Git index stages "docs/a.md" with the content "draft three"
+    And the declared mutation rewrites "docs/a.md" to "formatted" in its isolated snapshot
+    When I invoke the CLI with "gate|run|--surface|pre-commit"
+    Then the exit code is 0
+    And stdout contains "format-staged changed docs/a.md"
+    And the Git index holds "formatted" at "docs/a.md"
+    And the working tree file "docs/a.md" holds "formatted"
+
+  Scenario: A pull-request mutation fails with a finding when its replay changes a selected file
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: format-staged
+            type: mutation
+            inputs:
+              staged:
+                kind: files
+            mutation:
+              local: apply-index
+              ci: verify-clean
+            command:
+              executable: ./scripts/format-staged
+              args:
+                - { input: staged.paths, expand: repeat }
+            run-on:
+              pre-commit:
+                bind:
+                  staged: { source: git-index }
+              pull-request:
+                bind:
+                  staged: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    And the explicit range changes "docs/a.md" to "draft two"
+    And the declared mutation rewrites "docs/a.md" to "formatted" in its verify-clean replay
+    When I invoke the CLI with "gate|run|--surface|pull-request|--base|{base}|--head|{head}"
+    Then the exit code is 1
+    And stdout contains "format-staged changed docs/a.md"
+    And stderr contains "format-staged reported a finding at pull-request"
+
+  Scenario: A mutation resolves its tool from the original root's node_modules bin directory
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: tool-present
+            type: mutation
+            inputs:
+              staged:
+                kind: files
+            mutation:
+              local: apply-index
+              ci: verify-clean
+            command:
+              executable: sh
+              args:
+                - { literal: -c }
+                - { literal: "command -v fakefmt >/dev/null" }
+                - { input: staged.paths, expand: repeat }
+            run-on:
+              pre-commit:
+                bind:
+                  staged: { source: git-index }
+              pull-request:
+                bind:
+                  staged: { source: explicit-range, range: explicit }
+        composition:
+          pull-request:
+            relation: exact
+      """
+    And the repository contains an executable "node_modules/.bin/fakefmt"
+    And the Git index stages "docs/a.md" with the content "draft three"
+    When I invoke the CLI with "gate|run|--surface|pre-commit"
+    Then the exit code is 0
+    And stdout contains "tool-present passed"
+
   Scenario: Harness adapter validation refuses an undeclared grouped profile
     Given the configuration file is this text:
       """

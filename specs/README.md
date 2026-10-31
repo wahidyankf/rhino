@@ -6,11 +6,14 @@ specifications disagree, these win, and the disagreement is a bug worth reportin
 `specs/` sits at the repository root rather than under a project directory because this repository is the tool: there is
 no second project to disambiguate from.
 
+The behaviour corpus is executable. `go test ./tests/bdd` runs every scenario in `behaviours/` against the built `rhino`
+binary. See [tests/bdd/README.md](../tests/bdd/README.md) for how the suite is organised.
+
 ## Directory Map
 
-- [architecture.md](architecture.md) — the as-built C4 model: context, containers, components, data, and the boundaries
-  each adapter observes.
-- [behaviours/](behaviours/README.md) — the Gherkin corpus: the grouped-v2 contract and the validators later releases
-  added to it.
-- [fixtures/](fixtures/README.md) — retained grouped-v2 consumer and rejection fixtures that make the stable corpus
-  executable.
+- [architecture.md](architecture.md) — the as-built Go C4 model: context, containers, components, ports, data, exit
+  codes, and the test layout.
+- [behaviours/](behaviours/README.md) — the Gherkin corpus: the grouped-v2 contract, the validators later releases added
+  to it, and the command-line surface.
+- [fixtures/](fixtures/README.md) — retained reference inputs for the grouped-v2 contract. The executable corpus does
+  not read them.

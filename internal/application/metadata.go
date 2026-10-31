@@ -108,8 +108,20 @@ func metadataValidate(document *config.Document, tree Tree, format Format) Outco
 	if err != nil {
 		return metadataRefused(format, domain.ConfigUnusable, err.Error())
 	}
+	globs := make([]string, 0, len(surfaces))
+	for _, surface := range surfaces {
+		globs = append(globs, surface.glob)
+	}
+	files, surfaceErr := surfaceFiles(tree, globs, shared)
+	if surfaceErr != nil {
+		return metadataRefused(format, surfaceErr.code, surfaceErr.reason)
+	}
 	report := NewReport("metadata", "file")
-	for _, path := range scanMarkdown(tree.Files(), shared) {
+	for _, file := range files {
+		path := file.path
+		if !isMarkdown(path) {
+			continue
+		}
 		// The last matching surface governs: a later declaration is the more
 		// specific intent, the same rule every surface list states.
 		governed := -1
@@ -126,7 +138,7 @@ func metadataValidate(document *config.Document, tree Tree, format Format) Outco
 		if governed < 0 {
 			continue
 		}
-		text, readErr := tree.Read(path)
+		text, readErr := tree.Read(file.source)
 		if readErr != nil {
 			switch readErr.Kind {
 			case "missing":

@@ -25,7 +25,7 @@ func TestGateRunForwardsSurfaceAndEnvironmentEndToEnd(t *testing.T) {
 	if err := os.WriteFile(child, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repo: { kind: repository-state }\n      command:\n        executable: ./gate-child\n        environment:\n          RHINO_CHECK_ROOT: { input: repo.root }\n      run-on:\n        pre-commit:\n          bind:\n            repo: { source: checkout }\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n"
+	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repo: { kind: repository-state }\n      command:\n        executable: ./gate-child\n        environment:\n          RHINO_CHECK_ROOT: { input: repo.root }\n      run-on:\n        pre-commit:\n          bind:\n            repo: { source: checkout }\n        pull-request:\n          reason: replay check\n          bind:\n            repo: { source: checkout }\n  composition:\n    pull-request:\n      relation: exact\n"
 	if err := os.WriteFile(filepath.Join(root, "repo-config.yml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestGateRunForwardsSurfaceAndEnvironmentEndToEnd(t *testing.T) {
 // script gate reading RHINO_GATE_SURFACE is served even with a recording
 // launcher standing in for the process boundary.
 func TestGateRunCarriesSurfaceAndEnvironmentToLauncher(t *testing.T) {
-	tree := gateTree("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repo: { kind: repository-state }\n      command:\n        executable: ./check\n        environment:\n          RHINO_CHECK_ROOT: { input: repo.root }\n      run-on:\n        pre-commit:\n          bind:\n            repo: { source: checkout }\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
+	tree := gateTree("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repo: { kind: repository-state }\n      command:\n        executable: ./check\n        environment:\n          RHINO_CHECK_ROOT: { input: repo.root }\n      run-on:\n        pre-commit:\n          bind:\n            repo: { source: checkout }\n        pull-request:\n          reason: replay check\n          bind:\n            repo: { source: checkout }\n  composition:\n    pull-request:\n      relation: exact\n")
 	launcher := &stubLauncher{}
 	outcome := application.ExecuteWithLauncher(tree, args("gate", "run", "--surface", "pre-commit"), nil, launcher)
 	if outcome.ExitCode != 0 {

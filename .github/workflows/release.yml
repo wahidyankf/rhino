@@ -1,7 +1,7 @@
 # A release is what a consumer pins, so this workflow's job is to make the
 # published artifacts checkable rather than merely present.
 #
-# Three properties it holds, none of which a build alone gives you:
+# Four properties it holds, none of which a build alone gives you:
 #
 #   1. The tag names a commit on `main`. A release that described a commit
 #      reachable from nowhere would still install and run, and nobody could say
@@ -14,6 +14,8 @@
 #   3. Nothing is published until the assembled set verifies as a set. The
 #      artifact suite runs twice: once per leg on its own archive, and once more
 #      on all four together, where the four-platform assertion becomes total.
+#   4. The tagged commit has a passing Main Test run on both operating systems,
+#      so a tag never ships a commit whose full gate failed or never ran.
 #
 # `gh release create` fails when the release already exists, so a re-run cannot
 # replace a published tag. That is the immutability rule enforced rather than
@@ -37,6 +39,10 @@ jobs:
   provenance:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      # Reads the Main Test run history for the tagged commit below.
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -51,6 +57,21 @@ jobs:
           tag_commit=$(git rev-parse "$GITHUB_REF_NAME^{}")
           test "$tag_commit" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$tag_commit" origin/main
+
+      # The full gate runs after merge, so a commit can reach main before its
+      # test run has passed. A tag is permanent: refuse to build or publish until
+      # that run passes, and re-run this workflow once it does. A failed Main Test
+      # run is fixed forward or reverted, and the tag is cut again from the fix.
+      - name: Require a passing Main Test run for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          passed=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/main-test.yml/runs?head_sha=${GITHUB_SHA}&status=success" --jq '.total_count')
+          if [ "${passed}" -lt 1 ]; then
+            echo "No passing Main Test run exists for ${GITHUB_SHA}." >&2
+            exit 1
+          fi
 
       - name: The tag names a releasable version
         run: |

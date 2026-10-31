@@ -64,6 +64,14 @@ type Gate struct {
 	Executable  string
 	Args        []GateArg
 	Environment map[string]GateEnv
+	Mutation    *MutationContract
+}
+
+// MutationContract is the paired behaviour a `type: mutation` gate declares:
+// one local index operation and one disposable pull-request replay.
+type MutationContract struct {
+	Local string
+	CI    string
 }
 
 // Document is the parsed grouped v0.4 configuration.
@@ -123,6 +131,7 @@ func Parse(text string) (*Document, error) {
 			return nil, fmt.Errorf("%s: extension owner `%s` is outside the portable namespace", Path, bad[0])
 		}
 	}
+	restoreDigestText(text, raw)
 	document := &Document{raw: raw}
 	if policies, ok := raw["policies"].(map[string]any); ok {
 		document.policies = policies
@@ -145,7 +154,7 @@ func Parse(text string) (*Document, error) {
 func (d *Document) decodeGates(gatesRaw map[string]any) error {
 	entries, _ := gatesRaw["entries"].([]any)
 	seen := map[string]bool{}
-	for _, item := range entries {
+	for index, item := range entries {
 		mapping, ok := item.(map[string]any)
 		if !ok {
 			return fmt.Errorf("%s: gate entry names no id", Path)
@@ -162,6 +171,16 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 		if kind, ok := mapping["type"].(string); ok {
 			gate.Kind = kind
 		}
+		if err := checkGateKind(gate.Kind); err != nil {
+			return err
+		}
+		if raw, present := mapping["mutation"]; present && raw != nil {
+			contract, err := decodeMutationContract(index, raw)
+			if err != nil {
+				return err
+			}
+			gate.Mutation = contract
+		}
 		if inputs, ok := mapping["inputs"].(map[string]any); ok {
 			gate.Inputs = decodeGateInputs(inputs)
 		}
@@ -170,9 +189,6 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 				return fmt.Errorf("%s: run-on surface `ci` is retired; declare a lifecycle surface", Path)
 			}
 			gate.RunOn = decodeGateRunOn(runOn)
-			if err := validatePushFallbacks(gate); err != nil {
-				return err
-			}
 		}
 		if command, ok := mapping["command"].(map[string]any); ok {
 			executable, _ := command["executable"].(string)
@@ -183,6 +199,12 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 			if environment, ok := command["environment"].(map[string]any); ok {
 				gate.Environment = decodeGateEnv(environment)
 			}
+		}
+		if err := validateMutationContract(gate); err != nil {
+			return err
+		}
+		if err := validateGateInputs(gate); err != nil {
+			return err
 		}
 		d.gates = append(d.gates, gate)
 	}
@@ -204,7 +226,9 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 			continue
 		}
 		for surface := range gate.RunOn {
-			local[gate.ID] = true
+			if isLocalSurface(surface) {
+				local[gate.ID] = true
+			}
 			if surface == "pull-request" {
 				onPR[gate.ID] = true
 				if reason := gate.RunOn[surface].Reason; reason != nil && strings.TrimSpace(*reason) != "" {
@@ -214,7 +238,7 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 		}
 	}
 	relation, declared := d.relation["pull-request"]
-	if len(local) > 0 && !declared {
+	if (len(local) > 0 || len(onPR) > 0) && !declared {
 		return fmt.Errorf("%s: must declare the pull-request relation when local or pull-request gates exist", Path)
 	}
 	switch relation {
@@ -222,37 +246,116 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 	default:
 		return fmt.Errorf("%s: pull-request relation `%s` is not exact or at-least", Path, relation)
 	}
-	if relation == "exact" {
-		var missing []string
-		for id := range local {
-			if !onPR[id] {
-				missing = append(missing, id)
-			}
-		}
-		sort.Strings(missing)
-		if len(missing) > 0 {
-			return fmt.Errorf("%s: gate `%s` is missing from pull-request composition", Path, missing[0])
+	// Every local gate must compose into the pull-request replay. A
+	// pull-request gate that is not local is an extra: exact refuses it, and
+	// at-least accepts it only with its own reason.
+	var missing []string
+	for id := range local {
+		if !onPR[id] {
+			missing = append(missing, id)
 		}
 	}
-	if relation == "at-least" {
-		for id := range local {
-			if !onPR[id] {
-				continue
-			}
-			onlyPR := true
-			for _, gate := range d.gates {
-				if gate.ID != id {
-					continue
-				}
-				for surface := range gate.RunOn {
-					if surface != "pull-request" {
-						onlyPR = false
-					}
-				}
-			}
-			if onlyPR && !reasoned[id] {
-				return fmt.Errorf("%s: gate `%s` is an extra pull-request gate and needs its own non-empty reason", Path, id)
-			}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		return fmt.Errorf("%s: gate `%s` is missing from pull-request composition", Path, missing[0])
+	}
+	var extras []string
+	for id := range onPR {
+		if !local[id] {
+			extras = append(extras, id)
+		}
+	}
+	sort.Strings(extras)
+	for _, id := range extras {
+		if relation == "exact" {
+			return fmt.Errorf("%s: gate `%s` is an extra pull-request gate under the exact composition relation", Path, id)
+		}
+		if !reasoned[id] {
+			return fmt.Errorf("%s: gate `%s` is an extra pull-request gate and needs its own non-empty reason", Path, id)
+		}
+	}
+	return nil
+}
+
+// checkGateKind refuses a gate type outside the closed vocabulary. An omitted
+// type reads as a check, which is how the port has always read it.
+func checkGateKind(kind string) error {
+	switch kind {
+	case "", "check", "mutation":
+		return nil
+	}
+	return fmt.Errorf("%s: unknown variant `%s`, expected one of `check`, `mutation`", Path, kind)
+}
+
+// Mutation contract operations: the one local index operation and the one
+// disposable pull-request replay a mutation pairs. Each is named exactly.
+const (
+	mutationLocalOperation = "apply-index"
+	mutationCIOperation    = "verify-clean"
+)
+
+// decodeMutationContract reads the paired contract the way the oracle's serde
+// model does: both halves are required, each names one operation, and any
+// other key is an unknown field.
+func decodeMutationContract(index int, raw any) (*MutationContract, error) {
+	where := fmt.Sprintf("%s: gates.entries[%d].mutation", Path, index)
+	mapping, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: invalid type: expected struct MutationContract", where)
+	}
+	var unknown []string
+	for key := range mapping {
+		if key != "local" && key != "ci" {
+			unknown = append(unknown, key)
+		}
+	}
+	sort.Strings(unknown)
+	if len(unknown) > 0 {
+		return nil, fmt.Errorf("%s: unknown field `%s`, expected one of `local`, `ci`", where, unknown[0])
+	}
+	local, err := mutationOperation(where, mapping, "local", mutationLocalOperation)
+	if err != nil {
+		return nil, err
+	}
+	replay, err := mutationOperation(where, mapping, "ci", mutationCIOperation)
+	if err != nil {
+		return nil, err
+	}
+	return &MutationContract{Local: local, CI: replay}, nil
+}
+
+func mutationOperation(where string, mapping map[string]any, key, expected string) (string, error) {
+	raw, present := mapping[key]
+	if !present {
+		return "", fmt.Errorf("%s: missing field `%s`", where, key)
+	}
+	value, ok := raw.(string)
+	if !ok || value != expected {
+		return "", fmt.Errorf("%s: unknown variant `%v`, expected `%s`", where, raw, expected)
+	}
+	return value, nil
+}
+
+// validateMutationContract applies the pairing rules the oracle applies to each
+// gate: a mutation declares its contract and runs on exactly pre-commit and
+// pull-request, and a check declares none.
+func validateMutationContract(gate Gate) error {
+	switch {
+	case gate.Kind != "mutation" && gate.Mutation == nil:
+		return nil
+	case gate.Kind != "mutation":
+		return fmt.Errorf("%s: line 1: %s: is a check but declares a mutation contract; use `type: mutation`", Path, gate.ID)
+	case gate.Mutation == nil:
+		return fmt.Errorf("%s: line 1: %s: is a mutation but does not declare paired `apply-index` and `verify-clean` behavior", Path, gate.ID)
+	}
+	_, hasPreCommit := gate.RunOn["pre-commit"]
+	_, hasPullRequest := gate.RunOn["pull-request"]
+	if !hasPreCommit || !hasPullRequest {
+		return fmt.Errorf("%s: line 1: %s: is a mutation and must run at both pre-commit and pull-request", Path, gate.ID)
+	}
+	for surface := range gate.RunOn {
+		if surface != "pre-commit" && surface != "pull-request" {
+			return fmt.Errorf("%s: line 1: %s: is a mutation outside its closed pre-commit and pull-request lifecycle", Path, gate.ID)
 		}
 	}
 	return nil
@@ -349,42 +452,16 @@ func decodeGateRunOn(raw map[string]any) map[string]GateRunOn {
 	return out
 }
 
-// validatePushFallbacks refuses push-update binds without a declared
-// fallback, with an invalid fallback, or with a fallback on another
-// source, exactly like v0.15.0 config validation.
-func validatePushFallbacks(gate Gate) error {
-	surfaces := make([]string, 0, len(gate.RunOn))
-	for surface := range gate.RunOn {
-		surfaces = append(surfaces, surface)
+// isLocalSurface reports whether a surface is one the pull-request replay must
+// compose. The oracle's LOCAL set is exactly the three local hook surfaces;
+// manual, main, and scheduled gates run outside the hook sequence.
+func isLocalSurface(surface string) bool {
+	switch surface {
+	case "pre-commit", "commit-msg", "pre-push":
+		return true
+	default:
+		return false
 	}
-	sort.Slice(surfaces, func(left, right int) bool {
-		return surfaceOrder(surfaces[left]) < surfaceOrder(surfaces[right])
-	})
-	for _, surface := range surfaces {
-		membership := gate.RunOn[surface]
-		names := make([]string, 0, len(membership.Bind))
-		for name := range membership.Bind {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			binding := membership.Bind[name]
-			if binding.Fallback != nil && binding.Source != "push-updates" {
-				return fmt.Errorf("%s: line 1: %s: uses `fallback` with a source other than `push-updates`", Path, name)
-			}
-			if binding.Source != "push-updates" {
-				continue
-			}
-			if binding.Fallback == nil {
-				return fmt.Errorf("%s: line 1: %s: uses `push-updates` without a declared fallback ref", Path, name)
-			}
-			fallback := strings.TrimSpace(*binding.Fallback)
-			if fallback == "" || strings.HasPrefix(fallback, "-") || containsWhitespace(fallback) {
-				return fmt.Errorf("%s: line 1: %s: declares an invalid push-update fallback ref", Path, name)
-			}
-		}
-	}
-	return nil
 }
 
 // surfaceOrder matches the oracle's Surface enum order for deterministic
@@ -438,6 +515,9 @@ func strictGateShapes(text string) error {
 		return nil
 	}
 	gates := gateEntriesNodes(&root)
+	if err := checkRunOnMembership(gates); err != nil {
+		return err
+	}
 	for index, entry := range gates {
 		command := mappingValue(entry, "command")
 		if command == nil || command.Kind != yaml.MappingNode {
@@ -486,6 +566,60 @@ func strictGateShapes(text string) error {
 	return nil
 }
 
+// restoreDigestText keeps each license digest as the text the file wrote. YAML
+// reads an all-digit scalar as a number and loses its leading zeros, while the
+// oracle's serde string field keeps them, so the written text is restored.
+func restoreDigestText(text string, raw map[string]any) {
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(text), &root); err != nil || len(root.Content) == 0 {
+		return
+	}
+	paths := mappingValue(mappingValue(mappingValue(mappingValue(root.Content[0], "policies"), "conventions"), "license"), "paths")
+	if paths == nil || paths.Kind != yaml.SequenceNode {
+		return
+	}
+	policies, _ := raw["policies"].(map[string]any)
+	conventions, _ := policies["conventions"].(map[string]any)
+	license, _ := conventions["license"].(map[string]any)
+	entries, _ := license["paths"].([]any)
+	for index, item := range entries {
+		entry, ok := item.(map[string]any)
+		if !ok || index >= len(paths.Content) {
+			continue
+		}
+		digest := mappingValue(paths.Content[index], "sha256")
+		if digest != nil && digest.Kind == yaml.ScalarNode {
+			entry["sha256"] = digest.Value
+		}
+	}
+}
+
+// checkRunOnMembership refuses a surface membership that names a field outside
+// `reason` and `bind`, the only fields the oracle's GateMembership accepts. A
+// gate's command belongs to the gate, never to one surface.
+func checkRunOnMembership(gates []*yaml.Node) error {
+	for index, entry := range gates {
+		runOn := mappingValue(entry, "run-on")
+		if runOn == nil || runOn.Kind != yaml.MappingNode {
+			continue
+		}
+		for surface := 0; surface < len(runOn.Content); surface += 2 {
+			surfaceName := runOn.Content[surface].Value
+			membership := runOn.Content[surface+1]
+			if membership.Kind != yaml.MappingNode {
+				continue
+			}
+			for field := 0; field < len(membership.Content); field += 2 {
+				key := membership.Content[field]
+				if key.Value != "reason" && key.Value != "bind" {
+					return fmt.Errorf("%s: gates.entries[%d].run-on.%s: unknown field `%s`, expected one of `reason`, `bind` at line %d column %d", Path, index, surfaceName, key.Value, key.Line, key.Column)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // gateEntriesNodes locates the gates.entries sequence in document order.
 func gateEntriesNodes(root *yaml.Node) []*yaml.Node {
 	document := root
@@ -508,7 +642,7 @@ func gateEntriesNodes(root *yaml.Node) []*yaml.Node {
 
 // mappingValue returns the value for one mapping key, or nil.
 func mappingValue(node *yaml.Node, key string) *yaml.Node {
-	if node.Kind != yaml.MappingNode {
+	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}
 	for index := 0; index < len(node.Content); index += 2 {

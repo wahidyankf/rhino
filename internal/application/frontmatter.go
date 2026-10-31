@@ -49,8 +49,16 @@ func frontmatterValidate(document *config.Document, tree Tree, format Format) Ou
 	if err != nil {
 		return frontmatterRefused(format, domain.ConfigUnusable, err.Error())
 	}
+	files, surfaceErr := surfaceFiles(tree, frontmatterGlobs(surfaces), shared)
+	if surfaceErr != nil {
+		return frontmatterRefused(format, surfaceErr.code, surfaceErr.reason)
+	}
 	report := NewReport("frontmatter", "file")
-	for _, path := range scanMarkdown(tree.Files(), shared) {
+	for _, file := range files {
+		path := file.path
+		if !isMarkdown(path) {
+			continue
+		}
 		// The last matching surface governs: a later declaration is the
 		// more specific intent, the same rule every surface list states.
 		governed := -1
@@ -67,7 +75,7 @@ func frontmatterValidate(document *config.Document, tree Tree, format Format) Ou
 		if governed < 0 {
 			continue
 		}
-		text, readErr := tree.Read(path)
+		text, readErr := tree.Read(file.source)
 		if readErr != nil {
 			switch readErr.Kind {
 			case "missing":

@@ -8,13 +8,13 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 
 - Release authorization comes from either the adopted
   [Upstream Tool Defects](../../development/upstream-tool-defects.md) standard for a merged defect fix, or explicit
-  owner approval for a compatible feature release. The defect regression or feature acceptance tests pass on that
-  commit.
+  owner approval for a compatible feature release.
 - The commit to release is already on `origin/main`, reached through a pull request.
 - Local `main` equals `origin/main`, reconciled after the last merge by the
   [integration path](../../conventions/integration-path.md) rather than assumed.
 - The working tree is clean.
-- The quick gate and `cargo xtask schema --check` pass on that exact commit.
+- `./scripts/test.sh` passes on that exact commit, and the Main Test run for it has passed on both operating systems.
+  The release workflow refuses a tag without that run.
 - `CHANGELOG.md` describes this version, and a [docs quality gate](../quality/docs-quality-gate.md) verdict on subject
   `all`, run before the release-prep pull request, is recorded. A documented contract the binary breaks is fixed in code
   before the tag.
@@ -22,14 +22,12 @@ Run this from the **primary checkout on local `main`**, never from a `worktrees/
 ## Size Rehearsal
 
 When a candidate exceeds a platform size ceiling, collect all four native measurements before changing any budget. Run
-the manual `Release Size Rehearsal` workflow for a default-branch candidate. For an unmerged **draft** candidate, which
-GitHub cannot dispatch manually, a maintainer instead applies the `release-size-rehearsal` label; remove and reapply it
-to request a fresh head. That label-triggered run checks out the exact reviewed PR head with the same
-read-only/no-secret permission. Download its one valid JSON aggregate artifact and record the raw executable/archive
-byte counts with the toolchain and commit. It invokes the same `cargo xtask dist` writer as release but cannot publish a
-tag or asset. A partial matrix is evidence of nothing: do not change a ceiling until the aggregate names all four
-release targets and a review explains the material change. Then rebuild and rerun the normal release artifact suite;
-rehearsal never replaces it.
+the manual `Release Size Rehearsal` workflow for a default-branch candidate. For an unmerged **draft** candidate, a
+maintainer applies the `release-size-rehearsal` label; remove and reapply it to request a fresh head. The run builds
+each archive with the release archiver and cannot publish a tag or asset. Download its aggregate artifact and record the
+byte counts with the toolchain and commit. A partial matrix is evidence of nothing: do not change a ceiling until the
+aggregate names all four release targets and a review explains the material change. Rehearsal never replaces the normal
+release artifact suite.
 
 ## Procedure
 
@@ -46,41 +44,58 @@ rehearsal never replaces it.
    git tag -l "v<version>" && git ls-remote --tags origin "v<version>"
    ```
 
-3. **Build this platform's archive and stage the grouped schema.** One platform per invocation: the release matrix
-   builds each archive natively rather than cross-compiling, so every published executable has started on the operating
-   system it claims. `cargo xtask dist` stages the checked-in v2 schema only after proving it matches the typed model.
+3. **Confirm the Main Test run passed for this commit.** The count must be at least `1`.
 
    ```sh
-   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask dist
+   gh api "repos/{owner}/{repo}/actions/workflows/main-test.yml/runs?head_sha=$(git rev-parse HEAD)&status=success" \
+     --jq .total_count
    ```
 
-4. **Record the digests.** Only through the task; never by hand. The manifest covers every archive and the staged v2
-   schema.
+4. **Build the archives and verify the set.** The script refuses a dirty checkout or a commit that is not HEAD. Use the
+   version without any prerelease suffix: `v0.5.0-rc.1` is built as `v0.5.0`. It writes four archives and
+   `checksums.txt`.
 
    ```sh
-   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask checksums
+   ./scripts/build-release.sh "v<version>" "$(git rev-parse HEAD)" dist
+   (cd dist && sha256sum -c checksums.txt)
    ```
 
-5. **Verify embedded identity.** Each executable's `version --json` must report the tag and the commit exactly. A
-   mismatch means the archive was not built from the tagged commit.
+   On macOS, use `shasum -a 256 -c checksums.txt`.
 
-6. **Screen, then tag and push the tag.** The tag name, any annotation, and the notes the release workflow generates
-   from merged pull requests are published with the release. Screen the same note range that the workflow will publish,
-   and tag only on exit `0`. For the non-RC v0.4.0 release, the range starts at the prior stable tag v0.3.0, never at a
-   rehearsal tag:
+5. **Verify embedded identity.** Unpack the archive for this host and ask the executable for its version. A mismatch
+   means the archive was not built from the tagged commit.
 
    ```sh
-   release_notes=$(gh api repos/<owner>/<repo>/releases/generate-notes \
-     -f tag_name=v0.4.0 -f target_commitish=HEAD -f previous_tag_name=v0.3.0 --jq .body)
-   scripts/public-safety/public-safety.sh --surface release --text "v0.4.0" --text "$release_notes"
+   tar -xzf dist/rhino-x86_64-unknown-linux-gnu.tar.gz -C dist &&
+     test "$(dist/rhino version)" = "v<version>"
    ```
 
-   Pass an annotation as one more `--text`. A later stable release chooses and encodes its own prior stable baseline in
-   both this preview and the release workflow; never accept GitHub's nearest-tag default when rehearsal tags exist. The
-   release workflow builds and publishes every platform archive, the grouped v2 schema, and `checksums.txt`.
+6. **Write the release notes** following the [release notes standard](release-notes.md). Screen the final text before
+   the tag exists. Exit `0` is required.
 
-7. **Verify the published release** before telling anyone it exists: an archive per supported platform, the grouped v2
-   schema, a `checksums.txt` covering every release asset, and downloaded archive/schema bytes whose digests match.
+   ```sh
+   scripts/public-safety/public-safety.sh --surface release --text "v<version>" --text "$(cat <notes-file>)"
+   ```
+
+   Keep `<notes-file>` outside the repository.
+
+7. **Tag and push the tag.** Only after step 6 exits `0`. The release workflow checks the tag's commit against `main`
+   and the Main Test run, builds and verifies the four archives, the grouped v2 schema, and `checksums.txt`, and
+   publishes them with GitHub's generated notes.
+
+   ```sh
+   git tag -a "v<version>" -m "v<version>" && git push origin "v<version>"
+   ```
+
+8. **Replace the generated notes.** Right after the workflow publishes, replace the body with the notes from step 6. The
+   generated body is a placeholder until this step runs.
+
+   ```sh
+   gh release edit "v<version>" --notes-file <notes-file>
+   ```
+
+9. **Verify the published release** before telling anyone it exists: download the four archives and `checksums.txt`, run
+   `sha256sum -c checksums.txt`, and compare the grouped schema with the tagged commit, as the release notes say.
 
 ## If Something Is Wrong
 
@@ -90,5 +105,7 @@ correctly; the fix is upstream of it.
 
 ## Related
 
+- [Release notes standard](release-notes.md)
+- [Quality gates](../../development/quality-gates.md)
 - [The public contract](../../development/public-contract.md)
 - [Integration path](../../conventions/integration-path.md)

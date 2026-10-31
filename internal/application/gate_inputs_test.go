@@ -17,7 +17,7 @@ const commitMsgGateConfig = "schema: rhino/repo-config/v2\ngates:\n  entries:\n 
 
 const pushGateConfig = "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: range-check\n      type: check\n      inputs:\n        range: { kind: commit-range }\n      command:\n        executable: ./check\n        args:\n          - { input: range.base, expand: single }\n          - { input: range.head, expand: single }\n        environment:\n          NX_BASE: { input: range.base }\n          NX_HEAD: { input: range.head }\n      run-on:\n        pre-push:\n          bind:\n            range: { source: push-updates, fallback: refs/remotes/origin/main }\n        pull-request:\n          bind:\n            range: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n"
 
-const explicitFilesGateConfig = "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - { input: files.paths, expand: repeat }\n      run-on:\n        pull-request:\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n"
+const explicitFilesGateConfig = "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - { input: files.paths, expand: repeat }\n      run-on:\n        pull-request:\n          reason: runs only in the disposable pull-request replay\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n"
 
 const indexGateConfig = "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: index-check\n      type: check\n      inputs:\n        staged: { kind: files }\n        state: { kind: repository-state }\n      command:\n        executable: ./check\n        args:\n          - { input: staged.paths, expand: repeat }\n          - { input: state.root, expand: single }\n      run-on:\n        pre-commit:\n          bind:\n            staged: { source: git-index }\n            state: { source: checkout }\n        pull-request:\n          bind:\n            staged: { source: explicit-range, range: explicit }\n            state: { source: checkout }\n  composition:\n    pull-request:\n      relation: exact\n"
 
@@ -272,7 +272,7 @@ func TestGateRunResolvesGitIndexCheckoutAndState(t *testing.T) {
 // TestGateRunResolvesRegularFiles proves the opt-in regular-files input
 // resolves through both of its sources.
 func TestGateRunResolvesRegularFiles(t *testing.T) {
-	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: regular-check\n      type: check\n      inputs:\n        files: { kind: regular-files }\n      command:\n        executable: ./check\n        args:\n          - { input: files.paths, expand: repeat }\n      run-on:\n        pre-commit:\n          bind:\n            files: { source: git-index }\n        pull-request:\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n"
+	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: regular-check\n      type: check\n      inputs:\n        files: { kind: regular-files }\n      command:\n        executable: ./check\n        args:\n          - { input: files.paths, expand: repeat }\n      run-on:\n        pre-commit:\n          bind:\n            files: { source: git-index }\n        pull-request:\n          reason: runs only in the disposable pull-request replay\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n"
 	pre := gateTree(config)
 	pre.setIndexedRegularFiles("src/main.go")
 	launcher := &stubLauncher{}
@@ -311,7 +311,7 @@ func TestGateRunRefusesSingleProjectionOfSequence(t *testing.T) {
 // TestGateRunRefusesSequenceIntoEnvironment proves a file sequence cannot
 // collapse into one environment variable.
 func TestGateRunRefusesSequenceIntoEnvironment(t *testing.T) {
-	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        environment:\n          FILES: { input: files.paths }\n      run-on:\n        pull-request:\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n"
+	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        environment:\n          FILES: { input: files.paths }\n      run-on:\n        pull-request:\n          reason: runs only in the disposable pull-request replay\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n"
 	tree := gateTree(config)
 	tree.setChangedFiles("aaaaaaa", "bbbbbbb", "a.md", "b.md")
 	outcome := application.ExecuteWithLauncher(tree,
@@ -322,22 +322,22 @@ func TestGateRunRefusesSequenceIntoEnvironment(t *testing.T) {
 	}
 }
 
-// TestGateRunRefusesBadReferences proves each malformed reference maps to
-// its projection wording before any child starts.
+// TestGateRunRefusesBadReferences proves each malformed reference is refused
+// with its declaration wording, as the oracle words it, before any child starts.
 func TestGateRunRefusesBadReferences(t *testing.T) {
 	build := func(arg, env string) string {
 		return "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - " + arg + "\n" + env + "      run-on:\n" +
-			"        pull-request:\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n"
+			"        pull-request:\n          reason: runs only in the disposable pull-request replay\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n"
 	}
 	cases := []struct {
 		name   string
 		config string
 		want   string
 	}{
-		{"no dot", build("{ input: filespaths, expand: repeat }", ""), "`filespaths` is not an input field reference"},
-		{"unknown input", build("{ input: unknown.paths, expand: repeat }", ""), "`unknown.paths` was not resolved for this surface"},
-		{"wrong field", build("{ input: files.root, expand: single }", ""), "`files.root` is not available on its resolved input"},
-		{"malformed argv", build("{ literal: labelled, expand: single }", ""), "has an invalid argv item after validation"},
+		{"no dot", build("{ input: filespaths, expand: repeat }", ""), "filespaths: is not an `input.field` reference"},
+		{"unknown input", build("{ input: unknown.paths, expand: repeat }", ""), "unknown.paths: names an input this gate does not declare"},
+		{"wrong field", build("{ input: files.root, expand: single }", ""), "files.root: does not name a field available on a files input"},
+		{"malformed argv", build("{ literal: labelled, expand: single }", ""), "args: adds `expand` to a literal argv item"},
 	}
 	for _, tc := range cases {
 		tree := gateTree(tc.config)
@@ -367,7 +367,7 @@ func TestGateRunRefusesInvalidBinding(t *testing.T) {
 	tree := gateTree(config)
 	outcome := application.ExecuteWithLauncher(tree,
 		args("gate", "run", "--surface", "pull-request", "--base", "aaaaaaa", "--head", "bbbbbbb"), nil, &stubLauncher{})
-	if outcome.ExitCode != 2 || !strings.Contains(outcome.Stderr, "has an invalid typed input binding") {
+	if outcome.ExitCode != 2 || !strings.Contains(outcome.Stderr, "files: declares `files` but push-updates is not a compatible source") {
 		t.Fatalf("invalid binding not refused: %+v", outcome)
 	}
 	json := application.ExecuteWithLauncher(gateTree(config),
@@ -381,7 +381,7 @@ func TestGateRunRefusesInvalidBinding(t *testing.T) {
 // progress on either stream, mirroring the oracle: a caller parsing the
 // result never receives a document describing a run that did not happen.
 func TestGateRunResolveRefusalDropsProgress(t *testing.T) {
-	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: ok\n      type: check\n      command:\n        executable: ./check\n      run-on:\n        pull-request:\n          reason: replay\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - { input: files.paths, expand: repeat }\n      run-on:\n        pull-request:\n          bind:\n            files: { source: push-updates, fallback: refs/remotes/origin/main }\n  composition:\n    pull-request:\n      relation: exact\n"
+	config := "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: ok\n      type: check\n      command:\n        executable: ./check\n      run-on:\n        pull-request:\n          reason: replay\n    - id: files-check\n      type: check\n      inputs:\n        files: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - { input: files.paths, expand: repeat }\n      run-on:\n        pull-request:\n          reason: replay\n          bind:\n            files: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n"
 	tree := gateTree(config)
 	outcome := application.ExecuteWithLauncher(tree,
 		args("gate", "run", "--surface", "pull-request", "--base", "aaaaaaa", "--head", "bbbbbbb"), nil, &stubLauncher{code: 0})
@@ -391,10 +391,10 @@ func TestGateRunResolveRefusalDropsProgress(t *testing.T) {
 	if outcome.Stdout != "" {
 		t.Fatalf("progress leaked onto stdout: %q", outcome.Stdout)
 	}
-	if strings.Contains(outcome.Stderr, "[gate]") {
+	if strings.Contains(outcome.Stderr, "[gate] ok ") {
 		t.Fatalf("progress leaked onto stderr: %q", outcome.Stderr)
 	}
-	if !strings.Contains(outcome.Stderr, "gate `files-check`: has an invalid typed input binding") {
+	if !strings.Contains(outcome.Stderr, "files-check") {
 		t.Fatalf("missing refusal: %+v", outcome)
 	}
 }
@@ -465,7 +465,7 @@ func TestGateRunRefusesWithoutGitBoundary(t *testing.T) {
 		{"regular index", bound("regular-files", "git-index", "{ input: data.paths, expand: repeat }"),
 			args("gate", "run", "--surface", "pre-commit"), nil,
 			"cannot resolve regular files from the Git index: this tree has no regular-file Git index snapshot boundary"},
-		{"hook file", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: commit-message }\n      command:\n        executable: ./check\n        args:\n          - { input: data.text, expand: single }\n      run-on:\n        commit-msg:\n          bind:\n            data: { source: hook-message-file }\n        pull-request:\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n",
+		{"hook file", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: commit-message }\n      command:\n        executable: ./check\n        args:\n          - { input: data.text, expand: single }\n      run-on:\n        commit-msg:\n          bind:\n            data: { source: hook-message-file }\n        pull-request:\n          reason: replay\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n",
 			args("gate", "run", "--surface", "commit-msg", "--message-file", "msg.txt"), nil,
 			"message file `msg.txt` cannot be read: the Git hook message-file boundary is unavailable"},
 	}
@@ -487,13 +487,13 @@ func TestGateRunRefusesWithoutGitBoundary(t *testing.T) {
 		{"changed files", bound("files", "git-index", "{ input: data.paths, expand: repeat }"),
 			args("gate", "run", "--surface", "pre-commit"), nil,
 			"cannot resolve the Git index: this tree has no Git index snapshot boundary"},
-		{"explicit files", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - { input: data.paths, expand: repeat }\n      run-on:\n        pull-request:\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n",
+		{"explicit files", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: files }\n      command:\n        executable: ./check\n        args:\n          - { input: data.paths, expand: repeat }\n      run-on:\n        pull-request:\n          reason: replay\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n",
 			args("gate", "run", "--surface", "pull-request", "--base", "aaaaaaa", "--head", "bbbbbbb"), nil,
 			"cannot read changed files for the explicit range: this tree has no changed-file range boundary"},
-		{"explicit regular", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: regular-files }\n      command:\n        executable: ./check\n        args:\n          - { input: data.paths, expand: repeat }\n      run-on:\n        pull-request:\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n",
+		{"explicit regular", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: regular-files }\n      command:\n        executable: ./check\n        args:\n          - { input: data.paths, expand: repeat }\n      run-on:\n        pull-request:\n          reason: replay\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n",
 			args("gate", "run", "--surface", "pull-request", "--base", "aaaaaaa", "--head", "bbbbbbb"), nil,
 			"cannot read regular files for the explicit range: this tree has no regular-file changed-file range boundary"},
-		{"explicit message", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: commit-message }\n      command:\n        executable: ./check\n        args:\n          - { input: data.text, expand: single }\n      run-on:\n        pull-request:\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n",
+		{"explicit message", "schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      inputs:\n        data: { kind: commit-message }\n      command:\n        executable: ./check\n        args:\n          - { input: data.text, expand: single }\n      run-on:\n        pull-request:\n          reason: replay\n          bind:\n            data: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: at-least\n",
 			args("gate", "run", "--surface", "pull-request", "--base", "aaaaaaa", "--head", "bbbbbbb"), nil,
 			"cannot read commit messages for the explicit range: this tree has no commit-message range boundary"},
 	}

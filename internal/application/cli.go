@@ -403,7 +403,7 @@ func HelpFor(segments []string) (string, bool) {
 		out.WriteString(texts[flag])
 		out.WriteString(scopeNote(matching, flag))
 	}
-	out.WriteString("\nExit codes:\n  0    checked and clean\n  1    the repository violates its declared policy\n  2    the invocation, root, or configuration was unusable\n  126  a gate child was found and could not be executed\n  127  a gate child was not found\n  128+N  ended by signal N; 130 is an interrupt, 141 a closed pipe\n")
+	out.WriteString("\nExit codes:\n  0    checked and clean\n  1    the repository violates its declared policy\n  2    the invocation, root, or configuration was unusable\n  126  a gate child was found and could not be executed\n  127  a gate child was not found\n  128+N  ended by signal N; 130 is an interrupt, 143 a termination, 141 a closed pipe\n")
 	return out.String(), true
 }
 

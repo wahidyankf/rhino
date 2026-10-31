@@ -1,73 +1,68 @@
 # Quality Gates
 
-Two gates, distinguished by what they can afford to run, and one that runs before both.
+Three gates, distinguished by what they can afford to run, and one that runs before them.
 
 ## Public Safety
 
-[`scripts/public-safety/`](../../scripts/public-safety/README.md) is the first thing on `commit-msg`, `pre-commit`,
-`pre-push`, and in CI. It fails fast on purpose: a gate that screened for prohibited material after a formatter had
-rewritten the tree or a test had printed it would be screening the wrong bytes. Its own case suite is offline and runs
-on every one of those surfaces; the pinned scanner it bootstraps is verified by digest, and its detection is proved by a
-canary before any repository material is read.
+[`scripts/public-safety/`](../../scripts/public-safety/README.md) runs first on `commit-msg`, `pre-commit`, `pre-push`,
+and in CI. It fails fast on purpose: a gate that screened for prohibited material after a formatter had rewritten the
+tree would be screening the wrong bytes. Its own case suite is offline, uses a stub scanner, and runs on every one of
+those surfaces. The pinned scanner it bootstraps is verified by digest, and its detection is proved by a canary before
+any repository material is read.
 
 ## The Quick Gate
 
-`cargo xtask test-quick` is what the `pre-push` hook runs, so it holds only what is fast enough to run on every push:
+`./scripts/test-quick.sh` is what the `pre-push` hook runs through `repo-config.yml`, so it holds only what is fast
+enough to run on every push:
 
-- `cargo fmt --all --check`
-- `cargo clippy --all-targets --all-features -- -D warnings`
-- the fast library unit suite and in-memory unit adapter under the line-coverage floor, measured in one execution rather
-  than separate runs, because two runs can disagree and the number that gates must be the number the passing run
-  produced
-- the static behaviour-coverage check, which executes no scenario and asserts that every scenario is bound or validly
-  exempt
-- the exact generated grouped-schema check, so an editor artifact that drifted from its typed model fails before a
-  release matrix discovers it
-- `cargo xtask self-validate` last, so a repository that is out of date cannot mask a product that is broken
-
-Integration and end-to-end adapters never run in a hook and never in the quick gate. They run on a schedule. See
-[end-to-end testing](end-to-end-testing.md).
+- `gofmt -l cmd internal` prints nothing;
+- `go vet ./...` is clean;
+- `go test -race -count=1 ./...` passes, with a race in this tool treated as a finding rather than a flake. That run
+  includes the behaviour corpus: `go test ./tests/bdd` executes every scenario in `specs/behaviours` against the built
+  binary, and fails on any skipped scenario;
+- deterministic-core coverage (domain, application, and config) meets its pinned floor;
+- the built binary answers the public contract on a fixture.
 
 ## The Full Gate
 
-The scheduled workflow runs every adapter, including the slow ones. It is not a required status check, because a
-required check that takes minutes on every push trains people to work around it.
+`./scripts/test.sh` runs the quick gate, then `go test -race -count=1 ./tests/bdd/` so the behaviour corpus also runs
+under the race detector on its own, then the public-safety wrapper's suite, then `go tool govulncheck ./...`. The
+vulnerability tool is pinned in `go.mod`, so it needs no install step, but it needs network access to the vulnerability
+database. The full gate is not a hook. It runs in the [Main Test workflow](../../.github/workflows/main-test.yml) on
+every push to `main`, on `ubuntu-24.04` and `macos-15`.
 
-## The Server Gate
+## Where Each Gate Runs
 
-[`pr-quality-gate.yml`](../../.github/workflows/pr-quality-gate.yml) mirrors the hook contract for pull requests, and is
-a superset of it: it adds `cargo deny check`, a repository-wide Prettier pass that `lint-staged` structurally cannot
-perform, because `lint-staged` only ever sees staged paths, and a workspace check on the `rust-version` that
-`Cargo.toml` declares, because every other gate builds with the newer pinned toolchain and would never notice a language
-feature the declared minimum lacks.
+- **Commit and push:** the local hooks, which call `rhino gate run` with the surface that `repo-config.yml` declares.
+- **Pull request:** the [PR Quality Gate](../../.github/workflows/pr-quality-gate.yml), with public safety, the quick
+  gate, and the pinned HIPPO bootstrap. Its aggregate `Quality gate` job is the only required check. A skipped or
+  cancelled dependency is a failure there, because a skipped required check never reports at all.
+- **Every push to `main`:** [Main Test](../../.github/workflows/main-test.yml), with the full gate on both operating
+  systems, a Linux release build, and a macOS rebuild whose checksums must match the Linux ones byte for byte.
+- **Daily:** the [Scheduled](../../.github/workflows/scheduled.yml) quick gate, unfiltered.
+- **Tag:** the [Release workflow](../../.github/workflows/release.yml), which refuses a tag whose commit has no passing
+  Main Test run before it builds or publishes anything.
 
-Its `Public safety` job screens what a local hook cannot see: the branch name and the pull request's own title and body,
-which are written on a hosted service after the last commit was made. It runs on a clean machine, which is the one
-condition a hook can never observe.
+All Linux workflows pin `ubuntu-24.04`, and the macOS legs pin `macos-15`. A `-latest` label moves under a release, so
+none is used.
 
-Its aggregate `Quality gate` job is the only required check. Individual jobs may legitimately skip, and a skipped
-required check never reports at all, so merge protection points at the aggregate. The aggregate treats a skipped or
-cancelled dependency as failure, and that refusal is proved rather than assumed.
+All Linux workflows pin `ubuntu-24.04`. The macOS legs pin `macos-15`. A `-latest` label moves under a release, so none
+is used.
 
-## Tooling and Hooks
+## Portability
 
-Install locked tooling with `npm ci`. That is also what activates the hooks, so a fresh checkout — including a new
-worktree — has no enforcement until it runs.
-
-[`repo-config.yml`](../../repo-config.yml) declares which gates run at which moment; `cargo xtask self-validate`
-dispatches the `ci` surface.
-
-Hooks enforce public safety first, then Conventional Commits, staged formatting, and the quick gate before push. Every
-hook sets `-e`, so a failing gate ends the sequence rather than printing above a successful commit. A failing hook is
-repaired at its cause under [push-hook verification](../conventions/push-hook-verification.md).
+The full gate runs on both operating systems a consumer runs rhino on. A script or test that depends on GNU-only flags,
+Linux-only paths, or a `/tmp` that is a symbolic link on macOS fails there. Use `shasum -a 256` where `sha256sum` is
+absent, as the release build does, and use the Go archiver rather than the host `tar` for release bytes.
 
 ## Test Isolation
 
-A test never reads or writes outside a root it created. The unit adapter runs against an in-memory tree; the integration
-and end-to-end adapters build a temporary tree per case and remove it. There is no shared fixture directory, because a
-shared fixture is a test that passes because of another test.
+A test never reads or writes outside a root it created. Each case gets its own temporary directory or repository, and
+removes it. There is no shared fixture directory, because a shared fixture is a test that passes because of another
+test.
 
 ## Related
 
-- [Software quality enforcement](software-quality-enforcement.md)
+- [Release cut](../workflows/maintenance/release-cut.md)
+- [Release notes standard](../workflows/maintenance/release-notes.md)
 - [Resource-aware development](resource-aware-development.md)

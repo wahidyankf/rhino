@@ -45,19 +45,19 @@ func emojiValidate(document *config.Document, tree Tree, format Format) Outcome 
 	raw, ok := mapping["prohibited"].([]any)
 	if !ok {
 		return emojiRefused(format, domain.ConfigUnusable,
-			"policies.conventions.emoji.prohibited names no glob")
+			"convention-emoji.prohibited names no glob")
 	}
 	var globs []string
 	for _, item := range raw {
 		member, ok := item.(map[string]any)
 		if !ok {
 			return emojiRefused(format, domain.ConfigUnusable,
-				"policies.conventions.emoji.prohibited names no glob")
+				"convention-emoji.prohibited names no glob")
 		}
 		glob, _ := member["glob"].(string)
 		if strings.TrimSpace(glob) == "" {
 			return emojiRefused(format, domain.ConfigUnusable,
-				"policies.conventions.emoji.prohibited names no glob")
+				"convention-emoji.prohibited names no glob")
 		}
 		globs = append(globs, glob)
 	}
@@ -67,7 +67,7 @@ func emojiValidate(document *config.Document, tree Tree, format Format) Outcome 
 	if scanErr != nil {
 		return emojiRefused(format, domain.ConfigUnusable, scanErr.Error())
 	}
-	selected, err := Select(scanFiles(tree.Files(), shared), "policies.conventions.emoji.prohibited", globs)
+	selected, err := Select(scanFiles(tree.Files(), shared), "convention-emoji.prohibited", globs)
 	if err != nil {
 		return emojiRefused(format, domain.ConfigUnusable, err.Error())
 	}

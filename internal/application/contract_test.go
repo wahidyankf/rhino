@@ -143,6 +143,10 @@ func (m *memoryTree) Exists(path string) bool {
 	return false
 }
 
+// Links reports no links: the in-memory tree models links only for the
+// PassesThroughLink answers the validators read.
+func (m *memoryTree) Links() []application.TreeLink { return nil }
+
 func (m *memoryTree) PassesThroughLink(path string) bool {
 	trimmed := strings.Trim(path, "/")
 	if trimmed == "" {

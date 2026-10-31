@@ -62,8 +62,16 @@ func namingValidate(document *config.Document, tree Tree, format Format) Outcome
 	if scanErr != nil {
 		return namingRefused(format, domain.ConfigUnusable, scanErr.Error())
 	}
+	files, surfaceErr := surfaceFiles(tree, surfaceGlobs(surfaces), shared)
+	if surfaceErr != nil {
+		return namingRefused(format, surfaceErr.code, surfaceErr.reason)
+	}
 	report := NewReport("naming", "file")
-	for _, path := range scanMarkdown(tree.Files(), shared) {
+	for _, file := range files {
+		path := file.path
+		if !isMarkdown(path) {
+			continue
+		}
 		// A fragment shape is not a style: exemptions excuse the style,
 		// never half a document.
 		if finding, ok := namingFragment(path); ok {

@@ -366,7 +366,7 @@ func TestExecuteQualityGatesMalformedShapes(t *testing.T) {
 		{"a non-string group is refused", mutateQualityConfig("      groups: [plan, quality]\n", "      groups: [plan, 3]\n"), "quality-gates.groups names no workflow groups"},
 		{"a non-list family set is refused", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: plan\n"), "quality-gates.gates names no gate families"},
 		{"a non-mapping family reads as no family", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: [plan]\n"), "unique simple name"},
-		{"an unknown family key is refused", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: [{family: plan, boss: x}]\n"), "name unknown key `boss`"},
+		{"an unknown family key is refused", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: [{family: plan, boss: x}]\n"), "unknown field `boss`"},
 		{"a non-string judge is refused", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: [{family: plan, judge: 3}]\n"), "gates.judge names no agent"},
 		{"a non-string repairer is refused", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: [{family: plan, repairer: 3}]\n"), "gates.repairer names no agent"},
 		{"a non-string subject is refused", mutateQualityConfig("      gates: [{family: plan}]\n", "      gates: [{family: plan, subject: 3}]\n"), "gates.subject names no subject"},

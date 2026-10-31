@@ -21,5 +21,6 @@ func Execute(ctx context.Context, args []string) int {
 		Toolchains:  runtime.DiskToolchainRunner{},
 		Adapters:    runtime.DiskAdapterStore{},
 		Models:      runtime.DiskModelResolver{},
+		Mutations:   runtime.DiskMutationRunner{},
 	}.RunArgs(ctx, args)
 }

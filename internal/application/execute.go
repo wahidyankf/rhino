@@ -3,6 +3,7 @@ package application
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/wahidyankf/rhino/internal/adapters/config"
@@ -46,6 +47,26 @@ type Tree interface {
 	// link at any component, the last included. A path behind a link is
 	// outside what the repository holds, never missing from it.
 	PassesThroughLink(path string) bool
+	// Links lists every filesystem link the tree holds, with where its target
+	// lies. A surface glob reads this list to decide what it reaches; nothing
+	// else follows a link.
+	Links() []TreeLink
+}
+
+// The three places a link's target can lie.
+const (
+	LinkWithin     = "within"
+	LinkOutside    = "outside"
+	LinkUnresolved = "unresolved"
+)
+
+// TreeLink is one filesystem link. Target is repository-relative and set only
+// when Kind is LinkWithin: an outside target is never named, and an unresolved
+// one leads nowhere.
+type TreeLink struct {
+	Path   string
+	Target string
+	Kind   string
 }
 
 // GateLaunch is what one gate child is asked to do: the declared vector,
@@ -107,6 +128,16 @@ func ExecuteWithToolchains(tree Tree, args []string, stdin *string, launcher Lau
 // dry-run planners never reach the adapter or model boundaries; only
 // adapter generation holds them.
 func ExecuteWithHarness(tree Tree, args []string, stdin *string, launcher Launcher, store EnvironmentStore, runner ToolchainRunner, adapters AdapterStore, models ModelResolver) Outcome {
+	return ExecuteWithMutations(tree, args, stdin, launcher, store, runner, adapters, models, nil)
+}
+
+// ExecuteWithMutations runs one invocation with every process and write
+// boundary the entry point supplies, including the mutation runner only gate
+// dispatch reaches. A nil mutation runner fails every mutation closed.
+func ExecuteWithMutations(tree Tree, args []string, stdin *string, launcher Launcher, store EnvironmentStore, runner ToolchainRunner, adapters AdapterStore, models ModelResolver, mutations MutationRunner) Outcome {
+	if mutations == nil {
+		mutations = closedMutations{}
+	}
 	parsed, refusal := Parse(args)
 	if refusal != nil {
 		return Refused(domain.Body(refusal.Format, refusal.Code, refusal.Message))
@@ -149,6 +180,9 @@ func ExecuteWithHarness(tree Tree, args []string, stdin *string, launcher Launch
 
 	switch invocation.Category {
 	case "repo-config":
+		if err := checkQualityGatesDeclaration(document); err != nil {
+			return reportRefused(invocation.Category, invocation.Format, err.Error())
+		}
 		report := NewReport("repo-config", "configuration file")
 		report.Inspected = 1
 		return report.Render(invocation.Format)
@@ -157,7 +191,7 @@ func ExecuteWithHarness(tree Tree, args []string, stdin *string, launcher Launch
 	case "gate-validate":
 		return gateValidate(document, invocation.Format)
 	case "gate":
-		return gateRun(document, invocation, current, stdin, launcher)
+		return gateRun(document, invocation, current, stdin, launcher, mutations)
 	case "emoji":
 		return emojiValidate(document, current, invocation.Format)
 	case "license":
@@ -296,7 +330,7 @@ func gateValidate(document *config.Document, format Format) Outcome {
 	return Clean("[gate] lifecycle configuration is valid\n")
 }
 
-func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin *string, launcher Launcher) Outcome {
+func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin *string, launcher Launcher, mutations MutationRunner) Outcome {
 	if !document.HasGates() {
 		report := NewReport("gate", "configuration file")
 		report.Refusal = strptr("gates section is not declared, and RHINO holds no default for it")
@@ -328,6 +362,7 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 	selected := document.GatesOn(surface)
 	var report strings.Builder
 	var completed []string
+	var changed []string
 	for _, gate := range selected {
 		// Inputs resolve before the command is read: a deleted push range
 		// skips the gate, and anything unresolvable refuses before any
@@ -352,6 +387,56 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		if reason != "" {
 			return gateRefused(invocation.Format, 2, domain.ConfigUnusable,
 				"gate `"+gate.ID+"`: "+reason)
+		}
+		if gate.Kind == "mutation" {
+			// A mutation never reaches the ordinary launcher: the mutation
+			// boundary owns its snapshot and every write it makes.
+			selectedPaths := selectedGatePaths(binds, resolved)
+			if hasRegularFilesInput(gate) && len(selectedPaths) == 0 {
+				report.WriteString("[gate] " + gate.ID + " passed\n")
+				completed = append(completed, gate.ID)
+				continue
+			}
+			mutation := MutationLaunch{
+				Argv:          argv,
+				Directory:     tree.Root(),
+				Environment:   environment,
+				SelectedPaths: selectedPaths,
+				Surface:       surface,
+			}
+			if invocation.Head != nil {
+				mutation.Revision = *invocation.Head
+			}
+			var mutated MutationOutcome
+			var mutateErr error
+			switch surface {
+			case "pre-commit":
+				mutated, mutateErr = mutations.ApplyIndex(mutation)
+			case "pull-request":
+				mutated, mutateErr = mutations.VerifyClean(mutation)
+			default:
+				mutateErr = fmt.Errorf("a grouped mutation may run only at pre-commit or pull-request")
+			}
+			if mutateErr != nil {
+				report.WriteString("[gate] " + gate.ID + " could not run\n")
+				return gateRefusal(invocation.Format, 2, domain.GateChildRefused, &report,
+					"gate `"+gate.ID+"`: "+mutateErr.Error())
+			}
+			for _, path := range mutated.Changes {
+				report.WriteString("[gate] " + gate.ID + " changed " + path + "\n")
+			}
+			for _, path := range mutated.Divergences {
+				report.WriteString("[gate] " + gate.ID + " preserved unstaged " + path + "\n")
+			}
+			if mutated.Code != 0 {
+				report.WriteString("[gate] " + gate.ID + " failed\n")
+				return gateOutcome(invocation.Format, 1, surface, completed, mutated.Changes, report.String(),
+					"[gate] "+gate.ID+" reported a finding at "+surface+"\n")
+			}
+			changed = append(changed, mutated.Changes...)
+			report.WriteString("[gate] " + gate.ID + " passed\n")
+			completed = append(completed, gate.ID)
+			continue
 		}
 		if launcher == nil {
 			return gateRefusal(invocation.Format, 2, domain.GateChildRefused, &report,
@@ -379,7 +464,7 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 				"gate `"+gate.ID+"`: "+launched.Refused)
 		case launched.Code != 0:
 			report.WriteString("[gate] " + gate.ID + " failed\n")
-			return gateOutcome(invocation.Format, 1, completed, report.String(),
+			return gateOutcome(invocation.Format, 1, surface, completed, nil, report.String(),
 				"[gate] "+gate.ID+" reported a finding at "+surface+"\n")
 		default:
 			report.WriteString("[gate] " + gate.ID + " passed\n")
@@ -387,27 +472,76 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		}
 	}
 	if invocation.Format == JSON {
-		quoted := make([]string, 0, len(completed))
-		for _, id := range completed {
-			quoted = append(quoted, domain.Quote(id))
-		}
-		return Outcome{ExitCode: 0, Stdout: fmt.Sprintf(
-			"{\"schemaVersion\":1,\"command\":[\"gate\",\"run\"],\"result\":\"clean\",\"surface\":%s,\"completed\":[%s]}\n",
-			domain.Quote(surface), strings.Join(quoted, ","))}
+		return Outcome{ExitCode: 0, Stdout: gateRunDocument("clean", 0, surface, completed, changed)}
 	}
 	return Clean(report.String())
 }
 
-func gateOutcome(format Format, code int, completed []string, report, stderr string) Outcome {
-	if format == JSON {
-		quoted := make([]string, 0, len(completed))
-		for _, id := range completed {
-			quoted = append(quoted, domain.Quote(id))
+// gateRunDocument renders the `gate run` document the JSON reference
+// describes: the result, the summary counts (gates passed, paths changed, and
+// findings), the changed paths, and the gate IDs that passed. The surface and
+// completed keys predate the documented shape and stay for compatibility, so
+// the document is a superset of the earlier one rather than a replacement.
+func gateRunDocument(result string, code int, surface string, completed, changes []string) string {
+	findings := 0
+	if code == 1 {
+		findings = 1
+	}
+	return fmt.Sprintf(
+		"{\"changes\":%s,\"command\":[\"gate\",\"run\"],\"completed\":%s,\"findings\":[],\"metadata\":{\"gates\":%s},\"result\":%s,\"schemaVersion\":1,\"summary\":{\"changed\":%d,\"findings\":%d,\"scanned\":%d},\"surface\":%s}\n",
+		quotedArray(changes), quotedArray(completed), quotedArray(completed), domain.Quote(result),
+		len(changes), findings, len(completed), domain.Quote(surface))
+}
+
+// selectedGatePaths is the sorted, de-duplicated union of the file paths a
+// mutation's Git-index and explicit-range bindings selected. Nothing else
+// widens the write set a mutator may touch.
+func selectedGatePaths(binds map[string]config.GateBinding, resolved map[string]gateResolvedInput) []string {
+	union := map[string]bool{}
+	for name, binding := range binds {
+		if binding.Source != "git-index" && binding.Source != "explicit-range" {
+			continue
 		}
-		return Outcome{ExitCode: code, Stdout: fmt.Sprintf(
-			"{\"schemaVersion\":1,\"command\":[\"gate\",\"run\"],\"result\":\"findings\",\"completed\":[%s]}\n",
-			strings.Join(quoted, ",")),
-			Stderr: "[gate] " + strings.TrimRight(stderr, "\n") + "\n"}
+		input, ok := resolved[name]
+		if !ok || input.kind != "files" {
+			continue
+		}
+		for _, path := range input.files {
+			union[path] = true
+		}
+	}
+	paths := make([]string, 0, len(union))
+	for path := range union {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+// hasRegularFilesInput reports whether a gate declares a regular-files input,
+// the one shape whose empty selection passes without starting its mutator.
+func hasRegularFilesInput(gate config.Gate) bool {
+	for _, input := range gate.Inputs {
+		if input.Kind == "regular-files" {
+			return true
+		}
+	}
+	return false
+}
+
+// quotedArray renders a JSON array of strings, empty as `[]`.
+func quotedArray(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, domain.Quote(value))
+	}
+	return "[" + strings.Join(quoted, ",") + "]"
+}
+
+func gateOutcome(format Format, code int, surface string, completed, changes []string, report, stderr string) Outcome {
+	if format == JSON {
+		return Outcome{ExitCode: code, Stdout: gateRunDocument("findings", code, surface, completed, changes),
+			Stderr: strings.TrimRight(stderr, "\n") + "\n"}
 	}
 	return Outcome{ExitCode: code, Stdout: report, Stderr: stderr}
 }

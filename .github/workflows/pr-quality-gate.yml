@@ -28,7 +28,7 @@ concurrency:
 jobs:
   public-safety:
     name: Public safety
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       # The pull request head, not the synthetic merge commit: the tree that
@@ -66,7 +66,7 @@ jobs:
 
   quick:
     name: Quick gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -101,7 +101,7 @@ jobs:
 
   consumer-bootstrap:
     name: Pinned HIPPO bootstrap
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -181,7 +181,7 @@ jobs:
     # points at this aggregate rather than at each job.
     needs: [public-safety, quick, consumer-bootstrap]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check every gate

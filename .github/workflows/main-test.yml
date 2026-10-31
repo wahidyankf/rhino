@@ -1,0 +1,112 @@
+name: Main Test
+
+# The full gate runs here, after a change has merged, on both operating systems
+# a consumer runs rhino on. The pull-request gate keeps the quick suite on
+# Linux; this workflow adds the suites that a pull request should not wait for,
+# the vulnerability scan, and the macOS build that proves the release archives
+# do not depend on the machine that built them.
+#
+# A failure here is an immediate defect to fix forward or revert before any
+# release is cut. The release workflow refuses a tag whose commit has no
+# passing run of this workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Each main commit keeps its own result. The group is per commit, so a later
+# push never cancels the run for an earlier one.
+concurrency:
+  group: main-test-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      # The full gate: the quick suite, the public-safety wrapper's suite, and
+      # the vulnerability scan. See scripts/test.sh for what each step proves.
+      - run: ./scripts/test.sh
+
+  release-build:
+    name: Release build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The Linux inventory is the reference the macOS rebuild must reproduce.
+      - name: Build all supported assets
+        run: ./scripts/build-release.sh v0.0.0 "$GITHUB_SHA" dist
+
+      - name: The asset set is complete
+        run: |
+          set -eu
+          test "$(ls dist/rhino-*.tar.gz | wc -l)" = 4
+          (cd dist && sha256sum -c checksums.txt)
+
+      - name: Record the checksum inventory
+        id: inventory
+        run: |
+          cat dist/checksums.txt
+          {
+            echo "checksums<<EOF"
+            cat dist/checksums.txt
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+    outputs:
+      checksums: ${{ steps.inventory.outputs.checksums }}
+
+  release-reproducibility:
+    name: Release reproducibility
+    # The archives must depend on the commit alone, not on the machine that
+    # built them: macOS ships a different tar, gzip, and filesystem from the
+    # Linux runner that publishes releases. Rebuilding the same commit here and
+    # requiring the Linux job's checksums byte for byte proves it after every
+    # merge, before a release tag relies on it.
+    needs: [release-build]
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build all supported assets
+        run: ./scripts/build-release.sh v0.0.0 "$GITHUB_SHA" dist
+
+      - name: Require the Linux checksum inventory
+        env:
+          LINUX_CHECKSUMS: ${{ needs.release-build.outputs.checksums }}
+        run: printf '%s\n' "${LINUX_CHECKSUMS}" | diff -u - dist/checksums.txt

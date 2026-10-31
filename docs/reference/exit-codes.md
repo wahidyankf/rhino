@@ -3,14 +3,14 @@
 RHINO reports from one closed vocabulary. Every status below means the same thing whichever subcommand produced it, and
 RHINO never invents a status outside this set.
 
-| Code    | Meaning                                             | What to do                                           |
-| ------- | --------------------------------------------------- | ---------------------------------------------------- |
-| `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.         |
-| `1`     | The repository violates its declared policy         | Read the findings on stderr and fix the repository.  |
-| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.   |
-| `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.   |
-| `127`   | A gate child was not found                          | Fix the `command.executable` key. `gate run` only.   |
-| `128+N` | Ended by signal `N`                                 | Nothing; `130` is an interrupt, `141` a closed pipe. |
+| Code    | Meaning                                             | What to do                                          |
+| ------- | --------------------------------------------------- | --------------------------------------------------- |
+| `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.        |
+| `1`     | The repository violates its declared policy         | Read the findings on stderr and fix the repository. |
+| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
+| `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.  |
+| `127`   | A gate child was not found                          | Fix the `command.executable` key. `gate run` only.  |
+| `128+N` | Ended by signal `N`; `130`, `143`, or `141`         | Nothing ran to completion. See below.               |
 
 The distinction that matters is between `1` and `2`. **Exit `1` always means the repository broke a rule it declared for
 itself.** Exit `2` means RHINO never got as far as forming an opinion — the command was misspelled, the root had no
@@ -57,8 +57,9 @@ carries the summary.
 `127` — `gate run` only: a child in the selected surface's sequence could not be found at all. In both cases the gates
 before it in declaration order already ran; the ones after it did not.
 
-`128+N` — RHINO was ended by a signal and reports it by ending the same way, rather than translating it into a value a
-caller could not tell apart from a result. `130` is `SIGINT`, `141` a closed pipe.
+`128+N` — RHINO was ended by signal `N` and reports `128+N`, never a value from the result range. `130` is `SIGINT`,
+`143` is `SIGTERM`, and `141` is a closed pipe: a reader closed stdout or stderr, which the operating system reports as
+a broken pipe. A run that any of them ends has reported nothing.
 
 Whenever RHINO refuses, stdout is **empty**. A caller parsing stdout can rely on it holding a result or holding nothing,
 never a summary of a run that did not happen. Under `--output json` the refusal is a single document on stderr:

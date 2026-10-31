@@ -134,6 +134,17 @@ func declarationRefusal(reason string) error {
 	return fmt.Errorf("%s: line 1: %s: %s", config.Path, declarationKey, reason)
 }
 
+// checkQualityGatesDeclaration applies the declaration rules `repo-config
+// validate` owns. Commands that never read the key keep the result they had.
+func checkQualityGatesDeclaration(document *config.Document) error {
+	mapping, ok := document.PolicyGroup("governance", "quality-gates")
+	if !ok {
+		return nil
+	}
+	_, err := decodeQualityGates(mapping)
+	return err
+}
+
 // decodeQualityGates projects the declared gate vocabulary. Unknown keys
 // refuse: a policy the tool silently ignored would be a check that never ran.
 func decodeQualityGates(mapping map[string]any) (qualityGatesPolicy, error) {
@@ -289,7 +300,7 @@ func decodeQualityFamilies(raw any) ([]qualityGateFamily, error) {
 		var family qualityGateFamily
 		for key := range entry {
 			if key != "family" && key != "subject" && key != "judge" && key != "repairer" {
-				return nil, fmt.Errorf("quality-gates.gates name unknown key `%s`", key)
+				return nil, fmt.Errorf("quality-gates.gates: unknown field `%s`, expected one of `family`, `subject`, `judge`, `repairer`", key)
 			}
 		}
 		family.family, _ = entry["family"].(string)

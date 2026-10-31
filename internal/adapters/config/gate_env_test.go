@@ -29,7 +29,7 @@ func TestGateEnvironRefusesLiteralMapping(t *testing.T) {
 // TestGateEnvironKeepsInputProjection proves an input projection entry
 // decodes as a reference the run resolves instead of a literal.
 func TestGateEnvironKeepsInputProjection(t *testing.T) {
-	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./check\n        environment:\n          RHINO_CHECK_MESSAGE: {input: message.text}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
+	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        message: { kind: commit-message }\n      command:\n        executable: ./check\n        environment:\n          RHINO_CHECK_MESSAGE: {input: message.text}\n      run-on:\n        pre-commit:\n          bind:\n            message: { source: hook-message-file }\n        pull-request:\n          reason: replay check\n          bind:\n            message: { source: explicit-range, range: explicit }\n  composition:\n    pull-request:\n      relation: exact\n")
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}

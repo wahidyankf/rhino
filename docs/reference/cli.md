@@ -81,14 +81,14 @@ selected root.
 
 ## Exit codes
 
-| Code    | Meaning                                                                    |
-| ------- | -------------------------------------------------------------------------- |
-| `0`     | The command completed cleanly.                                             |
-| `1`     | A declared policy found a violation.                                       |
-| `2`     | The invocation, root, configuration, or declared boundary was unusable.    |
-| `126`   | A declared gate child could not be executed. Only `gate run` returns it.   |
-| `127`   | A declared gate child was not found. Only `gate run` returns it.           |
-| `128+N` | RHINO was ended by signal `N`; `130` is an interrupt, `141` a closed pipe. |
+| Code    | Meaning                                                                                         |
+| ------- | ----------------------------------------------------------------------------------------------- |
+| `0`     | The command completed cleanly.                                                                  |
+| `1`     | A declared policy found a violation.                                                            |
+| `2`     | The invocation, root, configuration, or declared boundary was unusable.                         |
+| `126`   | A declared gate child could not be executed. Only `gate run` returns it.                        |
+| `127`   | A declared gate child was not found. Only `gate run` returns it.                                |
+| `128+N` | RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe. |
 
 ## Related
 

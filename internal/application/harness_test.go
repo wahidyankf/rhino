@@ -1083,7 +1083,7 @@ func TestHarnessDecodeRefusesMalformedGroups(t *testing.T) {
 		{"lists mistyped", "profiles: [{id: a, agent-adapter: {path: 'a/{n}.md', format: front-matter, route-field: body, route: 'See {path}.', lists: [1]}}]",
 			"harness profiles agent-adapter lists names no lists"},
 		{"lists unknown name", "profiles: [{id: a, agent-adapter: {path: 'a/{n}.md', format: front-matter, route-field: body, route: 'See {path}.', lists: {t: agents}}}]",
-			"harness profiles lists names unknown list `agents`: expected `skills`"},
+			"harness profiles lists: unknown variant `agents`, expected `skills`"},
 		{"tier fields mistyped", "profiles: [{id: a, agent-adapter: {path: 'a/{n}.md', format: front-matter, route-field: body, route: 'See {path}.', tier-fields: [1]}}]",
 			"harness profiles agent-adapter tier-fields names no tier fields"},
 		{"tier fields unknown", "profiles: [{id: a, agent-adapter: {path: 'a/{n}.md', format: front-matter, route-field: body, route: 'See {path}.', tier-fields: {model: m, effort: e, bogus: 1}}}]",
