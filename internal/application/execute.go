@@ -48,10 +48,22 @@ type Tree interface {
 	PassesThroughLink(path string) bool
 }
 
+// GateLaunch is what one gate child is asked to do: the declared vector,
+// the repository root it runs in, the surface that selected it, and the
+// projected environment. It mirrors the oracle's Launch: surface and
+// environment travel with the vector instead of being inherited by
+// accident.
+type GateLaunch struct {
+	Argv        []string
+	Directory   string
+	Surface     string
+	Environment map[string]string
+}
+
 // Launcher starts one declared gate child. The process entry point supplies
 // the operating-system launcher; tests supply a recorder.
 type Launcher interface {
-	Launch(argv []string, directory string) Launched
+	Launch(launch GateLaunch) Launched
 }
 
 // Launched is what one child run produced.
@@ -320,11 +332,21 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 			return gateRefusal(invocation.Format, 2, domain.ConfigUnusable, &report,
 				"gate `"+gate.ID+"`: "+err.Error())
 		}
+		environment, err := gate.Environ()
+		if err != nil {
+			return gateRefusal(invocation.Format, 2, domain.ConfigUnusable, &report,
+				"gate `"+gate.ID+"`: "+err.Error())
+		}
 		if launcher == nil {
 			return gateRefusal(invocation.Format, 2, domain.GateChildRefused, &report,
 				"gate `"+gate.ID+"`: process dispatch is not wired in this invocation")
 		}
-		launched := launcher.Launch(argv, tree.Root())
+		launched := launcher.Launch(GateLaunch{
+			Argv:        argv,
+			Directory:   tree.Root(),
+			Surface:     surface,
+			Environment: environment,
+		})
 		switch {
 		case launched.NotFound:
 			report.WriteString("[gate] " + gate.ID + " could not run\n")
@@ -348,9 +370,9 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		}
 	}
 	// Gate children run with no standard input in this port: the launcher
-	// passes only argv and the working directory, so stdin stays with the
-	// document validators that read it. Forwarding stdin (or the oracle's
-	// surface and environment) to gate children is out of scope.
+	// passes the vector, the working directory, the selecting surface, and
+	// the projected environment, so stdin stays with the document
+	// validators that read it. Only stdin forwarding is out of scope.
 	_ = stdin
 	if invocation.Format == JSON {
 		quoted := make([]string, 0, len(completed))

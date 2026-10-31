@@ -23,7 +23,7 @@ func writeGateChild(t *testing.T, mode os.FileMode) string {
 
 func TestLaunchMapsNonExecutableChild(t *testing.T) {
 	child := writeGateChild(t, 0o644)
-	launched := runtime.OSLauncher{}.Launch([]string{child}, t.TempDir())
+	launched := runtime.OSLauncher{}.Launch(application.GateLaunch{Argv: []string{child}, Directory: t.TempDir()})
 	if !launched.NotExecutable {
 		t.Fatalf("non-executable child not mapped to 126: %+v", launched)
 	}
@@ -34,7 +34,7 @@ func TestLaunchMapsNonExecutableChild(t *testing.T) {
 
 func TestLaunchMapsMissingChild(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "does-not-exist")
-	launched := runtime.OSLauncher{}.Launch([]string{missing}, t.TempDir())
+	launched := runtime.OSLauncher{}.Launch(application.GateLaunch{Argv: []string{missing}, Directory: t.TempDir()})
 	if !launched.NotFound {
 		t.Fatalf("missing child not mapped to 127: %+v", launched)
 	}
@@ -53,7 +53,7 @@ func TestLaunchKillsChildOnCancellation(t *testing.T) {
 	defer cancel()
 	done := make(chan application.Launched, 1)
 	go func() {
-		done <- runtime.OSLauncher{Ctx: ctx}.Launch([]string{child}, t.TempDir())
+		done <- runtime.OSLauncher{Ctx: ctx}.Launch(application.GateLaunch{Argv: []string{child}, Directory: t.TempDir()})
 	}()
 	time.Sleep(200 * time.Millisecond)
 	cancel()

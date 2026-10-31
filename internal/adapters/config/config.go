@@ -19,6 +19,12 @@ type Gate struct {
 	RunOn      map[string]any
 	Executable string
 	Args       []any
+	// Environment holds the literal environment projections the gate run
+	// forwards to the child. Entries that name an input projection instead
+	// of a literal are recorded in unresolvedEnv and refused at dispatch,
+	// the way Argv refuses unresolved input arguments.
+	Environment   map[string]string
+	unresolvedEnv []string
 }
 
 // Argv projects literal-only arguments. Anything else is refused so a
@@ -46,6 +52,20 @@ func (g Gate) Argv() ([]string, error) {
 		}
 	}
 	return argv, nil
+}
+
+// Environ projects the literal environment entries. An entry naming an
+// input projection instead of a literal is refused so a caller never runs
+// a child with a narrower environment than declared.
+func (g Gate) Environ() (map[string]string, error) {
+	if len(g.unresolvedEnv) > 0 {
+		return nil, fmt.Errorf("environment variable `%s` was not resolved for this surface", g.unresolvedEnv[0])
+	}
+	out := make(map[string]string, len(g.Environment))
+	for name, value := range g.Environment {
+		out[name] = value
+	}
+	return out, nil
 }
 
 // Document is the parsed grouped v0.4 configuration.
@@ -149,6 +169,24 @@ func (d *Document) decodeGates(gatesRaw map[string]any) error {
 			gate.Executable = executable
 			if args, ok := command["args"].([]any); ok {
 				gate.Args = args
+			}
+			if environment, ok := command["environment"].(map[string]any); ok {
+				names := make([]string, 0, len(environment))
+				for name := range environment {
+					names = append(names, name)
+				}
+				sort.Strings(names)
+				for _, name := range names {
+					text, ok := environment[name].(string)
+					if !ok {
+						gate.unresolvedEnv = append(gate.unresolvedEnv, name)
+						continue
+					}
+					if gate.Environment == nil {
+						gate.Environment = map[string]string{}
+					}
+					gate.Environment[name] = text
+				}
 			}
 		}
 		d.gates = append(d.gates, gate)
