@@ -168,6 +168,51 @@ func classMatches(class []byte, char byte) bool {
 	return matched
 }
 
+// scanExcluded mirrors the oracle's scan.is_excluded: whether any directory
+// on the way to a file is one the repository excludes. The file's own name
+// is never tested, so a file called `generated` is inspected while everything
+// inside a directory called `generated` is not. Names match exactly, at any
+// depth: a sibling that merely shares a prefix stays scanned.
+func scanExcluded(path string, excluded []string) bool {
+	segments := strings.Split(path, "/")
+	for _, segment := range segments[:len(segments)-1] {
+		for _, name := range excluded {
+			if segment == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// scanFiles returns the walked files outside every shared-excluded directory,
+// in walk order: the shared selection every scan-based validator starts from.
+// An omitted scan section excludes nothing; the walk itself is unchanged.
+func scanFiles(files []string, excluded []string) []string {
+	if len(excluded) == 0 {
+		return files
+	}
+	var out []string
+	for _, file := range files {
+		if !scanExcluded(file, excluded) {
+			out = append(out, file)
+		}
+	}
+	return out
+}
+
+// scanMarkdown returns the Markdown files outside every shared-excluded
+// directory, in walk order: the shared corpus every Markdown validator reads.
+func scanMarkdown(files []string, excluded []string) []string {
+	var out []string
+	for _, file := range files {
+		if isMarkdown(file) && !scanExcluded(file, excluded) {
+			out = append(out, file)
+		}
+	}
+	return out
+}
+
 // Select returns the tree files matched by any of the globs, in sorted
 // order. A bad pattern refuses the run: it would otherwise govern nothing.
 func Select(files []string, key string, patterns []string) ([]string, error) {

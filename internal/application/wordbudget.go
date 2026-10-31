@@ -34,7 +34,7 @@ func wordBudgetValidate(document *config.Document, tree Tree, format Format) Out
 	}
 	report := NewReport("word-budget", "file")
 	for _, path := range tree.Files() {
-		if !isMarkdown(path) || readmeDirExcluded(path, skipped) {
+		if !isMarkdown(path) || scanExcluded(path, skipped) {
 			continue
 		}
 		limit := budget.limit(path)

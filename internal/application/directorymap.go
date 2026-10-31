@@ -125,7 +125,7 @@ func directoryMapDirectories(files []string, excluded []string, root string) []s
 		if !strings.HasPrefix(path, prefix) {
 			continue
 		}
-		if readmeDirExcluded(path, excluded) {
+		if scanExcluded(path, excluded) {
 			continue
 		}
 		segments := strings.Split(path, "/")

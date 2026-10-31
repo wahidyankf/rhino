@@ -45,11 +45,12 @@ func frontmatterValidate(document *config.Document, tree Tree, format Format) Ou
 				"md-frontmatter.surfaces: "+err.Error())
 		}
 	}
+	shared, err := document.ScanExcludeDirectories()
+	if err != nil {
+		return frontmatterRefused(format, domain.ConfigUnusable, err.Error())
+	}
 	report := NewReport("frontmatter", "file")
-	for _, path := range tree.Files() {
-		if !isMarkdown(path) {
-			continue
-		}
+	for _, path := range scanMarkdown(tree.Files(), shared) {
 		// The last matching surface governs: a later declaration is the
 		// more specific intent, the same rule every surface list states.
 		governed := -1

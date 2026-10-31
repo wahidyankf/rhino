@@ -104,11 +104,12 @@ func metadataValidate(document *config.Document, tree Tree, format Format) Outco
 				"metadata.surfaces: "+err.Error())
 		}
 	}
+	shared, err := document.ScanExcludeDirectories()
+	if err != nil {
+		return metadataRefused(format, domain.ConfigUnusable, err.Error())
+	}
 	report := NewReport("metadata", "file")
-	for _, path := range tree.Files() {
-		if !isMarkdown(path) {
-			continue
-		}
+	for _, path := range scanMarkdown(tree.Files(), shared) {
 		// The last matching surface governs: a later declaration is the more
 		// specific intent, the same rule every surface list states.
 		governed := -1
