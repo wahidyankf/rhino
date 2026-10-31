@@ -9,42 +9,14 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased] — Go port increment
+## [Unreleased]
 
-A Go module now ships the same public contract and replaces the Rust binary: identical commands, flags, exit codes
-(`0` clean, `1` findings from validators only, `2` unusable), and the same `version --json` shape
-(`schemaVersion`, `version`, `commit`). Tree validators stay read-only, network-free, process-free, and
-path-contained; declared gate dispatch uses the explicit process launcher. Ported cores: command parsing, grouped
-v2 configuration, `repo-config` validation, `gate` list/validate/run (literal-only projection), and the
-`convention emoji` validator, and the `md naming` validator (kebab-case, path-prefixed, fragment shapes, required
-exemptions, last-surface-wins), the `md frontmatter` validator (leading top-level declarations, required and
-forbidden keys, closed value sets, ISO calendar dates), and the `md heading-hierarchy` validator (single level-1
-heading, bounded drops, fence-aware reading), and the `md internal-link` validator (inline and reference targets
-resolved inside the repository, excluded sources stay valid targets), and the `metadata` validator (path-selected
-governance, workflow, skill, and agent schemas over a handwritten front-matter reader that keeps forms, lines, and
-duplicate keys; canonical key order, required keys, and shared value rules), the `md mermaid` validator (label length
-and colour contrast over declared syntaxes), and the `md readme-index` validator (declared, required-children, and
-every-directory index completeness with exact-text annotations), the `convention license` validator (configured paths,
-identifiers, and digests), and the `governance vendor` validator (declared portable roots with forbidden terms and
-exact term-and-path exceptions over excluded binding roots), and the `governance quality-gates` validator (declared workflow layout with paired module directories, ordered gate and propagation headings, declared verdicts, retired inputs, and the 1-to-3 cycle ceiling, measuring splits against the declared word budget when one governs the entrypoint),
-the `toolchain validate` probe leaf (read-only apart from its declared probe, tool output never reported), and the
-`toolchain provision` leaf (plan first, `--apply` runs each declared no-shell vector in declaration order and stops
-after the first failure), and the `harness adapters validate` leaf (read-only; it keeps the model each binding
-recorded and never starts the declared command), and the `harness adapters generate` leaf (plan first, then the
-narrow write boundary replaces each adapter family atomically; resolving tiers run their declared no-shell vector
-and fall back with a warning, and markers outside owned families report as stale). Existence, link awareness, and
-directory navigation
-live on the application `Tree` port; the disk adapter serves them without following links, the disk toolchain
-runner serves declared probes and provision vectors, and the disk adapter store and model resolver serve canonical
-adapter generation. Every stable leaf now runs in the Go module; the unported-leaf refusal remains only for
-categories outside this stable release. No command, flag, exit code, or configuration key was removed or renamed.
+Nothing yet.
 
-The Rust implementation is removed from this tree: `src/`, the Cargo manifests and lockfile, the Rust toolchain and
-lint configuration, `xtask/`, the Rust behavior corpus under `tests/`, and the staged-Rust formatter are gone, with the
-workflows, hooks, gates, and docs above pointing at the Go module instead. The checked-in JSON Schema stays as the
-source of truth with no generator until one is ported. Lifecycle replay (`gate run` over declared surfaces) still needs
-launcher parity for surface, inputs, and stdin before it can report clean; the quick gate (`scripts/test-quick.sh`) is
-the green bar until then.
+## [v0.16.5] — 2026-10-31
+
+Mutation gates, the toolchain runner, symbolic-link handling, and several refusal wordings are corrected. The Gherkin
+behaviour suite now runs against the built binary, and CI runs the same checks as the shared structural template.
 
 ### Fixed
 
@@ -84,20 +56,118 @@ the green bar until then.
 - The release workflow refuses a tag whose commit has no passing Main Test run.
 - The [release notes standard](repo-governance/workflows/maintenance/release-notes.md): five required sections, a
   verification block, and a full-changelog link.
-- `tests/bdd`, a behaviour suite that runs every scenario in `specs/behaviours` against the built binary. Its run fails
-  on a skipped or unbound scenario, and `scripts/test.sh` runs it under `-race`.
+- `tests/bdd`, a behaviour suite that runs all 265 scenarios in `specs/behaviours` against the built binary. Its run
+  fails on a skipped or unbound scenario, and `scripts/test.sh` runs it under `-race`.
 - `specs/behaviours/cli-surface.feature` covers the `version` identity, the gate child exit codes `126` and `127`, a
   gate child that interrupts RHINO, scan exclusion for Markdown validators, and toolchain output and timeout bounds.
 
 ### Changed
 
 - The pull-request, scheduled, and release-size workflows pin `ubuntu-24.04` instead of `ubuntu-latest`.
-- The release cut is Go-native: `scripts/build-release.sh` builds and checksums the archives, and the procedure in
-  `repo-governance/workflows/maintenance/release-cut.md` replaces the retired `cargo xtask` steps.
 - Refusals for an unknown quality-gate key read `unknown field`, and for an unknown harness profile list read
   `unknown variant`, as the contract's parser does.
 - The emoji prohibition refusal key is `convention-emoji.prohibited`, where the Go port previously reported
   `policies.conventions.emoji.prohibited`.
+- The test suite is portable to macOS.
+
+## [v0.16.4] — 2026-10-31
+
+Known defects: see v0.16.5; pin v0.16.5 or newer.
+
+Every Markdown corpus honours the shared exclusion list.
+
+### Fixed
+
+- The shared `scan.exclude-directories` setting applies in every Markdown corpus.
+
+## [v0.16.3] — 2026-10-31
+
+Known defects: see v0.16.5; pin v0.16.5 or newer.
+
+Gate arguments and environment values can name an input with `{input:...}`, and literal environment values are refused.
+
+### Added
+
+- `{input:...}` resolves in gate arguments and environment for the `git-index`, `explicit-range`,
+  `hook-message-file`, and `push-updates` inputs.
+
+### Changed
+
+- Literal environment values are refused.
+
+## [v0.16.2] — 2026-10-31
+
+Known defects: see v0.16.5; pin v0.16.5 or newer.
+
+Gate children receive the surface and the projected environment.
+
+### Fixed
+
+- Gate children receive `RHINO_GATE_SURFACE` and the projected environment.
+
+## [v0.16.1] — 2026-10-30
+
+Known defects: see v0.16.5; pin v0.16.5 or newer.
+
+Release archives are assembled by the Go archiver, and the release rehearsal workflow's `tar` flag is corrected.
+
+### Changed
+
+- Release archives are assembled by the Go archiver under `rhino-<target>.tar.gz` names.
+
+### Fixed
+
+- The release rehearsal workflow's `tar` flag is corrected.
+
+## [v0.16.0] — 2026-10-30
+
+Known defects: see v0.16.5; pin v0.16.5 or newer. The automated build failed at this tag, so its archives were
+assembled by hand.
+
+A Go module now ships the same public contract and replaces the Rust binary: identical commands, flags, exit codes
+(`0` clean, `1` findings from validators only, `2` unusable), and the same `version --json` shape
+(`schemaVersion`, `version`, `commit`). Tree validators stay read-only, network-free, process-free, and
+path-contained; declared gate dispatch uses the explicit process launcher. Ported cores: command parsing, grouped
+v2 configuration, `repo-config` validation, `gate` list/validate/run (literal-only projection), and the
+`convention emoji` validator, and the `md naming` validator (kebab-case, path-prefixed, fragment shapes, required
+exemptions, last-surface-wins), the `md frontmatter` validator (leading top-level declarations, required and
+forbidden keys, closed value sets, ISO calendar dates), and the `md heading-hierarchy` validator (single level-1
+heading, bounded drops, fence-aware reading), and the `md internal-link` validator (inline and reference targets
+resolved inside the repository, excluded sources stay valid targets), and the `metadata` validator (path-selected
+governance, workflow, skill, and agent schemas over a handwritten front-matter reader that keeps forms, lines, and
+duplicate keys; canonical key order, required keys, and shared value rules), the `md mermaid` validator (label length
+and colour contrast over declared syntaxes), and the `md readme-index` validator (declared, required-children, and
+every-directory index completeness with exact-text annotations), the `convention license` validator (configured paths,
+identifiers, and digests), and the `governance vendor` validator (declared portable roots with forbidden terms and
+exact term-and-path exceptions over excluded binding roots), and the `governance quality-gates` validator
+(declared workflow layout with paired module directories, ordered gate and propagation headings, declared verdicts,
+retired inputs, and the 1-to-3 cycle ceiling, measuring splits against the declared word budget when one governs the
+entrypoint),
+the `toolchain validate` probe leaf (read-only apart from its declared probe, tool output never reported), and the
+`toolchain provision` leaf (plan first, `--apply` runs each declared no-shell vector in declaration order and stops
+after the first failure), and the `harness adapters validate` leaf (read-only; it keeps the model each binding
+recorded and never starts the declared command), and the `harness adapters generate` leaf (plan first, then the
+narrow write boundary replaces each adapter family atomically; resolving tiers run their declared no-shell vector
+and fall back with a warning, and markers outside owned families report as stale). Existence, link awareness, and
+directory navigation
+live on the application `Tree` port; the disk adapter serves them without following links, the disk toolchain
+runner serves declared probes and provision vectors, and the disk adapter store and model resolver serve canonical
+adapter generation. Every stable leaf now runs in the Go module; the unported-leaf refusal remains only for
+categories outside this stable release. No command, flag, exit code, or configuration key was removed or renamed.
+
+The Rust implementation is removed from this tree: `src/`, the Cargo manifests and lockfile, the Rust toolchain and
+lint configuration, `xtask/`, the Rust behavior corpus under `tests/`, and the staged-Rust formatter are gone, with the
+workflows, hooks, gates, and docs in this release pointing at the Go module instead. The checked-in JSON Schema stays
+as the source of truth with no generator until one is ported. Lifecycle replay (`gate run` over declared surfaces)
+could not report clean in this release, because gate children lacked the surface, their inputs, and mutation
+isolation. v0.16.2 to v0.16.5 close those gaps.
+
+The repository layout follows the shared structural template, and governance documents are included in this release.
+
+### Changed
+
+- The release cut is Go-native: `scripts/build-release.sh` builds and checksums the archives, and the procedure in
+  `repo-governance/workflows/maintenance/release-cut.md` replaces the retired `cargo xtask` steps.
 
 ## [v0.15.0] — 2026-10-19
 
@@ -878,6 +948,12 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.16.5]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.5
+[v0.16.4]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.4
+[v0.16.3]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.3
+[v0.16.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.2
+[v0.16.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.1
+[v0.16.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.0
 [v0.1.3]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.1
