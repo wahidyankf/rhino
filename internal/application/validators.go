@@ -61,7 +61,13 @@ func emojiValidate(document *config.Document, tree Tree, format Format) Outcome 
 		}
 		globs = append(globs, glob)
 	}
-	selected, err := Select(tree.Files(), "policies.conventions.emoji.prohibited", globs)
+	// The prohibited surfaces select from the shared corpus, the way the
+	// oracle's surface walk drops shared-excluded directories first.
+	shared, scanErr := document.ScanExcludeDirectories()
+	if scanErr != nil {
+		return emojiRefused(format, domain.ConfigUnusable, scanErr.Error())
+	}
+	selected, err := Select(scanFiles(tree.Files(), shared), "policies.conventions.emoji.prohibited", globs)
 	if err != nil {
 		return emojiRefused(format, domain.ConfigUnusable, err.Error())
 	}

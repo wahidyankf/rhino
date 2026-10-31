@@ -2797,6 +2797,27 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "md|internal-link|validate"
     Then the exit code is 0
 
+  Scenario: Grouped scan exclusions silence the heading-hierarchy validator
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      scan:
+        exclude-directories: [generated]
+      policies:
+        markdown:
+          heading-hierarchy:
+            surfaces:
+              - glob: "**/*.md"
+            single-h1: true
+            max-level-jump: 1
+      """
+    And the repository contains:
+      | path               | content                        |
+      | docs/page.md       | # Page                         |
+      | generated/draft.md | ## Draft without a level one   |
+    When I invoke the CLI with "md|heading-hierarchy|validate"
+    Then the exit code is 0
+
   Scenario: Grouped governance directory maps retain their declared trees
     Given the configuration file is this text:
       """

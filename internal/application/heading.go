@@ -44,9 +44,13 @@ func headingValidate(document *config.Document, tree Tree, format Format) Outcom
 				"md-heading-hierarchy.surfaces: "+err.Error())
 		}
 	}
+	shared, err := document.ScanExcludeDirectories()
+	if err != nil {
+		return headingRefused(format, domain.ConfigUnusable, err.Error())
+	}
 	report := NewReport("heading-hierarchy", "file")
-	for _, path := range tree.Files() {
-		if !isMarkdown(path) || !matchesAny(rules.surfaces, path) {
+	for _, path := range scanMarkdown(tree.Files(), shared) {
+		if !matchesAny(rules.surfaces, path) {
 			continue
 		}
 		text, readErr := tree.Read(path)

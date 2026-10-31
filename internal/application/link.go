@@ -77,11 +77,15 @@ func internalLinkValidate(document *config.Document, tree Tree, format Format) O
 				"md-internal-link.exclude-sources: "+err.Error())
 		}
 	}
+	// The shared scan exclusions select the corpus before any read: an
+	// unreadable file inside an excluded directory never refuses the run.
+	// A validator-excluded source stays readable as a link target below.
+	shared, err := document.ScanExcludeDirectories()
+	if err != nil {
+		return internalLinkRefused(format, domain.ConfigUnusable, err.Error())
+	}
 	report := NewReport("internal-link", "link")
-	for _, path := range tree.Files() {
-		if !isMarkdown(path) {
-			continue
-		}
+	for _, path := range scanMarkdown(tree.Files(), shared) {
 		text, readErr := tree.Read(path)
 		if readErr != nil {
 			switch readErr.Kind {

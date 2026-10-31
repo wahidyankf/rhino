@@ -66,13 +66,18 @@ func kindOf(declaration string) (mermaidKind, bool) {
 
 // mermaidRules is the repository's declared mermaid policy.
 type mermaidRules struct {
-	authoring           string
-	nodeLimit           int
-	edgeLimit           int
-	fillColors          []string
-	edgeColors          []string
-	textColors          []string
-	exclude             []string
+	authoring  string
+	nodeLimit  int
+	edgeLimit  int
+	fillColors []string
+	edgeColors []string
+	textColors []string
+	exclude    []string
+	// hasExclude records whether the repository declared its own list. A
+	// declared list replaces the shared scan exclusions for this command
+	// only, the way the oracle's read_excluding replaces its shared read;
+	// an absent one leaves the shared exclusions in force.
+	hasExclude          bool
 	requireDefaultClass bool
 	// allowedTypes is nil when the repository declared no allowlist. A
 	// declared empty list still opts in to judging every type.
@@ -126,7 +131,18 @@ func mermaidValidate(document *config.Document, tree Tree, files []string, stdin
 				fmt.Sprintf("md-mermaid.canvas-colors: `%s` is not a six-digit hex color", canvas))
 		}
 	}
-	selected, refused := mermaidSelect(tree, files, stdin, rules.exclude)
+	// Without its own list this command reads the shared corpus; with one
+	// it reads only what that list leaves, replacing the shared scan
+	// exclusions for this command and no other.
+	var shared []string
+	if !rules.hasExclude {
+		var err error
+		shared, err = document.ScanExcludeDirectories()
+		if err != nil {
+			return mermaidRefused(format, domain.ConfigUnusable, err.Error())
+		}
+	}
+	selected, refused := mermaidSelect(tree, files, stdin, rules.exclude, shared, !rules.hasExclude)
 	if refused != nil {
 		return mermaidRefused(format, refused.code, refused.reason)
 	}
@@ -182,8 +198,9 @@ type selectedDocument struct {
 // mermaidSelect resolves the narrowed selection or the declared surface.
 // A selection naming an excluded path is skipped, not refused: a pre-commit
 // run hands over every staged path, and a move into an archive stages files
-// the repository has declared out of scope.
-func mermaidSelect(tree Tree, files []string, stdin *string, excluded []string) ([]selectedDocument, *mermaidRefusal) {
+// the repository has declared out of scope. A narrowed selection consults
+// only the validator list; the walk consults the list in force for it.
+func mermaidSelect(tree Tree, files []string, stdin *string, excluded, shared []string, useShared bool) ([]selectedDocument, *mermaidRefusal) {
 	if len(files) > 0 {
 		var selected []selectedDocument
 		for _, path := range files {
@@ -216,7 +233,14 @@ func mermaidSelect(tree Tree, files []string, stdin *string, excluded []string) 
 	}
 	var selected []selectedDocument
 	for _, path := range tree.Files() {
-		if !isMarkdown(path) || matchesAny(excluded, path) {
+		if !isMarkdown(path) {
+			continue
+		}
+		if useShared {
+			if scanExcluded(path, shared) {
+				continue
+			}
+		} else if matchesAny(excluded, path) {
 			continue
 		}
 		text, readErr := tree.Read(path)
@@ -278,6 +302,7 @@ func decodeMermaid(mapping map[string]any) (mermaidRules, error) {
 		return rules, err
 	}
 	if raw, present := mapping["exclude"]; present {
+		rules.hasExclude = true
 		items, ok := raw.([]any)
 		if !ok {
 			return rules, fmt.Errorf("md-mermaid.exclude names no glob")

@@ -357,21 +357,7 @@ func readmeSkipped(child string, skipped []string, tree Tree) bool {
 	if tree.IsDirectory(child) {
 		probe = child + "/README.md"
 	}
-	return readmeDirExcluded(probe, skipped)
-}
-
-// readmeDirExcluded answers whether any directory on the way to a file is one
-// the repository excludes. The file's own name is never tested.
-func readmeDirExcluded(path string, excluded []string) bool {
-	segments := strings.Split(path, "/")
-	for _, segment := range segments[:len(segments)-1] {
-		for _, name := range excluded {
-			if segment == name {
-				return true
-			}
-		}
-	}
-	return false
+	return scanExcluded(probe, skipped)
 }
 
 func readmeUnder(path, root string) bool {
