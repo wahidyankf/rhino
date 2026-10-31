@@ -57,6 +57,26 @@ func runToolchain(tree *memoryTree, runner *recordingToolchainRunner, words ...s
 	return application.ExecuteWithToolchains(tree, args(words...), nil, nil, nil, held)
 }
 
+// vectorsForEveryPlatform declares the same vector for every platform name a
+// host can report under the contract: the oracle's names for the Go GOOS values
+// that have one. The host always finds its own vector whatever machine runs the
+// suite. arguments is an inline YAML list, or "" for none.
+func vectorsForEveryPlatform(executable, arguments string) string {
+	platforms := []string{
+		"aix", "android", "dragonfly", "freebsd", "illumos", "ios", "linux",
+		"macos", "netbsd", "openbsd", "solaris", "windows",
+	}
+	vectors := make([]string, 0, len(platforms))
+	for _, platform := range platforms {
+		vector := "{platform: " + platform + ", executable: " + executable
+		if arguments != "" {
+			vector += ", arguments: " + arguments
+		}
+		vectors = append(vectors, vector+"}")
+	}
+	return "[" + strings.Join(vectors, ", ") + "]"
+}
+
 const toolchainEntry = `toolchains:
   entries:
     - id: formatter
@@ -235,7 +255,7 @@ func TestToolchainProvisionPlansEveryDeclaredVectorBeforeApplying(t *testing.T) 
     - id: first
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer-one, arguments: [--literal=$VALUE]}]
+      provision: ` + vectorsForEveryPlatform("installer-one", "[--literal=$VALUE]") + `
       required: true
     - id: skipped
       executable: probe-tool
@@ -244,7 +264,7 @@ func TestToolchainProvisionPlansEveryDeclaredVectorBeforeApplying(t *testing.T) 
     - id: second
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer-two, arguments: [--next]}]
+      provision: ` + vectorsForEveryPlatform("installer-two", "[--next]") + `
       required: true
 `
 	runner := &recordingToolchainRunner{}
@@ -280,12 +300,12 @@ func TestToolchainProvisionAppliesVectorsInOrderAndStopsAtFirstFailure(t *testin
     - id: first
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer-one}]
+      provision: ` + vectorsForEveryPlatform("installer-one", "") + `
       required: true
     - id: second
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer-two}]
+      provision: ` + vectorsForEveryPlatform("installer-two", "") + `
       required: true
 `
 	runner := &recordingToolchainRunner{outcomes: []toolchainAnswer{okProbe(""), okProbe("")}}
@@ -309,7 +329,7 @@ func TestToolchainProvisionAppliesVectorsInOrderAndStopsAtFirstFailure(t *testin
     - id: declared
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer}]
+      provision: ` + vectorsForEveryPlatform("installer", "") + `
       required: true
 `)
 	runner = &recordingToolchainRunner{outcomes: []toolchainAnswer{okProbe("")}}
@@ -325,7 +345,7 @@ func TestToolchainProvisionFailsClosedWithoutAProcessBoundary(t *testing.T) {
     - id: declared
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer}]
+      provision: ` + vectorsForEveryPlatform("installer", "") + `
       required: true
 `)
 	if outcome := application.Execute(tree, args("toolchain", "provision", "--apply"), nil); outcome.ExitCode != 2 ||
@@ -352,7 +372,7 @@ func TestToolchainProvisionRefusesUnsupportedPlatformAndFailedVectors(t *testing
     - id: declared
       executable: probe-tool
       probe: [--version]
-      provision: [{platform: linux, executable: installer, arguments: [install]}]
+      provision: ` + vectorsForEveryPlatform("installer", "[install]") + `
       required: true
 `)
 	runner := &recordingToolchainRunner{outcomes: []toolchainAnswer{{failed: "not found"}}}
