@@ -96,18 +96,20 @@ func (t *DiskTree) Read(path string) (string, *TreeError) {
 	if leavesRoot(path) {
 		return "", &TreeError{Kind: "escapes", Reason: "`" + path + "` escapes the repository root"}
 	}
+	// Every component is checked, the last included, before the file is
+	// opened: the operating system would otherwise follow a directory link in
+	// the middle of the path and read outside the repository.
+	if t.PassesThroughLink(path) {
+		return "", &TreeError{Kind: "escapes", Reason: "`" + path + "` passes through a filesystem link"}
+	}
 	full := filepath.Join(t.Dir, filepath.FromSlash(path))
-	info, err := os.Lstat(full)
-	if err != nil {
+	if _, err := os.Lstat(full); err != nil {
 		if os.IsNotExist(err) {
 			return "", &TreeError{Kind: "missing", Reason: path + ": no such file"}
 		}
 		// The path names something the repository cannot open: a blocked
 		// parent, a denied component. Only an absent path is missing.
 		return "", &TreeError{Kind: "unreadable", Reason: path + ": " + err.Error()}
-	}
-	if info.Mode()&fs.ModeSymlink != 0 {
-		return "", &TreeError{Kind: "escapes", Reason: "`" + path + "` passes through a filesystem link"}
 	}
 	data, err := os.ReadFile(full)
 	if err != nil {
@@ -120,6 +122,58 @@ func (t *DiskTree) Read(path string) (string, *TreeError) {
 		return "", &TreeError{Kind: "not-text", Reason: path + ": holds no text"}
 	}
 	return string(data), nil
+}
+
+// Links lists every filesystem link under the root, with where its target
+// lies. The walk finds links by their type and never follows one.
+func (t *DiskTree) Links() []application.TreeLink {
+	realRoot, err := filepath.EvalSymlinks(t.Dir)
+	if err != nil {
+		return nil
+	}
+	var out []application.TreeLink
+	_ = filepath.WalkDir(t.Dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if entry.Type()&fs.ModeSymlink != 0 {
+			rel, relErr := filepath.Rel(t.Dir, path)
+			if relErr == nil {
+				out = append(out, classifyLink(filepath.ToSlash(rel), path, realRoot))
+			}
+			return nil
+		}
+		if entry.IsDir() && entry.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	sort.Slice(out, func(left, right int) bool { return out[left].Path < out[right].Path })
+	return out
+}
+
+// classifyLink resolves one link's target and names where it lies: inside the
+// root with its repository-relative path, outside it, or nowhere.
+func classifyLink(rel, full, realRoot string) application.TreeLink {
+	target, err := os.Readlink(full)
+	if err != nil {
+		return application.TreeLink{Path: rel, Kind: application.LinkUnresolved}
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(full), target)
+	}
+	resolved, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		return application.TreeLink{Path: rel, Kind: application.LinkUnresolved}
+	}
+	inside, err := filepath.Rel(realRoot, resolved)
+	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+		return application.TreeLink{Path: rel, Kind: application.LinkOutside}
+	}
+	if inside == "." {
+		inside = ""
+	}
+	return application.TreeLink{Path: rel, Target: filepath.ToSlash(inside), Kind: application.LinkWithin}
 }
 
 // Children lists the direct children of a directory, derived from the file

@@ -80,7 +80,7 @@ func TestPolicyGroupAndGateIDs(t *testing.T) {
 }
 
 func TestGateCommandKeepsLiteralsAndTypedArgs(t *testing.T) {
-	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      command:\n        executable: ./rhino\n        args:\n          - {literal: repo-config}\n          - {literal: validate}\n          - {input: repository.root, expand: single}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
+	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      inputs:\n        repository: { kind: repository-state }\n      command:\n        executable: ./rhino\n        args:\n          - {literal: repo-config}\n          - {literal: validate}\n          - {input: repository.root, expand: single}\n      run-on:\n        pre-commit:\n          bind:\n            repository: { source: checkout }\n        pull-request:\n          reason: replay check\n          bind:\n            repository: { source: checkout }\n  composition:\n    pull-request:\n      relation: exact\n")
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}

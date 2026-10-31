@@ -26,6 +26,9 @@ go vet ./...
 
 # Module gates and the unit suite run with -race on the untouched behaviour
 # first: a data race is a finding in this tool, not a flake to retry.
+# The behaviour corpus is part of ./... and runs here under -race. It is a few
+# seconds of work that builds the binary once, so the quick gate runs the whole
+# corpus rather than a subset.
 go test -race -count=1 ./...
 
 mkdir -p coverage

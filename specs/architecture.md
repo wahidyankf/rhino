@@ -1,150 +1,160 @@
 # RHINO Architecture
 
-The as-built C4 model for the RHINO command-line validator. Behaviour lives in [`behaviours/`](behaviours/README.md);
-this file describes structure. Where the two disagree, the scenarios are canonical and this file is wrong.
+This is the as-built C4 model of the Go implementation. It describes the code that ships today. The Rust library crate
+that preceded it is gone, and nothing here reasons about crates, features, or a second implementation.
 
-## Scope
+RHINO is one process. A command reads one repository's `repo-config.yml`, decides what to inspect, and exits with a code
+the caller can branch on. Reads go through the `Tree` port. Writes reach the repository only through the environment
+store, the adapter store, and the apply step of a mutation gate.
 
-RHINO validates one repository's Markdown, instruction files, and harness adapters against declared policy. Explicit
-gate, toolchain, and adapter commands use separately injected process or transaction ports. A gate with a
-`regular-files` input also reads Git's staged-change or immutable-range metadata through the disk tree adapter before it
-decides whether to dispatch its declared child; ordinary tree validation remains a short-lived, read-only process.
-
-Four constraints shape every box below, and none of them is a convention that could be relaxed later:
-
-- **Read-only validation.** A validator opens no file for writing inside the inspected tree.
-- **Network-free.** RHINO opens no socket, including loopback. External URLs found in Markdown are recognized and
-  skipped, never fetched.
-- **Bounded process launch.** `gate run`, toolchain operations, and adapter generation's `model-resolve` command start
-  only declared argv through separate ports.
-- **Bounded adapter mutation.** Only generation receives an adapter-store port; it replaces declared roots only after a
-  complete lossless plan exists.
-
-## System Context
-
-Both callers run RHINO and read its findings and exit code; RHINO only reads the inspected repository.
+## Level 1: System Context
 
 ```text
-+------------------------+  runs a check         +-----------------+  reads files  +----------------------+
-| Maintainer (person)    |---------------------->|                 |-------------->| Inspected repository |
-|                        |<----------------------| RHINO validator |               | (external)           |
-+------------------------+  findings, exit code  | (system)        |               +----------------------+
-                                                 |                 |
-+------------------------+  runs on push         |                 |
-| Repository gate or     |---------------------->|                 |
-| hook (person)          |<----------------------|                 |
-+------------------------+  findings, exit code  +-----------------+
+  developer or hook --+
+  CI job -------------+
+                      |
+                      v
+            +--------------------+
+            |  RHINO (one Go     |
+            |  static binary)    |
+            +----------+---------+
+                       |
+     +-----------------+------------------+
+     v                 v                  v
+  repository       Git (plumbing)     declared children
+  working tree,    index, range,      gate commands,
+  repo-config.yml  hook message,      mutators, toolchain,
+                   push input         probes, model cmds
 ```
 
-A gate and a maintainer are the same caller from RHINO's side: both pass arguments and read an exit code. The tool has
-no notion of who invoked it, which is why its output has to be legible to a human and parseable by a script from the
-same run.
+The repository is the only source of policy. RHINO holds no default for any policy key: an undeclared policy is a
+refusal, not a silent pass.
 
-## Containers
-
-The executable hands parsed arguments to the library, which reads policy and files, runs declared children, and returns
-findings.
+## Level 2: Containers
 
 ```text
-+------------------+  parses arguments  +---------------------+  reads declared policy  +---------------------+
-| rhino executable |------------------->| rhino library crate |------------------------>| repo-config.yml     |
-| (unit)           |<-------------------| (unit)              |                         | (data)              |
-+------------------+  findings          |                     |                         +---------------------+
-                                        |                     |  validator reads        +---------------------+
-                                        |                     |------------------------>| Repository files    |
-                                        |                     |  adapter transaction    | (data)              |
-                                        |                     |------------------------>|                     |
-                                        |                     |                         +---------------------+
-                                        |                     |  declared argv only     +---------------------+
-                                        |                     |------------------------>| Declared child argv |
-                                        +---------------------+                         | (data)              |
-                                                                                        +---------------------+
+  +-----------------------------------------------------------------+
+  | rhino (cmd/rhino)                                               |
+  |   signals become a context; the result becomes the exit code    |
+  |                                                                 |
+  | internal/bootstrap      wires the production adapters           |
+  | internal/adapters/cli   argv, streams, signal context           |
+  | internal/adapters/config   repo-config.yml decoding             |
+  | internal/adapters/runtime  every operating-system interaction   |
+  | internal/application    use cases and ports                     |
+  | internal/domain         closed error vocabulary                 |
+  +-----------------------------------------------------------------+
+
+  scripts/release-archive   builds the release archive, not part of the binary
+  tests/bdd                 the behaviour corpus runner; builds the binary once
 ```
 
-The split between the binary and the library is not stylistic. Rust links integration tests under `tests/` against a
-crate's library target only, so a binary-only crate would have forced the behaviour corpus into `#[cfg(test)]` modules
-inside `src/` — which is exactly the boundary the specification standard forbids. The library holds every decision; the
-binary holds argument parsing, output writing, and the exit code.
+There is exactly one executable. The other directories are its libraries, or a harness that runs it.
 
-## Components
+## Level 3: Components
 
-The command tree dispatches to grouped checks and operation owners; every check that reads Markdown shares one scan, and
-tree file access converges on the runtime filesystem port. The opt-in `regular-files` gate input uses a separate Git
-metadata boundary in the disk tree adapter. Tags mark entry points, checks, and shared components.
+### cmd/rhino and internal/bootstrap
 
-```text
-cli -- command tree [entry]
- |
- +--> config -- grouped schema [shared] ------------------------------------+
- |                                                                          |
- +--> v0_4 -- grouped dispatch owners [shared]                              |
- |     |                                                                    |
- |     +--> internal_link [check] ---+                                      |
- |     +--> mermaid [check] ---------+                                      |
- |     +--> word_budget [check] -----+--> markdown scan [shared] ---------->+
- |     +--> metadata [check] --------+                                      |
- |     +--> directory_map [check] ----------------------------------------->+
- |     +--> quality_gates [check] ----------------------------------------->+
- |     +--> conventions [check]                                             |
- |                                                                          |
- +--> harness adapters [check] -------------------------------------------->+
- +--> environment and toolchains ------------------------------------------>+--> runtime -- filesystem port [shared]
- +--> lifecycle gates [entry] --> gate resolver [shared] --> Tree port [shared] --> disk tree
-                                      |                            |                +--> Git metadata
-                                      |                            |                       --> raw parser [shared]
-                                      +--> launcher port [shared]  |
-                                      +--> mutation runner port [shared]
-```
+`cmd/rhino` owns the process boundary. It turns SIGINT and SIGTERM into a cancelled context and turns the returned
+integer into the exit status. `internal/bootstrap` wires the production adapters into the CLI application. No other
+package names a concrete adapter.
 
-Tree validators reach the inspected filesystem through one port trait rather than through `std::fs` directly. That is
-what lets the unit adapter drive the corpus against an in-memory tree, and it is also the seam that keeps validators
-read-only: the port exposes no write operation. `regular-files` is an explicit gate selection capability. The gate
-resolver asks the tree for indexed or immutable-range regular destinations before projecting paths to the declared
-child. The disk tree obtains raw Git metadata with fixed local queries; the private `runtime::git_paths` parser
-interprets the NUL-delimited bytes without filesystem or process access. The in-memory tree supplies explicit selections
-for tests. The gate resolver separately dispatches checks through the launcher port and mutations through the mutation
-runner port; the disk metadata adapter starts neither.
+### internal/domain
 
-The Markdown validators share one scan so the tree is walked once per invocation. Directory maps use the declared
-directory projection; harness adapters use their own named inputs and transaction boundary.
+The closed error vocabulary. Each `ErrorCode` has a stable `rhino.*` identifier, and every refusal and JSON error
+document carries one of them. The package has no behaviour beyond naming and classifying errors.
 
-The grouped `v0_4` boundary owns the stable validation, lifecycle, adapter, and operation paths. `gates` dispatches
-declared children through the launcher port. `v0_4::operations` owns environment transactions and the separate toolchain
-runner port; it starts only declared typed argv, without a shell or reported child output.
+### internal/application
+
+The use cases and the ports they need. `cli.go` holds the closed command table: 28 leaves, each with its path, category,
+accepted flags, and summary. `execute.go` parses an invocation against that table, dispatches it, and renders a result.
+Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the others) are pure over a
+`Tree` and the parsed configuration.
+
+`surfaces.go` is the one place a declared surface glob follows a filesystem link. It follows a link only when the link's
+target lies inside the root. It refuses a link that leads outside with `rhino.path.escapes-root`, and a link that loops
+or resolves nowhere with `rhino.file.unreadable`. A link no surface reaches is neither followed nor refused.
+
+### internal/adapters/cli
+
+The argument-to-invocation boundary and the `Application` value that holds each optional port. A nil port is never
+silently replaced by a no-op. Each port documents its own failure:
+
+- A nil `Environment` fails `environment init`, `backup`, and `restore` closed. Reads still work.
+- A nil `Adapters` fails adapter generation closed. Validation still works.
+- A nil `Models` resolves through the declared fallbacks and reports a warning.
+- A nil `Toolchains` and a nil `Mutations` produce the same refusal an unwired entry point reports.
+- A nil `Launcher` refuses gate dispatch honestly.
+
+### internal/adapters/config
+
+Parses `repo-config.yml` into a `Document`, in three layers applied in order. First, serde-shaped structure checks that
+reproduce the oracle's malformed-input wording. Second, closed-vocabulary and reference checks for gate inputs and
+commands (`gate_validation.go`). Third, surface-membership checks that decide which lifecycle surfaces each gate runs.
+
+### internal/adapters/runtime
+
+Every operating-system interaction lives in this package:
+
+| File           | Port implemented                | Responsibility                                      |
+| -------------- | ------------------------------- | --------------------------------------------------- |
+| `disk.go`      | `Tree`                          | Read-only walk; never follows a link to read a file |
+| `launcher.go`  | `Launcher`                      | Gate children: argv, environment, working directory |
+| `mutation.go`  | `MutationRunner`                | Index snapshot and pull-request replay checkouts    |
+| `toolchain.go` | `ToolchainRunner`               | Bounded output, timeouts, and no shell              |
+| `adapters.go`  | `AdapterStore`, `ModelResolver` | Generation writes; model commands run declared argv |
+| `gitpaths.go`  | Git plumbing helpers            | Mode-aware index and range path listing             |
+
+## Ports
+
+The application package declares each boundary as an interface. A validator never reaches past its port.
+
+| Port               | Declared in      | Production adapter             | Used by                                 |
+| ------------------ | ---------------- | ------------------------------ | --------------------------------------- |
+| `Tree`             | `execute.go`     | `runtime.DiskTree`             | every read-only validator               |
+| `Launcher`         | `execute.go`     | `runtime.OSLauncher`           | `gate run`                              |
+| `MutationRunner`   | `mutation.go`    | `runtime.DiskMutationRunner`   | `gate run` on mutation gates            |
+| `ToolchainRunner`  | `toolchain.go`   | `runtime.DiskToolchainRunner`  | `toolchain validate`, applied provision |
+| `EnvironmentStore` | `environment.go` | `runtime.DiskEnvironmentStore` | `environment init`, `backup`, `restore` |
+| `AdapterStore`     | `harness.go`     | `runtime.DiskAdapterStore`     | `harness adapters generate`             |
+| `ModelResolver`    | `harness.go`     | `runtime.DiskModelResolver`    | adapter generation with model commands  |
+
+`Tree` is link-aware. `Files` lists regular files and never a link. `Links` lists every link with where its target lies:
+inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any component of a path is a link, and
+`Read` refuses such a path before it opens anything.
 
 ## Data
 
-RHINO owns no persistent store. Its inputs are the declared configuration and the inspected tree; its outputs are a
-findings report on stdout and an exit code. Nothing survives the process.
+- **Configuration:** one YAML document, decoded once into a `config.Document`. Undeclared keys in closed structures are
+  refused. There is no second configuration source.
+- **Reports:** each command builds an `application.Report` and renders it as text, or as one JSON document when `--json`
+  is given. JSON documents carry `schemaVersion`.
+- **Gate dispatch:** a declared argv, environment projection, and working directory. The child inherits the process
+  environment plus `RHINO_GATE_SURFACE` and the projected entries. Its output is discarded; its exit status decides.
 
-`repo-config.yml` is owned by the consuming repository, not by RHINO. RHINO ships no default for any value in it: a
-repository that declares nothing gets a configuration error rather than a borrowed assumption from whichever repository
-the author had in mind.
+## Exit Codes
 
-## Boundaries
+| Exit    | Meaning                                                                              |
+| ------- | ------------------------------------------------------------------------------------ |
+| `0`     | Ran and found nothing                                                                |
+| `1`     | Ran and found a violation, or a gate reported a finding                              |
+| `2`     | Could not run: invocation, configuration, or an unreadable input                     |
+| `126`   | `gate run` only: a declared child exists but cannot be executed                      |
+| `127`   | `gate run` only: a declared child cannot be found                                    |
+| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe |
 
-- **Process**
-  - Where it is: The `rhino` executable's argument and exit-code contract
-  - How it is held: Observed by the E2E adapter, which sees nothing else
-- **Filesystem**
-  - Where it is: The port trait in `runtime`
-  - How it is held: Substituted wholesale by the unit adapter
-- **Git metadata**
-  - Where it is: The disk tree adapter's fixed index and immutable-range queries, parsed by `runtime::git_paths`
-  - How it is held: Queried only for a declared Git-backed gate input; parser tests use bytes, and the unit tree uses
-    explicit selections
-- **Host process**
-  - Where it is: Launcher, toolchain-runner, and model-resolver ports in `runtime`
-  - How it is held: Declared typed argv only; no shell or output report
-- **Repository root**
-  - Where it is: Every resolved path
-  - How it is held: Escapes by `..`, absolute path, or link are refused or reported, never followed; a surface glob
-    follows a link only to a target inside the root
-- **Trust**
-  - Where it is: The inspected tree is untrusted input
-  - How it is held: Linear-time matching only; no backtracking engine
+A child that ends by a signal is a failing gate. RHINO's own status describes RHINO only, so a child's signal never
+becomes a RHINO status.
 
-The trust boundary is the one most easily lost. RHINO matches patterns against Markdown a repository committed, so a
-pattern engine that can backtrack catastrophically would let content hang the gate. That is why the regex engine is
-chosen for its linear-time guarantee and why three patterns are hand-written parsers rather than being made to fit a
-more expressive engine.
+## Test Layout
+
+| Location                | What it proves                                                  | Run by                |
+| ----------------------- | --------------------------------------------------------------- | --------------------- |
+| `internal/**/*_test.go` | Parsers, validator cores, and adapters in temporary directories | `go test ./...`       |
+| `tests/bdd/`            | Every scenario in `specs/behaviours`, against the built binary  | `go test ./tests/bdd` |
+| `tests/bdd` compliance  | Every step is bound once, every binding is used, count matches  | `go test ./tests/bdd` |
+
+The behaviour suite builds the binary once per run. Each scenario gets its own temporary repository, its own Git
+repository built with plumbing commands, and its own `PATH` directory. It runs `rhino` as a child process and asserts on
+the exit code, the streams, the JSON, and the repository state that remains afterwards. A scenario that cannot run
+hermetically is reported with a proposed reviewed exemption, never dropped.

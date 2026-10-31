@@ -571,7 +571,17 @@ Git destinations from its selection.
 A mutation child runs from its disposable boundary, but a relative `PATH` segment keeps the meaning it had for the
 calling repository. Rhino resolves that segment from the original repository root before the child starts; an absolute
 segment remains unchanged. A consumer therefore declares a portable tool name without embedding its machine-local
-installation path.
+installation path. When the original repository has a `node_modules/.bin` directory, the mutator's `PATH` searches it
+first, so a formatter installed in the project is found on every surface.
+
+On `apply-index`, the selected paths are copied from the Git index into a temporary snapshot, and the mutator runs
+there. A changed file has its new bytes written to the index, and to the working tree when that copy matches the old
+blob. A working-tree copy with unstaged edits is kept as it is, and the change is reported as a divergence. A selected
+file the mutator deletes is removed from the index. A change to any path outside the selection refuses the run with exit
+`2`. Mutation children see `RHINO_GATE_SURFACE` as check children do.
+
+On `verify-clean`, the candidate revision is checked out in a detached, disposable worktree, the mutator runs there, and
+any change to the replay is a finding with exit `1`. The disposable checkout is removed afterwards, even on failure.
 
 ## Modelines
 
@@ -587,8 +597,8 @@ binary reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later 
 
 ## Verification
 
-The validation sequence below was not exercised during this documentation pass. Separate
-source-gate evidence does not record execution of this example sequence.
+The validation sequence below was not exercised during this documentation pass. Separate source-gate evidence does not
+record execution of this example sequence.
 
 There is no schema generator in this tree, so a model change cannot regenerate the artifact; that tooling is tracked
 work. Verify local configuration bytes before review:

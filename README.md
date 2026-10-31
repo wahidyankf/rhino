@@ -115,6 +115,14 @@ The documentation follows [Diátaxis](https://diataxis.fr/).
 The [specifications tree](./specs/README.md) is canonical. If documentation and the executable Gherkin corpus disagree,
 the corpus wins.
 
+## Testing and releases
+
+Every change must pass the quick gate, `./scripts/test-quick.sh`. The behaviour corpus is part of it:
+`go test ./tests/bdd` runs every scenario in the specifications against the built binary. Each push to `main` runs the
+full gate, `./scripts/test.sh`, on Linux and macOS in the Main Test workflow. A release tag builds only from a commit
+whose Main Test run passed. The steps are in the [release cut](./repo-governance/workflows/maintenance/release-cut.md),
+and every release's notes follow the [release notes standard](./repo-governance/workflows/maintenance/release-notes.md).
+
 ## Project status
 
 RHINO is a pre-1.0 product released in the `0.x` line, where a breaking change moves the minor version; the

@@ -103,16 +103,12 @@ func TestGateDecodeRefusesFallbackOnWrongSource(t *testing.T) {
 	}
 }
 
-// TestGateDecodeKeepsMalformedArgvItemsForDispatchRefusal proves a
-// declaration the validator never saw still decodes, so dispatch refuses it
-// with the argv shape message instead of crashing on a missing shape.
-func TestGateDecodeKeepsMalformedArgvItemsForDispatchRefusal(t *testing.T) {
-	document, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      command:\n        executable: ./check\n        args:\n          - {literal: labelled, expand: single}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	gate := document.GatesOn("pre-commit")[0]
-	if len(gate.Args) != 1 {
-		t.Fatalf("unexpected args %v", gate.Args)
+// TestGateDecodeRefusesLiteralArgvWithExpand proves a literal argv item that
+// also names an expansion is refused at parse time, as the oracle refuses it,
+// before any gate can dispatch.
+func TestGateDecodeRefusesLiteralArgvWithExpand(t *testing.T) {
+	_, err := config.Parse("schema: rhino/repo-config/v2\ngates:\n  entries:\n    - id: check\n      type: check\n      command:\n        executable: ./check\n        args:\n          - {literal: labelled, expand: single}\n      run-on:\n        pre-commit: {}\n        pull-request:\n          reason: replay check\n  composition:\n    pull-request:\n      relation: exact\n")
+	if err == nil || !strings.Contains(err.Error(), "line 1: args: adds `expand` to a literal argv item") {
+		t.Fatalf("literal argv with expand not refused like the oracle: %v", err)
 	}
 }

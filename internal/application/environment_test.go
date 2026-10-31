@@ -87,6 +87,10 @@ func (m *envTree) Exists(path string) bool {
 	return false
 }
 
+// Links reports no links: the environment fixture models only the links its
+// PassesThroughLink answers.
+func (m *envTree) Links() []application.TreeLink { return nil }
+
 func (m *envTree) PassesThroughLink(path string) bool {
 	trimmed := strings.Trim(path, "/")
 	if trimmed == "" {

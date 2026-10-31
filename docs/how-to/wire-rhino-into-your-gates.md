@@ -86,9 +86,8 @@ mutation passes without starting the formatter. The canonical mode and empty-sel
 
 The matching declaration in `schemas/repo-config/v2.example.yml` ships as the checked-in example; no gate re-proves it
 since the schema parity test left with the Rust harness. This guide's consumer-specific YAML and the `gate validate` /
-`gate run`
-lifecycle were not exercised here: RHINO has no consumer formatter or matching gate configuration, so no formatter child
-was started.
+`gate run` lifecycle were not exercised here: RHINO has no consumer formatter or matching gate configuration, so no
+formatter child was started.
 
 ## 4. Keep mutations explicit
 

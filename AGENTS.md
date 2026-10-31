@@ -22,13 +22,13 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 - Gherkin first, prove the [red for the stated reason](repo-governance/development/test-driven-development.md), then
   implement. Write scenarios and bindings under [BDD](repo-governance/development/behaviour-driven-development.md); keep
   [the C4 model](repo-governance/development/architecture-specifications.md) true.
-- Every scenario binds at unit adapter without exemption;
+- Every scenario binds at the CLI adapter without exemption;
   [review changed Gherkin](repo-governance/workflows/quality/gherkin-implementation-review.md).
 
 ## Testing
 
-- `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); integration and
-  [end-to-end](repo-governance/development/end-to-end-testing.md) never run in a hook.
+- `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); `./scripts/test.sh` is
+  the full gate, which CI runs.
 - The 99% coverage floor and two declared exclusions are
   [not negotiable](repo-governance/development/software-quality-enforcement.md).
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`

@@ -48,12 +48,17 @@ func headingValidate(document *config.Document, tree Tree, format Format) Outcom
 	if err != nil {
 		return headingRefused(format, domain.ConfigUnusable, err.Error())
 	}
+	files, surfaceErr := surfaceFiles(tree, rules.surfaces, shared)
+	if surfaceErr != nil {
+		return headingRefused(format, surfaceErr.code, surfaceErr.reason)
+	}
 	report := NewReport("heading-hierarchy", "file")
-	for _, path := range scanMarkdown(tree.Files(), shared) {
-		if !matchesAny(rules.surfaces, path) {
+	for _, file := range files {
+		path := file.path
+		if !isMarkdown(path) || !matchesAny(rules.surfaces, path) {
 			continue
 		}
-		text, readErr := tree.Read(path)
+		text, readErr := tree.Read(file.source)
 		if readErr != nil {
 			switch readErr.Kind {
 			case "missing":

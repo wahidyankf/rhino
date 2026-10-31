@@ -149,7 +149,10 @@ carries the verdict.
   - Other fields: `result`
 - `gate run`
   - `command`: `["gate","run"]`
-  - Other fields: `result`, `findings`, `changes`, `metadata`, `summary` (`findings`, `changed`, and `scanned` counts)
+  - Other fields: `result`, `findings`, `changes`, `metadata`, `summary` (`findings`, `changed`, and `scanned` counts),
+    `surface` (the surface that ran), and `completed` (the gate IDs that passed, in run order)
+  - `changes` names the repository paths a mutation gate changed. `findings` is an array that is currently always empty;
+    the finding count is `summary.findings`, and the failing gate is named on stderr.
 
 [Findings](./findings.md) describes each finding kind these documents carry.
 

@@ -32,16 +32,25 @@ func wordBudgetValidate(document *config.Document, tree Tree, format Format) Out
 	if err != nil {
 		return wordBudgetRefused(format, domain.ConfigUnusable, err.Error())
 	}
+	globs := make([]string, 0, len(budget.surfaces))
+	for _, surface := range budget.surfaces {
+		globs = append(globs, surface.glob)
+	}
+	files, refusal := surfaceFiles(tree, globs, skipped)
+	if refusal != nil {
+		return wordBudgetRefused(format, refusal.code, refusal.reason)
+	}
 	report := NewReport("word-budget", "file")
-	for _, path := range tree.Files() {
-		if !isMarkdown(path) || scanExcluded(path, skipped) {
+	for _, file := range files {
+		path := file.path
+		if !isMarkdown(path) {
 			continue
 		}
 		limit := budget.limit(path)
 		if limit == nil {
 			continue
 		}
-		text, readErr := tree.Read(path)
+		text, readErr := tree.Read(file.source)
 		if readErr != nil {
 			switch readErr.Kind {
 			case "missing":

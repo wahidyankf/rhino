@@ -14,11 +14,35 @@ import (
 	"github.com/wahidyankf/rhino/internal/domain"
 )
 
-// SignalContext returns a context cancelled by interrupt or termination.
-// The caller owns the stop function and must defer it.
+// SignalContext returns a context cancelled by interrupt or termination. Its
+// cancellation cause names the signal, so the CLI boundary reports the status
+// for the signal that ended the run. The caller owns the stop function and must
+// defer it.
 func SignalContext(parent context.Context) (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancelCause(parent)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case received := <-signals:
+			if sig, ok := received.(syscall.Signal); ok {
+				cancel(signalCause(sig))
+			} else {
+				cancel(context.Canceled)
+			}
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, func() {
+		signal.Stop(signals)
+		cancel(nil)
+	}
 }
+
+// signalCause is the cancellation cause of a run ended by a signal.
+type signalCause syscall.Signal
+
+func (c signalCause) Error() string { return syscall.Signal(c).String() + " signal received" }
 
 // Application wires one invocation to its streams.
 type Application struct {
@@ -43,6 +67,9 @@ type Application struct {
 	// nil resolves through fallbacks with warnings, the way an unwired
 	// entry point reports.
 	Models application.ModelResolver
+	// Mutations holds the process and write boundary only gate dispatch of a
+	// `type: mutation` gate reaches; nil fails every mutation closed.
+	Mutations application.MutationRunner
 }
 
 // Run executes args and returns the process exit code.
@@ -50,10 +77,18 @@ func (app Application) Run(ctx context.Context) int {
 	return app.RunArgs(ctx, os.Args[1:])
 }
 
-// interruptedExit is 128+SIGINT, the documented status for a run ended by
-// a signal. Termination arrives through the same context, which does not
-// name the signal, so it reports here too.
+// interruptedExit is 128+SIGINT. It is the status for a run cancelled by a
+// context that names no signal.
 const interruptedExit = 130
+
+// cancelledExit is the status for a run a signal ended: 128 plus the signal
+// number, so an interrupt is 130 and a termination is 143.
+func cancelledExit(ctx context.Context) int {
+	if cause, ok := context.Cause(ctx).(signalCause); ok {
+		return 128 + int(cause)
+	}
+	return interruptedExit
+}
 
 // RunArgs executes explicit args and returns the process exit code.
 func (app Application) RunArgs(ctx context.Context, args []string) int {
@@ -104,9 +139,9 @@ func (app Application) RunArgs(ctx context.Context, args []string) int {
 		return emit(stdout, stderr, application.RefuseWith(format,
 			domain.RepositoryUnusable, err.Error()))
 	}
-	outcome := application.ExecuteWithHarness(tree, args, stdinText, app.Launcher, app.Environment, app.Toolchains, app.Adapters, app.Models)
+	outcome := application.ExecuteWithMutations(tree, args, stdinText, app.Launcher, app.Environment, app.Toolchains, app.Adapters, app.Models, app.Mutations)
 	if ctx.Err() != nil {
-		return interruptedExit
+		return cancelledExit(ctx)
 	}
 	return emit(stdout, stderr, outcome)
 }

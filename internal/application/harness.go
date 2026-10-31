@@ -706,7 +706,7 @@ func decodeHarnessFixedValue(raw any) (string, error) {
 func decodeHarnessListName(raw any) (string, error) {
 	value, ok := raw.(string)
 	if !ok || value != "skills" {
-		return "", fmt.Errorf("harness profiles lists names unknown list `%v`: expected `skills`", raw)
+		return "", fmt.Errorf("harness profiles lists: unknown variant `%v`, expected `skills`", raw)
 	}
 	return value, nil
 }

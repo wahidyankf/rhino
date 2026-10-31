@@ -9,5 +9,6 @@ Upkeep and delivery: what keeps the repository clean, lean, released, and integr
 - [Dev artifact clean-up modules](dev-artifact-clean-up/README.md) — other actors' artifacts, bare clones, and leaked
   test containers, in reading order.
 - [Release cut](release-cut.md) — building, checksumming, and tagging a release that can never be replaced.
+- [Release notes](release-notes.md) — the five sections every published release's notes must carry.
 - [Rules grooming](rules-grooming.md) — a sweep for volume carrying no obligation. Never writes.
 - [Worktree to pull request](worktree-to-pull-request.md) — the only path from a change to `main`.

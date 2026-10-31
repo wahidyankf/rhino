@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -339,11 +338,24 @@ func containsAdapterPath(paths []string, path string) bool {
 	return false
 }
 
-// modelCaptured is what the output reader kept: at most one byte past the
-// bound, so an over-long child is still detected after it is reaped.
-type modelCaptured struct {
-	output []byte
-	failed error
+// boundedCapture keeps at most one byte past its limit and counts the rest
+// without retaining it. It never blocks the child, so Wait owns the copy and no
+// reader can race the pipe being closed under it.
+type boundedCapture struct {
+	limit int
+	kept  []byte
+	total int64
+}
+
+func (c *boundedCapture) Write(p []byte) (int, error) {
+	c.total += int64(len(p))
+	if room := c.limit + 1 - len(c.kept); room > 0 {
+		if len(p) < room {
+			room = len(p)
+		}
+		c.kept = append(c.kept, p[:room]...)
+	}
+	return len(p), nil
 }
 
 // DiskModelResolver is the no-shell process boundary for a declared
@@ -363,22 +375,14 @@ func (DiskModelResolver) Resolve(launch application.ModelLaunch) (string, error)
 	}
 	command := exec.Command(program, launch.Arguments[1:]...)
 	command.Dir = launch.Directory
-	stream, err := command.StdoutPipe()
-	if err != nil {
-		return "", fmt.Errorf("could not start model command: %s", err.Error())
-	}
+	// A grandchild that keeps the output open must not hold the boundary
+	// past its timeout: once the child is reaped, the copy gets this long.
+	command.WaitDelay = time.Second
+	captured := boundedCapture{limit: maxModelOutput}
+	command.Stdout = &captured
 	if err := command.Start(); err != nil {
 		return "", fmt.Errorf("could not start model command: %s", err.Error())
 	}
-	read := make(chan modelCaptured, 1)
-	go func() {
-		output, err := io.ReadAll(io.LimitReader(stream, maxModelOutput+1))
-		if err != nil {
-			read <- modelCaptured{failed: fmt.Errorf("could not read model command output: %s", err.Error())}
-			return
-		}
-		read <- modelCaptured{output: output}
-	}()
 	waited := make(chan error, 1)
 	go func() { waited <- command.Wait() }()
 	timer := time.NewTimer(time.Duration(launch.TimeoutSeconds) * time.Second)
@@ -387,23 +391,18 @@ func (DiskModelResolver) Resolve(launch application.ModelLaunch) (string, error)
 	case <-timer.C:
 		_ = command.Process.Kill()
 		<-waited
-		<-read
 		return "", fmt.Errorf("the model command exceeded its timeout")
 	case err := <-waited:
 		// The wait error is discarded on purpose: the exit below is read
 		// from the reaped process state, which reports a signal death and a
 		// nonzero status alike.
 		_ = err
-		captured := <-read
-		return finishModel(command, captured)
+		return finishModel(command, &captured)
 	}
 }
 
-func finishModel(command *exec.Cmd, captured modelCaptured) (string, error) {
-	if captured.failed != nil {
-		return "", captured.failed
-	}
-	if int64(len(captured.output)) > maxModelOutput {
+func finishModel(command *exec.Cmd, captured *boundedCapture) (string, error) {
+	if captured.total > maxModelOutput {
 		return "", fmt.Errorf("the model command emitted too much output")
 	}
 	state := command.ProcessState
@@ -413,8 +412,8 @@ func finishModel(command *exec.Cmd, captured modelCaptured) (string, error) {
 	if state.ExitCode() != 0 {
 		return "", fmt.Errorf("the model command exited with status %d", state.ExitCode())
 	}
-	if !utf8.Valid(captured.output) {
+	if !utf8.Valid(captured.kept) {
 		return "", fmt.Errorf("the model command emitted non-text output")
 	}
-	return string(captured.output), nil
+	return string(captured.kept), nil
 }
