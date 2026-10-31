@@ -768,6 +768,30 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|run|--surface|pull-request|--base|aaaaaaaa|--head|bbbbbbbb"
     Then the exit code is 0
 
+  Scenario: A gate child observes its selecting surface
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: surface-check
+            type: check
+            command:
+              executable: ./check-surface
+            run-on:
+              pre-commit: {}
+              pull-request: {}
+        composition:
+          pull-request:
+            relation: exact
+      """
+    And the repository contains:
+      | path          | content                                                     |
+      | README.md     | # Surface probe                                             |
+      | check-surface | #!/bin/sh\n[ "$RHINO_GATE_SURFACE" = pre-commit ]\n          |
+    When I invoke the CLI with "gate|run|--surface|pre-commit"
+    Then the exit code is 0
+
   Scenario Outline: An omitted lifecycle group is refused rather than read as empty
     Given the configuration file is this text:
       """
