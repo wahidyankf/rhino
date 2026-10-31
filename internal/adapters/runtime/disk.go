@@ -41,16 +41,21 @@ func (t *DiskTree) RootedAt(path string) (application.Tree, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("`--root` names nothing")
 	}
+	// The root is resolved too: a working directory reached through a link
+	// keeps the link's spelling, and the resolved candidate never matches it.
+	root := filepath.Clean(t.Dir)
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		root = resolved
+	}
 	candidate := path
 	if !filepath.IsAbs(candidate) {
-		candidate = filepath.Join(t.Dir, path)
+		candidate = filepath.Join(root, path)
 	}
 	cleaned, err := filepath.EvalSymlinks(candidate)
 	if err != nil {
 		// EvalSymlinks fails for missing paths; fall back to lexical containment.
 		cleaned = filepath.Clean(candidate)
 	}
-	root := filepath.Clean(t.Dir)
 	if cleaned != root && !strings.HasPrefix(cleaned+string(filepath.Separator), root+string(filepath.Separator)) {
 		return nil, fmt.Errorf("`--root %s` escapes the repository root", path)
 	}

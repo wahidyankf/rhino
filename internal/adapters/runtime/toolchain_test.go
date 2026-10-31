@@ -2,6 +2,7 @@ package runtime_test
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -19,8 +20,20 @@ func runVector(t *testing.T, executable string, arguments ...string) (applicatio
 	})
 }
 
+// hostTool resolves a standard utility on this host's PATH. A fixed /bin path is
+// not portable: macOS has no /bin/true or /bin/false.
+func hostTool(t *testing.T, name string) string {
+	t.Helper()
+	path, err := exec.LookPath(name)
+	if err != nil {
+		t.Fatalf("%s is not on PATH: %v", name, err)
+	}
+	return path
+}
+
 func TestDiskToolchainRunnerRunsDeclaredVectorsDirectly(t *testing.T) {
-	result, err := runVector(t, "/bin/true")
+	trueTool, falseTool := hostTool(t, "true"), hostTool(t, "false")
+	result, err := runVector(t, trueTool)
 	if err != nil || result.Code != 0 {
 		t.Fatalf("true failed: %+v %v", result, err)
 	}
@@ -28,7 +41,7 @@ func TestDiskToolchainRunnerRunsDeclaredVectorsDirectly(t *testing.T) {
 	if err != nil || result.Code != 0 || strings.TrimSpace(result.Stdout) != "1.2.3" {
 		t.Fatalf("echo failed: %+v %v", result, err)
 	}
-	result, err = runVector(t, "/bin/false")
+	result, err = runVector(t, falseTool)
 	if err != nil || result.Code == 0 {
 		t.Fatalf("false looked clean: %+v %v", result, err)
 	}
@@ -50,6 +63,7 @@ func TestDiskToolchainRunnerRunsDeclaredVectorsDirectly(t *testing.T) {
 // and its output.
 func TestDiskToolchainRunnerKeepsOutputOfFastExitingChildren(t *testing.T) {
 	const workers, runsPerWorker = 16, 40
+	trueTool := hostTool(t, "true")
 	var guard sync.Mutex
 	failed, first := 0, ""
 	record := func(label string, result application.ToolchainResult, err error) {
@@ -70,7 +84,7 @@ func TestDiskToolchainRunnerKeepsOutputOfFastExitingChildren(t *testing.T) {
 				if err != nil || result.Code != 0 || result.Stdout != "fast\n" {
 					record("echo", result, err)
 				}
-				result, err = runVector(t, "/bin/true")
+				result, err = runVector(t, trueTool)
 				if err != nil || result.Code != 0 || result.Stdout != "" {
 					record("true", result, err)
 				}

@@ -3,6 +3,7 @@ package application
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -233,7 +234,7 @@ func ExecuteWithMutations(tree Tree, args []string, stdin *string, launcher Laun
 	case "toolchain-validate":
 		return toolchainValidate(document, runner, invocation.Format)
 	case "toolchain-provision":
-		return provisionToolchains(document, runner, invocation.Apply, invocation.Format)
+		return provisionToolchains(document, runner, runtime.GOOS, invocation.Apply, invocation.Format)
 	case "harness-adapters-validate":
 		return harnessValidate(document, current, invocation.Format)
 	case "harness-adapters-generate":

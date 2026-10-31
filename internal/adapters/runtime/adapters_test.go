@@ -136,6 +136,7 @@ func TestDiskModelResolverRunsTheDeclaredVector(t *testing.T) {
 }
 
 func TestDiskModelResolverRefusesWithoutStartingAnythingUseful(t *testing.T) {
+	falseTool := hostTool(t, "false")
 	rows := []struct {
 		name      string
 		arguments []string
@@ -145,7 +146,7 @@ func TestDiskModelResolverRefusesWithoutStartingAnythingUseful(t *testing.T) {
 		{"blank executable", []string{"  "}, "the model command's executable is invalid"},
 		{"leading dash executable", []string{"-x"}, "the model command's executable is invalid"},
 		{"missing program", []string{"/nonexistent-rhino-model-list"}, "could not start model command"},
-		{"failing status", []string{"/bin/false"}, "the model command exited with status 1"},
+		{"failing status", []string{falseTool}, "the model command exited with status 1"},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -169,8 +170,10 @@ func TestDiskModelResolverBoundsTimeAndText(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "the model command exceeded its timeout") {
 		t.Fatalf("timeout error = %v", err)
 	}
+	// Byte 0xff as an octal escape, which POSIX printf defines. The hex form
+	// printed valid text on the macOS CI leg, so the case passed without an error.
 	_, err = (runtime.DiskModelResolver{}).Resolve(application.ModelLaunch{
-		Arguments: []string{"/usr/bin/printf", "\\xff"}, Directory: t.TempDir(), TimeoutSeconds: 30,
+		Arguments: []string{"/usr/bin/printf", "\\377"}, Directory: t.TempDir(), TimeoutSeconds: 30,
 	})
 	if err == nil || !strings.Contains(err.Error(), "the model command emitted non-text output") {
 		t.Fatalf("non-text error = %v", err)
