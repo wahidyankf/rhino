@@ -14,10 +14,12 @@ type stubLauncher struct {
 	notExecutable bool
 	refused       string
 	seen          [][]string
+	seenLaunch    []application.GateLaunch
 }
 
-func (s *stubLauncher) Launch(argv []string, _ string) application.Launched {
-	s.seen = append(s.seen, argv)
+func (s *stubLauncher) Launch(launch application.GateLaunch) application.Launched {
+	s.seen = append(s.seen, launch.Argv)
+	s.seenLaunch = append(s.seenLaunch, launch)
 	return application.Launched{Code: s.code, NotFound: s.notFound, NotExecutable: s.notExecutable, Refused: s.refused}
 }
 
