@@ -16,7 +16,7 @@ The standards own the rules. Hexagonal Architecture and Functional Core, Imperat
 [Behaviour-Driven Development](../../../repo-governance/development/behaviour-driven-development.md) govern tests;
 [Dependency Selection](../../../repo-governance/development/dependency-selection.md) governs what is added; and
 Implementation Stages orders the work. A language's stack standard, such as
-[Rust Standards](../../../repo-governance/development/quality/stacks/rust-standards.md), adds its own choices. This
+[Shell Standards](../../../repo-governance/development/quality/stacks/shell-standards.md), adds its own choices. This
 skill covers the judgement those rules leave to whoever writes the code.
 
 ## Place Code Before Writing It

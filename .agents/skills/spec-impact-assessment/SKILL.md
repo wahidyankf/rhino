@@ -26,7 +26,7 @@ nothing behind it is not an assessment.
 1. Write or edit the Gherkin **first**.
 2. Bind it at the unit adapter.
 3. Run it and confirm it fails **because the behaviour is absent** — not because the binding is missing, the fixture is
-   wrong, or the crate does not compile. A red for the wrong reason proves nothing.
+   wrong, or the build fails. A red for the wrong reason proves nothing.
 4. Write production code until it passes.
 5. Bind the remaining applicable adapters, or record an exemption.
 
