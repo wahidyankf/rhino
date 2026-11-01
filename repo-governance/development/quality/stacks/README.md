@@ -3,7 +3,7 @@ description: >-
   Indexes the stack standards this repository adopted, the enforced gates, defaults, and design rules one language adds,
   and the repository adapter that records how they apply here.
 when_to_use: >-
-  Use when changing Rust or shell code here, or when deciding whether a rule belongs to one stack or to every change.
+  Use when changing Go or shell code here, or when deciding whether a rule belongs to one stack or to every change.
 ---
 
 # Stack Standards
@@ -12,14 +12,17 @@ The stack standards this repository adopted from the shared catalog: one per lan
 by design: it records the normative choices that stack's code must meet, and links the language-neutral standards
 instead of restating them. A stack's skill defers to its standard. Placement, inheritance, and the inventory that
 selects them follow [Stack Packs](../../../conventions/structure/stack-packs.md); how each applies here, and every
-deviation, is in the repository adapter.
+deviation, is in the repository adapter. The `golang` pack has no standard file here yet, so the repository adapter
+records the Go decisions in the meantime.
 
 ## Directory Map
 
 - [Repository Adapter](repository-adapter.md) — the packs adopted here, the decisions their standards leave open, and
   every local deviation
-- [Rust Standards](rust-standards.md) — explicit editions, rustfmt and pedantic Clippy gates, forbidden unsafe code, one
-  async runtime and serializer, and typed errors
-- [Rust Standards Modules](rust-standards/README.md) — Rust code organisation, domain-type shapes, and security rules
+- [Rust Standards](rust-standards.md) — the catalog's Rust standard: explicit editions, rustfmt and pedantic Clippy
+  gates, forbidden unsafe code, one async runtime and serializer, and typed errors. Not adopted here, because this
+  repository has no Rust code.
+- [Rust Standards Modules](rust-standards/README.md) — the modules of that Rust standard: code organisation, domain-type
+  shapes, and security rules. Not adopted here.
 - [Shell Standards](shell-standards.md) — beyond Shell Scripts: a supported dialect, analyser and formatter gates,
   quoted and validated input, and behaviour tests without coverage

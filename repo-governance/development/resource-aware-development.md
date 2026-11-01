@@ -4,7 +4,7 @@ Local compute runs under the checksum-pinned [`./hippo`](../../hippo) wrapper, w
 workstation across every repository the maintainer runs; a dispatched node's one boundary sits on the target host.
 
 ```sh
-./hippo run --class ephemeral --resource-tier heavy --disk-path . -- cargo xtask test-quick
+./hippo run --class ephemeral --resource-tier heavy --disk-path . -- ./scripts/test-quick.sh
 ```
 
 The `pre-push` hook already does this. Runs of `prettier` and `markdownlint-cli2`, in any mode over any files, need no
@@ -57,13 +57,15 @@ not theoretical: an unguarded fan-out once forced a restart of the shared workst
 HIPPO cannot defer or shed work it was never told about, so it still reported `normal`.
 
 [`.claude/hooks/require-hippo-boundary.sh`](../../.claude/hooks/require-hippo-boundary.sh) therefore refuses a
-compute-bearing command carrying no outer boundary, before the process spawns. It decides only _whether_ a boundary is
-present, never _which_ class is right; class choice needs intent and stays a judgment. Claude Code and Codex both bind
-it, and the script is byte-identical to the copy every other consuming repository carries — one file, so a hardening fix
-cannot land in one copy and quietly miss the rest.
+compute-bearing command carrying no outer boundary, before the process spawns, for the tools its verb table names: npm,
+npx, nx, dotnet, cargo, and mix. It decides only _whether_ a boundary is present, never _which_ class is right; class
+choice needs intent and stays a judgment. Claude Code and Codex both bind it, and the script is byte-identical to the
+copy every other consuming repository carries — one file, so a hardening fix cannot land in one copy and quietly miss
+the rest.
 
-Two gaps stay open and recorded: a verb reached through an interpreter or Makefile target passes, since text matching
-cannot close that in principle, and enforcement reaches only what a harness exposes.
+Three gaps stay open and recorded: a verb reached through an interpreter or Makefile target passes, since text matching
+cannot close that in principle; enforcement reaches only what a harness exposes; and the table names no `go` verb, so a
+direct `go test` or `go run` passes the hook unguarded. The `pre-push` gate still runs the quick gate under HIPPO.
 
 ## Related
 

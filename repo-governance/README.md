@@ -42,7 +42,8 @@ the higher level wins and the lower one changes. Link to a higher rule rather th
 
 They were extracted from a sibling repository's governance tree and adapted here. Roughly a third of that tree was
 rejected outright: it describes a live service, a database, a browser, and a workspace task runner, none of which exist
-in a Rust CLI. What survived was rewritten against this repository's own rules rather than copied over them.
+in a command-line tool such as this one. What survived was rewritten against this repository's own rules rather than
+copied over them.
 
 **Nothing keeps the copies synchronized, and that is the decision rather than an oversight.** The only shared contract
 is the machine-checked one: [`repo-config.yml`](../repo-config.yml) and the validator each repository runs. A future

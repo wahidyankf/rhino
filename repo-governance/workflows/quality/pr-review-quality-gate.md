@@ -24,15 +24,15 @@ The surface follows [Review Surface](pr-review-quality-gate/001-review-surface.m
 
 The checker reports none of these properties. The pipeline on the exact head runs their owners.
 
-| Property                                | Owned by                  | This repository runs                    |
-| --------------------------------------- | ------------------------- | --------------------------------------- |
-| Formatting and Markdown rules           | the formatter and linter  | `prettier`, `markdownlint-cli2`         |
-| Rust formatting, lints, tests, coverage | the quick gate            | `cargo xtask test-quick`                |
-| Internal links                          | the link validator        | `rhino md internal-link validate`       |
-| Word budgets                            | the word-budget validator | `rhino governance word-budget validate` |
-| Adapters match their source             | the adapter validator     | `rhino harness adapters validate`       |
-| Commit messages                         | the commit-message checks | `scripts/check-commit-message.sh`       |
-| Secrets and private references          | the outbound leak screen  | `scripts/public-safety/check.sh`        |
+| Property                            | Owned by                  | This repository runs                    |
+| ----------------------------------- | ------------------------- | --------------------------------------- |
+| Formatting and Markdown rules       | the formatter and linter  | `prettier`, `markdownlint-cli2`         |
+| Go formatting, vet, tests, coverage | the quick gate            | `./scripts/test-quick.sh`               |
+| Internal links                      | the link validator        | `rhino md internal-link validate`       |
+| Word budgets                        | the word-budget validator | `rhino governance word-budget validate` |
+| Adapters match their source         | the adapter validator     | `rhino harness adapters validate`       |
+| Commit messages                     | the commit-message checks | `scripts/check-commit-message.sh`       |
+| Secrets and private references      | the outbound leak screen  | `scripts/public-safety/check.sh`        |
 
 These pass to each pass as its delegated checks. The leak screen's judgement stays with
 [PR Leak Review](pr-leak-review.md).

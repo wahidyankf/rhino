@@ -16,5 +16,5 @@ the repository as it was and may name paths that have since moved; its files sta
 ## Enforcement
 
 ```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- go run ./cmd/rhino md internal-link validate
 ```

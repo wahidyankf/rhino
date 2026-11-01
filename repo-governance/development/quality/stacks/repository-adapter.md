@@ -13,10 +13,10 @@ A stronger local rule always wins over an adopted one, and every difference is r
 
 ## Adopted Packs
 
-| Pack    | Status  | Reason                                    |
-| ------- | ------- | ----------------------------------------- |
-| `rust`  | adapted | the test layout deviates; two gate gaps   |
-| `shell` | adapted | two strict-mode deviations; two gate gaps |
+| Pack     | Status  | Reason                                                                 |
+| -------- | ------- | ---------------------------------------------------------------------- |
+| `golang` | adapted | applies to the product code; inventory key `go`; no local standard yet |
+| `shell`  | adapted | two strict-mode deviations; two gate gaps                              |
 
 ## Shared Standards
 
@@ -43,6 +43,7 @@ Not adopted:
   each rests on owners this repository does not hold.
 - **A reference page under `docs/`**, because
   [documentation architecture](../../../conventions/documentation-architecture.md) keeps `docs/` for people using RHINO.
+- **Rust Standards and the Rust skill**, because this repository has no Rust code.
 
 A catalog owner with no local counterpart stays named in the adopted text without a link.
 
@@ -57,36 +58,25 @@ A catalog owner with no local counterpart stays named in the adopted text withou
   [release cut](../../../workflows/maintenance/release-cut.md).
 - **software quality enforcement**
   - Decision: coverage floor
-  - Choice: 99% of lines over the validator modules, in the unit run
-  - Reason: local floor; two exclusions are proved end to end
+  - Choice: policy 99% over the domain, application, and config packages; the quick gate pins 94%
+  - Reason: the gap is stated in [software quality enforcement](../../software-quality-enforcement.md)
 - **quality gates**
   - Decision: task runner
-  - Choice: `cargo xtask` behind `npm run test:quick`
-  - Reason: gate automation stays typed and tested; no task graph
-- `rust-standards.md`
-  - Decision: edition
-  - Choice: 2024 in every manifest
-  - Reason: current; nothing to migrate
-- `rust-standards.md`
+  - Choice: plain shell gates behind `npm run test:quick`
+  - Reason: no task graph
+- `golang`
+  - Decision: formatting, vet, and race detection
+  - Choice: `gofmt`, `go vet ./...`, and `go test -race -count=1 ./...` in the quick gate
+  - Reason: a race in this tool is a finding, not a flake
+- `golang`
   - Decision: unit test placement
-  - Choice: deviation: the unit adapter lives in `tests/unit`
-  - Reason: one behaviour corpus runs through three adapters
-- `rust-standards.md`
-  - Decision: lint table
-  - Choice: gap: flags and `clippy.toml` only; no `pedantic` or `unwrap_used` denial
-  - Reason: review applies the rule; the code work comes later
-- `rust-standards.md`
-  - Decision: unsafe code
-  - Choice: gap: `#![forbid(unsafe_code)]` per crate root, not the manifest lint
-  - Reason: the local rule stays; test targets are not yet covered
-- `rust-standards.md`
-  - Decision: async runtime
-  - Choice: not applicable
-  - Reason: no async code
-- `001-code-shape-and-security`
-  - Decision: security libraries
-  - Choice: not applicable
-  - Reason: no secret, transport, or query
+  - Choice: `_test.go` beside each package; `tests/bdd` runs every scenario against the built binary
+  - Reason: every scenario is a command-line scenario
+- `golang`
+  - Decision: static analysis and vulnerability checks
+  - Choice: `go vet`, and `go tool govulncheck ./...` in the full gate; gaps: no linter, licence, duplicate-module, or
+    `unsafe` check
+  - Reason: review covers the rest
 - `shell-scripts.md`
   - Decision: interpreter
   - Choice: Bash; deviation: the pinned `./hippo` wrapper is POSIX `sh`
@@ -115,13 +105,14 @@ A catalog owner with no local counterpart stays named in the adopted text withou
 
 ## Project Applicability
 
-- [rhino](../../../../README.md) — the CLI and library; [quality gates](../../quality-gates.md) names its commands.
-- xtask — the gate and release automation in `xtask/`, named in quality gates; outside the coverage floor.
+- [rhino](../../../../README.md) — the binary in `cmd/rhino` and its `internal/` packages;
+  [quality gates](../../quality-gates.md) names its commands.
+- `scripts/release-archive` — the Go archiver that `scripts/build-release.sh` runs; outside the coverage floor.
 - [public-safety](../../../../scripts/public-safety/README.md) — the adopted outbound scanner and its case suite.
 - repo-scripts — the hook helpers in `scripts/` and the guard in `.claude/hooks/`, named in quality gates and tested by
   their own runners; no coverage, per Meaningful Coverage.
 
 ## Version Sources
 
-- `rust`: `rust-toolchain.toml`, `Cargo.toml`, `xtask/Cargo.toml`, `Cargo.lock`
+- `golang`: `go.mod` and `go.sum`, which pin the Go toolchain and the `govulncheck` tool
 - `shell`: `.github/workflows/pr-quality-gate.yml` (ShellCheck)

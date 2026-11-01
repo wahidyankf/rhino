@@ -33,7 +33,7 @@ denials, and constraints are authoritative wherever the documented adapter forma
 ### 3. Run the deterministic proof
 
 ```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- go run ./cmd/rhino harness adapters validate
 ```
 
 Record the exit status, the contract digest, and the reconciled harness, skill, and agent counts. On failure, review

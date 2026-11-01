@@ -18,8 +18,8 @@ A new dependency needs four things stated before it is added: the need it meets,
 evidence that it is maintained and that its defects get answered, and an owned consequence — who deals with it when it
 breaks or is abandoned.
 
-`cargo deny` gates advisories, licences, and duplicate sources, but it cannot tell whether a dependency should exist.
-That judgement is this rule's.
+`govulncheck` gates known vulnerabilities in the dependencies and the standard library a build links, but it cannot tell
+whether a dependency should exist. That judgement is this rule's.
 
 ## What This Is Not
 

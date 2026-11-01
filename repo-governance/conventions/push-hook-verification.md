@@ -11,13 +11,14 @@ the sequence instead of passing silently above a successful commit. Exit `1` is 
 both block, and neither has a bypass.
 
 - `commit-msg` screens the message, then runs `commitlint`, enforcing Conventional Commits.
-- `pre-commit` screens the staged content and names, then runs `lint-staged`, which formats staged files only.
+- `pre-commit` screens the staged content and names, then runs the `format-staged` gate, which runs Prettier on the
+  staged Markdown, JSON, and YAML files only.
 - `pre-push` screens the tracked tree and the branch name, then each pushed commit's additions, names, and message, then
-  runs `cargo xtask test-quick` under the pinned HIPPO guard. It is the mechanical half of the
-  [push review](../workflows/quality/pr-leak-review/002-push-review.md), never the whole of it. Exit `124` means a limit
-  stopped the work, and the reason on stderr says which: retry that same invocation once the condition clears, or take
-  the [worktree-to-PR exception](#worktree-to-pr-exception) when its conditions hold — a hook held back before any check
-  started holds no finding to fix.
+  runs the rest of its declared surface, which includes the quick gate, `./scripts/test-quick.sh`, under the pinned
+  HIPPO guard. It is the mechanical half of the [push review](../workflows/quality/pr-leak-review/002-push-review.md),
+  never the whole of it. Exit `124` means a limit stopped the work, and the reason on stderr says which: retry that same
+  invocation once the condition clears, or take the [worktree-to-PR exception](#worktree-to-pr-exception) when its
+  conditions hold — a hook held back before any check started holds no finding to fix.
 
 ## Requirements
 
