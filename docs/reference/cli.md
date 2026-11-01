@@ -24,9 +24,9 @@ it; RHINO does not invent a policy or route an old command through a replacement
 `scheduled`, or `manual`. Its configuration declares every typed input, argv token, and environment projection.
 Arguments after `--` are refused, so a caller cannot replace or extend a declared command.
 
-Tree validators read files, write nothing, start no process, and use no network. Adapter generation (including a
-declared `model-resolve` command), declared gate execution, environment operations, and toolchain provision use their
-own explicit boundaries.
+Tree validators read files, write nothing, and use no network. Their only child processes are read-only Git queries,
+such as the staging check of `env validate`. Adapter generation (including a declared `model-resolve` command), declared
+gate execution, environment operations, and toolchain provision use their own explicit boundaries.
 
 ## Options
 
