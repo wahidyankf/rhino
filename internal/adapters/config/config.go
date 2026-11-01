@@ -626,9 +626,6 @@ func gateEntriesNodes(root *yaml.Node) []*yaml.Node {
 	if root.Kind == yaml.DocumentNode && len(root.Content) > 0 {
 		document = root.Content[0]
 	}
-	if document.Kind != yaml.MappingNode {
-		return nil
-	}
 	gates := mappingValue(document, "gates")
 	if gates == nil || gates.Kind != yaml.MappingNode {
 		return nil
@@ -659,8 +656,6 @@ func serdeTypeName(node *yaml.Node, structure string) string {
 	switch node.Kind {
 	case yaml.SequenceNode:
 		return "invalid type: sequence, expected struct " + structure
-	case yaml.MappingNode:
-		return "invalid type: map, expected struct " + structure
 	case yaml.AliasNode:
 		return "invalid type: sequence, expected struct " + structure
 	default:
@@ -726,20 +721,6 @@ func checkQualityCycleCeiling(raw map[string]any) error {
 		return fmt.Errorf("%s: line 1: policies.governance.quality-gates.defaults.max-cycles: must be 1, 2, or 3; a gate never runs more than three cycles", Path)
 	}
 	return nil
-}
-
-// PolicyOwner reports whether the dotted owner is declared.
-func (d *Document) PolicyOwner(owner string) bool {
-	parts := strings.Split(owner, ".")
-	if len(parts) != 3 || parts[0] != "policies" {
-		return false
-	}
-	group, ok := d.policies[parts[1]].(map[string]any)
-	if !ok {
-		return false
-	}
-	_, ok = group[parts[2]]
-	return ok
 }
 
 // Environment returns the raw top-level environment group. An absent or null

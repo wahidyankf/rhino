@@ -58,8 +58,8 @@ A catalog owner with no local counterpart stays named in the adopted text withou
   [release cut](../../../workflows/maintenance/release-cut.md).
 - **software quality enforcement**
   - Decision: coverage floor
-  - Choice: policy 99% over the domain, application, and config packages; the quick gate pins 94%
-  - Reason: the gap is stated in [software quality enforcement](../../software-quality-enforcement.md)
+  - Choice: policy 99% over the domain, application, and config packages; the quick gate pins 99%
+  - Reason: the floor is stated in [software quality enforcement](../../software-quality-enforcement.md)
 - **quality gates**
   - Decision: task runner
   - Choice: plain shell gates behind `npm run test:quick`

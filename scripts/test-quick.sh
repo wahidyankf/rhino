@@ -5,10 +5,9 @@ set -eu
 # tests with -race, deterministic-core coverage, and a binary smoke run.
 # Documentation hygiene is dispatched elsewhere, as in the hippo template.
 #
-# Coverage floor note: the repository floor is 99% on the deterministic core
-# (domain, application, config). The port currently measures ~95%; the gate
-# below pins the achieved value so regressions fail loudly, and raising it to
-# 99 as the remaining validator cores land is tracked work, not a waiver.
+# Coverage floor: the repository floor is 99% on the deterministic core
+# (domain, application, config). The gate below pins that floor, so any
+# regression below 99% fails the quick gate.
 
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
@@ -38,7 +37,7 @@ go test -count=1 \
 	./internal/domain ./internal/application ./internal/adapters/config \
 	./internal/adapters/cli ./internal/adapters/runtime >/dev/null
 total=$(go tool cover -func=coverage/unit.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
-minimum=94
+minimum=99
 if [ "${total%.*}" -lt "$minimum" ]; then
 	echo "deterministic-core coverage ${total}% is below the pinned ${minimum}%" >&2
 	exit 1

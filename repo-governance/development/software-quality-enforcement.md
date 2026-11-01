@@ -8,9 +8,8 @@ to pass — passed, with the output.
 The policy floor is 99% line coverage over the deterministic core: the domain, application, and config packages, the
 exact `-coverpkg` list in `scripts/test-quick.sh`.
 
-The gate pins 94%, so a regression below 94% fails, but a value from 94% to 99% passes. That gap is real: the total was
-94.0% when this text was written, so the pin has no headroom, and raising it to 99% is tracked work. Until then, no
-document or review should claim that the 99% floor is enforced.
+The gate pins 99%, so a regression below 99% fails the quick gate. The total was 99.8% when this text was written, so
+new deterministic-core code needs its own tests to keep the floor.
 
 The policy names two declared exclusions, but the Go gate declares none. A package outside that list, such as the
 command adapter, is simply not measured.

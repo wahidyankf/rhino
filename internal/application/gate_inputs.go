@@ -346,15 +346,7 @@ func isCommit(value string) bool {
 // isZero reports whether value is a non-empty all-zero object ID: the push
 // record marker for a created or deleted ref.
 func isZero(value string) bool {
-	if value == "" {
-		return false
-	}
-	for i := 0; i < len(value); i++ {
-		if value[i] != '0' {
-			return false
-		}
-	}
-	return true
+	return value != "" && strings.Trim(value, "0") == ""
 }
 
 // pushRange is one parsed pre-push update record.

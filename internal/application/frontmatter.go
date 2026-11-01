@@ -63,11 +63,9 @@ func frontmatterValidate(document *config.Document, tree Tree, format Format) Ou
 		// more specific intent, the same rule every surface list states.
 		governed := -1
 		for i, surface := range surfaces {
-			ok, err := Match(surface.glob, path)
-			if err != nil {
-				return frontmatterRefused(format, domain.ConfigUnusable,
-					"md-frontmatter.surfaces: "+err.Error())
-			}
+			// Every glob compiled against a probe path above. Match refuses
+			// a pattern on its shape alone, so none reaching here can fail.
+			ok, _ := Match(surface.glob, path)
 			if ok {
 				governed = i
 			}

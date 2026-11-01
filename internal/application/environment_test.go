@@ -526,6 +526,9 @@ func TestEnvironmentDetectorLanguagesReportOnlyNames(t *testing.T) {
 		{"ansible missing comma", "ansible", "{{ lookup('env') }}\n", "[]", 1, "unsupported-dynamic-access (<dynamic>)"},
 		{"ansible unquoted key", "ansible", "{{ lookup('env', name) }}\n", "[]", 1, "unsupported-dynamic-access (<dynamic>)"},
 		{"ansible unquoted lookup", "ansible", "{{ lookup(name, 'A3') }}\n", "[]", 1, "unsupported-dynamic-access (<dynamic>)"},
+		{"type-script marker at the end of the source", "type-script", "process.env.", "[]", 1, "unsupported-dynamic-access (<dynamic>)"},
+		{"ansible lookup at the end of the source", "ansible", "{{ lookup(", "[]", 1, "unsupported-dynamic-access (<dynamic>)"},
+		{"go call at the end of the source", "go", "os.Getenv(", "[]", 1, "unsupported-dynamic-access (<dynamic>)"},
 	} {
 		tree := envConfig("environment:\n" +
 			"  contracts:\n    - path: cfg\n      keys: " + tc.keys + "\n" +
