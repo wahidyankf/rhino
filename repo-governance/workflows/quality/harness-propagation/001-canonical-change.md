@@ -67,7 +67,7 @@ a release.
 ### 4. Verify
 
 ```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- go run ./cmd/rhino harness adapters validate
 ```
 
 Review findings by kind, field, harness, and path. Matching counts are not proof.

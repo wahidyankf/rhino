@@ -23,14 +23,14 @@ specification tree. Any other `max-cycles` value, or a missing subject, refuses 
 
 The checker reports none of these properties. The entry and exit checks run their owners instead.
 
-| Property                                  | Owned by                 | This repository runs                        |
-| ----------------------------------------- | ------------------------ | ------------------------------------------- |
-| Every scenario bound at every adapter     | the coverage check       | `cargo xtask test-quick`                    |
-| Scenario syntax                           | the corpus parser        | `cargo xtask test-quick`                    |
-| Scenarios pass against the implementation | the test suites          | `cargo xtask test-quick`, the scheduled run |
-| Markdown formatting                       | the formatter and linter | `prettier`, `markdownlint-cli2`             |
-| Internal links                            | the link validator       | `rhino md internal-link validate`           |
-| Directory maps                            | the map validator        | `rhino governance directory-map validate`   |
+| Property                                  | Owned by                 | This repository runs                         |
+| ----------------------------------------- | ------------------------ | -------------------------------------------- |
+| Every scenario bound at every adapter     | the coverage check       | `./scripts/test-quick.sh`                    |
+| Scenario syntax                           | the corpus parser        | `./scripts/test-quick.sh`                    |
+| Scenarios pass against the implementation | the test suites          | `./scripts/test-quick.sh`, the scheduled run |
+| Markdown formatting                       | the formatter and linter | `prettier`, `markdownlint-cli2`              |
+| Internal links                            | the link validator       | `rhino md internal-link validate`            |
+| Directory maps                            | the map validator        | `rhino governance directory-map validate`    |
 
 A property no tool of its own owns leaves the table and becomes judgeable, per Deterministic and Judgement Validation.
 

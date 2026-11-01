@@ -68,7 +68,7 @@ The roster of harnesses, adapter contracts, and capability vocabulary lives in
 [`repo-config.yml`](../../repo-config.yml). This document states the requirement, not the roster.
 
 ```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- go run ./cmd/rhino harness adapters validate
 ```
 
 `harness adapters validate` is read-only, network-free, path-contained, and deterministic. It normalizes only a BOM and

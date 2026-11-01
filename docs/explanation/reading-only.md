@@ -24,18 +24,16 @@ with a timeout; `harness adapters validate` never does.
 stricter than the layer rule it sits under, which permits an integration test to own a loopback socket — that permission
 is about test plumbing, and this is a claim about the product.
 
-**It contains no `unsafe` code.** `#![forbid(unsafe_code)]`, checked.
+**It imports no `unsafe` package.** No gate checks that yet, so review confirms it.
 
 ## Why they are tests rather than prose
 
 A README that says "RHINO does not reach the network" is a promise. A test that fails when a dependency capable of
-reaching the network appears in the lock file is a mechanism.
+reaching the network appears in the module graph is a mechanism. The Go tree has no such test yet, so that claim rests
+on review until one exists.
 
-The difference showed up while writing those tests. The first version of the network check searched the dependency list
-for known networking crates and passed. It also passed when the crate it searched for was absent for a reason that had
-nothing to do with networking — because a search that finds nothing looks exactly like a search that is broken. The test
-now includes a **positive control**: the same search, in the same form, must find a crate that is certainly there. Any
-test whose success condition is "found nothing" needs one.
+Any test whose success condition is "found nothing" needs a **positive control**: the same search, in the same form,
+must find a case that is certainly there. A search that finds nothing looks exactly like a search that is broken.
 
 ## What it cannot reach
 

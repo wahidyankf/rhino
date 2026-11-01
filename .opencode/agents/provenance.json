@@ -80,7 +80,7 @@
     {
       "id": "skill/release-cut",
       "path": ".agents/skills/release-cut/SKILL.md",
-      "digest": "5a68b15fb2aa7cdaef2f168c35a8e57699c07c68b1856c75674fea7565956f26"
+      "digest": "9613885ecf36912417901a41530f4cb612e0ca989321866dc5ed3b3d4a2b5ad2"
     },
     {
       "id": "skill/spec-impact-assessment",
@@ -95,7 +95,7 @@
     {
       "id": "skill/worktree-to-pr",
       "path": ".agents/skills/worktree-to-pr/SKILL.md",
-      "digest": "163b2dfd806a1c384854374f419aa873f85e2daa0dcddb2f61e9e9d809372be3"
+      "digest": "3422f775bd5be6f7f2b707e5035c1320147b0f1813d9946cf9f2fa13a1eaf556"
     },
     {
       "id": "instruction",

@@ -36,8 +36,10 @@ Colour distinguishes the three phases only; the labels carry the meaning.
    — repair that first.
 
    ```sh
-   cargo test --test unit <filter>
+   go test -count=1 -run '<TestName>' ./internal/application
    ```
+
+   Name the package the test lives in. Behaviour scenarios run through `go test ./tests/bdd` instead.
 
 2. **Green.** Make the minimum production change for that test. Run the same target and confirm the new test and its
    neighbours pass. Change nothing else while red-to-green is in flight.
@@ -52,7 +54,7 @@ Colour distinguishes the three phases only; the labels carry the meaning.
 After the final cycle, run the quick gate:
 
 ```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask test-quick
+./hippo run --class ephemeral --resource-tier heavy --disk-path . -- ./scripts/test-quick.sh
 ```
 
 The completed work must carry evidence of the expected red failure and the final green result. If the harness itself is

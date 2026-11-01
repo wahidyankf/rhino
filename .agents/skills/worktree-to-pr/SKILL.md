@@ -29,8 +29,9 @@ One worktree per task, reused for every delivery unit. A second `git worktree ad
    the sync brings commits in.
 2. Commit thematically, with authorization.
 3. Pass the push leak review of every outgoing commit, then `git push`. The `pre-push` hook screens the pushed range
-   commit by commit and runs `cargo xtask test-quick` under the HIPPO guard. Exit `124` means a limit stopped the work:
-   retry the same invocation once it clears; `--no-verify` only under the [worktree-to-PR exception][hook-exception].
+   commit by commit and runs the declared `quick` gate, `./scripts/test-quick.sh` under the HIPPO guard. Exit `124`
+   means a limit stopped the work: retry the same invocation once it clears; `--no-verify` only under the
+   [worktree-to-PR exception][hook-exception].
 4. `gh pr create --draft --base main --title "<type>: <subject>" --body-file <path>`.
 5. `gh pr checks <number>` — at most once every three minutes. Use the interval for independent work.
 6. Repair a failing job at its cause. Never weaken the gate.

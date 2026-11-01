@@ -40,8 +40,10 @@ link to it rather than compressing a neighbour to make room.
 ## Enforcement
 
 ```sh
-./hippo run --class ephemeral --resource-tier standard --disk-path . -- cargo xtask self-validate
+./hippo run --class ephemeral --resource-tier standard --disk-path . -- \
+  go run ./cmd/rhino governance directory-map validate
 ```
 
-The same command runs as the last step of `cargo xtask test-quick`, which is what the `pre-push` hook and the
-[pull-request quality gate](../../.github/workflows/pr-quality-gate.yml) run.
+The `directory-map` gate in [`repo-config.yml`](../../repo-config.yml) declares this check on the `pre-push` and
+`pull-request` surfaces, so the `pre-push` hook runs it. The
+[pull-request quality gate](../../.github/workflows/pr-quality-gate.yml) workflow does not replay that surface yet.

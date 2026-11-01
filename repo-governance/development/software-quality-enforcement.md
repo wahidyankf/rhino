@@ -5,8 +5,15 @@ to pass — passed, with the output.
 
 ## Coverage
 
-Line coverage over the validator modules stays at or above 99%. `src/main.rs` and the concrete filesystem adapter are
-the only declared exclusions, and `README.md` says what they are and why a unit test may not reach them.
+The policy floor is 99% line coverage over the deterministic core: the domain, application, and config packages, the
+exact `-coverpkg` list in `scripts/test-quick.sh`.
+
+The gate pins 94%, so a regression below 94% fails, but a value from 94% to 99% passes. That gap is real: the total was
+94.0% when this text was written, so the pin has no headroom, and raising it to 99% is tracked work. Until then, no
+document or review should claim that the 99% floor is enforced.
+
+The policy names two declared exclusions, but the Go gate declares none. A package outside that list, such as the
+command adapter, is simply not measured.
 
 The floor is a floor. Lowering it, widening an exclusion, or excluding a module that became hard to test is a change to
 what this repository is willing to ship, not a test-infrastructure adjustment.
@@ -33,8 +40,9 @@ These are enforced by tests rather than by documentation, because a documented i
 no-loopback rule is stricter than the integration layer's own boundary, which permits an owned socket — deliberately,
 because a validator a maintainer hesitates to point at an unfamiliar tree is a validator that does not get run.
 
-`#![forbid(unsafe_code)]` stays. `cargo deny check` gates advisories, licences, and duplicate sources, and a new
-advisory is a defect to fix rather than a rule to relax.
+The repository's packages import no `unsafe`, but no gate checks that yet, so review confirms it.
+`go tool govulncheck ./...` runs in the full gate, and a vulnerability it reports is a defect to fix rather than a rule
+to relax.
 
 ## Prohibited Data Enforced by a Gate
 

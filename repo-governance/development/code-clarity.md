@@ -5,8 +5,8 @@
 Separate setup, validation, decision, mutation, and return phases with blank lines. A reader should be able to see a
 function's shape before reading its statements.
 
-A formatter is not semantic grouping. `cargo fmt` decides where the line breaks go; it has no opinion about which
-statements belong together, and a function it has formatted can still be an undifferentiated wall.
+A formatter is not semantic grouping. `gofmt` decides where the line breaks go; it has no opinion about which statements
+belong together, and a function it has formatted can still be an undifferentiated wall.
 
 ## Comments
 

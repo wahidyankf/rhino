@@ -11,8 +11,8 @@ than an aspiration.
   once is not an artifact.
 - Keep caches small and scoped. A cache key that never hits is storage spent for nothing, and a cache that grows without
   bound eventually evicts the ones that work.
-- Prefer recomputing a cheap thing over caching it. A Rust build cache is worth having; a `node_modules` cache for two
-  dev dependencies is not.
+- Prefer recomputing a cheap thing over caching it. A Go build and module cache is worth having; a `node_modules` cache
+  for two dev dependencies is not.
 - Watch the total. When storage approaches the allowance, reduce retention or stop producing an artifact — never move to
   a paid tier silently.
 
