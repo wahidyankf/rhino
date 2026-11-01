@@ -22,8 +22,8 @@ printf '# Notes\n\n[Guide](guide.md)\n' > docs/README.md
 
 ## 2. Declare grouped policy
 
-Create `repo-config.yml`. The declaration below opts into only local Markdown link validation; every other policy
-remains absent.
+Create `repo-config.yml` at the root of `rhino-example`. The declaration below opts into only local Markdown link
+validation; every other policy remains absent.
 
 ```yaml
 schema: rhino/repo-config/v2
@@ -49,8 +49,9 @@ The link points to a file that does not exist, so the declared validator reports
 $ rhino md internal-link validate
 ```
 
-RHINO reports the repository-relative source and target. It never follows a path outside the selected repository root. A
-target reached through a symbolic link is reported as outside the repository, never read.
+RHINO reports the source as a repository-relative path and the target as the link writes it. It never follows a path
+outside the selected repository root. A target reached through a symbolic link is reported as outside the repository,
+never read.
 
 ## 4. Fix the repository
 

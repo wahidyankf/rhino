@@ -122,6 +122,10 @@ whether anything was written or run:
 | `toolchain provision`         | `planned`   | `count`, `toolchains` (IDs)                     |
 | `toolchain provision --apply` | `completed` | `count`                                         |
 
+The transcript below was run in a temporary repository whose `repo-config.yml` declares one `environment.examples` pair
+with an existing source file. RHINO's own repository declares no environment group, so there the same command refuses
+with `rhino.config.undeclared`.
+
 ```console
 $ rhino env init --output json
 {"command":"environment-init","count":1,"schemaVersion":1,"status":"planned","targets":[".env.generated"]}

@@ -15,7 +15,7 @@ sized by the surface they describe.
 Organize `docs/` by the [Diátaxis framework](https://diataxis.fr/):
 
 - `tutorials/` — learning-oriented lessons that carry a newcomer through one successful experience.
-- `how-to-guides/` — goal-oriented directions for completing a practical task.
+- `how-to/` — goal-oriented directions for completing a practical task.
 - `reference/` — information-oriented description, accurate and consultable during work.
 - `explanation/` — understanding-oriented discussion of context, reasons, and design.
 
