@@ -2,11 +2,11 @@ Feature: Public output is screened before it leaves the repository
 
   This contract lives beside the implementation rather than under
   `specs/behaviours/`. Everything in that directory is discovered by RHINO's
-  Gherkin harness and must be bound in Rust at the unit, integration, and end
-  to end adapters with no exemption at unit. The subject here is a shell leaf
-  with no Rust port, and its cheapest honest proof runs a scanner against an inert
-  runtime marker, which is not what the unit adapter is for. The executable
-  binding is `tests/run.sh`: one case per scenario, named after it.
+  Go behaviour harness and must be bound at the CLI adapter with no exemption.
+  The subject here is a shell leaf with no Go port, and its cheapest honest
+  proof runs a scanner against an inert runtime marker, which is not what a
+  CLI-adapter binding is for. The executable binding is `tests/run.sh`: one
+  shell case per scenario, named after it.
 
   Background:
     Given a repository whose repo-config declares public visibility

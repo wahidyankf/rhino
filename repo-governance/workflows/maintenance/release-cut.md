@@ -56,7 +56,8 @@ release artifact suite.
    `checksums.txt`.
 
    ```sh
-   ./scripts/build-release.sh "v<version>" "$(git rev-parse HEAD)" dist
+   ./hippo run --class ephemeral --resource-tier standard --disk-path . -- \
+     ./scripts/build-release.sh "v<version>" "$(git rev-parse HEAD)" dist
    (cd dist && sha256sum -c checksums.txt)
    ```
 

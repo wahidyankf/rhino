@@ -897,7 +897,7 @@ extensions:
       rhino:
         path: .
         kind: app
-        stacks: [go]
+        stacks: [golang]
       repo-scripts:
         path: scripts
         kind: tooling
