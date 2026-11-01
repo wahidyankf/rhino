@@ -67,6 +67,51 @@ not the policy a repository declared.
 sub-policies. `convention emoji validate` reads `policies.conventions.emoji`. These grouped projections retain the
 existing scanner, findings, and no-default behavior.
 
+### Governance and license keys
+
+Each key below is read by the validator named with it, and an unlisted key refuses the run with exit `2`. The required
+keys are named in each heading; every other key is optional, and the entry says what an omitted one does.
+
+`policies.governance.word-budget` needs `count` and `surfaces`.
+
+- `count`: `letters-and-digits` counts runs of letters, marks, and digits, joined by an apostrophe, hyphen, or
+  underscore. `whitespace-separated` counts the fields between whitespace.
+- `surfaces`: a list of `{glob, fail}` entries, and both keys are required. `glob` selects Markdown files, and `fail` is
+  the most words a selected file may hold. Where two entries match one file, the last one wins.
+- `warn` and `target` are accepted in an entry and ignored. They are not checked, reported, or enforced.
+
+`policies.governance.layers` needs `root`, and `order` and `categories` are optional.
+
+- `root`: an exact repository path. Every direct child of `root` is a layer, so a file there is reported too.
+- `order`: the layer names, which must each exist. A name uses only lowercase letters, digits, and hyphens.
+- `categories`: a map from a layer named in `order` to the directory names that layer must hold. A missing category is
+  reported, and so is a directory the layer does not list. Files directly inside a layer are not checked.
+
+`policies.governance.vendor` has four optional lists, each empty when omitted.
+
+- `roots`: exact paths. Every file under a root is read.
+- `excluded-binding-roots`: exact paths. Files under them are never read, even inside a root.
+- `forbidden-terms`: strings. A file under a root that contains a term, case-sensitively, is a `forbidden-vendor-term`
+  finding. An empty term refuses the run.
+- `vocabulary-exceptions`: entries of `{term, paths}`. A term is accepted only at its exact `paths`. An exception with
+  no `paths` accepts the term nowhere.
+
+`policies.governance.traceability` has two optional lists, `artifacts` and `relationships`.
+
+- `artifacts`: entries of `{id, path}`. An `id` uses lowercase letters, digits, and hyphens, and it must be unique. When
+  the file at `path` is missing, the run reports `missing-traceability-artifact`.
+- `relationships`: entries of `{from, to}`, and both must name declared ids. `from` must contain a local Markdown link
+  that resolves to the `to` artifact's path, or the run reports `missing-traceability-relationship`. An undeclared id
+  refuses the run with exit `2`.
+
+`policies.conventions.license` has two optional lists, `paths` and `exclusions`.
+
+- `paths`: entries of `{path, identifiers, sha256}`. `path` is an exact path and must not repeat. Each `identifiers`
+  item must appear in the file, case-sensitively. `sha256` is 64 lowercase hexadecimal characters, the SHA-256 of the
+  file's content. A missing file is `missing-license`, a missing identifier is `license-identifier-mismatch`, and a
+  different digest is `license-digest-mismatch`.
+- `exclusions`: exact paths. A listed path is neither read nor checked.
+
 ### Mermaid policy
 
 `policies.markdown.mermaid` configures `md mermaid validate`. Every key below except the required ones is optional, and
@@ -141,7 +186,8 @@ policies:
 `gate-headings`, `propagation-headings`, and `verdicts` must each be non-empty and unique, and no `retired-inputs` entry
 may be blank. A declaration that breaks any rule in this list is a configuration error with exit `2` for
 `repo-config validate` and `governance quality-gates validate`, before any file is read; a command that does not read
-the key is unaffected. A `defaults.max-cycles` outside 1–3 is refused by every command that reads `repo-config.yml`.
+the key is unaffected. A `defaults.max-cycles` outside 1–3 makes every command that loads `repo-config.yml` exit `2`,
+including a command that reads no quality-gate policy.
 
 Each finding names its rule as a `rule` detail: `QG01` to `QG08`, `QG10`, or `QG11`. QG09 is the configuration error
 above, never a finding. The kinds are in [Findings](findings.md#quality-gates).

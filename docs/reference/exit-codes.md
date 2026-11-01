@@ -34,9 +34,11 @@ the run reports what it scanned so an empty match is visible rather than silent.
 `1` — one or more findings. Findings go to stderr, one per line, each prefixed with the command category. stdout still
 carries the summary.
 
-`1` from `gate run` — a check child that exits non-zero or ends by a signal, or a mutation child that exits non-zero or
-changes a selected file. RHINO writes `[gate] <id> failed` to stdout and one `reported a finding` line to stderr, and
-never repeats the child's output. Under `--output json` the result reports one finding for the gate.
+`1` from `gate run` — a check child that exits non-zero or ends by a signal, or a mutation child that exits non-zero. On
+the `pull-request` surface, a mutation gate's `verify-clean` replay also exits `1` when the replay changes a selected
+file. On `pre-commit`, the `apply-index` run applies such a change and the gate passes with exit `0`. For each failure,
+RHINO writes `[gate] <id> failed` to stdout and one `reported a finding` line to stderr, and never repeats the child's
+output. Under `--output json` the result reports one finding for the gate.
 
 `2` — any of:
 

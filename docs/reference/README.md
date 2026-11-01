@@ -13,7 +13,7 @@ Where a page here and [`specs/behaviours/`](../../specs/behaviours/README.md) di
 - [Findings](./findings.md) — stable grouped-v2 validation finding kinds.
 - [JSON output](./json-output.md) — validation result envelopes and command-specific status documents.
 - [Configuration](./configuration.md) — the grouped v2 contract and stable predecessor handling.
-- [Grouped v2 Configuration](./v0-4-configuration.md) — the grouped contract, which keys each validator checks, the
+- [Grouped v2 Configuration](./v0-4-configuration.md) — the grouped contract, the keys of the groups it covers, the
   checked-in schema, modelines, and offline verification.
 
 ## Next steps

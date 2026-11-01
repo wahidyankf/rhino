@@ -26,7 +26,7 @@ the checked-in schema, modelines, and predecessor handling; this page indexes it
 - `extensions` — Opaque, namespaced mappings that Rhino preserves without interpreting.
 
 Consumers validate their local configuration with `rhino repo-config validate`. The
-[grouped v2 reference](./v0-4-configuration.md) defines each supported group, the
+[grouped v2 reference](./v0-4-configuration.md) documents the keys of the groups it covers, the
 [modelines](./v0-4-configuration.md#modelines) a consumer pins, and
 [predecessor handling](./v0-4-configuration.md#stable-predecessor-handling).
 
