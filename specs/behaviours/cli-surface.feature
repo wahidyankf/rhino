@@ -1,4 +1,4 @@
-Feature: CLI build identity, process boundaries, and exclusion scope
+Feature: CLI build identity, repository selection, process boundaries, and exclusion scope
 
   Scenario: The version command prints the build identity
     When I invoke the CLI with "version"
@@ -14,6 +14,29 @@ Feature: CLI build identity, process boundaries, and exclusion scope
   Scenario: The version command refuses a flag it does not accept
     When I invoke the CLI with "version|--xml"
     Then the exit code is 2
+
+  Scenario: A root naming a directory outside the working directory is accepted
+    Given the directory outside the repository contains:
+      | path            | content                      |
+      | repo-config.yml | schema: rhino/repo-config/v2 |
+    When I invoke the CLI with "--root|../outside|repo-config|validate"
+    Then the exit code is 0
+    And stdout contains "checked 1 configuration file"
+
+  Scenario: A root naming a missing directory is refused as an unusable repository
+    When I invoke the CLI with "--root|../missing|repo-config|validate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.repository.unusable"
+    And stderr contains "names nothing usable"
+
+  Scenario: A selection that climbs out of the chosen root is still refused
+    Given the directory outside the repository contains:
+      | path            | content                      |
+      | repo-config.yml | schema: rhino/repo-config/v2 |
+    When I invoke the CLI with "--root|../outside|md|mermaid|validate|--file|../held.md|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.path.escapes-root"
+    And stderr contains "escapes the repository root"
 
   Scenario: A gate child that cannot be found exits 127 and says so
     Given the configuration file is this text:
