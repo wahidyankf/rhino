@@ -29,7 +29,7 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 
 - `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); `./scripts/test.sh` is
   the full gate, which CI runs.
-- Coverage policy: 99% over the domain, application, and config packages; the quick gate pins 94% and declares no
+- Coverage policy: 99% over the domain, application, and config packages; the quick gate pins 99% and declares no
   exclusions.
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
   read its reason, `125` replan or drain, `2` fix the call. Route

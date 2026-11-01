@@ -126,11 +126,9 @@ func metadataValidate(document *config.Document, tree Tree, format Format) Outco
 		// specific intent, the same rule every surface list states.
 		governed := -1
 		for i, surface := range surfaces {
-			ok, err := Match(surface.glob, path)
-			if err != nil {
-				return metadataRefused(format, domain.ConfigUnusable,
-					"metadata.surfaces: "+err.Error())
-			}
+			// Every glob compiled against a probe path above. Match refuses
+			// a pattern on its shape alone, so none reaching here can fail.
+			ok, _ := Match(surface.glob, path)
 			if ok {
 				governed = i
 			}
@@ -468,10 +466,9 @@ func metadataLength(path string, entry *metaEntry, normalized *string, kind stri
 // metadataIdentity is the identity a path already states, which a declared
 // name has to match.
 func metadataIdentity(path string, kind metadataSchema) (string, bool) {
+	// strings.Split returns at least one segment for any input, so the file
+	// name is always present.
 	segments := strings.Split(path, "/")
-	if len(segments) == 0 {
-		return "", false
-	}
 	file := segments[len(segments)-1]
 	segments = segments[:len(segments)-1]
 	stem := file

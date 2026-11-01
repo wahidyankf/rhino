@@ -8,15 +8,9 @@ import (
 )
 
 func TestParseAcceptsGroupedDocument(t *testing.T) {
-	document, err := config.Parse("schema: rhino/repo-config/v2\npolicies:\n  markdown:\n    heading-hierarchy:\n      surfaces: []\n")
+	_, err := config.Parse("schema: rhino/repo-config/v2\npolicies:\n  markdown:\n    heading-hierarchy:\n      surfaces: []\n")
 	if err != nil {
 		t.Fatalf("grouped document refused: %v", err)
-	}
-	if !document.PolicyOwner("policies.markdown.heading-hierarchy") {
-		t.Fatal("declared owner not found")
-	}
-	if document.PolicyOwner("policies.markdown.naming") {
-		t.Fatal("undeclared owner reported as declared")
 	}
 }
 

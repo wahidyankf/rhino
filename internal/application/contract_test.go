@@ -15,6 +15,7 @@ type memoryTree struct {
 	vanished        map[string]bool
 	binary          map[string]bool
 	links           map[string]bool
+	escapes         map[string]bool
 	root            string
 	indexed         []string
 	hasIndex        bool
@@ -26,10 +27,11 @@ type memoryTree struct {
 	gitRefs         map[string]string
 	hookMessageFile string
 	hasHookFile     bool
+	treeLinks       []application.TreeLink
 }
 
 func newMemoryTree(root string) *memoryTree {
-	return &memoryTree{files: map[string]string{}, unreadable: map[string]bool{}, vanished: map[string]bool{}, binary: map[string]bool{}, links: map[string]bool{}, root: root, changed: map[[2]string][]string{}, changedRegular: map[[2]string][]string{}, commitMessages: map[[2]string]string{}, gitRefs: map[string]string{}}
+	return &memoryTree{files: map[string]string{}, unreadable: map[string]bool{}, vanished: map[string]bool{}, binary: map[string]bool{}, links: map[string]bool{}, escapes: map[string]bool{}, root: root, changed: map[[2]string][]string{}, changedRegular: map[[2]string][]string{}, commitMessages: map[[2]string]string{}, gitRefs: map[string]string{}}
 }
 
 // stagePaths sorts and deduplicates one staged selection, the way the
@@ -115,6 +117,9 @@ func (m *memoryTree) Read(path string) (string, *application.ReadError) {
 	if m.binary[path] {
 		return "", &application.ReadError{Kind: "not-text", Reason: path + ": holds no text"}
 	}
+	if m.escapes[path] {
+		return "", &application.ReadError{Kind: "escapes", Reason: path + ": passes through a symbolic link"}
+	}
 	text, ok := m.files[path]
 	if !ok {
 		return "", &application.ReadError{Kind: "missing", Reason: path + ": no such file"}
@@ -143,9 +148,9 @@ func (m *memoryTree) Exists(path string) bool {
 	return false
 }
 
-// Links reports no links: the in-memory tree models links only for the
-// PassesThroughLink answers the validators read.
-func (m *memoryTree) Links() []application.TreeLink { return nil }
+// Links reports the links a test stages, and none by default: an unstaged tree
+// has no links, which is what the walks saw before any link was modelled.
+func (m *memoryTree) Links() []application.TreeLink { return m.treeLinks }
 
 func (m *memoryTree) PassesThroughLink(path string) bool {
 	trimmed := strings.Trim(path, "/")

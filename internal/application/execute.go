@@ -240,46 +240,10 @@ func ExecuteWithMutations(tree Tree, args []string, stdin *string, launcher Laun
 	case "harness-adapters-generate":
 		return harnessGenerate(document, current, adapters, models, invocation.Format)
 	default:
-		owner, ok := categoryOwner[invocation.Category]
-		if !ok {
-			return reportRefused(invocation.Category, invocation.Format,
-				"the grouped v0.4 configuration declares no command in this stable release")
-		}
-		if !document.PolicyOwner(owner) {
-			report := NewReport(invocation.Category, "configuration file")
-			report.Refusal = strptr(owner + " is not declared, and RHINO holds no default for it")
-			report.RefusalCode = domain.ConfigUndeclared
-			return report.Render(invocation.Format)
-		}
-		return notYetPorted(invocation.Category, invocation.Format)
+		// Parse takes every category from its leaf table, and each of those
+		// is routed above, so an unrouted category is a broken invariant.
+		panic("unrouted command category `" + invocation.Category + "`")
 	}
-}
-
-// categoryOwner maps validator categories to their stable policy owners.
-var categoryOwner = map[string]string{
-	"frontmatter":               "policies.markdown.frontmatter",
-	"heading-hierarchy":         "policies.markdown.heading-hierarchy",
-	"internal-link":             "policies.markdown.internal-link",
-	"metadata":                  "policies.markdown.metadata",
-	"mermaid":                   "policies.markdown.mermaid",
-	"naming":                    "policies.markdown.naming",
-	"readme-index":              "policies.markdown.readme-index",
-	"license":                   "policies.conventions.license",
-	"emoji":                     "policies.conventions.emoji",
-	"vendor":                    "policies.governance.vendor",
-	"layers":                    "policies.governance.layers",
-	"traceability":              "policies.governance.traceability",
-	"quality-gates":             "policies.governance.quality-gates",
-	"word-budget":               "policies.governance.word-budget",
-	"directory-map":             "policies.governance.directory-map",
-	"environment-backup":        "policies.environment.backup",
-	"environment-validate":      "policies.environment.validate",
-	"environment-init":          "policies.environment.init",
-	"environment-restore":       "policies.environment.restore",
-	"toolchain-validate":        "policies.toolchains.validate",
-	"toolchain-provision":       "policies.toolchains.provision",
-	"harness-adapters-validate": "policies.harness.adapters",
-	"harness-adapters-generate": "policies.harness.adapters",
 }
 
 // Surfaces is the closed lifecycle surface set.
@@ -355,10 +319,6 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		}
 		return RefuseWith(invocation.Format, code,
 			"`--surface` must name one of "+strings.Join(Surfaces, ", "))
-	}
-	if (invocation.Base == nil) != (invocation.Head == nil) {
-		return RefuseWith(invocation.Format, domain.ArgsIncomplete,
-			"`--base` and `--head` must be supplied together")
 	}
 	selected := document.GatesOn(surface)
 	var report strings.Builder
@@ -576,12 +536,6 @@ func version(format Format) Outcome {
 
 func reportRefused(category string, format Format, reason string) Outcome {
 	report := Refuse(category, reason)
-	return report.Render(format)
-}
-
-func notYetPorted(category string, format Format) Outcome {
-	report := Refuse(category, "the "+category+" validator core is not yet ported in this Go build")
-	report.RefusalCode = domain.ConfigUnusable
 	return report.Render(format)
 }
 

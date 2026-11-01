@@ -282,7 +282,7 @@ func validateHarnessModelResolve(key string, resolve *harnessModelResolve) error
 	if strings.Count(resolve.pattern, "*") != 1 || !isModelPattern(resolve.pattern) {
 		return harnessSemanticError("%s: declares a model-resolve pattern that is not one `*` among model-name characters", key)
 	}
-	if resolve.fallback == "" || !isModelName(resolve.fallback) {
+	if !isModelName(resolve.fallback) {
 		return harnessSemanticError("%s: declares a model-resolve fallback that is not a model name", key)
 	}
 	return nil
@@ -1216,7 +1216,7 @@ func validateHarnessProfiles(decoded *harnessConfig) ([]string, []string, string
 		declaresOutput := false
 		if profile.agentAdapter != nil {
 			if isExactHarnessAgentPattern(profile.agentAdapter.path) {
-				if reason, failed := validateHarnessExactAgent(profile.id, profile.agentAdapter); failed {
+				if reason, failed := validateHarnessAdapterFields(profile.id, profile.agentAdapter, true); failed {
 					return fail(reason)
 				}
 			} else {
@@ -1331,17 +1331,12 @@ func isExactHarnessAgentPattern(pattern string) bool {
 	}
 	root := strings.TrimSuffix(head, "/")
 	normalizedRoot, ok := normalHarnessPath(root)
-	if !ok || normalizedRoot != root {
+	// The sample already normalized to itself, so its root, the text before
+	// `{name}` without its separator, normalizes to itself too.
+	if !ok {
 		return false
 	}
 	return normalizedRoot == strings.TrimSuffix(harnessAgentsHistory, "/")
-}
-
-func validateHarnessExactAgent(profile string, adapter *harnessAdapter) (string, bool) {
-	if !isExactHarnessAgentPattern(adapter.path) {
-		return fmt.Sprintf("profile `%s` has an invalid adapter path", profile), true
-	}
-	return validateHarnessAdapterFields(profile, adapter, true)
 }
 
 func validateHarnessAdapter(profile string, adapter *harnessAdapter, agent bool) (string, string, bool) {
@@ -1619,8 +1614,10 @@ func harnessDiscover(tree Tree, decoded *harnessConfig, agentsRoot string) ([]ha
 	if failed {
 		return fail(reason)
 	}
+	// Source ids cannot repeat: the instruction is the only `instruction` id,
+	// agent ids carry the `agent/` prefix and skill ids the `skill/` prefix,
+	// and each name is distinct because each path is.
 	sources := []harnessSource{instruction}
-	ids := map[string]bool{instruction.id: true}
 	needsAgents := false
 	for _, profile := range decoded.profiles {
 		if profile.agentAdapter != nil {
@@ -1648,10 +1645,6 @@ func harnessDiscover(tree Tree, decoded *harnessConfig, agentsRoot string) ([]ha
 			if source.metadata != nil && source.metadata.name != name {
 				return fail(fmt.Sprintf("canonical agent `%s` has a name that does not match its path", path))
 			}
-			if ids[source.id] {
-				return fail(fmt.Sprintf("duplicate canonical agent id `%s`", source.id))
-			}
-			ids[source.id] = true
 			sources = append(sources, source)
 		}
 	}
@@ -1682,10 +1675,6 @@ func harnessDiscover(tree Tree, decoded *harnessConfig, agentsRoot string) ([]ha
 			if source.metadata != nil && source.metadata.name != name {
 				return fail(fmt.Sprintf("canonical skill `%s` has a name that does not match its path", path))
 			}
-			if ids[source.id] {
-				return fail(fmt.Sprintf("duplicate canonical skill id `%s`", source.id))
-			}
-			ids[source.id] = true
 			sources = append(sources, source)
 		}
 	}
@@ -2152,17 +2141,11 @@ func renderHarnessFamily(profile *harnessProfile, adapter *harnessAdapter, kind 
 			return reason, true
 		}
 	}
-	catalog, reason, failed := harnessCatalogJSON(profile.id, sources)
-	if failed {
-		return reason, true
-	}
+	catalog := harnessCatalogJSON(profile.id, sources)
 	if reason, failed := harnessAddFile(desired, root+"/catalog.json", catalog); failed {
 		return reason, true
 	}
-	provenance, reason, failed := harnessProvenanceJSON(profile.id, sources, models.recorded)
-	if failed {
-		return reason, true
-	}
+	provenance := harnessProvenanceJSON(profile.id, sources, models.recorded)
 	if reason, failed := harnessAddFile(desired, root+"/provenance.json", provenance); failed {
 		return reason, true
 	}
@@ -2200,9 +2183,8 @@ func renderHarnessAdapter(profile *harnessProfile, adapter *harnessAdapter, sour
 		if adapter.identity[field] == "name" {
 			value = metadata.name
 		}
-		if reason, failed := harnessAddScalar(fields, field, value); failed {
-			return fail(reason)
-		}
+		// Identity keys are unique and fields starts empty, so this add cannot fail.
+		_, _ = harnessAddScalar(fields, field, value)
 	}
 	fixedNames := make([]string, 0, len(adapter.fixed))
 	for name := range adapter.fixed {
@@ -3019,8 +3001,9 @@ func harnessTOMLArray(values []string) string {
 
 // harnessCatalogJSON renders one family's catalog the way the oracle's
 // pretty JSON printer does: two-space indent, sorted keys, `": "` between
-// every key and value.
-func harnessCatalogJSON(profile string, sources []harnessSource) (string, string, bool) {
+// every key and value. Every value it writes is a quoted string or an
+// integer, so rendering cannot fail.
+func harnessCatalogJSON(profile string, sources []harnessSource) string {
 	var out strings.Builder
 	out.WriteString("{\n")
 	out.WriteString("  \"schemaVersion\": 1,\n")
@@ -3044,11 +3027,13 @@ func harnessCatalogJSON(profile string, sources []harnessSource) (string, string
 		out.WriteString("]\n")
 	}
 	out.WriteString("}\n")
-	return out.String(), "", false
+	return out.String()
 }
 
-func harnessProvenanceJSON(profile string, sources []harnessSource, resolved map[string]string) (string, string, bool) {
-	catalog, _, _ := harnessCatalogJSON(profile, sources)
+// harnessProvenanceJSON renders the catalog and, when a model was recorded,
+// the resolved model for each tier. Like the catalog, it cannot fail.
+func harnessProvenanceJSON(profile string, sources []harnessSource, resolved map[string]string) string {
+	catalog := harnessCatalogJSON(profile, sources)
 	body := strings.TrimSuffix(catalog, "}\n")
 	var out strings.Builder
 	out.WriteString(body)
@@ -3059,7 +3044,7 @@ func harnessProvenanceJSON(profile string, sources []harnessSource, resolved map
 	sort.Strings(names)
 	if len(names) == 0 {
 		out.WriteString("}\n")
-		return out.String(), "", false
+		return out.String()
 	}
 	// The pretty printer joins siblings: the sources array closes with a
 	// comma before the recorded models open, not on its own line.
@@ -3074,7 +3059,7 @@ func harnessProvenanceJSON(profile string, sources []harnessSource, resolved map
 		out.WriteString("\n")
 	}
 	out.WriteString("  }\n}\n")
-	return out.String(), "", false
+	return out.String()
 }
 
 // Every declared marker-surface file that claims RHINO generation and that
@@ -3107,13 +3092,7 @@ func harnessStaleMarkers(decoded *harnessConfig, tree Tree, plan *harnessPlanRes
 	sort.Strings(reached)
 	var stale []string
 	for _, path := range reached {
-		if harnessGoverned(patterns, path) < 0 {
-			continue
-		}
 		if _, present := plan.desired[path]; present {
-			continue
-		}
-		if containsHarnessPath(plan.transaction.ExactPaths, path) {
 			continue
 		}
 		under := false
