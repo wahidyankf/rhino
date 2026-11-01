@@ -43,7 +43,7 @@ Not adopted:
   each rests on owners this repository does not hold.
 - **A reference page under `docs/`**, because
   [documentation architecture](../../../conventions/documentation-architecture.md) keeps `docs/` for people using RHINO.
-- **Rust Standards and the Rust skill**, because this repository has no Rust code.
+- **Rust Standards and the Rust skill**, not carried here, because this repository has no Rust code.
 
 A catalog owner with no local counterpart stays named in the adopted text without a link.
 

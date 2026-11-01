@@ -20,7 +20,7 @@
     {
       "id": "skill/developing-applications",
       "path": ".agents/skills/developing-applications/SKILL.md",
-      "digest": "62c253931526d92abd9ef513e16e5d0482055780a561f28d41cf0c96208964a3"
+      "digest": "2d5529d3429563bbaf6a41cb00dabd6f6a6deb9a267ca4256b459569bee60164"
     },
     {
       "id": "skill/generating-validation-reports",
@@ -68,11 +68,6 @@
       "digest": "3e33a15b55cba1966dee10af101a5b7075d73de18102894fb78df2d9e265c974"
     },
     {
-      "id": "skill/programming-rust",
-      "path": ".agents/skills/programming-rust/SKILL.md",
-      "digest": "c2555b30b7dcd7b6b478708bdba4bcddc774c29b210b52e190a5a8e36781fe1e"
-    },
-    {
       "id": "skill/programming-shell",
       "path": ".agents/skills/programming-shell/SKILL.md",
       "digest": "d7443b1701533049575fec22b26f472673af2ae32e105f2bc1cc9d5d7a981bb1"
@@ -85,7 +80,7 @@
     {
       "id": "skill/spec-impact-assessment",
       "path": ".agents/skills/spec-impact-assessment/SKILL.md",
-      "digest": "e4bf83aa48471f4eb9ecb111397f7a4be2f7e2d3fa16e84911cc729f68907aed"
+      "digest": "be3faedd2092cf0cca71ff760010257dc6e9989476b9490df0571c6fd9c21f88"
     },
     {
       "id": "skill/usability-heuristic-evaluation",

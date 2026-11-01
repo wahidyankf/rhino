@@ -19,10 +19,5 @@ records the Go decisions in the meantime.
 
 - [Repository Adapter](repository-adapter.md) — the packs adopted here, the decisions their standards leave open, and
   every local deviation
-- [Rust Standards](rust-standards.md) — the catalog's Rust standard: explicit editions, rustfmt and pedantic Clippy
-  gates, forbidden unsafe code, one async runtime and serializer, and typed errors. Not adopted here, because this
-  repository has no Rust code.
-- [Rust Standards Modules](rust-standards/README.md) — the modules of that Rust standard: code organisation, domain-type
-  shapes, and security rules. Not adopted here.
 - [Shell Standards](shell-standards.md) — beyond Shell Scripts: a supported dialect, analyser and formatter gates,
   quoted and validated input, and behaviour tests without coverage
