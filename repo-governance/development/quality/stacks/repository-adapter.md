@@ -13,10 +13,10 @@ A stronger local rule always wins over an adopted one, and every difference is r
 
 ## Adopted Packs
 
-| Pack     | Status  | Reason                                                                 |
-| -------- | ------- | ---------------------------------------------------------------------- |
-| `golang` | adapted | applies to the product code; inventory key `go`; no local standard yet |
-| `shell`  | adapted | two strict-mode deviations; two gate gaps                              |
+| Pack     | Status  | Reason                                             |
+| -------- | ------- | -------------------------------------------------- |
+| `golang` | adapted | applies to the product code; no local standard yet |
+| `shell`  | adapted | two strict-mode deviations; two gate gaps          |
 
 ## Shared Standards
 

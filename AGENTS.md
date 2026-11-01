@@ -29,8 +29,8 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 
 - `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); `./scripts/test.sh` is
   the full gate, which CI runs.
-- The 99% coverage floor and two declared exclusions are
-  [not negotiable](repo-governance/development/software-quality-enforcement.md).
+- Coverage policy: 99% over the domain, application, and config packages; the quick gate pins 94% and declares no
+  exclusions.
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
   read its reason, `125` replan or drain, `2` fix the call. Route
   [HIPPO and FERRET defects](repo-governance/development/upstream-tool-defects.md) to their owners.
@@ -46,9 +46,8 @@ Use clear, simple, natural English that non-native speakers can understand, incl
   [Markdown](repo-governance/conventions/markdown-line-length.md),
   [links](repo-governance/conventions/markdown-links.md), and
   [directory maps](repo-governance/conventions/directory-maps.md).
-- Dispatch every create, modify, update, or delete of code or declarative configuration to the fitting `swe-*` agent,
-  except a harness without subagents or a tool repin with no `swe-releaser`, per
-  [SWE Delegation](repo-governance/conventions/swe-delegation.md).
+- Dispatch every change to code or declarative configuration to the fitting `swe-*` agent, except a harness without
+  subagents or a tool repin with no `swe-releaser`, per [SWE Delegation](repo-governance/conventions/swe-delegation.md).
 - Cap [delegated agents](repo-governance/development/delegated-agent-concurrency.md) at three. Track
   [granular items](repo-governance/conventions/task-tracking.md) and a written progress record; preserve rules through
   [compaction](repo-governance/principles/governance-continuity.md),
