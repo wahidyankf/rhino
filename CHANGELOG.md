@@ -11,7 +11,12 @@ the commits behind any release, see its
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- `md readme-index validate` no longer slows down quadratically with the size of the repository. It used to walk the
+  whole repository again for every directory and every link it checked, so a repository of a few thousand files took
+  minutes, and a larger one appeared to hang. It now lists the repository once, and the same check finishes in a
+  fraction of a second. Findings, their order, and exit codes are unchanged.
 
 ## [v0.16.6] — 2026-11-01
 
