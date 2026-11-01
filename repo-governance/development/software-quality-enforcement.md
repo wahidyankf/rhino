@@ -30,7 +30,8 @@ The remaining reach is confined, and each confinement is a test:
   transaction writes (`internal/adapters/runtime/read_boundary_test.go`).
 - `os/exec` is imported only by the runtime adapter; `syscall` only by the CLI adapter, for signals and EPIPE.
 - `gate run`, `toolchain`, and `harness adapters generate` start only their declared argv, through their own boundaries.
-  Tests: `launcher_test.go`, `toolchain_test.go`, `adapters_test.go`.
+  Tests: `TestDiskToolchainRunnerRunsDeclaredVectorsDirectly` (`toolchain_test.go`) and
+  `TestDiskModelResolverRunsTheDeclaredVector` (`adapters_test.go`).
 - `harness adapters validate` never starts the model resolver, even when one is supplied
   (`internal/application/harness_validate_resolver_test.go`).
 - Each explicit boundary refuses when missing, never falling back to the read port (`environment_test.go`,

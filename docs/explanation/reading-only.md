@@ -36,8 +36,9 @@ they cannot touch the file system except through the tree port the entry point s
 
 A README that says "RHINO does not reach the network" is a promise. A test that fails when a network package appears in
 the binary's dependency graph is a mechanism. `internal/bootstrap/boundary_test.go` is one, and it also fails when a
-validator core imports a process or file package. Each finder has a positive control, so an empty result is a real
-result and not a search that found nothing.
+validator core imports a process or file package. The rule predicates each have a positive control in
+`TestImportRulesClassifyEachPathAsDeclared`, and the process searches each check a known case, so an empty result is a
+real result and not a search that found nothing.
 
 Any test whose success condition is "found nothing" needs a **positive control**: the same search, in the same form,
 must find a case that is certainly there. A search that finds nothing looks exactly like a search that is broken.

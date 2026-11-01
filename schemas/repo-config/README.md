@@ -1,8 +1,8 @@
 # Repository Configuration Schemas
 
-These JSON Schema artifacts describe the grouped repository configuration. They are checked in as the source of truth.
-There is no schema generator in this tree, so they are maintained by hand; no test or CI step compares them with the
-model, and regenerating them from the model is tracked work.
+These JSON Schema artifacts describe the grouped repository configuration for editors. They are maintained by hand:
+there is no schema generator in this tree, and no test or CI step compares them with the Go configuration reader in
+`internal/adapters/config`, which decides what Rhino accepts. Regenerating them is future work.
 
 ## Directory Map
 

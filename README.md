@@ -12,9 +12,9 @@ ships no repository, organization, harness, tree, or threshold defaults.
 </p>
 
 RHINO validates declared Markdown, governance, lifecycle, harness, environment, and toolchain policy. Tree validators
-read local files only: they do not write, spawn, or connect to a network. `env validate` asks Git for the staged paths
-when a staging guard is declared, and `toolchain validate` runs each declared probe. Declared gates and explicit
-operations use separate, narrow boundaries.
+read local files only: they do not write, start any process except read-only Git queries, or connect to a network.
+`env validate` asks Git for the staged paths when a staging guard is declared, and `toolchain validate` runs each
+declared probe. Declared gates and explicit operations use separate, narrow boundaries.
 
 ## Highlights
 

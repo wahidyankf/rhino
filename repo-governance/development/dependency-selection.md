@@ -27,7 +27,8 @@ review question, answered in the change that adds it.
 
 A dependency that imports `unsafe` is not automatically disqualifying, because the rule binds this repository's own code
 rather than the ecosystem. It is a consequence to own explicitly, and the record says so. This repository's packages
-import no `unsafe`, and no gate checks that yet.
+import no `unsafe`, and `TestProductSourcesImportNoNetworkUnsafeOrCgo` in `internal/bootstrap/boundary_test.go` checks
+that.
 
 ## Removal
 
