@@ -9,7 +9,8 @@ Every command except `help` accepts `--output json` and writes **one object on o
 whatever the format. Line-delimited rather than pretty-printed, so the output pipes through `grep` and `jq` alike and so
 "every stdout line is a result" stays true whatever the command reports.
 
-RHINO writes the object below as one line; it is broken after a comma here only to fit the page.
+RHINO writes the object below as one line; it is broken after a comma here only to fit the page. The example assumes a
+repository with one Markdown file holding one link, so `inspected` is `1`.
 
 ```console
 $ rhino md internal-link validate --output json

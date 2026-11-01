@@ -44,7 +44,9 @@ surface glob follows one, and only to a target inside the root; see
 
 ## A diagram you have not saved
 
-`-` reads standard input. Pipe in a Markdown document — the fenced block is what RHINO looks for:
+`-` reads standard input. Pipe in a Markdown document — the fenced block is what RHINO looks for. The transcript below
+assumes a repository whose Mermaid policy declares no `authoring-rule`; under `plain-text` the same input is reported as
+a Mermaid diagram the repository does not author.
 
 ````console
 $ printf '```mermaid\nflowchart LR\n    Alpha[a label that is far too long to read comfortably at all]\n```\n' \

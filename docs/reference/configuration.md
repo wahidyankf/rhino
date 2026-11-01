@@ -4,7 +4,7 @@ RHINO v0.4 reads one grouped configuration from `repo-config.yml`. Every policy 
 no policy, and an unknown group or key is a configuration error. RHINO supplies no repository-specific defaults.
 
 Only `schema` is required. The [grouped v2 reference](./v0-4-configuration.md) owns the document skeleton, every key,
-the generated schema, modelines, and predecessor handling; this page indexes its groups.
+the checked-in schema, modelines, and predecessor handling; this page indexes its groups.
 
 ## Groups
 

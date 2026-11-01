@@ -1,4 +1,4 @@
-# Why the Grouped Schema Is Generated
+# Why the Grouped Schema Is Checked In
 
 The grouped v2 configuration was derived from one typed model, so an editor's structural feedback and Rhino's structural
 reader shared one source of truth instead of two hand-maintained descriptions that can drift. The Draft 2020-12 artifact
@@ -6,8 +6,9 @@ stays checked in beside the model it came from.
 
 There is no schema generator in the Go tree: the generator left with the Rust implementation, and regenerating the
 artifact from the Go model (`internal/adapters/config`, YAML only) is tracked work. Until that lands, schema edits have
-no proving step, so do not edit the checked-in JSON by hand. Runtime validation reads local configuration bytes only. A
-modeline helps an editor find a schema but never authorizes Rhino to fetch one.
+no proving step: the artifact is maintained by hand, and no test or CI step compares it with the model. Runtime
+validation reads local configuration bytes only. A modeline helps an editor find a schema but never authorizes Rhino to
+fetch one.
 
 ## Dependency Decision
 

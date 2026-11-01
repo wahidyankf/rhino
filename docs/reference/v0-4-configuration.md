@@ -64,9 +64,9 @@ a configuration that omits an optional key behaves as it did before that key exi
 - `canvas-colors` (hex list, empty by default): the canvases a filled class must stay visible against.
 
 `canvas-colors` takes six-digit hex colours only, and an invalid `exclude` glob is a configuration fault: either makes
-the command refuse with the unreadable-input exit code instead of reporting findings. Declaring `allowed-types` also
-reads a colour by what it is assigned to and refuses a sequence-diagram `box` that names a colour. The checks and
-finding details are in [Findings](findings.md#mermaid).
+the command refuse with exit `2` instead of reporting findings. Declaring `allowed-types` also reads a colour by what it
+is assigned to and refuses a sequence-diagram `box` that names a colour. The checks and finding details are in
+[Findings](findings.md#mermaid).
 
 ### Quality-gate policy
 
@@ -585,7 +585,7 @@ any change to the replay is a finding with exit `1`. The disposable checkout is 
 
 ## Modelines
 
-Rhino's source example uses a relative modeline because its generated schema is checked in beside it:
+Rhino's source example uses a relative modeline because its schema is checked in beside it:
 
 ```yaml
 # yaml-language-server: $schema=./v2.schema.json

@@ -9,7 +9,10 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.16.7] — 2026-11-01
+
+A patch release: `md readme-index validate` finishes in a fraction of a second on large repositories. Users with a
+`readme-index` policy should move to this version.
 
 ### Fixed
 
@@ -28,6 +31,7 @@ A patch release: `--root` accepts any existing directory again, so users of v0.1
   working directory, names the repository to inspect. v0.16.5 refused such a root with "escapes the repository root".
   A root that names nothing, or names a file, is still refused with exit `2` and `rhino.repository.unusable`, and a
   `--file`, `--directory`, or `--dir` value still stays inside the chosen root.
+
 ## [v0.16.5] — 2026-10-31
 
 Mutation gates, the toolchain runner, symbolic-link handling, and several refusal wordings are corrected. The Gherkin
@@ -963,6 +967,7 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.16.7]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.7
 [v0.16.6]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.6
 [v0.16.5]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.5
 [v0.16.4]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.4

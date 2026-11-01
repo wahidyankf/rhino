@@ -11,8 +11,8 @@ the tool.
   about your invocation.
 - [Reading only](./reading-only.md) — why tree validation never mutates, starts no process except read-only Git queries,
   or touches the network.
-- [Why the Grouped Schema Is Generated](./generated-schema.md) — why one typed model produces both parsing and the
-  checked-in editor artifact.
+- [Why the Grouped Schema Is Checked In](./generated-schema.md) — why one typed model drives parsing, and why the
+  checked-in editor artifact is still maintained by hand.
 
 ## Next steps
 

@@ -67,10 +67,9 @@ document carries one of them. The package has no behaviour beyond naming and cla
 ### internal/application
 
 The use cases and the ports they need. `cli.go` holds the closed command table: 28 leaves, each with its path, category,
-accepted flags, and summary. `Parse` in `cli.go` checks an invocation against that table; `execute.go`
-dispatches it and renders a result.
-Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the others) are pure over a
-`Tree` and the parsed configuration.
+accepted flags, and summary. `Parse` in `cli.go` checks an invocation against that table; `execute.go` dispatches it and
+renders a result. Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the
+others) are pure over a `Tree` and the parsed configuration.
 
 `surfaces.go` is the one place a declared surface glob follows a filesystem link. It follows a link only when the link's
 target lies inside the root. It refuses a link that leads outside with `rhino.path.escapes-root`, and a link that loops

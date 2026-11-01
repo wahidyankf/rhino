@@ -61,9 +61,8 @@ $ rhino version
 `rhino version --json` reports the same version alongside the forty-character commit embedded at build time, as
 `{"schemaVersion":1,"version":"v0.1.1","commit":"…"}`. The commit is not written out here on purpose: it is a property
 of _your_ binary rather than of this page, and a hash printed beside a version is one a reader will compare against
-theirs and find different. Compare it against your lock file instead. An unstamped build, from any plain
-`go build` in the clone or outside it, reports `v0.0.0-dev` and forty zeros, so those values mark a build
-that no release stamped.
+theirs and find different. Compare it against your lock file instead. An unstamped build, from any plain `go build` in
+the clone or outside it, reports `v0.0.0-dev` and forty zeros, so those values mark a build that no release stamped.
 
 ## Build from source instead
 
