@@ -119,6 +119,29 @@ func TestRunArgsWritesDeclaredEnvironmentTargets(t *testing.T) {
 	}
 }
 
+// `--root` names the repository, so a sibling directory outside the working
+// directory is accepted and read as that repository. A selection inside the
+// chosen root still refuses a path whose `..` climbs out of it.
+func TestRunArgsRootNamesAnyExistingDirectory(t *testing.T) {
+	parent := t.TempDir()
+	working := filepath.Join(parent, "repo")
+	writeFile(t, filepath.Join(working, "README.md"), "# Repo\n")
+	writeFile(t, filepath.Join(parent, "other-repo", "repo-config.yml"), "schema: rhino/repo-config/v2\n")
+
+	if code, _, stderr := runArgs(t, working, []string{"--root", "../other-repo", "repo-config", "validate"}); code != 0 {
+		t.Fatalf("root outside the working directory was refused: %d %q", code, stderr)
+	}
+	if code, _, stderr := runArgs(t, working, []string{"repo-config", "validate", "--root", "../other-repo"}); code != 0 {
+		t.Fatalf("trailing root outside the working directory was refused: %d %q", code, stderr)
+	}
+	if code, _, stderr := runArgs(t, working, []string{"--root", "../missing", "repo-config", "validate"}); code != 2 || !strings.Contains(stderr, "names nothing usable") {
+		t.Fatalf("missing root was not refused as unusable: %d %q", code, stderr)
+	}
+	if code, _, stderr := runArgs(t, working, []string{"--root", "../other-repo", "md", "mermaid", "validate", "--file", "../escape.md"}); code != 2 || !strings.Contains(stderr, "escapes the repository root") {
+		t.Fatalf("selection escaping the chosen root was not refused: %d %q", code, stderr)
+	}
+}
+
 func TestRunArgsReportsCancelledRunAsInterrupted(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)

@@ -18,5 +18,5 @@ Run the corpus with `go test ./tests/bdd`.
   `policies.governance.quality-gates`.
 - [regular-files.feature](regular-files.feature) — acceptance scenarios for explicit Git destination-mode input
   selection.
-- [cli-surface.feature](cli-surface.feature) — build identity (`version`), process exit codes (126, 127, 130, and 143
-  for signals), scan exclusion scope, and toolchain output and timeout bounds.
+- [cli-surface.feature](cli-surface.feature) — build identity (`version`), the `--root` repository selection, process
+  exit codes (126, 127, 130, and 143 for signals), scan exclusion scope, and toolchain output and timeout bounds.

@@ -30,6 +30,7 @@ func bindings() []binding {
 		// Preparing the repository.
 		{`^the configuration file is this text:$`, configurationFileText},
 		{`^the repository contains:$`, repositoryContains},
+		{`^the directory outside the repository contains:$`, outsideDirectoryContains},
 		{`^file "([^"]+)" contains this Markdown:$`, fileContainsText},
 		{`^the repository contains an executable "([^"]+)"$`, repositoryContainsExecutable},
 		{`^the repository contains an executable "([^"]+)" with the body:$`, repositoryContainsExecutableWithBody},
@@ -128,6 +129,35 @@ func repositoryContains(ctx context.Context, table *godog.Table) error {
 	for _, row := range rows {
 		if err := w.writeRepoFile(row[0], row[1]); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// outsideDirectoryContains writes files beside the repository, in the scenario's
+// outside directory, for scenarios that point `--root` at another repository.
+// Paths are checked the same way repository paths are, so a row cannot leave
+// that directory.
+func outsideDirectoryContains(ctx context.Context, table *godog.Table) error {
+	w, err := stepWorld(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := tableRows(table)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		clean := filepath.Clean(filepath.FromSlash(row[0]))
+		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("scenario path %q leaves the outside directory", row[0])
+		}
+		target := filepath.Join(w.outside, clean)
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return fmt.Errorf("create directory for %s: %w", row[0], err)
+		}
+		if err := os.WriteFile(target, []byte(row[1]), 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", row[0], err)
 		}
 	}
 	return nil

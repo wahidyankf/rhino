@@ -36,34 +36,32 @@ func AtCurrentDirectory() (*DiskTree, error) {
 // Root reports the root.
 func (t *DiskTree) Root() string { return t.Dir }
 
-// RootedAt re-roots under Dir. The target must stay inside the root.
+// RootedAt re-roots at a directory. `--root` names the repository rather than a
+// selection inside it, so any existing directory is accepted: one reached
+// through `..`, one outside the working directory, or one named by an absolute
+// path. A path that names nothing, or names a file, is refused.
 func (t *DiskTree) RootedAt(path string) (application.Tree, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("`--root` names nothing")
 	}
-	// The root is resolved too: a working directory reached through a link
-	// keeps the link's spelling, and the resolved candidate never matches it.
-	root := filepath.Clean(t.Dir)
-	if resolved, err := filepath.EvalSymlinks(root); err == nil {
-		root = resolved
-	}
 	candidate := path
 	if !filepath.IsAbs(candidate) {
-		candidate = filepath.Join(root, path)
-	}
-	cleaned, err := filepath.EvalSymlinks(candidate)
-	if err != nil {
-		// EvalSymlinks fails for missing paths; fall back to lexical containment.
-		cleaned = filepath.Clean(candidate)
-	}
-	if cleaned != root && !strings.HasPrefix(cleaned+string(filepath.Separator), root+string(filepath.Separator)) {
-		return nil, fmt.Errorf("`--root %s` escapes the repository root", path)
+		// Not cleaned, unlike filepath.Join: a `..` below a working directory
+		// reached through a link climbs from the link's target, as the operating
+		// system resolves it, and a lexical fold would climb from the spelling.
+		candidate = t.Dir + string(filepath.Separator) + path
 	}
 	info, err := os.Stat(candidate)
 	if err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("`--root %s` names nothing usable", path)
 	}
-	return &DiskTree{Dir: cleaned}, nil
+	// The resolved directory is the repository the run reads, so every later
+	// path is relative to it, whatever link or spelling named it.
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return nil, fmt.Errorf("`--root %s` names nothing usable", path)
+	}
+	return &DiskTree{Dir: resolved}, nil
 }
 
 // Files lists repository-relative regular files, excluding symlinks.

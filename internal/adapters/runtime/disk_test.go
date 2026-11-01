@@ -44,8 +44,8 @@ func TestDiskTreeReadsAndRefuses(t *testing.T) {
 	if _, err := tree.RootedAt("missing-dir-xyz"); err == nil {
 		t.Fatal("bad root was accepted")
 	}
-	if _, err := tree.RootedAt("../outside"); err == nil {
-		t.Fatal("escaping root was accepted")
+	if _, err := tree.RootedAt("../missing-outside"); err == nil {
+		t.Fatal("missing root outside the working directory was accepted")
 	}
 	found := false
 	for _, file := range tree.Files() {
