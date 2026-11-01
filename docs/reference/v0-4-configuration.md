@@ -20,8 +20,9 @@ gates: {}
 extensions: {}
 ```
 
-`schema` is required. The other core groups are optional and closed: an omitted group declares no policy, while an
-unknown group or key is a configuration error. The policy subgroups are also closed.
+`schema` is required. The other core groups are optional: an omitted group declares no policy. An unknown top-level key
+is a configuration error. A validator refuses an unknown key inside the policy group it reads. `repo-config validate`
+does not check a group or key that no validator reads; the editor schema flags it.
 
 `extensions` is the sole escape hatch. Each owner name matches `^[a-z][a-z0-9-]*$`, and its value is a mapping. Rhino
 preserves that mapping without assigning it product meaning.
@@ -35,8 +36,8 @@ remains in scope until its repository declares otherwise.
 `policies.markdown` opts into frontmatter, heading hierarchy, internal-link, metadata, Mermaid, filename, and
 README-index validation. `policies.governance` owns vendor vocabulary, layer structure, traceability declarations,
 word-budget surfaces, directory-map trees, and quality-gate structure. `policies.conventions` owns configured license
-paths, identifiers, digests, exact exclusions, and emoji-prohibited file surfaces. Each group refuses an undeclared or
-invalid sub-policy instead of inheriting a repository convention.
+paths, identifiers, digests, exact exclusions, and emoji-prohibited file surfaces. Each validator that reads one of
+these groups refuses an undeclared or invalid sub-policy instead of inheriting a repository convention.
 
 `governance word-budget validate` and `governance directory-map validate` read only `policies.governance.word-budget`
 and `policies.governance.directory-map`, respectively. Their `count`, ordered `surfaces`, `trees`, findings, and
@@ -150,8 +151,8 @@ no surface glob reaches is neither followed nor refused, and a link in a directo
 never considered. A glob that matches nothing still exits `0`. Every other read, including internal-link targets,
 `--file` and `--directory` selections, and exact declared paths, still never follows a link.
 
-`policies.plans` is a closed owner boundary. It carries no v0.4 command in this release, so an empty group is not a
-request to run a legacy plan validator.
+`policies.plans` is a reserved owner boundary. It carries no v0.4 command in this release, so `repo-config validate`
+does not check keys inside it, and an empty group is not a request to run a legacy plan validator.
 
 ### README index completeness
 
@@ -592,8 +593,9 @@ Rhino's source example uses a relative modeline because its schema is checked in
 ```
 
 A consumer pins an immutable release URL instead. The consumer fixture shows the canonical modeline shape; it never
-makes the Rhino runtime perform a network request. Pin the release you run: its schema describes exactly the keys that
-binary reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema.
+makes the Rhino runtime perform a network request. Pin the release you run: its schema describes the keys that binary
+reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema. For a policy group no validator reads,
+the schema is stricter than the binary: it flags a key the binary accepts.
 
 ## Verification
 

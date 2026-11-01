@@ -9,6 +9,9 @@ rather than an implementation detail.
 - `0` — the requested checks ran and found nothing.
 - `1` — the requested checks ran and reported findings.
 - `2` — the invocation, the root, or the configuration was unusable, so nothing was checked.
+- `126` — a gate child was found and could not be executed. Only `gate run` returns it.
+- `127` — a gate child was not found. Only `gate run` returns it.
+- `128+N` — RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe.
 
 Only a validator may report `1`. The distinction that matters is between "checked and clean" and "never checked": a
 caller must be able to act on the code alone, without knowing which subcommand ran. A check that cannot run reports `2`

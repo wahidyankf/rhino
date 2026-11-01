@@ -49,7 +49,9 @@ refusal, not a silent pass.
   tests/bdd                 the behaviour corpus runner; builds the binary once
 ```
 
-There is exactly one executable. The other directories are its libraries, or a harness that runs it.
+There is one product executable, `cmd/rhino`. The other packages are its libraries, or a harness that runs it. The one
+exception is `scripts/release-archive`, a build-time tool: `scripts/build-release.sh` compiles it separately to write
+release archives, and it is not part of the binary.
 
 ## Level 3: Components
 
@@ -127,10 +129,13 @@ inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any
 
 ## Data
 
-- **Configuration:** one YAML document, decoded once into a `config.Document`. Undeclared keys in closed structures are
-  refused. There is no second configuration source.
-- **Reports:** each command builds an `application.Report` and renders it as text, or as one JSON document when `--json`
-  is given. JSON documents carry `schemaVersion`.
+- **Configuration:** one YAML document, decoded once into a `config.Document`. An unknown top-level key is refused, and
+  so is an unknown key inside a policy group that its validator reads. Gate argument and environment projection entries
+  also refuse an unknown field. Other keys, such as a gate entry's own keys or keys inside `scan` or `environment`, pass
+  `repo-config validate`. There is no second configuration source.
+- **Reports:** each command builds an `application.Report` and renders it as text, or as one JSON document when
+  `--output json` is given. `version` alone also accepts `--json`, a shorthand for the same. JSON documents carry
+  `schemaVersion`.
 - **Gate dispatch:** a declared argv, environment projection, and working directory. The child inherits the process
   environment plus `RHINO_GATE_SURFACE` and the projected entries. Its output is discarded; its exit status decides.
 

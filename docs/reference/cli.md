@@ -39,7 +39,7 @@ gate execution, environment operations, and toolchain provision use their own ex
 - `--root <path>`
   - Accepted by: Every command
   - Meaning: Select a repository root.
-- `--output <text\|json>`
+- `--output <text|json>`
   - Accepted by: Every command
   - Meaning: Select text or JSON rendering.
 - `--quiet`, `--verbose`, `--no-color`

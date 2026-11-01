@@ -11,8 +11,7 @@ exact `-coverpkg` list in `scripts/test-quick.sh`.
 The gate pins 99%, so a regression below 99% fails the quick gate. The total was 99.8% when this text was written, so
 new deterministic-core code needs its own tests to keep the floor.
 
-The policy names two declared exclusions, but the Go gate declares none. A package outside that list, such as the
-command adapter, is simply not measured.
+The Go gate declares no exclusions. A package outside that list, such as the command adapter, is not measured.
 
 The floor is a floor. Lowering it, widening an exclusion, or excluding a module that became hard to test is a change to
 what this repository is willing to ship, not a test-infrastructure adjustment.
@@ -40,8 +39,8 @@ The remaining reach is confined, and each confinement is a test unless noted:
   `TestDiskMutationVerifyCleanReportsTheReplayAgainstItsRevision` check outcomes.
 - `harness adapters validate` never starts the model resolver, even when one is supplied
   (`internal/application/harness_validate_resolver_test.go`).
-- Each explicit boundary refuses when missing, never falling back to the read port (`environment_test.go`,
-  `toolchain_faults_test.go`, `harness_test.go`).
+- Explicit boundaries fail closed when missing, never falling back to the read port: environment and harness refuse
+  (`environment_test.go`, `harness_test.go`); toolchain reports findings (`toolchain_faults_test.go`).
 - A path that leaves the root, or passes through a link, is refused (`disk_links_test.go`, `mutation_test.go`,
   `environment_faults_test.go`).
 

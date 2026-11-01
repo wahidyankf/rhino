@@ -19,8 +19,8 @@ declared probe. Declared gates and explicit operations use separate, narrow boun
 ## Highlights
 
 - **No policy of its own.** Every repository-specific value it enforces comes from `repo-config.yml`.
-- **Closed grouped configuration.** `rhino/repo-config/v2` rejects unknown core groups and keys instead of treating a
-  typo as silent policy.
+- **Closed grouped configuration.** `rhino/repo-config/v2` rejects unknown top-level keys, and a validator refuses an
+  unknown key inside the policy group it reads, instead of treating a typo there as silent policy.
 - **Explicit operations.** Adapter generation, environment setup, toolchain provision, and gate execution need their own
   declared authority.
 - **Stable exit meanings.** `1` means a declared policy found a violation; `2` means the invocation, configuration, or
@@ -94,9 +94,9 @@ declared adapter families and exact adapter files.
 
 ## v0.3 to v0.4 migration
 
-Stable v0.4 accepts only the grouped schema. It rejects predecessor schemas and does not provide aliases, compatibility
-wrappers, or a migration command. Create an explicit grouped configuration and validate it locally before using the
-stable binary.
+The stable binary's v0.4 configuration contract accepts only the grouped schema. It rejects predecessor schemas and does
+not provide aliases, compatibility wrappers, or a migration command. Create an explicit grouped configuration and
+validate it locally before using the stable binary.
 
 [How to migrate from v0.3 to v0.4](./docs/how-to/migrate-to-v0-4.md) gives the owner-by-owner mapping and verification
 sequence.

@@ -11,15 +11,16 @@ the commits behind any release, see its
 
 ## [v0.16.7] — 2026-11-01
 
-A patch release: `md readme-index validate` finishes in a fraction of a second on large repositories. Users with a
-`readme-index` policy should move to this version.
+A patch release: `md readme-index validate` finishes in a fraction of a second on a repository of about 3,800 files.
+Users with a `readme-index` policy should move to this version.
 
 ### Fixed
 
 - `md readme-index validate` no longer slows down quadratically with the size of the repository. It used to walk the
   whole repository again for every directory and every link it checked, so its cost grew with the square of the
-  repository size. A repository of about 3,800 files took about 30 seconds. It now lists the repository once, and the
-  same check takes about 0.06 seconds. Findings, their order, and exit codes are unchanged.
+  repository size. It now lists the repository once. On the maintainer's machine, a repository of about 3,800 files took
+  roughly 30 seconds, and the same check now takes roughly 0.06 seconds. Other machines differ, but the cost no longer
+  grows with the square. Findings, their order, and exit codes are unchanged.
 
 ## [v0.16.6] — 2026-11-01
 
@@ -975,6 +976,23 @@ The first release, so everything below is new.
 [v0.16.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.2
 [v0.16.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.1
 [v0.16.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.0
+[v0.15.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.15.0
+[v0.14.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.14.0
+[v0.13.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.13.0
+[v0.12.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.12.0
+[v0.11.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.11.0
+[v0.10.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.10.0
+[v0.9.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.9.1
+[v0.9.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.9.0
+[v0.8.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.8.0
+[v0.7.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.7.0
+[v0.6.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.6.0
+[v0.5.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.5.0
+[v0.4.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.4.2
+[v0.4.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.4.1
+[v0.4.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.4.0
+[v0.3.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.3.0
+[v0.2.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.2.0
 [v0.1.3]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.1

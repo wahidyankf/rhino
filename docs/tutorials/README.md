@@ -3,8 +3,8 @@
 Lessons that get you to a working result by doing the work. Each one builds a repository from nothing, so nothing is
 hidden behind a fixture you did not write.
 
-The grouped-v2 tutorial is the current starting point. Stable v0.4 rejects predecessor configuration; use the migration
-guide when converting an existing repository.
+The grouped-v2 tutorial is the current starting point. The stable binary's v0.4 configuration contract rejects
+predecessor configuration; use the migration guide when converting an existing repository.
 
 ## Directory Map
 
