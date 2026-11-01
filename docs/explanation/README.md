@@ -9,7 +9,8 @@ the tool.
 - [Holding no defaults](./holding-no-defaults.md) — why a missing value is a refusal rather than a guess.
 - [What a finding means](./what-a-finding-means.md) — why exit `1` is always a claim about your repository and never
   about your invocation.
-- [Reading only](./reading-only.md) — why tree validation never mutates, runs a subprocess, or touches the network.
+- [Reading only](./reading-only.md) — why tree validation never mutates, starts no process except read-only Git queries,
+  or touches the network.
 - [Why the Grouped Schema Is Generated](./generated-schema.md) — why one typed model produces both parsing and the
   checked-in editor artifact.
 

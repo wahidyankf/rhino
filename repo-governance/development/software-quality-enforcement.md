@@ -19,27 +19,29 @@ what this repository is willing to ship, not a test-infrastructure adjustment.
 
 ## Product Invariants Enforced by Tests
 
-Tree-validation commands are read-only, network-free, process-free, and path-contained:
+Tree validators read files and write nothing. The validator cores (the domain, application, and config packages) import
+no `os`, `os/exec`, `net`, `syscall`, `unsafe`, `plugin`, or cgo package, so they cannot open, write, or start anything
+directly. The binary's dependency graph has no `net` package, and no product source imports `net`, `unsafe`, or cgo.
+`internal/bootstrap/boundary_test.go` enforces these, with a positive control per finder.
 
-- it opens no socket, including loopback;
-- they spawn no child process;
-- they write nothing into the tree they inspect; and
-- it follows no path outside the declared root.
+The remaining reach is confined, and each confinement is a test:
 
-`gate run` may start only a declared argv child through its launcher boundary. `toolchain validate` and
-`toolchain provision` may start only declared typed argv through their separate runner boundary; probes never install or
-report output, and provision stops at its first failed child. `harness adapters` `generate` may replace only declared
-adapter roots through its adapter-store boundary, after the complete desired projection has passed loss validation in
-memory. It may start only a repository-declared `model-resolve` argument vector through its separate model-resolver
-boundary, with no shell and a bounded timeout; when that boundary is missing or its child fails, generation renders the
-last recorded or fallback model and warns. `harness adapters validate` never starts it. Every other boundary rejects
-being missing; none may fall back to the validator's ordinary read port. No product command opens a socket.
+- The tree adapter (`disk.go`) starts only read-only Git queries (`diff`, `log`, `rev-parse`), and only its environment
+  transaction writes (`internal/adapters/runtime/read_boundary_test.go`).
+- `os/exec` is imported only by the runtime adapter; `syscall` only by the CLI adapter, for signals and EPIPE.
+- `gate run`, `toolchain`, and `harness adapters generate` start only their declared argv, through their own boundaries.
+  Tests: `launcher_test.go`, `toolchain_test.go`, `adapters_test.go`.
+- `harness adapters validate` never starts the model resolver, even when one is supplied
+  (`internal/application/harness_validate_resolver_test.go`).
+- Each explicit boundary refuses when missing, never falling back to the read port (`environment_test.go`,
+  `toolchain_faults_test.go`, `harness_test.go`).
+- A path that leaves the root, or passes through a link, is refused (`disk_links_test.go`, `mutation_test.go`,
+  `environment_faults_test.go`).
 
 These are enforced by tests rather than by documentation, because a documented invariant is an intention. The
 no-loopback rule is stricter than the integration layer's own boundary, which permits an owned socket — deliberately,
 because a validator a maintainer hesitates to point at an unfamiliar tree is a validator that does not get run.
 
-The repository's packages import no `unsafe`, but no gate checks that yet, so review confirms it.
 `go tool govulncheck ./...` runs in the full gate, and a vulnerability it reports is a defect to fix rather than a rule
 to relax.
 

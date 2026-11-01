@@ -29,7 +29,7 @@ enough to run on every push:
 under the race detector on its own, then the public-safety wrapper's suite, then `go tool govulncheck ./...`. The
 vulnerability tool is pinned in `go.mod`, so it needs no install step, but it needs network access to the vulnerability
 database. The full gate is not a hook. It runs in the [Main Test workflow](../../.github/workflows/main-test.yml) on
-every push to `main`, on `ubuntu-24.04` and `macos-15`.
+every push to `main`, on both operating systems pinned below.
 
 ## Where Each Gate Runs
 

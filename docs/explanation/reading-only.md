@@ -1,11 +1,13 @@
 # Why RHINO validation only reads
 
-RHINO tree validators open files and print. They write nothing, spawn nothing, and connect to nothing. Explicit
-operations are separate: `gate run` starts only a declared child argv, toolchain commands start declared typed argv
-without a shell or reported output, `env validate` runs one `git diff --cached` query for the staged paths when
-`environment.staged` is declared, and adapter generation replaces only declared adapter families and exact adapter files
-after planning every output in memory, starting at most a tier's declared `model-resolve` argv. These are enforced as
-tests, not incidental properties of the current implementation.
+RHINO tree validators open files and print. They write nothing and connect to nothing, and the only child processes they
+start are read-only Git queries. Explicit operations are separate: `gate run` starts only a declared child argv,
+toolchain commands start declared typed argv without a shell or reported output, `env validate` runs one
+`git diff --cached` query for the staged paths when `environment.staged` is declared, and adapter generation replaces
+only declared adapter families and exact adapter files after planning every output in memory, starting at most a tier's
+declared `model-resolve` argv. These are enforced as tests, not incidental properties of the current implementation: the
+import and dependency rules live in `internal/bootstrap/boundary_test.go`, and the tree adapter's write and Git rules
+live in `internal/adapters/runtime/read_boundary_test.go`.
 
 ## The four boundaries
 
@@ -14,23 +16,28 @@ that writes into the tree it is judging can change the answer it is about to giv
 into a failure. An explicit adapter transaction has a different port: it rejects paths outside declared adapter families
 or exact files and is never reachable from a validator.
 
-**A tree validator spawns no child process.** No `git`, no formatter, no shell. Everything it reports, it derived from
-bytes it read itself. `gate run` and the toolchain commands are separate declared operations: each starts typed argv at
-a narrow port and never interprets a shell command. Toolchain probes and provision never report child output; provision
-stops at its first failure. Adapter generation may start a tier's declared `model-resolve` argv through its own port,
-with a timeout; `harness adapters validate` never does.
+**A tree validator starts no child process except a read-only Git query.** The validator cores import no process
+package. The tree adapter starts only `git diff`, `git log`, and `git rev-parse`, and only when a validator asks for Git
+state, such as the staging guard. No validator starts a formatter or a shell. Everything it reports is derived from
+bytes it read itself or from one of those queries. `gate run` and the toolchain commands are separate declared
+operations: each starts typed argv at a narrow port and never interprets a shell command. Toolchain probes and provision
+never report child output; provision stops at its first failure. Adapter generation may start a tier's declared
+`model-resolve` argv through its own port, with a timeout; `harness adapters validate` never does.
 
-**It opens no socket, including loopback.** There is no telemetry, no version check, no remote policy fetch. This is
-stricter than the layer rule it sits under, which permits an integration test to own a loopback socket — that permission
-is about test plumbing, and this is a claim about the product.
+**It opens no socket, including loopback.** No product package imports `net`, and the `rhino` binary's dependency graph
+contains no `net` package. There is no telemetry, no version check, no remote policy fetch. This is stricter than the
+layer rule it sits under, which permits an integration test to own a loopback socket — that permission is about test
+plumbing, and this is a claim about the product.
 
-**It imports no `unsafe` package.** No gate checks that yet, so review confirms it.
+**Product code imports no `unsafe` package, cgo, or `plugin`.** The validator cores import no `os` package at all, so
+they cannot touch the file system except through the tree port the entry point supplies.
 
 ## Why they are tests rather than prose
 
-A README that says "RHINO does not reach the network" is a promise. A test that fails when a dependency capable of
-reaching the network appears in the module graph is a mechanism. The Go tree has no such test yet, so that claim rests
-on review until one exists.
+A README that says "RHINO does not reach the network" is a promise. A test that fails when a network package appears in
+the binary's dependency graph is a mechanism. `internal/bootstrap/boundary_test.go` is one, and it also fails when a
+validator core imports a process or file package. Each finder has a positive control, so an empty result is a real
+result and not a search that found nothing.
 
 Any test whose success condition is "found nothing" needs a **positive control**: the same search, in the same form,
 must find a case that is certainly there. A search that finds nothing looks exactly like a search that is broken.
