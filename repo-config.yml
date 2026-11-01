@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/repo-config/v2.schema.json
-# Rhino's own grouped-v2 policy. The generated schema and this source stay in
+# Rhino's own grouped-v2 policy. The checked-in schema and this source stay in
 # one repository, so the editor modeline is local rather than a release URL.
 
 schema: rhino/repo-config/v2

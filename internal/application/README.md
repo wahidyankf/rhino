@@ -12,8 +12,11 @@ budgets, `directorymap.go` for the declared directory-map trees and their siblin
 for the declared local environment setup: redacted validation plus the plan-then-write init, backup, and restore leaves,
 `toolchain.go` for the declared toolchain probes and the plan-then-apply provision vectors).
 
-Validators here stay read-only, network-free, process-free, and path-contained. Declared gate dispatch launches
-processes through the consumer-declared `Launcher`; declared toolchain validate and applied provision start only
-declared no-shell vectors through the consumer-declared `ToolchainRunner`; declared environment init, backup, and
-restore are the one path that writes, through the consumer-declared `EnvironmentStore`. Every leaf in the closed command
-table has a routed core, and a leaf without one panics rather than reporting a tree it never checked.
+The validator cores stay read-only, network-free, and free of process packages. Declared gate dispatch launches
+processes through the consumer-declared `Launcher`, except a `type: mutation` gate, which never reaches the ordinary
+launcher. A mutation gate runs through the consumer-declared `MutationRunner`, which owns the snapshot and every Git
+write it makes. Declared toolchain validate and applied provision start only declared no-shell vectors through the
+consumer-declared `ToolchainRunner`. The other writers each have a port of their own: declared environment init, backup,
+and restore through the consumer-declared `EnvironmentStore`, and `harness adapters generate` through `AdapterStore`.
+Every leaf in the closed command table has a routed core, and a leaf without one panics rather than reporting a tree it
+never checked.

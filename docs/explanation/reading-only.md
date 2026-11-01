@@ -1,13 +1,16 @@
 # Why RHINO validation only reads
 
 RHINO tree validators open files and print. They write nothing and connect to nothing, and the only child processes they
-start are read-only Git queries. Explicit operations are separate: `gate run` starts only a declared child argv,
-toolchain commands start declared typed argv without a shell or reported output, `env validate` runs one
-`git diff --cached` query for the staged paths when `environment.staged` is declared, and adapter generation replaces
-only declared adapter families and exact adapter files after planning every output in memory, starting at most a tier's
-declared `model-resolve` argv. These are enforced as tests, not incidental properties of the current implementation: the
-import and dependency rules live in `internal/bootstrap/boundary_test.go`, and the tree adapter's write and Git rules
-live in `internal/adapters/runtime/read_boundary_test.go`.
+start are read-only Git queries. Explicit operations are separate: `gate run` starts declared child argv and, for a
+mutation gate, fixed Git plumbing inside the mutation boundary, which writes the Git index and the selected files at
+pre-commit or adds and removes a disposable worktree at pull-request; toolchain commands start declared typed argv
+without a shell or reported output, `env validate` runs one `git diff --cached` query for the staged paths when
+`environment.staged` is declared, and adapter generation replaces only declared adapter families and exact adapter files
+after planning every output in memory, starting at most a tier's declared `model-resolve` argv. The validator boundaries
+are enforced as tests, not incidental properties of the current implementation: the import and dependency rules live in
+`internal/bootstrap/boundary_test.go`, and the tree adapter's write and Git rules live in
+`internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of `gate run` or the Git plumbing of
+the mutation boundary; behaviour tests check their outcomes.
 
 ## The four boundaries
 
@@ -20,7 +23,8 @@ or exact files and is never reachable from a validator.
 package. The tree adapter starts only `git diff`, `git log`, and `git rev-parse`, and only when a validator asks for Git
 state, such as the staging guard. No validator starts a formatter or a shell. Everything it reports is derived from
 bytes it read itself or from one of those queries. `gate run` and the toolchain commands are separate declared
-operations: each starts typed argv at a narrow port and never interprets a shell command. Toolchain probes and provision
+operations: each starts typed argv at a narrow port and never interprets a shell command. A mutation gate's Git writes
+stay inside the mutation boundary, which owns the snapshot and every Git write it makes. Toolchain probes and provision
 never report child output; provision stops at its first failure. Adapter generation may start a tier's declared
 `model-resolve` argv through its own port, with a timeout; `harness adapters validate` never does.
 

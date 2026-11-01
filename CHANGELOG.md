@@ -17,10 +17,9 @@ A patch release: `md readme-index validate` finishes in a fraction of a second o
 ### Fixed
 
 - `md readme-index validate` no longer slows down quadratically with the size of the repository. It used to walk the
-  whole repository again for every directory and every link it checked. A repository of about 3,800 files took between
-  half a minute and a minute and a half, and the cost grew with the square of the repository size. It now lists the
-  repository once, and the same check finishes in about a tenth of a second. Findings, their order, and exit codes are
-  unchanged.
+  whole repository again for every directory and every link it checked, so its cost grew with the square of the
+  repository size. A repository of about 3,800 files took about 30 seconds. It now lists the repository once, and the
+  same check takes about 0.06 seconds. Findings, their order, and exit codes are unchanged.
 
 ## [v0.16.6] — 2026-11-01
 

@@ -70,8 +70,8 @@ The clone and release-build sequence below was not exercised during this documen
 
 Separate source-gate evidence does not demonstrate this installation sequence.
 
-RHINO is a single Go binary. Its checked-in configuration schema derives from the typed model and is verified
-separately; a release archive never fetches it while running.
+RHINO is a single Go binary. Its checked-in configuration schema is maintained by hand; no test or CI step compares it
+with the Go configuration reader. A release archive never fetches it while running.
 
 ```sh
 git clone https://github.com/wahidyankf/rhino
