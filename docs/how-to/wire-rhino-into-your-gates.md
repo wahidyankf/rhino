@@ -97,14 +97,14 @@ likewise require their own reviewed plan and explicit `--apply` authorization.
 
 ## 5. Handle results at the caller
 
-| Exit code | Caller action                                                  |
-| --------- | -------------------------------------------------------------- |
-| `0`       | Continue; the selected surface completed cleanly.              |
-| `1`       | Stop; a declared child reported a repository finding.          |
-| `2`       | Stop; fix the invocation, configuration, or declared boundary. |
-| `126`     | Stop; a declared gate child could not be executed.             |
-| `127`     | Stop; a declared gate child was not found.                     |
-| `128+N`   | Stop; RHINO was ended by signal `N`.                           |
+| Exit code | Caller action                                                         |
+| --------- | --------------------------------------------------------------------- |
+| `0`       | Continue; the selected surface completed cleanly.                     |
+| `1`       | Stop; a validator found a violation, or a declared gate child failed. |
+| `2`       | Stop; fix the invocation, configuration, or declared boundary.        |
+| `126`     | Stop; a declared gate child could not be executed.                    |
+| `127`     | Stop; a declared gate child was not found.                            |
+| `128+N`   | Stop; RHINO was ended by signal `N`.                                  |
 
 RHINO prints only a gate identifier and sanitized status. It never repeats a child stream that could contain material
 unsafe to publish.

@@ -7,7 +7,8 @@ specific to documents.
 ## Entry
 
 The gate starts only on an explicit request that names it, or from [Release Cut](../maintenance/release-cut.md), which
-runs it with subject `all` before publishing. A change or a propagation run never starts it alone.
+requires its verdict on subject `all`, recorded before the release-prep pull request. A change or a propagation run
+never starts it alone.
 
 ## Inputs
 

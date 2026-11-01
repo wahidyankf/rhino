@@ -20,8 +20,28 @@ gates: {}
 extensions: {}
 ```
 
-`schema` is required. The other core groups are optional and closed: an omitted group declares no policy, while an
-unknown group or key is a configuration error. The policy subgroups are also closed.
+`schema` is required. The other core groups are optional: an omitted group declares no policy. An unknown top-level key
+is a configuration error. Beyond that, the binary refuses an unknown key only where a validator reads it:
+
+- Each validator named here refuses an unknown key inside the policy group it reads. The validators are the seven
+  `policies.markdown` sub-policies (`frontmatter`, `heading-hierarchy`, `internal-link`, `mermaid`, `naming`,
+  `readme-index`, and `metadata`), the six `policies.governance` sub-policies (`word-budget`, `directory-map`,
+  `quality-gates`, `layers`, `traceability`, and `vendor`), and `policies.conventions.license`.
+- `policies.conventions.emoji` is the exception. The emoji validator reads the group, but it accepts an extra key on the
+  group and on a `prohibited` entry, with no error and no finding.
+- The umbrella keys `policies`, `policies.markdown`, `policies.governance`, `policies.conventions`, and `policies.plans`
+  are read whole by no validator. An unknown key under them is not reported by `repo-config validate` or by any leaf.
+  `policies.plans` has no validator at all.
+- Under `scan`, the scan-based leaves (for example `md mermaid validate` and `md internal-link validate`) refuse an
+  unknown key. Under `environment`, `toolchains`, and `harness`, the leaves `env validate`, `toolchain validate`, and
+  `harness adapters validate` refuse one. `repo-config validate` passes all of these keys.
+- Gate argument, environment projection, and `run-on` entries refuse an unknown field under both `repo-config validate`
+  and `gate validate`. A key directly on a gate entry or its command, and a key directly under `gates` or `repository`,
+  pass both.
+
+The checked-in schema is stricter than the binary. It rejects an unknown key at each level named here, including the
+umbrella keys, the emoji group, and each `prohibited` entry. This page describes what the binary does, not what the
+schema does.
 
 `extensions` is the sole escape hatch. Each owner name matches `^[a-z][a-z0-9-]*$`, and its value is a mapping. Rhino
 preserves that mapping without assigning it product meaning.
@@ -35,8 +55,8 @@ remains in scope until its repository declares otherwise.
 `policies.markdown` opts into frontmatter, heading hierarchy, internal-link, metadata, Mermaid, filename, and
 README-index validation. `policies.governance` owns vendor vocabulary, layer structure, traceability declarations,
 word-budget surfaces, directory-map trees, and quality-gate structure. `policies.conventions` owns configured license
-paths, identifiers, digests, exact exclusions, and emoji-prohibited file surfaces. Each group refuses an undeclared or
-invalid sub-policy instead of inheriting a repository convention.
+paths, identifiers, digests, exact exclusions, and emoji-prohibited file surfaces. Each validator that reads one of
+these groups refuses an undeclared or invalid sub-policy instead of inheriting a repository convention.
 
 `governance word-budget validate` and `governance directory-map validate` read only `policies.governance.word-budget`
 and `policies.governance.directory-map`, respectively. Their `count`, ordered `surfaces`, `trees`, findings, and
@@ -46,6 +66,54 @@ not the policy a repository declared.
 `md heading-hierarchy validate`, `md naming validate`, and `metadata validate` read their respective `policies.markdown`
 sub-policies. `convention emoji validate` reads `policies.conventions.emoji`. These grouped projections retain the
 existing scanner, findings, and no-default behavior.
+
+### Governance and license keys
+
+`policies.governance.word-budget` needs `count` and `surfaces`.
+
+- `count`: `letters-and-digits` counts runs of letters, marks, and digits, joined by an apostrophe, hyphen, or
+  underscore. `whitespace-separated` counts the fields between whitespace.
+- `surfaces`: a list of `{glob, fail}` entries, and both keys are required. `glob` selects Markdown files, and `fail` is
+  the most words a selected file may hold. Where two entries match one file, the last one wins.
+- `warn` and `target` are accepted in an entry and ignored. They are not checked, reported, or enforced.
+
+`policies.governance.layers` needs `root`, and `order` and `categories` are optional.
+
+- `root`: an exact repository path. Every direct child of `root` is a layer, so a file there is reported too.
+- `order`: the layer names, which must each exist. A name uses only lowercase letters, digits, and hyphens.
+- `categories`: a map from a layer named in `order` to the directory names that layer must hold. A missing category is
+  reported, and so is a directory the layer does not list. Files directly inside a layer are not checked.
+
+An omitted `order` reports every direct child of `root` as an undeclared layer. An omitted `categories` reports every
+directory inside a declared layer. `categories` without `order` refuses the run with exit `2`.
+
+`policies.governance.vendor` has four optional lists, each empty when omitted.
+
+- `roots`: exact paths. Every file under a root is read.
+- `excluded-binding-roots`: exact paths. Files under them are never read, even inside a root.
+- `forbidden-terms`: strings. A file under a root that contains a term, case-sensitively, is a `forbidden-vendor-term`
+  finding. An empty term refuses the run.
+- `vocabulary-exceptions`: entries of `{term, paths}`. A term is accepted only at its exact `paths`. An exception with
+  no `paths` accepts the term nowhere.
+
+`policies.governance.traceability` has two optional lists, `artifacts` and `relationships`.
+
+- `artifacts`: entries of `{id, path}`. An `id` uses lowercase letters, digits, and hyphens, and it must be unique. When
+  the file at `path` is missing, the run reports `missing-traceability-artifact`.
+- `relationships`: entries of `{from, to}`, and both must name declared ids. `from` must contain a local Markdown link
+  that resolves to the `to` artifact's path, or the run reports `missing-traceability-relationship`. An undeclared id
+  refuses the run with exit `2`.
+
+`policies.conventions.license` has two optional lists, `paths` and `exclusions`.
+
+- `paths`: entries of `{path, identifiers, sha256}`. `path` is an exact path and must not repeat. Each `identifiers`
+  item must appear in the file, case-sensitively. `sha256` is 64 lowercase hexadecimal characters, the SHA-256 of the
+  file's content. A missing file is `missing-license`, a missing identifier is `license-identifier-mismatch`, and a
+  different digest is `license-digest-mismatch`.
+- `exclusions`: exact paths. A listed path is neither read nor checked.
+
+A `paths` entry without `path` refuses the run with exit `2`. Omitted `identifiers` and `sha256` skip their checks, so
+an entry with only `path` exits `0` when the file exists.
 
 ### Mermaid policy
 
@@ -64,9 +132,9 @@ a configuration that omits an optional key behaves as it did before that key exi
 - `canvas-colors` (hex list, empty by default): the canvases a filled class must stay visible against.
 
 `canvas-colors` takes six-digit hex colours only, and an invalid `exclude` glob is a configuration fault: either makes
-the command refuse with the unreadable-input exit code instead of reporting findings. Declaring `allowed-types` also
-reads a colour by what it is assigned to and refuses a sequence-diagram `box` that names a colour. The checks and
-finding details are in [Findings](findings.md#mermaid).
+the command refuse with exit `2` instead of reporting findings. Declaring `allowed-types` also reads a colour by what it
+is assigned to and refuses a sequence-diagram `box` that names a colour. The checks and finding details are in
+[Findings](findings.md#mermaid).
 
 ### Quality-gate policy
 
@@ -121,7 +189,8 @@ policies:
 `gate-headings`, `propagation-headings`, and `verdicts` must each be non-empty and unique, and no `retired-inputs` entry
 may be blank. A declaration that breaks any rule in this list is a configuration error with exit `2` for
 `repo-config validate` and `governance quality-gates validate`, before any file is read; a command that does not read
-the key is unaffected. A `defaults.max-cycles` outside 1–3 is refused by every command that reads `repo-config.yml`.
+the key is unaffected. A `defaults.max-cycles` outside 1–3 makes every command that loads `repo-config.yml` exit `2`,
+including a command that reads no quality-gate policy.
 
 Each finding names its rule as a `rule` detail: `QG01` to `QG08`, `QG10`, or `QG11`. QG09 is the configuration error
 above, never a finding. The kinds are in [Findings](findings.md#quality-gates).
@@ -150,8 +219,8 @@ no surface glob reaches is neither followed nor refused, and a link in a directo
 never considered. A glob that matches nothing still exits `0`. Every other read, including internal-link targets,
 `--file` and `--directory` selections, and exact declared paths, still never follows a link.
 
-`policies.plans` is a closed owner boundary. It carries no v0.4 command in this release, so an empty group is not a
-request to run a legacy plan validator.
+`policies.plans` is a reserved owner boundary. It carries no v0.4 command in this release, so `repo-config validate`
+does not check keys inside it, and an empty group is not a request to run a legacy plan validator.
 
 ### README index completeness
 
@@ -585,15 +654,17 @@ any change to the replay is a finding with exit `1`. The disposable checkout is 
 
 ## Modelines
 
-Rhino's source example uses a relative modeline because its generated schema is checked in beside it:
+Rhino's source example uses a relative modeline because its schema is checked in beside it:
 
 ```yaml
 # yaml-language-server: $schema=./v2.schema.json
 ```
 
 A consumer pins an immutable release URL instead. The consumer fixture shows the canonical modeline shape; it never
-makes the Rhino runtime perform a network request. Pin the release you run: its schema describes exactly the keys that
-binary reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema.
+makes the Rhino runtime perform a network request. Pin the release you run: its schema describes the keys that binary
+reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema. For the umbrella keys, which no
+validator reads, and for the emoji group and its `prohibited` entries, which accept extra keys, the schema is stricter
+than the binary: it flags a key the binary accepts.
 
 ## Verification
 

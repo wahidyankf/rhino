@@ -1,7 +1,8 @@
 # How to migrate from v0.3 to v0.4
 
-Use this guide to convert a predecessor configuration before using stable v0.4. Stable accepts only grouped v2; it does
-not alias predecessor keys or commands, read predecessor configuration, or provide a migration command.
+Use this guide to convert a predecessor configuration before using the stable binary's v0.4 configuration contract. The
+stable binary accepts only grouped v2; it does not alias predecessor keys or commands, read predecessor configuration,
+or provide a migration command.
 
 ## 1. Record the legacy configuration
 

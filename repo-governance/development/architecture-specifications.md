@@ -18,8 +18,9 @@ the boundaries the code is required to have.
 ## What Belongs Here
 
 Contexts, containers, components, and the direction of dependency between them. The validator's read-only, network-free,
-process-free, path-contained boundary and each explicit operation boundary belong here as structure, and in
-[software quality enforcement](software-quality-enforcement.md) as the rule tests enforce.
+path-contained boundary, which starts no process except read-only Git queries, and each explicit operation boundary
+belong here as structure, and in [software quality enforcement](software-quality-enforcement.md) as the rule tests
+enforce.
 
 ## What Does Not
 

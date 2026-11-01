@@ -19,8 +19,8 @@ stay plan-only. Give every plan-only outcome its reason and the exact `delivery.
 selected outcome its target specification file below.
 
 Remember what a change here costs a consumer. A command, flag, exit code, or configuration key is
-[a public contract](../development/public-contract.md): adding is free, and moving one is a major version. A plan that
-proposes a rename is proposing a release decision, and the plan says so.
+[a public contract](../development/public-contract.md): adding is free, and moving one is a major version, or a minor
+version while the product is 0.x. A plan that proposes a rename is proposing a release decision, and the plan says so.
 
 ## Per File
 

@@ -9,14 +9,18 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.16.7] — 2026-11-01
+
+A patch release: `md readme-index validate` finishes in a fraction of a second on a repository of about 3,800 files.
+Users with a `readme-index` policy should move to this version.
 
 ### Fixed
 
 - `md readme-index validate` no longer slows down quadratically with the size of the repository. It used to walk the
-  whole repository again for every directory and every link it checked, so a repository of a few thousand files took
-  minutes, and a larger one appeared to hang. It now lists the repository once, and the same check finishes in a
-  fraction of a second. Findings, their order, and exit codes are unchanged.
+  whole repository again for every directory and every link it checked, so its cost grew with the square of the
+  repository size. It now lists the repository once. On the maintainer's machine, a repository of about 3,800 files took
+  roughly 30 seconds, and the same check now takes roughly 0.06 seconds. Other machines differ, but the cost no longer
+  grows with the square. Findings, their order, and exit codes are unchanged.
 
 ## [v0.16.6] — 2026-11-01
 
@@ -28,6 +32,7 @@ A patch release: `--root` accepts any existing directory again, so users of v0.1
   working directory, names the repository to inspect. v0.16.5 refused such a root with "escapes the repository root".
   A root that names nothing, or names a file, is still refused with exit `2` and `rhino.repository.unusable`, and a
   `--file`, `--directory`, or `--dir` value still stays inside the chosen root.
+
 ## [v0.16.5] — 2026-10-31
 
 Mutation gates, the toolchain runner, symbolic-link handling, and several refusal wordings are corrected. The Gherkin
@@ -963,6 +968,7 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.16.7]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.7
 [v0.16.6]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.6
 [v0.16.5]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.5
 [v0.16.4]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.4
@@ -970,6 +976,23 @@ The first release, so everything below is new.
 [v0.16.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.2
 [v0.16.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.1
 [v0.16.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.0
+[v0.15.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.15.0
+[v0.14.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.14.0
+[v0.13.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.13.0
+[v0.12.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.12.0
+[v0.11.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.11.0
+[v0.10.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.10.0
+[v0.9.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.9.1
+[v0.9.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.9.0
+[v0.8.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.8.0
+[v0.7.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.7.0
+[v0.6.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.6.0
+[v0.5.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.5.0
+[v0.4.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.4.2
+[v0.4.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.4.1
+[v0.4.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.4.0
+[v0.3.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.3.0
+[v0.2.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.2.0
 [v0.1.3]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/wahidyankf/rhino/releases/tag/v0.1.1

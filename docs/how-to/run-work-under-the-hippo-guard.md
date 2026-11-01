@@ -15,7 +15,7 @@ Exit `124` means a limit stopped the work: `storage-blocked` means free disk fir
 Exit `125` means HIPPO failed to start or supervise the work: read the reason, and do not retry blindly. For example,
 `hippo.policy.replan-required` means the profile or the host has to change.
 
-Since v0.13.0, a machine file may also carry opt-in proportional thresholds (`coordination.memoryPolicy`, schema 3 only)
-and an opt-in per-machine swap gate (`coordination.swapUsedMaxMultiple`); an omitted key keeps the legacy behavior. The
-swap gate waives byte-based swap warnings while swap in use stays within the declared multiple of physical RAM; PSI and
-pressure signals still apply. No production percents, floors, or multiples are set anywhere yet.
+Since HIPPO v0.13.0, a machine file may also carry opt-in proportional thresholds (`coordination.memoryPolicy`, schema 3
+only) and an opt-in per-machine swap gate (`coordination.swapUsedMaxMultiple`); an omitted key keeps the legacy
+behavior. The swap gate waives byte-based swap warnings while swap in use stays within the declared multiple of physical
+RAM; PSI and pressure signals still apply. No production percents, floors, or multiples are set anywhere yet.

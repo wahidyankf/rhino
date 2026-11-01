@@ -11,9 +11,10 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 - Ship no repository-specific defaults, repository, harness, or organization names in product code;
   [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
 - Exit codes, `version --json`, commands, flags, and configuration keys are
-  [a public contract](repo-governance/development/public-contract.md); moving is major-version work.
-- Tree validators are read-only, network-free, process-free, and path-contained. Declared gate children, toolchain
-  probes/provision, and adapter generation use separate narrow boundaries.
+  [a public contract](repo-governance/development/public-contract.md); moving is major-version work (minor version while
+  0.x).
+- Tree validators are read-only, network-free, path-contained, and start no process except read-only Git queries; the
+  vision names their explicit boundaries.
 
 ## Specifications
 
@@ -29,8 +30,7 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 
 - `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); `./scripts/test.sh` is
   the full gate, which CI runs.
-- Coverage policy: 99% over the domain, application, and config packages; the quick gate pins 99% and declares no
-  exclusions.
+- Coverage: 99% over the domain, application, and config packages; the quick gate declares no exclusions.
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
   read its reason, `125` replan or drain, `2` fix the call. Route
   [HIPPO and FERRET defects](repo-governance/development/upstream-tool-defects.md) to their owners.

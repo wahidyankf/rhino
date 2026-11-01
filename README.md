@@ -12,20 +12,23 @@ ships no repository, organization, harness, tree, or threshold defaults.
 </p>
 
 RHINO validates declared Markdown, governance, lifecycle, harness, environment, and toolchain policy. Tree validators
-read local files only: they do not write, spawn, or connect to a network. `env validate` asks Git for the staged paths
-when a staging guard is declared, and `toolchain validate` runs each declared probe. Declared gates and explicit
-operations use separate, narrow boundaries.
+read local files only: they do not write, start any process except read-only Git queries, or connect to a network.
+`env validate` asks Git for the staged paths when a staging guard is declared, and `toolchain validate` runs each
+declared probe. Declared gates and explicit operations use separate, narrow boundaries.
 
 ## Highlights
 
 - **No policy of its own.** Every repository-specific value it enforces comes from `repo-config.yml`.
-- **Closed grouped configuration.** `rhino/repo-config/v2` rejects unknown core groups and keys instead of treating a
-  typo as silent policy.
+- **Grouped configuration with checked keys.** `rhino/repo-config/v2` rejects an unknown top-level key. Each policy
+  validator refuses an unknown key inside the group it reads, except the emoji group, which accepts extra keys, and the
+  umbrella policy keys, which no validator checks. The [grouped reference](./docs/reference/v0-4-configuration.md) lists
+  each case.
 - **Explicit operations.** Adapter generation, environment setup, toolchain provision, and gate execution need their own
   declared authority.
-- **Stable exit meanings.** `1` means a declared policy found a violation; `2` means the invocation, configuration, or
-  boundary was unusable; `126` and `127` mean a gate child could not be executed or was not found, the same two things a
-  shell reports with those numbers. A signal ends the process as `128+N`, never as a value in the result range.
+- **Stable exit meanings.** `1` means a declared policy found a violation or a gate child failed; `2` means the
+  invocation, configuration, or boundary was unusable; `126` and `127` mean a gate child could not be executed or was
+  not found, the same two things a shell reports with those numbers. A signal ends the process as `128+N`, never as a
+  value in the result range.
 - **Machine-readable results.** `--output json` keeps programmatic callers out of human prose.
 
 ## Install
@@ -94,9 +97,9 @@ declared adapter families and exact adapter files.
 
 ## v0.3 to v0.4 migration
 
-Stable v0.4 accepts only the grouped schema. It rejects predecessor schemas and does not provide aliases, compatibility
-wrappers, or a migration command. Create an explicit grouped configuration and validate it locally before using the
-stable binary.
+The stable binary's v0.4 configuration contract accepts only the grouped schema. It rejects predecessor schemas and does
+not provide aliases, compatibility wrappers, or a migration command. Create an explicit grouped configuration and
+validate it locally before using the stable binary.
 
 [How to migrate from v0.3 to v0.4](./docs/how-to/migrate-to-v0-4.md) gives the owner-by-owner mapping and verification
 sequence.

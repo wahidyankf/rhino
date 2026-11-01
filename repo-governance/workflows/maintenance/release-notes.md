@@ -48,8 +48,9 @@ Give the check as a command:
 sha256sum -c checksums.txt
 ```
 
-On macOS, use `shasum -a 256 -c checksums.txt`. Every line must end in `OK`. The grouped schema asset
-`rhino-repo-config-v2.schema.json` is not in `checksums.txt`; say how to compare it with the tagged commit:
+On macOS, use `shasum -a 256 -c checksums.txt`. Every line must end in `OK`. If you downloaded only some archives, add
+`--ignore-missing`. The grouped schema asset `rhino-repo-config-v2.schema.json` is not in `checksums.txt`; say how to
+compare it with the tagged commit:
 `git show vX.Y.Z:schemas/repo-config/v2.schema.json | cmp - rhino-repo-config-v2.schema.json`.
 
 ### 5. Full Changelog
@@ -100,8 +101,10 @@ None.
 
 ## Verification
 
-Download the four archives and `checksums.txt` from this release, then run `sha256sum -c checksums.txt`.
-On macOS, use `shasum -a 256 -c checksums.txt`. Every line must end in `OK`.
+Download the four archives, `checksums.txt`, and `rhino-repo-config-v2.schema.json` from this release, then run
+`sha256sum -c checksums.txt`. On macOS, use `shasum -a 256 -c checksums.txt`. Every line must end in `OK`. If you
+downloaded only some archives, add `--ignore-missing`. Compare the grouped schema with the tagged commit:
+`git show vX.Y.Z:schemas/repo-config/v2.schema.json | cmp - rhino-repo-config-v2.schema.json`.
 
 **Full Changelog**: https://github.com/wahidyankf/rhino/compare/vPREVIOUS...vX.Y.Z
 ```

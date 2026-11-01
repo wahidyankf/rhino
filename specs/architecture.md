@@ -49,7 +49,9 @@ refusal, not a silent pass.
   tests/bdd                 the behaviour corpus runner; builds the binary once
 ```
 
-There is exactly one executable. The other directories are its libraries, or a harness that runs it.
+There is one product executable, `cmd/rhino`. The other packages are its libraries, or a harness that runs it. The one
+exception is `scripts/release-archive`, a build-time tool: `scripts/build-release.sh` compiles it separately to write
+release archives, and it is not part of the binary.
 
 ## Level 3: Components
 
@@ -67,10 +69,9 @@ document carries one of them. The package has no behaviour beyond naming and cla
 ### internal/application
 
 The use cases and the ports they need. `cli.go` holds the closed command table: 28 leaves, each with its path, category,
-accepted flags, and summary. `Parse` in `cli.go` checks an invocation against that table; `execute.go`
-dispatches it and renders a result.
-Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the others) are pure over a
-`Tree` and the parsed configuration.
+accepted flags, and summary. `Parse` in `cli.go` checks an invocation against that table; `execute.go` dispatches it and
+renders a result. Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the
+others) are pure over a `Tree` and the parsed configuration.
 
 `surfaces.go` is the one place a declared surface glob follows a filesystem link. It follows a link only when the link's
 target lies inside the root. It refuses a link that leads outside with `rhino.path.escapes-root`, and a link that loops
@@ -128,26 +129,34 @@ inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any
 
 ## Data
 
-- **Configuration:** one YAML document, decoded once into a `config.Document`. Undeclared keys in closed structures are
-  refused. There is no second configuration source.
-- **Reports:** each command builds an `application.Report` and renders it as text, or as one JSON document when `--json`
-  is given. JSON documents carry `schemaVersion`.
+- **Configuration:** one YAML document, decoded once into a `config.Document`. `repo-config validate` refuses an unknown
+  top-level key and an unknown field in a gate argument, environment projection, or `run-on` entry. Each policy
+  validator refuses an unknown key inside the group it reads, except the emoji group, which accepts extra keys, and the
+  umbrella policy keys, which no validator reads. Leaves also refuse unknown keys under the core groups they read: the
+  scan-based leaves (for example `md mermaid validate`) under `scan`, `env validate` under `environment`,
+  `toolchain validate` under `toolchains`, and `harness adapters validate` under `harness`. `repo-config validate`
+  passes those keys, and it passes a key directly on a gate entry or its command. There is no second configuration
+  source.
+- **Reports:** each command builds an `application.Report` and renders it as text, or as one JSON document when
+  `--output json` is given. `version` alone also accepts `--json`, a shorthand for the same. JSON documents carry
+  `schemaVersion`.
 - **Gate dispatch:** a declared argv, environment projection, and working directory. The child inherits the process
   environment plus `RHINO_GATE_SURFACE` and the projected entries. Its output is discarded; its exit status decides.
 
 ## Exit Codes
 
-| Exit    | Meaning                                                                              |
-| ------- | ------------------------------------------------------------------------------------ |
-| `0`     | Ran and found nothing                                                                |
-| `1`     | Ran and found a violation, or a gate reported a finding                              |
-| `2`     | Could not run: invocation, configuration, or an unreadable input                     |
-| `126`   | `gate run` only: a declared child exists but cannot be executed                      |
-| `127`   | `gate run` only: a declared child cannot be found                                    |
-| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe |
+| Exit    | Meaning                                                                               |
+| ------- | ------------------------------------------------------------------------------------- |
+| `0`     | Ran and found nothing                                                                 |
+| `1`     | Ran and found a violation, or a `gate run` child exited non-zero or ended by a signal |
+| `2`     | Could not run: invocation, configuration, or an unreadable input                      |
+| `126`   | `gate run` only: a declared child exists but cannot be executed                       |
+| `127`   | `gate run` only: a declared child cannot be found                                     |
+| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe  |
 
-A child that ends by a signal is a failing gate. RHINO's own status describes RHINO only, so a child's signal never
-becomes a RHINO status.
+A check child that ends by a signal is a failing gate, reported as `1`. A mutation child that ends by a signal is
+reported as `2`, a gate that could not run. RHINO's own status describes RHINO only, so a child's signal never becomes
+`128+N`.
 
 ## Test Layout
 
