@@ -39,8 +39,9 @@ carries it there. Verify a source **before** publishing an assertion that rests 
 | `unverified` | The source could not be reached; guidance only, and it gates nothing     |
 | `dropped`    | Verification contradicted the assertion; it is removed rather than kept  |
 
-A runner **refuses to gate on anything not marked `verified`**. This is the corpus's one hard rule, and it exists
-because an assertion that cannot be traced to a source is a preference being enforced as a standard.
+This repository has no runner that reads `assertions.json`. Any runner added later must **refuse to gate on anything not
+marked `verified`**. This is the corpus's one hard rule, and it exists because an assertion that cannot be traced to a
+source is a preference being enforced as a standard.
 
 ## Exemption Is a Condition, Not an Override
 
@@ -59,4 +60,4 @@ own failures somewhere a maintainer can find them.
 ## Not Formatted, Not Linted
 
 This tree is excluded from the repository's format and lint gates. Nothing rewrites these bytes, so they are kept
-correct by hand and by the runner that reads them.
+correct by hand, because this repository has no runner that reads them.

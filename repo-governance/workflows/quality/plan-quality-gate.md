@@ -26,15 +26,14 @@ Any other `max-cycles` value, or a missing subject, refuses to start.
 
 The checker reports none of these properties. The entry and exit checks run their owners instead.
 
-| Property                            | Owned by                      | This repository runs                      |
-| ----------------------------------- | ----------------------------- | ----------------------------------------- |
-| Plan layout, documents, and labels  | the plan structural validator | `rhino plan validate`                     |
-| Markdown formatting and line length | the formatter and linter      | `prettier`, `markdownlint-cli2`           |
-| Internal links and anchors          | the link validator            | `rhino md internal-link validate`         |
-| Directory maps                      | the map validator             | `rhino governance directory-map validate` |
+| Property                            | Owned by                 | This repository runs                      |
+| ----------------------------------- | ------------------------ | ----------------------------------------- |
+| Markdown formatting and line length | the formatter and linter | `prettier`, `markdownlint-cli2`           |
+| Internal links and anchors          | the link validator       | `rhino md internal-link validate`         |
+| Directory maps                      | the map validator        | `rhino governance directory-map validate` |
 
-The plan validator's checks are listed in [Structural Validation](../../conventions/plans/006-structural-validation.md).
-A property no tool of its own owns leaves the table and becomes judgeable.
+This repository runs no plan validator; plan layout is judged. A property no tool of its own owns leaves the table and
+becomes judgeable.
 
 ## Cycle
 

@@ -8,6 +8,6 @@ configuration, workstation path, secret, or executable output belongs in this tr
 - [Acceptance Manifest](acceptance-manifest.tsv) — every non-Delete legacy capability mapped to fixture IDs, ACs, owner,
   and delivery phase.
 - [Phase 2 RED Fixtures](phase-2-red-fixtures.json) — typed projection, snapshot/replay, external Nx, harness, and
-  safe-operation inputs that later GREEN phases must satisfy.
+  safe-operation inputs, retained as Phase 2 reference inputs.
 - [Consumer v2 Configuration](consumer-repo-config.yml) — a synthetic consumer fixture whose modeline pins an
   immutable release schema rather than asking runtime to fetch one.

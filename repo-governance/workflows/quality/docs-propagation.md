@@ -7,14 +7,14 @@ This is the `docs` family's sole writer, under
 
 ## Scope
 
-Every human-facing document: every README, the documentation and specification trees, documents inside projects, the
-standard files per Repository Documentation Files, and a plan's documents where they describe the repository. Governance
-and agent instructions stay with [Rules Propagation](rules-propagation.md). A handed-over ledger narrows the scope to
-what its rows require.
+Every human-facing document: every `README.md`, the `docs/` and `specs/` trees, the standard `CHANGELOG.md`, documents
+inside projects, and a plan's documents where they describe the repository. Governance and agent instructions stay with
+[Rules Propagation](rules-propagation.md). A handed-over ledger narrows the scope to what its rows require.
 
 ## Executor
 
-`docs-fixer`, loading the `authoring-documentation` skill.
+`docs-fixer`, loading the `applying-maker-checker-fixer`, `assessing-criticality-confidence`, and
+`generating-validation-reports` skills.
 
 ## Row Verification
 
@@ -42,15 +42,14 @@ indexes, and word budgets stay with the repository's checks; this workflow runs 
    change removed, renamed, or redefined. Each ledger row is an item too.
 3. **Remove what is obsolete.** A document describing something the repository no longer has is deleted, with every link
    and index entry pointing at it. Unique meaning that is still true moves to its canonical home first.
-4. **Keep each fact in its one home.** The root README orients; a project README follows Project READMEs; an index
-   follows [Directory Indexes](../../conventions/directory-maps.md); a page serves one mode per
+4. **Keep each fact in its one home.** The root README orients; an index follows
+   [Directory Maps](../../conventions/directory-maps.md); a page serves one mode per
    [Documentation Architecture](../../conventions/documentation-architecture.md). A summary links one level down to its
    detail, per [Progressive Disclosure](../../principles/progressive-disclosure.md), and a fact with a canonical home is
    linked, never copied.
 5. **Write for a newcomer.** Each affected document tells a reader new to the repository what it is and why it matters
    from the opening, shows the next step without assuming the layout, and leaves no undefined term or skipped
-   prerequisite, per README Quality and Content Quality, never a readability score. A sparing marker per Emoji Usage may
-   aid scanning; decoration never does.
+   prerequisite, never judged by a readability score.
 6. **Run what is safe to run.** Execute every command and example an affected document shows through the repository's
    declared entry point, per [Only What Was Run](../../conventions/documentation-architecture.md#truthfulness). Never
    run one that touches a production or shared system, publishes, spends, needs a secret, or cannot be undone; the

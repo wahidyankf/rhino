@@ -29,9 +29,9 @@ opposite responses, so read both.
 - **`124`** — a limit stopped the work. `hippo.limit.capacity-deferred` retries only when a new schema-1 receipt proves
   `never-started`; `hippo.limit.pressure-shed` and a `started-safety-stop` need payload-specific recovery;
   `hippo.limit.storage-blocked` needs storage cleaned, since waiting frees no disk.
-- **`125`** — HIPPO started nothing. `hippo.coordination.protocol-mismatch` is never retried: drain or upgrade the
-  incompatible peer first. `hippo.policy.replan-required` and the `hippo.config.*` reasons mean replanning the work, not
-  reshaping the call until admitted.
+- **`125`** — HIPPO failed before, while, or after starting the work. `hippo.coordination.protocol-mismatch` is never
+  retried: drain or upgrade the incompatible peer first. `hippo.policy.replan-required` and the `hippo.config.*` reasons
+  mean replanning the work, not reshaping the call until admitted.
 - **`2`** — the call itself is unusable; read the diagnostic and fix it.
 - **`126`, `127`** — the guarded command cannot be executed, or is not there.
 - **`1`** — the work ran and the answer is empty: a result, never a capacity signal.

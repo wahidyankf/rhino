@@ -1,6 +1,6 @@
 # Quality Gates
 
-Three gates, distinguished by what they can afford to run, and one that runs before them.
+Three checks, the first of which runs before the other two.
 
 ## Public Safety
 
@@ -45,9 +45,6 @@ every push to `main`, on `ubuntu-24.04` and `macos-15`.
 
 All Linux workflows pin `ubuntu-24.04`, and the macOS legs pin `macos-15`. A `-latest` label moves under a release, so
 none is used.
-
-All Linux workflows pin `ubuntu-24.04`. The macOS legs pin `macos-15`. A `-latest` label moves under a release, so none
-is used.
 
 ## Portability
 

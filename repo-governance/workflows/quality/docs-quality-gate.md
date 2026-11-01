@@ -44,15 +44,14 @@ Each cycle is one full audit by `docs-checker` and one repair by [Docs Propagati
 [Sequence and Termination](../../development/workflow/quality-gate-contract/002-sequence-and-termination.md). The audit
 may delegate reading to the repository's documentation checkers. It asks of each document whether:
 
-1. every claim is true to the implementation, per [Factual Validation](../../conventions/documentation-architecture.md),
-   and every command shown was run or is marked not exercised, per
-   [Only What Was Run](../../conventions/documentation-architecture.md#truthfulness);
+1. every command shown was run or marked not exercised, and every claim agrees with the specification, per
+   [Truthfulness](../../conventions/documentation-architecture.md#truthfulness);
 2. it still describes something the repository has; if not, it is obsolete and its resolution is removal;
 3. each fact has one home, a summary sits above its detail per
    [Progressive Disclosure](../../principles/progressive-disclosure.md), and a page serves one mode per
    [Documentation Architecture](../../conventions/documentation-architecture.md);
-4. a newcomer learns from the opening what it is and why it matters, and finds the next step, per README Quality and
-   Content Quality, judged by reading, never by a score;
+4. a newcomer learns from the opening what it is and why it matters, and finds the next step, judged by reading, never
+   by a score;
 5. under `all`, or when setup changed, a reader with no prior context can follow the setup as written from a clean
    checkout; and
 6. it agrees with its specification, which is canonical.

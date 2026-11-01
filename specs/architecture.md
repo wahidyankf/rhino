@@ -88,9 +88,11 @@ silently replaced by a no-op. Each port documents its own failure:
 
 ### internal/adapters/config
 
-Parses `repo-config.yml` into a `Document`, in three layers applied in order. First, serde-shaped structure checks that
-reproduce the oracle's malformed-input wording. Second, closed-vocabulary and reference checks for gate inputs and
-commands (`gate_validation.go`). Third, surface-membership checks that decide which lifecycle surfaces each gate runs.
+Parses `repo-config.yml` into a `Document`, in three layers applied in order. First, shape checks on gate argv and
+environment entries: a plain scalar or sequence where a struct belongs, an unknown field inside one, and an environment
+mapping without its `input` are each refused, with a message that names the field, line, and column. Second,
+closed-vocabulary and reference checks for gate inputs and commands (`gate_validation.go`). Third, surface-membership
+checks that decide which lifecycle surfaces each gate runs.
 
 ### internal/adapters/runtime
 

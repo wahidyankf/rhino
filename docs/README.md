@@ -23,9 +23,9 @@ question you have right now.
 - [Reference](./reference/README.md) — you need an exact command, flag, exit code, finding kind, or configuration key.
 - [Explanation](./explanation/README.md) — you want to understand why RHINO is built this way.
 
-The distinction that matters most: a **tutorial** teaches you something you did not know how to want, while a **how-to
-guide** helps you do something you already decided to do. If a page feels like the wrong shape for your question,
-another section probably has the right one.
+The distinction that matters most: a **tutorial** teaches you skills and knowledge you do not have yet, by doing them,
+while a **how-to guide** helps you do something you already decided to do. If a page feels like the wrong shape for your
+question, another section probably has the right one.
 
 ## The short version
 
