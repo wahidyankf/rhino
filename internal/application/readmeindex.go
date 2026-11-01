@@ -57,6 +57,10 @@ func readmeValidate(document *config.Document, tree Tree, format Format) Outcome
 		return readmeRefused(format, domain.ConfigUnusable, err.Error())
 	}
 	report := NewReport("readme-index", "directory")
+	if len(trees) > 0 {
+		// One walk answers every shape query below; see shapedTree.
+		tree = newShapedTree(tree)
+	}
 	for _, declared := range trees {
 		if !isExactPath(declared.path) {
 			return readmeRefused(format, domain.ConfigUnusable,
@@ -498,6 +502,88 @@ func ChildrenOf(files []string, directory string) []string {
 	}
 	sortStrings(out)
 	return out
+}
+
+// shapedTree answers the shape queries of a Tree from one file list read once.
+// The disk adapter answers Children, IsDirectory, and Exists by walking the
+// whole repository, so a validator that asks per directory and per link would
+// walk it thousands of times. The answers equal ChildrenOf and IsDirectoryOf
+// over the same list.
+type shapedTree struct {
+	Tree
+	files       []string
+	directories map[string]bool
+	children    map[string][]string
+}
+
+// newShapedTree reads the file list once and derives every directory and its
+// sorted direct children in one pass.
+func newShapedTree(tree Tree) *shapedTree {
+	files := tree.Files()
+	shaped := &shapedTree{
+		Tree:        tree,
+		files:       files,
+		directories: map[string]bool{},
+		children:    map[string][]string{},
+	}
+	seen := map[string]bool{}
+	for _, path := range files {
+		// parent is the index of the slash ending the directory being listed,
+		// or -1 for the root; the child is the next segment below it.
+		for parent := -1; ; {
+			directory := ""
+			if parent >= 0 {
+				directory = path[:parent]
+				shaped.directories[directory] = true
+			}
+			rest := path[parent+1:]
+			if rest == "" {
+				break
+			}
+			end := len(path)
+			if slash := strings.IndexByte(rest, '/'); slash >= 0 {
+				end = parent + 1 + slash
+			}
+			if child := path[:end]; !seen[child] {
+				seen[child] = true
+				shaped.children[directory] = append(shaped.children[directory], child)
+			}
+			if end == len(path) {
+				break
+			}
+			parent = end
+		}
+	}
+	for _, listed := range shaped.children {
+		sortStrings(listed)
+	}
+	return shaped
+}
+
+func (s *shapedTree) Files() []string { return s.files }
+
+// Children answers as ChildrenOf does over the same file list.
+func (s *shapedTree) Children(directory string) []string {
+	return append([]string(nil), s.children[shapeKey(directory)]...)
+}
+
+// IsDirectory answers as IsDirectoryOf does over the same file list.
+func (s *shapedTree) IsDirectory(path string) bool {
+	key := shapeKey(path)
+	if key == "" {
+		return len(s.files) > 0
+	}
+	return s.directories[key]
+}
+
+// shapeKey is the directory spelling ChildrenOf and IsDirectoryOf both reduce
+// a path to: no outer slashes, and the root as the empty string.
+func shapeKey(path string) string {
+	key := strings.Trim(path, "/")
+	if key == "." {
+		return ""
+	}
+	return key
 }
 
 // IsDirectoryOf answers directory membership from the file list. Exported

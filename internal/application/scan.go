@@ -3,6 +3,7 @@ package application
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -234,10 +235,8 @@ func Select(files []string, key string, patterns []string) ([]string, error) {
 	return selected, nil
 }
 
+// sortStrings orders values ascending in O(n log n): a hand-written insertion
+// sort is quadratic on the unordered key lists a map yields.
 func sortStrings(values []string) {
-	for i := 1; i < len(values); i++ {
-		for j := i; j > 0 && values[j] < values[j-1]; j-- {
-			values[j], values[j-1] = values[j-1], values[j]
-		}
-	}
+	sort.Strings(values)
 }
