@@ -503,12 +503,12 @@ When `environment.staged` is present, `env validate` checks only paths from the 
 path unless an `allowed` pattern matches. `allowed` accepts exact repository-relative paths only, so it cannot silence a
 directory or class of files; validation never reads staged or unstaged file contents.
 
-Each detector path is exact. The curated languages are Rust, TypeScript, F#, Go, Terraform, and Ansible. Detected reads
-must name a contracted key, and each contracted key must be read. A suppression requires one exact rule, source path,
-key, reason, owner, and ISO expiry; it cannot suppress a whole detector class. For a declared TypeScript path, Rhino
-recognizes `process.env.KEY`, quoted bracket access, and all-uppercase line-leading schema properties. For a declared Go
-path, it recognizes direct reads plus the injected `os.LookupEnv, "KEY"` composition-root form. Both forms remain local
-to the declared files; Rhino neither discovers directories nor assumes a framework.
+Each detector path is exact. The curated languages are `rust`, `type-script`, `f-sharp`, `go`, `terraform`, and
+`ansible`. Detected reads must name a contracted key, and each contracted key must be read. A suppression requires one
+exact rule, source path, key, reason, owner, and ISO expiry; it cannot suppress a whole detector class. For a declared
+TypeScript path, Rhino recognizes `process.env.KEY`, quoted bracket access, and all-uppercase line-leading schema
+properties. For a declared Go path, it recognizes direct reads plus the injected `os.LookupEnv, "KEY"` composition-root
+form. Both forms remain local to the declared files; Rhino neither discovers directories nor assumes a framework.
 
 `toolchains.entries` declares a probe executable/argv, optional output parser and exact version, required status,
 optional positive `timeout-seconds`, and platform-specific provision executable/argv. `toolchain validate` runs probes

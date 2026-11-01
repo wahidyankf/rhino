@@ -48,13 +48,16 @@ declares the list has said which types it renders, so an unlisted type is report
 is judged by the checks that need no grammar; see [Mermaid findings](../reference/findings.md#mermaid).
 
 **Zero.** A surface that matched no files, a tree with no directories — these pass. But the run says how many it
-inspected, every time, including when the answer is zero. A clean word-budget run lists every path it read:
+inspected, every time, including when the answer is zero. A clean word-budget run lists every path it read. The
+transcript below is real output, run on the rhino repository on 2026-11-01. The first four lines are shown; the run
+printed 184 more `scanned` lines, one per file, which are left out here.
 
 ```console
-$ rhino governance word-budget validate
-[word-budget] checked 2 files, no findings
+$ go run ./cmd/rhino governance word-budget validate
+[word-budget] checked 187 files, no findings
 [word-budget] scanned AGENTS.md
 [word-budget] scanned README.md
+[word-budget] scanned repo-governance/README.md
 ```
 
 That listing is the difference between "checked and clean" and "checked nothing". Both exit `0`. Only one of them means

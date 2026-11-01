@@ -3,6 +3,9 @@
 Plan structure is mechanically checkable, and everything mechanically checkable should be checked mechanically. That
 frees review to spend its attention on the part no validator can reach.
 
+**Status here:** this repository does not run the validator this page describes. Plan layout is judged instead, per the
+[Quality Gate Adapter](../../development/workflow/quality-gate-adapter.md#adopter-decisions).
+
 ## What Is Checked
 
 | Check               | Fails when                                                                        |

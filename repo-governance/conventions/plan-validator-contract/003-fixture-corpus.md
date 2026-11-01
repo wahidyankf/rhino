@@ -1,7 +1,9 @@
 # The Shared Fixture Corpus
 
-The corpus lives at `specs/fixtures/plan-structure/`. Every implementation of this contract runs against it, and
-agreement between implementations means agreement on these exact bytes.
+This repository holds no copy of the corpus: `specs/fixtures/plan-structure/` does not exist here. The validator it
+serves is not adopted, because `policies.plans` is a closed owner boundary with no command (see the
+[Quality Gate Adapter](../../development/workflow/quality-gate-adapter.md#adopter-decisions)). Every implementation of
+this contract runs against the corpus, and agreement between implementations means agreement on these exact bytes.
 
 ## Contents
 
