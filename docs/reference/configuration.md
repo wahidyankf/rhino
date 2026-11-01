@@ -1,8 +1,10 @@
 # Configuration
 
 RHINO v0.4 reads one grouped configuration from `repo-config.yml`. Every policy is explicit: an omitted group declares
-no policy, and an unknown top-level key is a configuration error. A validator refuses an unknown key inside the policy
-group it reads. RHINO supplies no repository-specific defaults.
+no policy, and an unknown top-level key is a configuration error. Each policy validator refuses an unknown key inside
+the group it reads, except the emoji group, which accepts extra keys. The umbrella keys `policies`, `policies.markdown`,
+`policies.governance`, `policies.conventions`, and `policies.plans` are not checked at all. The grouped v2 reference
+lists each case. RHINO supplies no repository-specific defaults.
 
 Only `schema` is required. The [grouped v2 reference](./v0-4-configuration.md) owns the document skeleton, every key,
 the checked-in schema, modelines, and predecessor handling; this page indexes its groups.
@@ -17,7 +19,7 @@ the checked-in schema, modelines, and predecessor handling; this page indexes it
   The quality-gate keys are in [Quality-gate policy](v0-4-configuration.md#quality-gate-policy).
 - `policies.conventions` — Configured license paths, identifiers, digests, exact exclusions, and emoji-prohibited
   surfaces.
-- `policies.plans` — Reserved closed policy owner.
+- `policies.plans` — Reserved policy owner; no validator reads it.
 - `environment` — Declared key contracts, example/target pairs, detectors, allowlists, and staged-path policy.
 - `toolchains` — Declared probes and explicit provision vectors.
 - `gates` — Closed lifecycle membership, typed inputs, and declared argv projection.

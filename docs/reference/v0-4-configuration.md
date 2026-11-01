@@ -21,8 +21,27 @@ extensions: {}
 ```
 
 `schema` is required. The other core groups are optional: an omitted group declares no policy. An unknown top-level key
-is a configuration error. A validator refuses an unknown key inside the policy group it reads. `repo-config validate`
-does not check a group or key that no validator reads; the editor schema flags it.
+is a configuration error. Beyond that, the binary refuses an unknown key only where a validator reads it:
+
+- Each validator named here refuses an unknown key inside the policy group it reads. The validators are the seven
+  `policies.markdown` sub-policies (`frontmatter`, `heading-hierarchy`, `internal-link`, `mermaid`, `naming`,
+  `readme-index`, and `metadata`), the six `policies.governance` sub-policies (`word-budget`, `directory-map`,
+  `quality-gates`, `layers`, `traceability`, and `vendor`), and `policies.conventions.license`.
+- `policies.conventions.emoji` is the exception. The emoji validator reads the group, but it accepts an extra key on the
+  group and on a `prohibited` entry, with no error and no finding.
+- The umbrella keys `policies`, `policies.markdown`, `policies.governance`, `policies.conventions`, and `policies.plans`
+  are read whole by no validator. An unknown key under them is not reported by `repo-config validate` or by any leaf.
+  `policies.plans` has no validator at all.
+- Under `scan`, the scan-based leaves (for example `md mermaid validate` and `md internal-link validate`) refuse an
+  unknown key. Under `environment`, `toolchains`, and `harness`, the leaves `env validate`, `toolchain validate`, and
+  `harness adapters validate` refuse one. `repo-config validate` passes all of these keys.
+- Gate argument, environment projection, and `run-on` entries refuse an unknown field under both `repo-config validate`
+  and `gate validate`. A key directly on a gate entry or its command, and a key directly under `gates` or `repository`,
+  pass both.
+
+The checked-in schema is stricter than the binary. It rejects an unknown key at each level named here, including the
+umbrella keys, the emoji group, and each `prohibited` entry. This page describes what the binary does, not what the
+schema does.
 
 `extensions` is the sole escape hatch. Each owner name matches `^[a-z][a-z0-9-]*$`, and its value is a mapping. Rhino
 preserves that mapping without assigning it product meaning.

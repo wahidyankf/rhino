@@ -19,8 +19,10 @@ declared probe. Declared gates and explicit operations use separate, narrow boun
 ## Highlights
 
 - **No policy of its own.** Every repository-specific value it enforces comes from `repo-config.yml`.
-- **Closed grouped configuration.** `rhino/repo-config/v2` rejects unknown top-level keys, and a validator refuses an
-  unknown key inside the policy group it reads, instead of treating a typo there as silent policy.
+- **Grouped configuration with checked keys.** `rhino/repo-config/v2` rejects an unknown top-level key. Each policy
+  validator refuses an unknown key inside the group it reads, except the emoji group, which accepts extra keys, and the
+  umbrella policy keys, which no validator checks. The [grouped reference](./docs/reference/v0-4-configuration.md) lists
+  each case.
 - **Explicit operations.** Adapter generation, environment setup, toolchain provision, and gate execution need their own
   declared authority.
 - **Stable exit meanings.** `1` means a declared policy found a violation; `2` means the invocation, configuration, or

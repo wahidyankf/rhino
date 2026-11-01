@@ -129,10 +129,14 @@ inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any
 
 ## Data
 
-- **Configuration:** one YAML document, decoded once into a `config.Document`. An unknown top-level key is refused, and
-  so is an unknown key inside a policy group that its validator reads. Gate argument and environment projection entries
-  also refuse an unknown field. Other keys, such as a gate entry's own keys or keys inside `scan` or `environment`, pass
-  `repo-config validate`. There is no second configuration source.
+- **Configuration:** one YAML document, decoded once into a `config.Document`. `repo-config validate` refuses an unknown
+  top-level key and an unknown field in a gate argument, environment projection, or `run-on` entry. Each policy
+  validator refuses an unknown key inside the group it reads, except the emoji group, which accepts extra keys, and the
+  umbrella policy keys, which no validator reads. Leaves also refuse unknown keys under the core groups they read: the
+  scan-based leaves (for example `md mermaid validate`) under `scan`, `env validate` under `environment`,
+  `toolchain validate` under `toolchains`, and `harness adapters validate` under `harness`. `repo-config validate`
+  passes those keys, and it passes a key directly on a gate entry or its command. There is no second configuration
+  source.
 - **Reports:** each command builds an `application.Report` and renders it as text, or as one JSON document when
   `--output json` is given. `version` alone also accepts `--json`, a shorthand for the same. JSON documents carry
   `schemaVersion`.

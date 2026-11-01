@@ -52,7 +52,7 @@ release artifact suite.
    ```
 
 4. **Build the archives and verify the set.** The script refuses a dirty checkout or a commit that is not HEAD. Use the
-   version without any prerelease suffix: `v0.5.0-rc.1` is built as `v0.5.0`. It writes four archives and
+   version without any prerelease suffix: the script refuses `v0.5.0-rc.1` with exit `1`. It writes four archives and
    `checksums.txt`.
 
    ```sh

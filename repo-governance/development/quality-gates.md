@@ -43,8 +43,8 @@ every push to `main`, on both operating systems pinned below.
 - **Tag:** the [Release workflow](../../.github/workflows/release.yml), which refuses a tag whose commit has no passing
   Main Test run before it builds or publishes anything.
 
-All Linux workflows pin `ubuntu-24.04`, and the macOS legs pin `macos-15`. A `-latest` label moves under a release, so
-none is used.
+Every job pins a fixed runner label: `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15`, or `macos-15-intel`. A `-latest`
+label moves under a release, so none is used.
 
 ## Portability
 
