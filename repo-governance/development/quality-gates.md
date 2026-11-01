@@ -6,9 +6,9 @@ Three checks, the first of which runs before the other two.
 
 [`scripts/public-safety/`](../../scripts/public-safety/README.md) runs first on `commit-msg`, `pre-commit`, `pre-push`,
 and in CI. It fails fast on purpose: a gate that screened for prohibited material after a formatter had rewritten the
-tree would be screening the wrong bytes. Its own case suite is offline, uses a stub scanner, and runs on every one of
-those surfaces. The pinned scanner it bootstraps is verified by digest, and its detection is proved by a canary before
-any repository material is read.
+tree would be screening the wrong bytes. Its own case suite is offline, uses a stub scanner, and runs in CI only: on
+each pull request, and in the full gate that CI runs on each push to `main`. No hook runs it. The pinned scanner it
+bootstraps is verified by digest, and its detection is proved by a canary before any repository material is read.
 
 ## The Quick Gate
 
@@ -21,7 +21,8 @@ enough to run on every push:
   includes the behaviour corpus: `go test ./tests/bdd` executes every scenario in `specs/behaviours` against the built
   binary, and fails on any skipped scenario;
 - deterministic-core coverage (domain, application, and config) meets its pinned floor;
-- the built binary answers the public contract on a fixture.
+- the built binary prints the `version --json` shape with `schemaVersion` 1 and reports one emoji finding on a fixture;
+  nothing more of the public contract is smoke-tested.
 
 ## The Full Gate
 

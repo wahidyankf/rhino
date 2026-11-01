@@ -50,8 +50,9 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
 - `rhino.toolchain.undeclared` — A declared toolchain has no provision declaration for this platform.
 - `rhino.harness.refused` — A declared harness operation was refused.
 
-Adding a code is a breaking change for a caller that treats the vocabulary as closed, so it moves the minor version
-while RHINO stays in `0.x`.
+Error codes are public identifiers, and a caller may branch on one. Adding a code moves the minor version, because a
+caller may treat the vocabulary as closed. Renaming or removing a code moves the contract: it needs a major version, or
+a minor version while RHINO stays in `0.x`.
 
 ## Related
 

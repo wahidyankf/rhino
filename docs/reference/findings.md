@@ -301,8 +301,9 @@ A toolchain that is not `required` reports nothing.
 ## Gates
 
 `gate run` reports no findings of its own. It reports which gate ran and whether it passed, and the exit code carries
-the verdict: `1` when a child reported something, `127` when a child was not found, and `126` when one was found and
-could not be executed. A child's own streams are never repeated.
+the verdict: `1` when a check child exits non-zero or ends by a signal, or a mutation child exits non-zero or changes a
+selected file; `2` when a mutation child ends by a signal; `127` when a child was not found; and `126` when one was
+found and could not be executed. A child's own streams are never repeated.
 
 ## Not findings
 

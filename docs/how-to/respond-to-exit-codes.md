@@ -4,10 +4,11 @@ You are wiring RHINO into a script, a gate, or CI, and you need each code to cau
 
 ## The rule
 
-**Exit `1` is the repository's problem. Exit `2` is yours.**
+**Exit `1` is a problem in the repository, or a failing gate. Exit `2` is yours.**
 
-Exit `1` means RHINO ran, understood the policy, and found the repository in breach of it. Exit `2` means RHINO never
-formed an opinion — it could not parse the command, find the root, read the configuration, or open a selected file.
+Exit `1` means RHINO ran a declared check and found the repository in breach of it, or `gate run` saw a declared child
+fail. Exit `2` means RHINO never formed an opinion — it could not parse the command, find the root, read the
+configuration, or open a selected file.
 
 A gate that collapses the two will tell a maintainer to shorten a document when the real problem is a typo in a flag.
 

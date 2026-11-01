@@ -6,15 +6,17 @@ RHINO never invents a status outside this set.
 | Code    | Meaning                                             | What to do                                          |
 | ------- | --------------------------------------------------- | --------------------------------------------------- |
 | `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.        |
-| `1`     | The repository violates its declared policy         | Read the findings on stderr and fix the repository. |
+| `1`     | A finding, or a `gate run` child that failed        | Read the findings or gate output and fix the cause. |
 | `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
 | `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.  |
 | `127`   | A gate child was not found                          | Fix the `command.executable` key. `gate run` only.  |
 | `128+N` | Ended by signal `N`; `130`, `143`, or `141`         | Nothing ran to completion. See below.               |
 
-The distinction that matters is between `1` and `2`. **Exit `1` always means the repository broke a rule it declared for
-itself.** Exit `2` means RHINO never got as far as forming an opinion — the command was misspelled, the root had no
-configuration, the configuration could not be parsed, or a selected file could not be read.
+The distinction that matters is between `1` and `2`. **Exit `1` means a finding: a validator reported that the
+repository breaks a rule its configuration declares.** `gate run` also exits `1` when a declared child fails, which is
+the one way `1` can come from a command's exit status rather than from a rule RHINO checked. Exit `2` means RHINO never
+got as far as forming an opinion — the command was misspelled, the root had no configuration, the configuration could
+not be parsed, or a selected file could not be read.
 
 A gate that treats every non-zero code the same will tell a maintainer to fix a document when the real problem is a typo
 in a flag.
@@ -32,6 +34,10 @@ the run reports what it scanned so an empty match is visible rather than silent.
 `1` — one or more findings. Findings go to stderr, one per line, each prefixed with the command category. stdout still
 carries the summary.
 
+`1` from `gate run` — a check child that exits non-zero or ends by a signal, or a mutation child that exits non-zero or
+changes a selected file. RHINO writes `[gate] <id> failed` to stdout and one `reported a finding` line to stderr, and
+never repeats the child's output. Under `--output json` the result reports one finding for the gate.
+
 `2` — any of:
 
 - an unrecognized command or option;
@@ -48,8 +54,11 @@ carries the summary.
 - a symbolic link a declared surface glob reaches that leads outside the repository root, loops back into itself, or
   leads to nothing;
 - a file the run has to write that cannot be written;
-- a gate child that was refused for any reason other than the two below;
-- an internal failure, which prints `rhino: internal error:` on stderr.
+- a gate child that was refused for any reason other than the two below, including a mutation child that ends by a
+  signal;
+- an uncaught panic. RHINO has no internal-error code and does not recover from a panic: the Go runtime ends the process
+  with status `2`, prints the panic message and a goroutine trace on stderr, and writes no error document, even under
+  `--output json`.
 
 `126` — `gate run` only: a child in the selected surface's sequence exists and could not be executed, because its
 `command.executable` is not executable.
@@ -59,7 +68,8 @@ before it in declaration order already ran; the ones after it did not.
 
 `128+N` — RHINO was ended by signal `N` and reports `128+N`, never a value from the result range. `130` is `SIGINT`,
 `143` is `SIGTERM`, and `141` is a closed pipe: a reader closed stdout or stderr, which the operating system reports as
-a broken pipe. A run that any of them ends has reported nothing.
+a broken pipe. A run that any of them ends has reported nothing. A gate child that ends by a signal is never reported as
+`128+N`: a check child is `1`, and a mutation child is `2`, as above.
 
 Whenever RHINO refuses, stdout is **empty**. A caller parsing stdout can rely on it holding a result or holding nothing,
 never a summary of a run that did not happen. Under `--output json` the refusal is a single document on stderr:

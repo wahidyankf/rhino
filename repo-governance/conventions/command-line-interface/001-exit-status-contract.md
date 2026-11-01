@@ -1,7 +1,8 @@
 ---
 description: >-
   Fixes the closed exit-status vocabulary a conforming tool may return, the supervisor tier for tools that start
-  children, and the rules that an internal crash and a death by signal are never reported as results.
+  children, and the rules that an internal crash and a death by signal are never reported as results, bar one
+  check-child exception.
 when_to_use: >-
   Use when choosing or changing any exit status, when adding a failure path, or when deciding what a caller may branch
   on.
@@ -49,8 +50,8 @@ returns none of them, and a caller may read their absence as meaning exactly tha
 - `126` and `127` distinguish a child that exists but cannot run from one that is absent, which is the difference
   between a permission or format problem and a missing dependency.
 
-A supervisor passes a child's own status through unchanged when the child ran. It substitutes its own status only when
-the child never produced one.
+A supervisor passes a child's own status through unchanged when the child ran, except a check gate child's (below). It
+substitutes its own status only when the child never produced one.
 
 ## An Internal Crash Is a Failure to Complete
 
@@ -69,6 +70,10 @@ Frameworks get this wrong in the same direction, which is why it is stated. Repo
 pipe is the substitution a caller is least likely to check: a script branching on `1` to mean "no results" reads a
 truncated run as an empty one. Two cases occur in practice — `130` for an interrupt, `141` for a closed pipe — and
 neither is negotiable.
+
+One exception is narrow. A check gate child's non-zero exit or death by signal is the finding `1`; a child that cannot
+start is `126` or `127`. A mutation child's death by signal is a refusal, `2`, not a finding. The exception covers gate
+children only, and a signal that ends rhino itself is still `128+N`.
 
 ## Publication
 

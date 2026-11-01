@@ -84,7 +84,7 @@ selected root.
 | Code    | Meaning                                                                                         |
 | ------- | ----------------------------------------------------------------------------------------------- |
 | `0`     | The command completed cleanly.                                                                  |
-| `1`     | A declared policy found a violation.                                                            |
+| `1`     | A declared policy found a violation, or a `gate run` child failed.                              |
 | `2`     | The invocation, root, configuration, or declared boundary was unusable.                         |
 | `126`   | A declared gate child could not be executed. Only `gate run` returns it.                        |
 | `127`   | A declared gate child was not found. Only `gate run` returns it.                                |

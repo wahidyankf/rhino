@@ -78,5 +78,6 @@ The convention asks each adopter to record which of its own tools sits at which 
 | `.husky/{commit-msg,pre-commit,pre-push}` | Floor    | Git invokes them and branches on what they return         |
 | `scripts/*.sh`                            | Floor    | Shipped scripts a gate or a hook calls                    |
 
-`rhino` starts gate children, so it additionally owes the supervisor statuses `126` and `127`. The wrappers start the
-tool they install and return `125` when they refuse; no other surface here starts another program.
+`rhino` starts gate children, so it additionally owes the supervisor statuses `126` and `127`, and it takes the one
+check-child exception in [the exit status contract](command-line-interface/001-exit-status-contract.md). The wrappers
+start the tool they install and return `125` when they refuse; no other surface here starts another program.

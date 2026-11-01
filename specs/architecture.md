@@ -145,17 +145,18 @@ inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any
 
 ## Exit Codes
 
-| Exit    | Meaning                                                                              |
-| ------- | ------------------------------------------------------------------------------------ |
-| `0`     | Ran and found nothing                                                                |
-| `1`     | Ran and found a violation, or a gate reported a finding                              |
-| `2`     | Could not run: invocation, configuration, or an unreadable input                     |
-| `126`   | `gate run` only: a declared child exists but cannot be executed                      |
-| `127`   | `gate run` only: a declared child cannot be found                                    |
-| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe |
+| Exit    | Meaning                                                                               |
+| ------- | ------------------------------------------------------------------------------------- |
+| `0`     | Ran and found nothing                                                                 |
+| `1`     | Ran and found a violation, or a `gate run` child exited non-zero or ended by a signal |
+| `2`     | Could not run: invocation, configuration, or an unreadable input                      |
+| `126`   | `gate run` only: a declared child exists but cannot be executed                       |
+| `127`   | `gate run` only: a declared child cannot be found                                     |
+| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe  |
 
-A child that ends by a signal is a failing gate. RHINO's own status describes RHINO only, so a child's signal never
-becomes a RHINO status.
+A check child that ends by a signal is a failing gate, reported as `1`. A mutation child that ends by a signal is
+reported as `2`, a gate that could not run. RHINO's own status describes RHINO only, so a child's signal never becomes
+`128+N`.
 
 ## Test Layout
 

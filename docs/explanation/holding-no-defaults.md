@@ -22,7 +22,9 @@ repository is clean. It was never checked, because the surface the default named
 ## What the rule buys
 
 **A finding always means the repository broke a rule it wrote down.** There is no third category of "RHINO thinks you
-should". Exit `1` is never a matter of taste, which is what makes it safe to put in front of a push.
+should". Exit `1` is never a matter of taste, which is what makes it safe to put in front of a push. `gate run` also
+exits `1` when a declared gate child fails. That is a declared command failing, not a rule RHINO judged, and it is the
+one place a `1` does not come from a validator.
 
 **Configuration is the specification.** `repo-config.yml` is the whole policy in one readable file. A maintainer asking
 "what does this repository enforce?" reads it, rather than reading the tool's source and subtracting the overrides.

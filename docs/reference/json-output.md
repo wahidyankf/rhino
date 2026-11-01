@@ -99,9 +99,10 @@ configuration — stdout is empty and the diagnostic goes to stderr, in both for
 first checking whether a run happened.
 
 **Findings are on stderr in text output and inside the object in JSON.** In JSON, stderr stays empty on exit `0` and
-`1`, with one exception: when a gate reports a finding, `gate run` exits `1` and writes one line to stderr naming that
-gate, such as `[gate] fails reported a finding at manual`, because it is a diagnostic and never part of the result.
-Per-gate progress such as `[gate] ok passed` appears only in text output, on stdout.
+`1`, with one exception: when a gate child fails (see [exit codes](./exit-codes.md)), `gate run` exits `1` and writes
+one line to stderr naming that gate, such as `[gate] fails reported a finding at manual`, because it is a diagnostic and
+never part of the result. The JSON `result` is `findings`, with a count of one. Per-gate progress such as
+`[gate] ok passed` appears only in text output, on stdout.
 
 **Ordering is stable.** `scanned` and `violations` are sorted, so two runs over one repository produce byte-identical
 output and a diff between two repositories is a diff about the repositories.
