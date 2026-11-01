@@ -33,7 +33,7 @@ question, another section probably has the right one.
   nothing to the repository it inspects.
 - **What it does** — reads your `repo-config.yml`, walks the repository, and reports every place the tree disagrees with
   what you declared.
-- **How you use it** — `rhino <domain> <validator> validate`, in a gate or by hand.
+- **How you use it** — run `rhino --help` for the command shapes, in a gate or by hand.
 - **What it will not do** — supply a value you did not declare. There is no default word limit, no default palette, and
   no default harness roster.
 

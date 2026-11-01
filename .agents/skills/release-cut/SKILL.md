@@ -43,10 +43,10 @@ at least `1`. On macOS, use `shasum -a 256 -c checksums.txt`.
 
 `scripts/build-release.sh` builds all four archives from one runner: each target is cross-compiled from the same commit
 with `CGO_ENABLED=0`, and the Go archiver writes the members with the commit's time, so the bytes depend on the commit
-alone. It refuses a dirty checkout or a commit that is not HEAD. The version argument must carry no prerelease suffix,
-so a candidate `v0.5.0-rc.1` is built as `v0.5.0`. The `version` check runs the executable out of an unpacked archive,
-so it proves the published bytes rather than a copy beside them. The line above checks the Linux archive; on macOS,
-unpack the matching Darwin archive instead.
+alone. It refuses a dirty checkout or a commit that is not HEAD. It also refuses a prerelease version such as
+`v0.5.0-rc.1`, so pass the final version explicitly, such as `v0.5.0`. The `version` check runs the executable out of an
+unpacked archive, so it proves the published bytes rather than a copy beside them. The line above checks the Linux
+archive; on macOS, unpack the matching Darwin archive instead.
 
 Then write the release notes, screen them with `scripts/public-safety/public-safety.sh --surface release` (exit `0` is
 required), tag and push the tag, and verify the published release: the four archives, `checksums.txt`, and the grouped

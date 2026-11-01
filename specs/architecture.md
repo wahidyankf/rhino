@@ -67,7 +67,8 @@ document carries one of them. The package has no behaviour beyond naming and cla
 ### internal/application
 
 The use cases and the ports they need. `cli.go` holds the closed command table: 28 leaves, each with its path, category,
-accepted flags, and summary. `execute.go` parses an invocation against that table, dispatches it, and renders a result.
+accepted flags, and summary. `Parse` in `cli.go` checks an invocation against that table; `execute.go`
+dispatches it and renders a result.
 Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the others) are pure over a
 `Tree` and the parsed configuration.
 

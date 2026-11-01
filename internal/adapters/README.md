@@ -6,4 +6,6 @@ Boundary implementations behind application-declared interfaces.
   closed-pipe mapping to `141`.
 - `config/` reads `repo-config.yml` without defaults: schema shape, unknown keys, extension owners, and lifecycle
   composition checks.
-- `runtime/` walks the repository read-only: no symlink following, no network, no processes, UTF-8 text only.
+- `runtime/` walks the repository read-only: no symlink following, no network, UTF-8 text only. The rest of the runtime
+  holds the declared operations: writes to declared targets and child processes for declared gates, toolchains, and
+  models.
