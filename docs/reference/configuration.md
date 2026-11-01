@@ -6,8 +6,8 @@ the group it reads, except the emoji group, which accepts extra keys. The umbrel
 `policies.governance`, `policies.conventions`, and `policies.plans` are not checked at all. The grouped v2 reference
 lists each case. RHINO supplies no repository-specific defaults.
 
-Only `schema` is required. The [grouped v2 reference](./v0-4-configuration.md) owns the document skeleton, every key,
-the checked-in schema, modelines, and predecessor handling; this page indexes its groups.
+Only `schema` is required. The [grouped v2 reference](./v0-4-configuration.md) documents the keys of the groups it
+covers, the checked-in schema, modelines, and predecessor handling; this page indexes its groups.
 
 ## Groups
 

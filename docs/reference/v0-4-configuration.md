@@ -69,9 +69,6 @@ existing scanner, findings, and no-default behavior.
 
 ### Governance and license keys
 
-Each key below is read by the validator named with it, and an unlisted key refuses the run with exit `2`. The required
-keys are named in each heading; every other key is optional, and the entry says what an omitted one does.
-
 `policies.governance.word-budget` needs `count` and `surfaces`.
 
 - `count`: `letters-and-digits` counts runs of letters, marks, and digits, joined by an apostrophe, hyphen, or
@@ -86,6 +83,9 @@ keys are named in each heading; every other key is optional, and the entry says 
 - `order`: the layer names, which must each exist. A name uses only lowercase letters, digits, and hyphens.
 - `categories`: a map from a layer named in `order` to the directory names that layer must hold. A missing category is
   reported, and so is a directory the layer does not list. Files directly inside a layer are not checked.
+
+An omitted `order` reports every direct child of `root` as an undeclared layer. An omitted `categories` reports every
+directory inside a declared layer. `categories` without `order` refuses the run with exit `2`.
 
 `policies.governance.vendor` has four optional lists, each empty when omitted.
 
@@ -111,6 +111,9 @@ keys are named in each heading; every other key is optional, and the entry says 
   file's content. A missing file is `missing-license`, a missing identifier is `license-identifier-mismatch`, and a
   different digest is `license-digest-mismatch`.
 - `exclusions`: exact paths. A listed path is neither read nor checked.
+
+A `paths` entry without `path` refuses the run with exit `2`. Omitted `identifiers` and `sha256` skip their checks, so
+an entry with only `path` exits `0` when the file exists.
 
 ### Mermaid policy
 
@@ -659,8 +662,9 @@ Rhino's source example uses a relative modeline because its schema is checked in
 
 A consumer pins an immutable release URL instead. The consumer fixture shows the canonical modeline shape; it never
 makes the Rhino runtime perform a network request. Pin the release you run: its schema describes the keys that binary
-reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema. For a policy group no validator reads,
-the schema is stricter than the binary: it flags a key the binary accepts.
+reads, and `policies.governance.quality-gates` needs a `v0.9.0` or later schema. For the umbrella keys, which no
+validator reads, and for the emoji group and its `prohibited` entries, which accept extra keys, the schema is stricter
+than the binary: it flags a key the binary accepts.
 
 ## Verification
 
