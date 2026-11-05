@@ -14,11 +14,21 @@ rule is the [plans convention](../repo-governance/conventions/plans.md) and the 
 
 A plan moves through four stage folders, from a rough idea through two formal stages to a finished record.
 
-```text
-+--------+     +----------+     +--------------+     +-------+
-| ideas/ | --> | backlog/ | --> | in-progress/ | --> | done/ |
-| rough  |     | formal   |     | formal       |     | record|
-+--------+     +----------+     +--------------+     +-------+
+```mermaid
+flowchart LR
+    accTitle: Plan lifecycle stages
+    accDescr: A plan moves one way through ideas, backlog, in-progress, then done.
+    Ideas["Ideas"] --> Backlog["Backlog"]
+    Backlog --> InProgress["In progress"]
+    InProgress --> Done["Done"]
+    classDef first fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
+    classDef queued fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+    classDef active fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
+    classDef complete fill:#DE8F05,stroke:#000000,color:#000000,stroke-width:2px
+    class Ideas first
+    class Backlog queued
+    class InProgress active
+    class Done complete
 ```
 
 `ideas/` holds rough two-pagers. `backlog/` and `in-progress/` hold complete formal plans, queued and active. `done/`
@@ -48,8 +58,13 @@ means the head starts only after the tail; a dotted arrow means the tail should 
 is updated in the same change that moves, adds, or removes a plan, per
 [Plan-Order Graph](../repo-governance/conventions/plans/012-plan-order-graph.md).
 
-```text
-[🔜 harden-rhino-validation-edge-cases]
+```mermaid
+flowchart LR
+    accTitle: Plan order
+    accDescr: One live backlog plan with no dependencies.
+    Live["🔜 harden-rhino-<br/>validation-edge-cases"]
+    classDef backlog fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+    class Live backlog
 ```
 
 Legend: 🔜 blue = backlog; 🏗️ teal = in progress. Hexagon credentialed-machine steps do not apply here. The single live

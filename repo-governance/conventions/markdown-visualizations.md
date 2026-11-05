@@ -6,24 +6,29 @@ duplicating what a neighbouring table already says better, is worse than no diag
 
 ## Requirements
 
-- Draw every diagram as plain ASCII art in a `text` fenced block. Mermaid is not used: this repository's Markdown is
-  read in terminal editors without a renderer, where Mermaid shows as source.
-- Use only printable ASCII: `+`, `-`, `|` for boxes and lines, and `>`, `<`, `^`, `v` for arrow heads. Box-drawing
-  characters and arrows such as `→` render at ambiguous widths in some terminals.
-- Keep every line within the [Markdown line length](markdown-line-length.md).
+- Prefer a Mermaid diagram over ASCII art whenever Mermaid can express the needed visualization.
+- Choose the smallest diagram type that communicates the point clearly, such as a flowchart, a sequence diagram, a state
+  diagram, or an entity-relationship diagram.
+- Place the diagram near the prose it supports and give nodes, edges, actors, and states meaningful labels.
 - Precede each diagram with one sentence that states what it shows. That sentence carries the meaning for a screen
   reader, and for anyone searching the text.
-- Never encode meaning through position or line style alone. Label each box, and name a category in the label, such as
-  `(system)` or `[check]`.
-- Choose the smallest drawing that carries the point. Where a graph would cross its own edges, draw it as a layered
-  tree.
-- Place the diagram beside the prose it supports, and update it in the same change as the structure it depicts.
+- Every conceptual diagram is a Mermaid block carrying an accessible title (`accTitle`) and an accessible description
+  (`accDescr`) naming what it shows.
+- Keep every visible node label segment at 32 Unicode grapheme clusters or fewer and every edge label segment at 24 or
+  fewer. Use `<br>`, `<br/>`, or an escaped newline to split a longer label into independently measured segments.
+- Never encode meaning through color alone. Combine color with clear labels and, when distinctions matter, different
+  shapes or line styles.
+- Declare colors only with `classDef` and hex values: fills from blue `#0173B2`, orange `#DE8F05`, teal `#029E73`, and
+  brown `#CA9161`; strokes from blue `#0173B2` and black `#000000`; text in black `#000000` or white `#FFFFFF`. Use a
+  black stroke for shape definition, white text on dark fills, and black text on light fills.
+- Meet WCAG AA text contrast: at least 4.5:1 for text on its fill.
+- Keep Mermaid source readable, and update a diagram in the same change as the structure it depicts.
 
-Directory trees are not diagrams; they stay in `text` blocks in their usual form.
+Directory trees are not diagrams; they stay in `text` blocks in their usual form. Literal command output, file
+contents, and commit messages also stay in their fenced blocks and are never diagrams.
 
 ## Enforcement
 
-`policies.markdown.mermaid.authoring-rule: plain-text` in [`repo-config.yml`](../../repo-config.yml) makes the `mermaid`
-gate refuse any Mermaid block. Whether a drawing is clear is a judgement for review.
-
-The Mermaid validator itself remains a product feature for repositories that declare `rendered`.
+`policies.markdown.mermaid.authoring-rule: rendered` in [`repo-config.yml`](../../repo-config.yml) makes the `mermaid`
+gate refuse a Mermaid block without an accessible title and description, a label longer than the declared limits, and a
+color outside the declared palette. Whether a drawing is clear is a judgement for review.

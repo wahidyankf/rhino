@@ -19,14 +19,19 @@ local selections, execution evidence, and complete boundary verification.
 
 The cycle runs red, then green, then refactor, and returns to red for the next behaviour.
 
-```text
-+-----------------------+     +-----------------------+     +------------------+
-| Red                   | --> | Green                 | --> | Refactor         |
-| Expected test failure |     | Minimum change passes |     | Improve design   |
-+-----------------------+     +-----------------------+     | Keep tests green |
-            ^                                               +------------------+
-            |                                                         |
-            +---------------------------------------------------------+
+```mermaid
+flowchart LR
+    accTitle: Red-green-refactor cycle
+    accDescr: The cycle runs red, then green, then refactor, and returns to red for the next behaviour.
+    Red["Red<br/>Expected test failure"] --> Green["Green<br/>Minimum change passes"]
+    Green --> Refactor["Refactor<br/>Improve design<br/>Keep tests green"]
+    Refactor --> Red
+    classDef redPhase fill:#DE8F05,stroke:#000000,color:#000000,stroke-width:2px
+    classDef greenPhase fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
+    classDef refactorPhase fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+    class Red redPhase
+    class Green greenPhase
+    class Refactor refactorPhase
 ```
 
 Colour distinguishes the three phases only; the labels carry the meaning.

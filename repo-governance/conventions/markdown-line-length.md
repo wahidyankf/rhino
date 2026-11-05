@@ -1,7 +1,7 @@
 # Markdown Line Length
 
 Every line of Markdown in this repository is at most 120 characters, so a document reads in a terminal editor without a
-renderer, wrapping, or horizontal scrolling. Diagrams in it are ASCII, under
+renderer, wrapping, or horizontal scrolling. Diagrams stay readable under
 [Markdown visualizations](markdown-visualizations.md).
 
 ## Requirements

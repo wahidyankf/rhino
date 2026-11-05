@@ -35,13 +35,20 @@ missing declaration reads as no dependencies.
 | solid arrow       | hard dependency: the predecessor is done first                            |
 | dotted arrow      | soft order: the predecessor should land first, without blocking           |
 
-Every graph carries a title line and a description line naming the live plans and their dependencies. This repository
-draws conceptual diagrams as ASCII text: `[🔜 plan]` is backlog (blue fill `#0173B2`), `[🏗️ plan]` is in progress (teal
-fill `#029E73`), `-->` is a hard dependency, and `-.->` is soft order. Plans with no arrow between them may run in
-parallel.
+Every graph carries an accessible title and description naming the live plans and their dependencies. This repository
+draws conceptual diagrams as Mermaid flowcharts: a `🔜` node is backlog (blue fill `#0173B2`), a `🏗️` node is in
+progress (teal fill `#029E73`), `-->` is a hard dependency, and `-.->` is soft order. Plans with no arrow between them
+may run in parallel.
 
-```text
-[🔜 plan-a] --> [🏗️ plan-b]
+```mermaid
+flowchart LR
+    accTitle: Plan order
+    accDescr: Plan b in progress depends on plan a in backlog.
+    A["🔜 plan-a"] --> B["🏗️ plan-b"]
+    classDef backlog fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+    classDef inprogress fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
+    class A backlog
+    class B inprogress
 ```
 
 ## Decoupling With Feature Flags
