@@ -10,8 +10,8 @@ the boundaries the code is required to have.
 - Assess it for impact before every change, alongside the behaviour corpus, and record a verified no-op rather than
   editing it because a change was nearby.
 - Describe boundaries and responsibilities, not file layout. A rename that moves no responsibility changes nothing here.
-- Diagrams follow the [visualization convention](../conventions/markdown-visualizations.md): ASCII in `text` blocks,
-  each introduced by a sentence. The repository's own validator refuses Mermaid here like anywhere else.
+- Diagrams follow the [visualization convention](../conventions/markdown-visualizations.md): Mermaid blocks with an
+  accessible title and description, each introduced by a sentence.
 - Every boundary drawn here should correspond to something a test can observe. A layer the tests cannot distinguish is a
   diagram, not an architecture.
 

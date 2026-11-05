@@ -543,7 +543,7 @@ policies:
       exclude-sources:
         - "plans/done/**"
     mermaid:
-      authoring-rule: plain-text
+      authoring-rule: rendered
       node-label-graphemes: 32
       edge-label-graphemes: 24
       fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CA9161"]

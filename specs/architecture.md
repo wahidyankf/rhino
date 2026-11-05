@@ -9,22 +9,21 @@ store, the adapter store, and the apply step of a mutation gate.
 
 ## Level 1: System Context
 
-```text
-  developer or hook --+
-  CI job -------------+
-                      |
-                      v
-            +--------------------+
-            |  RHINO (one Go     |
-            |  static binary)    |
-            +----------+---------+
-                       |
-     +-----------------+------------------+
-     v                 v                  v
-  repository       Git (plumbing)     declared children
-  working tree,    index, range,      gate commands,
-  repo-config.yml  hook message,      mutators, toolchain,
-                   push input         probes, model cmds
+```mermaid
+flowchart TD
+    accTitle: System context
+    accDescr: Developers, hooks, and CI jobs run one static RHINO binary against a repository, Git, and gate children.
+    Dev["Developer or hook"] --> Rhino["RHINO<br/>one static binary"]
+    CI["CI job"] --> Rhino
+    Rhino --> Repo["Repository<br/>working tree plus<br/>repo-config"]
+    Rhino --> Git["Git plumbing<br/>index, range,<br/>hook message"]
+    Rhino --> Kids["Declared children<br/>gate commands,<br/>mutators, toolchain"]
+    classDef actor fill:#DE8F05,stroke:#000000,color:#000000,stroke-width:2px
+    classDef core fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+    classDef external fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
+    class Dev,CI actor
+    class Rhino core
+    class Repo,Git,Kids external
 ```
 
 The repository is the only source of policy. RHINO holds no default for any policy key: an undeclared policy is a
@@ -32,21 +31,24 @@ refusal, not a silent pass.
 
 ## Level 2: Containers
 
-```text
-  +-----------------------------------------------------------------+
-  | rhino (cmd/rhino)                                               |
-  |   signals become a context; the result becomes the exit code    |
-  |                                                                 |
-  | internal/bootstrap      wires the production adapters           |
-  | internal/adapters/cli   argv, streams, signal context           |
-  | internal/adapters/config   repo-config.yml decoding             |
-  | internal/adapters/runtime  every operating-system interaction   |
-  | internal/application    use cases and ports                     |
-  | internal/domain         closed error vocabulary                 |
-  +-----------------------------------------------------------------+
-
-  scripts/release-archive   builds the release archive, not part of the binary
-  tests/bdd                 the behaviour corpus runner; builds the binary once
+```mermaid
+flowchart LR
+    accTitle: Runtime containers
+    accDescr: The rhino command wires adapters around use cases, release tooling and the corpus stay outside.
+    Cmd["cmd/rhino<br/>process boundary<br/>exit status"] --> Boot["internal/bootstrap<br/>wires adapters"]
+    Boot --> App["internal/application<br/>use cases, ports"]
+    Boot --> CLI["internal/adapters/cli<br/>argv and streams"]
+    Boot --> Cfg["internal/adapters/config<br/>repo-config decoding"]
+    Boot --> Run["internal/adapters/runtime<br/>system interaction"]
+    Boot --> Dom["internal/domain<br/>error vocabulary"]
+    Rel["scripts/release-archive<br/>build-time tool"] -.-> Cmd
+    BDD["tests/bdd<br/>corpus runner"] -.-> Cmd
+    classDef entry fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
+    classDef lib fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
+    classDef outside fill:#DE8F05,stroke:#000000,color:#000000,stroke-width:2px
+    class Cmd,Boot entry
+    class App,CLI,Cfg,Run,Dom lib
+    class Rel,BDD outside
 ```
 
 There is one product executable, `cmd/rhino`. The other packages are its libraries, or a harness that runs it. The one

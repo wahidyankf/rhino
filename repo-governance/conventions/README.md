@@ -24,7 +24,7 @@ convention says how this repository does something where more than one way would
 - [Last-resort questions](last-resort-questions.md) — exhaust independent progress before asking.
 - [Markdown links](markdown-links.md) — internal links resolve, and move with their targets.
 - [Markdown line length](markdown-line-length.md) — 120 characters per line, tables and code included.
-- [Markdown visualizations](markdown-visualizations.md) — when to draw one, and why it is ASCII.
+- [Markdown visualizations](markdown-visualizations.md) — when to draw one, and how it stays readable.
 - [No destructive Git operations](no-destructive-git-operations.md) — approval outside bounded owned-task sync.
 - [Authorized task sync modules](no-destructive-git-operations/README.md) — bounded owned-branch sync and its proofs.
 - [Plan lifecycle](plan-lifecycle.md) — the local additions to the plans convention: idea quadrants, and what this
