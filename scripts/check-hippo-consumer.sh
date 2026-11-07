@@ -12,9 +12,10 @@ grep -Eq '^commit=[0-9a-f]{40}$' "$repo_root/hippo.lock"
 grep -Fq 'HIPPO_DEFAULT_IDENTITY' "$repo_root/hippo"
 grep -Fq -- '--path-format=absolute --git-common-dir' "$repo_root/hippo"
 # Markdown prose is wrapped at 120 columns, so a required phrase may span a
-# line break; match it against the file with every newline read as a space.
+# line break plus a list-item indent; match it against the file with every run
+# of whitespace read as one space.
 has_phrase() {
-  tr '\n' ' ' <"$1" | grep -Fq -- "$2"
+  tr -s '[:space:]' ' ' <"$1" | grep -Fq -- "$2"
 }
 
 resource_rule="$repo_root/repo-governance/development/resource-aware-development.md"
