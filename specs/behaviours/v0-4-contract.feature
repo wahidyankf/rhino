@@ -2224,7 +2224,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And stderr contains ".codex/config.toml: stale-marker"
 
-  Scenario: Harness adapter generation writes its adapters and reports a generated marker it does not own
+  Scenario: Harness adapter generation writes its adapters and refuses a generated marker it does not own
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2246,9 +2246,35 @@ Feature: Rhino v0.4 contracts
       | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
       | .codex/config.toml         | [agents]\n# Rhino generated: codex agents\n                         |
     When I invoke the CLI with "harness|adapters|generate"
-    Then the exit code is 1
+    Then the exit code is 2
     And stderr contains ".codex/config.toml: stale-marker"
     And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "name: reviewer"
+
+  Scenario: Harness adapter generation refuses a generated marker it does not own under the harness code
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        marker-surfaces: [".codex/config.toml"]
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .codex/config.toml         | [agents]\n# Rhino generated: codex agents\n                         |
+    When I invoke the CLI with "harness|adapters|generate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.harness.refused"
+    And stderr contains ".codex/config.toml: stale-marker"
 
   Scenario: A native-shaped agent adapter path generates and validates
     Given the configuration file is this text:

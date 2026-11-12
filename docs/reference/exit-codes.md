@@ -62,6 +62,8 @@ nothing for a flagged entry. A vault session, server, manifest, or answer RHINO 
 - a symbolic link a declared surface glob reaches that leads outside the repository root, loops back into itself, or
   leads to nothing;
 - a file the run has to write that cannot be written;
+- a `harness adapters generate` that wrote its own adapters and then finds a generated marker it does not own
+  (`rhino.harness.refused`); validation reports the same marker as a finding, `1`, and writes nothing;
 - a vault command whose session is not usable (`rhino.vault.unavailable`), or whose vault answer it does not understand
   (`rhino.vault.refused`);
 - a vault manifest that breaks its rules, an `--entry` that names no declared vault entry, or a local env line that

@@ -48,7 +48,9 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
 - `rhino.gate.undeclared` — A selected gate declares no executable command.
 - `rhino.toolchain.failed` — A declared toolchain operation did not complete.
 - `rhino.toolchain.undeclared` — A declared toolchain has no provision declaration for this platform.
-- `rhino.harness.refused` — A declared harness operation was refused.
+- `rhino.harness.refused` — A declared harness operation was refused. A `harness adapters generate` that has written its
+  adapters and still finds a generated marker it does not own is refused with this code too, and its message names each
+  marker.
 - `rhino.vault.unavailable` — The vault cannot be used: the `bw` executable is not on the path, no session key is set,
   the vault is locked, or it serves another server. A session check that fails runs before any write, so it writes
   nothing.
