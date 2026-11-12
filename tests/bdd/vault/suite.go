@@ -9,10 +9,11 @@ import (
 	"github.com/cucumber/godog"
 )
 
-// Unbound reports every way the corpus at path and the bindings disagree: a
-// scenario step that matches no binding, a step that matches more than one,
-// and a binding no step uses. Each problem names its scenario or binding. The
-// check parses the corpus and never runs a scenario.
+// Unbound reports every step of the corpus at path that no binding matches, or
+// that more than one binding matches. Each problem names its scenario and step.
+// The check parses the corpus and never runs a scenario. A binding that no
+// scenario of this corpus uses is not a problem here, because the registry
+// serves every corpus; Unused checks that across all of them.
 func Unbound(path string, bindings []Binding) ([]string, error) {
 	pickles, err := parse(path)
 	if err != nil {
@@ -27,14 +28,12 @@ func Unbound(path string, bindings []Binding) ([]string, error) {
 		}
 		patterns[i] = pattern
 	}
-	used := make([]bool, len(bindings))
 	for _, pickle := range pickles {
 		for _, step := range pickle.steps {
 			matches := 0
-			for i, pattern := range patterns {
+			for _, pattern := range patterns {
 				if pattern.MatchString(step) {
 					matches++
-					used[i] = true
 				}
 			}
 			switch {
@@ -45,6 +44,29 @@ func Unbound(path string, bindings []Binding) ([]string, error) {
 			}
 		}
 	}
+	return problems, nil
+}
+
+// Unused returns every binding that no step of any corpus in paths uses. A
+// binding no scenario uses reports nothing, which looks exactly like passing.
+func Unused(paths []string, bindings []Binding) ([]string, error) {
+	used := make([]bool, len(bindings))
+	for _, path := range paths {
+		pickles, err := parse(path)
+		if err != nil {
+			return nil, err
+		}
+		for _, pickle := range pickles {
+			for _, step := range pickle.steps {
+				for i, binding := range bindings {
+					if regexp.MustCompile(binding.Pattern).MatchString(step) {
+						used[i] = true
+					}
+				}
+			}
+		}
+	}
+	var problems []string
 	for i, binding := range bindings {
 		if !used[i] {
 			problems = append(problems, fmt.Sprintf("binding %q is used by no scenario", binding.Pattern))

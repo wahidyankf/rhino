@@ -136,6 +136,13 @@ func ExecuteWithHarness(tree Tree, args []string, stdin *string, launcher Launch
 // boundary the entry point supplies, including the mutation runner only gate
 // dispatch reaches. A nil mutation runner fails every mutation closed.
 func ExecuteWithMutations(tree Tree, args []string, stdin *string, launcher Launcher, store EnvironmentStore, runner ToolchainRunner, adapters AdapterStore, models ModelResolver, mutations MutationRunner) Outcome {
+	return ExecuteWithVault(tree, args, stdin, launcher, store, runner, adapters, models, mutations, VaultPorts{})
+}
+
+// ExecuteWithVault runs one invocation with every boundary ExecuteWithMutations
+// takes, plus the vault ports only env pull, push, and diff reach. Nil ports
+// fail those commands closed before any write.
+func ExecuteWithVault(tree Tree, args []string, stdin *string, launcher Launcher, store EnvironmentStore, runner ToolchainRunner, adapters AdapterStore, models ModelResolver, mutations MutationRunner, vault VaultPorts) Outcome {
 	if mutations == nil {
 		mutations = closedMutations{}
 	}
@@ -231,6 +238,8 @@ func ExecuteWithMutations(tree Tree, args []string, stdin *string, launcher Laun
 		return environmentInit(document, current, store, invocation.Apply, invocation.Format)
 	case "environment-restore":
 		return environmentRestore(document, current, store, invocation.BackupDirectory, invocation.Force, invocation.Format)
+	case "environment-pull", "environment-push", "environment-diff":
+		return environmentTransfer(document, current, vault, invocation)
 	case "toolchain-validate":
 		return toolchainValidate(document, runner, invocation.Format)
 	case "toolchain-provision":

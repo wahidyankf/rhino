@@ -70,6 +70,12 @@ type Application struct {
 	// Mutations holds the process and write boundary only gate dispatch of a
 	// `type: mutation` gate reaches; nil fails every mutation closed.
 	Mutations application.MutationRunner
+	// Vault holds the provider boundary only env pull, push, and diff reach;
+	// nil refuses those commands before any write.
+	Vault application.SecretVault
+	// VaultFiles holds the local write boundary only env pull reaches; nil
+	// refuses a pull before any write.
+	VaultFiles application.VaultFileStore
 }
 
 // Run executes args and returns the process exit code.
@@ -139,7 +145,8 @@ func (app Application) RunArgs(ctx context.Context, args []string) int {
 		return emit(stdout, stderr, application.RefuseWith(format,
 			domain.RepositoryUnusable, err.Error()))
 	}
-	outcome := application.ExecuteWithMutations(tree, args, stdinText, app.Launcher, app.Environment, app.Toolchains, app.Adapters, app.Models, app.Mutations)
+	ports := application.VaultPorts{Vault: app.Vault, Files: app.VaultFiles}
+	outcome := application.ExecuteWithVault(tree, args, stdinText, app.Launcher, app.Environment, app.Toolchains, app.Adapters, app.Models, app.Mutations, ports)
 	if ctx.Err() != nil {
 		return cancelledExit(ctx)
 	}

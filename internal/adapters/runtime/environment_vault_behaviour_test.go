@@ -2,6 +2,8 @@ package runtime_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,10 +13,14 @@ import (
 	"github.com/wahidyankf/rhino/internal/adapters/runtime"
 	"github.com/wahidyankf/rhino/internal/application"
 	"github.com/wahidyankf/rhino/tests/bdd/vault"
+	"github.com/wahidyankf/rhino/tests/bdd/vault/fakebw"
 )
 
 // environmentVaultCorpus is the vault validation feature, relative to this package.
 const environmentVaultCorpus = "../../../specs/behaviours/environment-vault-validation.feature"
+
+// environmentVaultCommandsCorpus is the vault command feature, relative to this package.
+const environmentVaultCommandsCorpus = "../../../specs/behaviours/environment-vault.feature"
 
 // diskVaultDriver builds one scenario in a real temporary directory: a Git
 // repository whose index holds the tracked files, with a .gitignore that names
@@ -23,6 +29,12 @@ type diskVaultDriver struct {
 	dir      string
 	traceDir string
 	trace    *vault.GitTrace
+	// Command scenarios add the fake bw, its state and log, and the session.
+	fakeBW string
+	binDir string
+	state  string
+	log    string
+	noKey  bool
 }
 
 // openDiskVaultDriver builds a scenario repository and, beside it, a separate
@@ -125,6 +137,181 @@ func (d *diskVaultDriver) Validate(_ context.Context, asJSON bool) (vault.Result
 	return vault.Result{ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr, Processes: processes}, nil
 }
 
+// ensureVault prepares the fake bw for a command scenario: its state and log,
+// and the wrapper that runs it, in a directory of its own.
+func (d *diskVaultDriver) ensureVault() error {
+	if d.state != "" {
+		return nil
+	}
+	d.binDir = filepath.Join(d.traceDir, "vault-bin")
+	d.state = filepath.Join(d.traceDir, "vault-state.json")
+	d.log = filepath.Join(d.traceDir, "bw-calls.log")
+	fresh := &fakebw.Vault{Status: "unlocked", Blobs: map[string][]byte{}}
+	if err := fresh.Save(d.state); err != nil {
+		return err
+	}
+	return fakebw.InstallWrapper(d.binDir, d.fakeBW, d.state, d.log)
+}
+
+// editVault loads the fake vault state, applies change, and saves it.
+func (d *diskVaultDriver) editVault(change func(*fakebw.Vault) error) error {
+	if err := d.ensureVault(); err != nil {
+		return err
+	}
+	current, err := fakebw.Load(d.state)
+	if err != nil {
+		return err
+	}
+	if err := change(current); err != nil {
+		return err
+	}
+	return current.Save(d.state)
+}
+
+// Session sets the state the fake vault reports. The session key is set in
+// the process environment only while a command runs, and never for no-key.
+func (d *diskVaultDriver) Session(_ context.Context, state vault.Session, server string) error {
+	d.noKey = state == vault.SessionNoKey
+	return d.editVault(func(v *fakebw.Vault) error {
+		v.Status, v.ServerURL = "unlocked", server
+		if state == vault.SessionLocked {
+			v.Status = "locked"
+		}
+		return nil
+	})
+}
+
+func (d *diskVaultDriver) Login(_ context.Context, name, password string) error {
+	return d.editVault(func(v *fakebw.Vault) error {
+		v.Create(fakebw.Item{Name: name, Type: 1, Login: &fakebw.Login{Password: &password}})
+		return nil
+	})
+}
+
+func (d *diskVaultDriver) Generation(_ context.Context, name, file, content string) error {
+	return d.editVault(func(v *fakebw.Vault) error {
+		note, ok := v.NoteNamed(name)
+		if !ok {
+			note = v.Create(fakebw.Item{Name: name, Type: 2})
+		}
+		if _, added := v.AddAttachment(note.ID, file, []byte(content)); !added {
+			return fmt.Errorf("the note %q vanished before its attachment was added", name)
+		}
+		return nil
+	})
+}
+
+func (d *diskVaultDriver) Local(_ context.Context, path, content string) error {
+	return d.write(path, content)
+}
+
+// Command runs one env command with PATH reduced to the fake bw's directory,
+// and the session key set only when the scenario's session has one. It
+// fingerprints the repository and the vault either side of the run.
+func (d *diskVaultDriver) Command(_ context.Context, arguments []string) (vault.Result, error) {
+	if err := d.ensureVault(); err != nil {
+		return vault.Result{}, err
+	}
+	localBefore, err := vault.DigestTree(d.dir)
+	if err != nil {
+		return vault.Result{}, err
+	}
+	vaultBefore, err := digestFile(d.state)
+	if err != nil {
+		return vault.Result{}, err
+	}
+	restore := setEnvironment(map[string]string{"PATH": d.binDir, "BW_SESSION": d.sessionKey()})
+	ports := application.VaultPorts{Vault: runtime.BitwardenVault{}, Files: runtime.DiskVaultFileStore{}}
+	outcome := application.ExecuteWithVault(&runtime.DiskTree{Dir: d.dir}, arguments, nil, nil, nil, nil, nil, nil, nil, ports)
+	restore()
+	localAfter, err := vault.DigestTree(d.dir)
+	if err != nil {
+		return vault.Result{}, err
+	}
+	vaultAfter, err := digestFile(d.state)
+	if err != nil {
+		return vault.Result{}, err
+	}
+	return vault.Result{
+		ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr,
+		LocalBefore: localBefore, LocalAfter: localAfter, VaultBefore: vaultBefore, VaultAfter: vaultAfter,
+	}, nil
+}
+
+// sessionKey is the session key a run sees: empty for a no-key session, which
+// removes the variable.
+func (d *diskVaultDriver) sessionKey() string {
+	if d.noKey {
+		return ""
+	}
+	return "fixture-session-key"
+}
+
+// setEnvironment sets each variable, an empty value unsetting it, and returns
+// the function that restores every variable it changed.
+func setEnvironment(values map[string]string) func() {
+	type saved struct {
+		value string
+		set   bool
+	}
+	previous := map[string]saved{}
+	for name, value := range values {
+		old, set := os.LookupEnv(name)
+		previous[name] = saved{value: old, set: set}
+		if value == "" {
+			_ = os.Unsetenv(name)
+		} else {
+			_ = os.Setenv(name, value)
+		}
+	}
+	return func() {
+		for name, old := range previous {
+			if old.set {
+				_ = os.Setenv(name, old.value)
+			} else {
+				_ = os.Unsetenv(name)
+			}
+		}
+	}
+}
+
+// digestFile fingerprints the fake vault's state file.
+func digestFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read fake vault state: %w", err)
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func (d *diskVaultDriver) LocalFile(_ context.Context, path string) (vault.LocalFile, error) {
+	full := filepath.Join(d.dir, filepath.FromSlash(path))
+	info, err := os.Stat(full)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return vault.LocalFile{}, nil
+		}
+		return vault.LocalFile{}, err
+	}
+	data, err := os.ReadFile(full)
+	if err != nil {
+		return vault.LocalFile{}, err
+	}
+	return vault.LocalFile{Exists: true, Content: string(data), Mode: fmt.Sprintf("%04o", info.Mode().Perm())}, nil
+}
+
+func (d *diskVaultDriver) Items(_ context.Context, name string) ([]vault.ItemView, error) {
+	if err := d.ensureVault(); err != nil {
+		return nil, err
+	}
+	current, err := fakebw.Load(d.state)
+	if err != nil {
+		return nil, err
+	}
+	return current.Views(name), nil
+}
+
 // Close removes the scenario repository and the shim directory beside it.
 func (d *diskVaultDriver) Close() error {
 	repoErr := os.RemoveAll(d.dir)
@@ -146,6 +333,25 @@ func TestEnvironmentVaultValidationAtIntegrationAdapter(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
+		return driver, nil
+	})
+}
+
+// TestEnvironmentVaultCommandsAtIntegrationAdapter runs every scenario of the
+// vault command corpus against a real temporary Git repository and the fake bw.
+func TestEnvironmentVaultCommandsAtIntegrationAdapter(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	binary, err := fakebw.Build(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	vault.RunSuite(t, environmentVaultCommandsCorpus, func() (vault.Driver, error) {
+		driver, err := openDiskVaultDriver()
+		if err != nil {
+			return nil, err
+		}
+		driver.fakeBW = binary
 		return driver, nil
 	})
 }

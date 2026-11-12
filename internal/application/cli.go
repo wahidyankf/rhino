@@ -31,6 +31,8 @@ const (
 	AcceptPushUpdatesStdin
 	AcceptRange
 	AcceptJSON
+	AcceptEntry
+	AcceptOverwrite
 )
 
 // Leaf is one command path plus its output category and flags.
@@ -59,6 +61,9 @@ var Leaves = []Leaf{
 	{Path: []string{"env", "validate"}, Category: "environment-validate", Accepts: []Accepts{}, Summary: "Validate declared environment policy without reporting values."},
 	{Path: []string{"env", "init"}, Category: "environment-init", Accepts: []Accepts{AcceptApply}, Summary: "Initialize declared environment targets only with explicit authorization."},
 	{Path: []string{"env", "restore"}, Category: "environment-restore", Accepts: []Accepts{AcceptBackupDirectory, AcceptForce}, Summary: "Restore declared environment targets from an explicit backup directory."},
+	{Path: []string{"env", "pull"}, Category: "environment-pull", Accepts: []Accepts{AcceptEntry, AcceptForce}, Summary: "Write declared vault-held files from an unlocked vault session."},
+	{Path: []string{"env", "push"}, Category: "environment-push", Accepts: []Accepts{AcceptEntry, AcceptOverwrite}, Summary: "Seed or overwrite declared vault items from local files, by name."},
+	{Path: []string{"env", "diff"}, Category: "environment-diff", Accepts: []Accepts{AcceptEntry}, Summary: "Compare declared vault items with local files, reporting names only."},
 	{Path: []string{"toolchain", "validate"}, Category: "toolchain-validate", Accepts: []Accepts{}, Summary: "Probe declared toolchains without installing or reporting their output."},
 	{Path: []string{"toolchain", "provision"}, Category: "toolchain-provision", Accepts: []Accepts{AcceptApply}, Summary: "Provision declared toolchains only with explicit authorization."},
 	{Path: []string{"md", "frontmatter", "validate"}, Category: "frontmatter", Accepts: []Accepts{}, Summary: "Check every declared surface's front matter against its declared schema."},
@@ -88,6 +93,8 @@ type Invocation struct {
 	Head             *string
 	Apply            bool
 	Force            bool
+	Entries          []string
+	Overwrite        bool
 }
 
 // Help is a usage answer.
@@ -121,8 +128,8 @@ func Parse(args []string) (Parsed, *Refusal) {
 	var path []string
 	var wantsHelp, wantsVersion bool
 	var root, format, directory, backupDir, surface, messageFile, base, head *string
-	var files []string
-	var pushStdin, apply, force, jsonFlag bool
+	var files, entries []string
+	var pushStdin, apply, force, overwrite, jsonFlag bool
 
 	set := func(name string, held **string, rest []string, i *int, seen Format) *Refusal {
 		*i++
@@ -180,6 +187,14 @@ func Parse(args []string) (Parsed, *Refusal) {
 			apply = true
 		case "--force":
 			force = true
+		case "--overwrite":
+			overwrite = true
+		case "--entry":
+			var held *string
+			if refusal := set("--entry", &held, args, &i, seen); refusal != nil {
+				return Parsed{}, refusal
+			}
+			entries = append(entries, *held)
 		case "--":
 			path = append(path, args[i+1:]...)
 			i = len(args)
@@ -265,6 +280,8 @@ func Parse(args []string) (Parsed, *Refusal) {
 		{jsonFlag, AcceptJSON, "--json"},
 		{apply, AcceptApply, "--apply"},
 		{force, AcceptForce, "--force"},
+		{len(entries) > 0, AcceptEntry, "--entry"},
+		{overwrite, AcceptOverwrite, "--overwrite"},
 	}
 	for _, check := range checks {
 		if check.given && !accepted[check.flag] {
@@ -287,6 +304,12 @@ func Parse(args []string) (Parsed, *Refusal) {
 		if reason := notRepositoryRelative(selected); reason != "" {
 			return Parsed{}, &Refusal{Code: domain.PathEscapesRoot,
 				Message: "`--file " + selected + "` " + reason, Format: resolved}
+		}
+	}
+	for _, selected := range entries {
+		if reason := notRepositoryRelative(selected); reason != "" {
+			return Parsed{}, &Refusal{Code: domain.PathEscapesRoot,
+				Message: "`--entry " + selected + "` " + reason, Format: resolved}
 		}
 	}
 	if jsonFlag && formatGiven && resolved == Text {
@@ -325,6 +348,7 @@ func Parse(args []string) (Parsed, *Refusal) {
 		Directory: directory, BackupDirectory: backupDir, Surface: surface,
 		MessageFile: messageFile, PushUpdatesStdin: pushStdin,
 		Base: base, Head: head, Apply: apply, Force: force,
+		Entries: entries, Overwrite: overwrite,
 	}}, nil
 }
 
@@ -383,13 +407,15 @@ func HelpFor(segments []string) (string, bool) {
 			union[flag] = true
 		}
 	}
-	order := []Accepts{AcceptFile, AcceptDirectory, AcceptBackupDirectory, AcceptApply, AcceptForce, AcceptSurface, AcceptMessageFile, AcceptPushUpdatesStdin, AcceptRange, AcceptJSON}
+	order := []Accepts{AcceptFile, AcceptDirectory, AcceptBackupDirectory, AcceptApply, AcceptForce, AcceptSurface, AcceptMessageFile, AcceptPushUpdatesStdin, AcceptRange, AcceptJSON, AcceptEntry, AcceptOverwrite}
 	texts := map[Accepts]string{
 		AcceptFile:             "  --file <path>          Inspect these paths instead of the declared surface.\n                         Repeatable; `-` reads standard input.\n",
 		AcceptDirectory:        "  --directory <path>     Inspect this directory instead of the declared trees.\n",
 		AcceptBackupDirectory:  "  --dir <path>           Explicit repository-relative backup destination.\n",
 		AcceptApply:            "  --apply                Authorize this declared mutation.\n",
-		AcceptForce:            "  --force                Replace an existing target after backup planning.\n",
+		AcceptForce:            "  --force                Replace an existing target. Environment restore plans a backup first.\n",
+		AcceptEntry:            "  --entry <path>         Narrow the run to one declared entry. Repeatable.\n",
+		AcceptOverwrite:        "  --overwrite            Replace a differing vault value, keeping its previous generation.\n",
 		AcceptSurface:          "  --surface <name>       Which closed lifecycle surface is dispatching.\n",
 		AcceptMessageFile:      "  --message-file <path>  Exact commit-msg hook path, read only for that surface.\n",
 		AcceptPushUpdatesStdin: "  --push-updates-stdin   Read Git pre-push update records from standard input.\n",
