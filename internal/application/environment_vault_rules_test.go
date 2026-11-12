@@ -1,0 +1,240 @@
+package application_test
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/wahidyankf/rhino/internal/application"
+)
+
+// vaultBase is a valid manifest with one env entry. Each case changes one part
+// of it, so a case reads as the single defect it proves.
+const vaultBase = `schema: rhino/repo-config/v2
+environment:
+  vault:
+    provider: bitwarden
+    server: https://vault.example.com
+    prefix: org/example-repo
+    environments: [local, stag, canary, prod]
+    entries:
+      - path: infra/example/.env.prod
+        class: vault
+        form: env
+        app: infra-example
+        env: prod
+        keys: [EXAMPLE_TOKEN]
+`
+
+// vaultReplace returns vaultBase with one fragment replaced. A fragment that is
+// not in the base is a defect in the test table, so the table panics at once.
+func vaultReplace(old, replacement string) string {
+	if !strings.Contains(vaultBase, old) {
+		panic("vault fixture has no fragment " + old)
+	}
+	return strings.Replace(vaultBase, old, replacement, 1)
+}
+
+// vaultCase is one defect or one clean shape, with what it must print.
+type vaultCase struct {
+	name       string
+	config     string
+	tracked    map[string]string
+	ignored    map[string]string
+	unreadable []string
+	binary     []string
+	wrap       func(*vaultMemoryTree) application.Tree
+	exit       int
+	stderr     []string
+}
+
+// trackedFailureTree answers the tracked-name query with an error.
+type trackedFailureTree struct{ *vaultMemoryTree }
+
+func (trackedFailureTree) TrackedFiles() ([]string, error) {
+	return nil, errGitQuery
+}
+
+// ignoredFailureTree answers the ignored-name query with an error.
+type ignoredFailureTree struct{ *vaultMemoryTree }
+
+func (ignoredFailureTree) IgnoredFiles() ([]string, error) {
+	return nil, errGitQuery
+}
+
+var errGitQuery = errors.New("git query failed")
+
+// withoutNameBoundary is the plain in-memory tree, which has no Git name query.
+func withoutNameBoundary(m *vaultMemoryTree) application.Tree { return m.memoryTree }
+
+// workflowsGlob declares the GitHub block with one workflow glob and one listed secret.
+const workflowsGlob = `    github:
+      workflows: [".github/workflows/*.yml"]
+      builtin: [GITHUB_TOKEN]
+      secrets:
+        - name: EXAMPLE_TOKEN
+          source: { app: infra-example, env: prod, secret: example-token }
+`
+
+func vaultCases() []vaultCase {
+	entry := func(extra string) string { return vaultBase + extra }
+	return []vaultCase{
+		// Manifest shape, one defect at a time.
+		{name: "provider other than the first release", config: vaultReplace("provider: bitwarden", "provider: aws"), exit: 1,
+			stderr: []string{"environment.vault.provider: vault-manifest-invalid"}},
+		{name: "server without https", config: vaultReplace("https://vault.example.com", "http://vault.example.com"), exit: 1,
+			stderr: []string{"environment.vault.server: vault-manifest-invalid"}},
+		{name: "prefix of one segment", config: vaultReplace("org/example-repo", "example-repo"), exit: 1,
+			stderr: []string{"environment.vault.prefix: vault-manifest-invalid"}},
+		{name: "prefix segment that is not kebab-case", config: vaultReplace("org/example-repo", "Org/example-repo"), exit: 1,
+			stderr: []string{"environment.vault.prefix: vault-manifest-invalid"}},
+		{name: "environment set with a duplicate", config: vaultReplace("[local, stag, canary, prod]", "[prod, prod]"), exit: 1,
+			stderr: []string{"environment.vault.environments: vault-manifest-invalid"}},
+		{name: "empty environment set", config: vaultReplace("[local, stag, canary, prod]", "[]"), exit: 1,
+			stderr: []string{"environment.vault.environments: vault-manifest-invalid"}},
+		{name: "environment name that is not kebab-case", config: vaultReplace("[local, stag, canary, prod]", "[Prod]"), exit: 1,
+			stderr: []string{"environment.vault.environments: vault-manifest-invalid"}},
+		{name: "pattern that is absolute", config: vaultReplace("    entries:\n", "    patterns: [\"/abs/**\"]\n    entries:\n"), exit: 1,
+			stderr: []string{"environment.vault.patterns: vault-manifest-invalid (/abs/**)"}},
+
+		// Entries.
+		{name: "entry class that is unknown", config: vaultReplace("class: vault\n        form: env", "class: other\n        form: env"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "vault entry form that is unknown", config: vaultReplace("form: env", "form: json"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "env entry without keys", config: vaultReplace("keys: [EXAMPLE_TOKEN]", "keys: []"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "env entry with a blank key", config: vaultReplace("keys: [EXAMPLE_TOKEN]", "keys: [{app: infra-example}]"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "env entry with a duplicate key", config: vaultReplace("keys: [EXAMPLE_TOKEN]", "keys: [EXAMPLE_TOKEN, EXAMPLE_TOKEN]"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "env entry whose path is a glob", config: vaultReplace("path: infra/example/.env.prod", "path: infra/*/.env.prod"), exit: 1,
+			stderr: []string{"infra/*/.env.prod: vault-manifest-invalid"}},
+		{name: "env entry without an app", config: vaultReplace("        app: infra-example\n", ""), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "key override whose secret is not kebab-case", config: vaultReplace("keys: [EXAMPLE_TOKEN]", "keys: [{key: EXAMPLE_TOKEN, secret: Example_Token}]"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-name-grammar (org/example-repo/infra-example/prod/Example_Token)"}},
+		{name: "two entries claim one path", config: entry("      - path: infra/example/.env.prod\n        class: derived\n        reason: r\n        by: t\n"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "file entry without a secret", config: entry("      - path: infra/example/terraform/terraform.tfvars\n        class: vault\n        form: file\n        app: infra-terraform\n        env: prod\n"), exit: 1,
+			stderr: []string{"infra/example/terraform/terraform.tfvars: vault-manifest-invalid"}},
+		{name: "file entry whose secret is not kebab-case", config: entry("      - path: infra/example/terraform/terraform.tfvars\n        class: vault\n        form: file\n        app: infra-terraform\n        env: prod\n        secret: Tfvars\n"), exit: 1,
+			stderr: []string{"infra/example/terraform/terraform.tfvars: vault-name-grammar (org/example-repo/infra-terraform/prod/Tfvars)"}},
+		{name: "resident entry with a path", config: entry("      - path: infra/example/resident.env\n        class: vault\n        form: resident\n        app: infra-example\n        env: prod\n        secret: resident-token\n"), exit: 1,
+			stderr: []string{"infra/example/resident.env: vault-manifest-invalid"}},
+		{name: "resident entry without an app or consumer", config: entry("      - class: vault\n        form: resident\n        env: prod\n        secret: resident-token\n"), exit: 1,
+			stderr: []string{"environment.vault.entries[1]: vault-manifest-invalid"}},
+		{name: "resident entry with a consumer and no path", config: entry("      - class: vault\n        form: resident\n        app: infra-example\n        env: prod\n        secret: resident-token\n        consumer: scripts/wrapper.mjs\n"), exit: 0},
+		{name: "derived entry without a reason", config: entry("      - path: apps/example/gen.json\n        class: derived\n        by: tool\n"), exit: 1,
+			stderr: []string{"apps/example/gen.json: vault-manifest-invalid"}},
+		{name: "derived entry without a by", config: entry("      - path: apps/example/gen.json\n        class: derived\n        reason: r\n"), exit: 1,
+			stderr: []string{"apps/example/gen.json: vault-manifest-invalid"}},
+		{name: "derived entry whose path climbs out of the repository", config: entry("      - path: ../gen.json\n        class: derived\n        reason: r\n        by: t\n"), exit: 1,
+			stderr: []string{"../gen.json: vault-manifest-invalid"}},
+		{name: "machine-local entry without a reason", config: entry("      - path: hippo.local.json\n        class: machine-local\n"), exit: 1,
+			stderr: []string{"hippo.local.json: vault-manifest-invalid"}},
+		{name: "machine-local entry with a reason", config: entry("      - path: hippo.local.json\n        class: machine-local\n        reason: Capacity differs per machine.\n"), exit: 0},
+		{name: "two derived names are the same", config: entry("      - path: infra/example/other.env\n        class: vault\n        form: env\n        app: infra-example\n        env: prod\n        keys: [EXAMPLE_TOKEN]\n"), exit: 1,
+			stderr: []string{"infra/example/other.env: vault-manifest-invalid (org/example-repo/infra-example/prod/example-token)"}},
+		{name: "app segment that is not kebab-case", config: vaultReplace("app: infra-example", "app: Infra_Example"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-name-grammar (org/example-repo/Infra_Example/prod/example-token)"}},
+		{name: "entry without environment that derives no name", config: vaultReplace("        env: prod\n", ""), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+
+		// Templates.
+		{name: "template row whose path is a glob", config: vaultBase + "    templates:\n      - { path: infra/*/.env.example, for: infra/example/.env.prod }\n", exit: 1,
+			stderr: []string{"environment.vault.templates[0]: vault-manifest-invalid"}},
+		{name: "tracked example claimed by an entry", config: entry("      - path: infra/example/config.example\n        class: derived\n        reason: r\n        by: t\n"),
+			tracked: map[string]string{"infra/example/config.example": "x=1\n"}, exit: 0},
+
+		// Ignored files.
+		{name: "ignored file claimed by a glob entry", config: vaultReplace("    entries:\n", "    patterns: [\"**/.secrets/**\"]\n    entries:\n") + "      - path: apps/example/.secrets/*\n        class: generated\n        reason: r\n        by: t\n",
+			ignored: map[string]string{"apps/example/.secrets/postgres-password": "marker\n"}, exit: 0},
+		{name: "ignored file that no pattern matches", config: vaultReplace("    entries:\n", "    patterns: [\"**/.env*\"]\n    entries:\n"),
+			ignored: map[string]string{"build/output.log": "log\n"}, exit: 0},
+		{name: "ignored file with no pattern declared", config: vaultBase,
+			ignored: map[string]string{"apps/example/.env.dev": "marker\n"}, exit: 0},
+		{name: "ignored file whose claiming glob is malformed", config: vaultReplace("    entries:\n", "    patterns: [\"**/.env*\"]\n    entries:\n") + "      - path: apps/[\n        class: derived\n        reason: r\n        by: t\n",
+			ignored: map[string]string{"apps/.env.dev": "marker\n"}, exit: 1,
+			stderr: []string{"apps/[: vault-manifest-invalid", "apps/.env.dev: vault-unclassified-ignored-file"}},
+		{name: "ignored file claimed by an exact entry path", config: vaultReplace("    entries:\n", "    patterns: [\"**/.env*\"]\n    entries:\n"),
+			ignored: map[string]string{"infra/example/.env.prod": "marker\n"}, exit: 0},
+
+		// GitHub workflows.
+		{name: "workflow that holds an unlisted secret", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: x ${{ secrets.OTHER }}\n"}, exit: 1,
+			stderr: []string{".github/workflows/ci.yml: vault-github-unlisted-reference (secrets.OTHER)"}},
+		{name: "dotted name is not a workflow reference", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: github.secrets.OTHER\n"}, exit: 0},
+		{name: "workflow outside the declared globs is not read", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{"scripts/ci.yml": "run: x ${{ secrets.OTHER }}\n"}, exit: 0},
+		{name: "workflow that cannot be read refuses", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "x\n"}, unreadable: []string{".github/workflows/ci.yml"}, exit: 2,
+			stderr: []string{"environment vault workflow `.github/workflows/ci.yml` could not be read"}},
+		{name: "workflow that holds no text refuses", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "\x00"}, binary: []string{".github/workflows/ci.yml"}, exit: 2,
+			stderr: []string{"holds no text"}},
+		{name: "GitHub secret whose source names no derived item", config: vaultReplace("    entries:\n", "    github:\n      workflows: [\".github/workflows/*.yml\"]\n      secrets:\n        - name: EXAMPLE_TOKEN\n          source: { app: infra-example, env: prod, secret: missing }\n    entries:\n"), exit: 1,
+			stderr: []string{"github.secrets: vault-github-source-unknown (EXAMPLE_TOKEN)"}},
+		{name: "GitHub secret without a source", config: vaultReplace("    entries:\n", "    github:\n      secrets:\n        - name: EXAMPLE_TOKEN\n    entries:\n"), exit: 1,
+			stderr: []string{"github.secrets: vault-manifest-invalid (EXAMPLE_TOKEN)"}},
+		{name: "GitHub secret without a name", config: vaultReplace("    entries:\n", "    github:\n      secrets:\n        - source: { app: infra-example, env: prod, secret: example-token }\n    entries:\n"), exit: 1,
+			stderr: []string{"github.secrets: vault-manifest-invalid"}},
+		{name: "GitHub variable without a name", config: vaultReplace("    entries:\n", "    github:\n      variables:\n        - note: x\n    entries:\n"), exit: 1,
+			stderr: []string{"github.variables: vault-manifest-invalid"}},
+		{name: "GitHub block that is empty", config: vaultReplace("    entries:\n", "    github: {}\n    entries:\n"), exit: 0},
+
+		// Whole-manifest and Git-boundary cases.
+		{name: "undeclared vault changes nothing", config: "schema: rhino/repo-config/v2\nenvironment: {}\n", exit: 0},
+		{name: "vault written as text refuses", config: "schema: rhino/repo-config/v2\nenvironment:\n  vault: marker-7f3a\n", exit: 2,
+			stderr: []string{"environment.vault must be a mapping"}},
+		{name: "tree without a Git name boundary refuses", config: vaultBase, wrap: withoutNameBoundary, exit: 2,
+			stderr: []string{"environment vault check refused: this tree has no Git name boundary"}},
+		{name: "tracked-name query that fails refuses", config: vaultBase, wrap: func(m *vaultMemoryTree) application.Tree {
+			return trackedFailureTree{m}
+		}, exit: 2, stderr: []string{"environment vault check refused: git query failed"}},
+		{name: "ignored-name query that fails refuses", config: vaultBase, wrap: func(m *vaultMemoryTree) application.Tree {
+			return ignoredFailureTree{m}
+		}, exit: 2, stderr: []string{"environment vault check refused: git query failed"}},
+	}
+}
+
+// TestEnvironmentVaultRules holds every vault rule to its stated shape: each
+// defect fires its rule on its path, each clean shape stays clean, and each
+// boundary failure refuses rather than reporting a tree it never read.
+func TestEnvironmentVaultRules(t *testing.T) {
+	for _, tc := range vaultCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &vaultMemoryTree{memoryTree: newMemoryTree("/repository")}
+			m.files["repo-config.yml"] = tc.config
+			m.tracked = append(m.tracked, "repo-config.yml")
+			for path, content := range tc.tracked {
+				m.files[path] = content
+				m.tracked = append(m.tracked, path)
+			}
+			for path, content := range tc.ignored {
+				m.files[path] = content
+				m.ignored = append(m.ignored, path)
+			}
+			for _, path := range tc.unreadable {
+				m.markUnreadable(path)
+			}
+			for _, path := range tc.binary {
+				m.markBinary(path)
+			}
+			var tree application.Tree = m
+			if tc.wrap != nil {
+				tree = tc.wrap(m)
+			}
+			outcome := application.Execute(tree, []string{"env", "validate"}, nil)
+			if outcome.ExitCode != tc.exit {
+				t.Fatalf("exit = %d, want %d; stdout %q stderr %q", outcome.ExitCode, tc.exit, outcome.Stdout, outcome.Stderr)
+			}
+			for _, want := range tc.stderr {
+				if !strings.Contains(outcome.Stdout+outcome.Stderr, want) {
+					t.Fatalf("output does not contain %q:\nstdout %q\nstderr %q", want, outcome.Stdout, outcome.Stderr)
+				}
+			}
+		})
+	}
+}

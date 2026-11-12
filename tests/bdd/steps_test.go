@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
+	"github.com/wahidyankf/rhino/tests/bdd/vault"
 )
 
 // binding pairs a step expression with its handler. The table is the only
@@ -23,9 +24,20 @@ type binding struct {
 	handler any
 }
 
-// bindings returns every step definition the corpus uses, grouped by what each
-// step does: prepare the repository, act, or assert on the result.
+// bindings returns every step definition the command-line corpus uses: the
+// steps this package owns plus the shared environment vault registry, which the
+// command-line adapter binds through its own driver.
 func bindings() []binding {
+	var shared []binding
+	for _, step := range vault.Bindings() {
+		shared = append(shared, binding{pattern: step.Pattern, handler: step.Handler})
+	}
+	return append(corpusBindings(), shared...)
+}
+
+// corpusBindings returns every step definition this package owns, grouped by
+// what each step does: prepare the repository, act, or assert on the result.
+func corpusBindings() []binding {
 	return []binding{
 		// Preparing the repository.
 		{`^the configuration file is this text:$`, configurationFileText},

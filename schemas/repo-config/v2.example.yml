@@ -36,7 +36,44 @@ policies:
         - family: docs
   conventions: {}
   plans: {}
-environment: {}
+environment:
+  vault:
+    provider: bitwarden
+    server: https://vault.example.com
+    prefix: org/example-repo
+    environments: [local, stag, canary, prod]
+    patterns:
+      - "**/.env*"
+      - "**/*.tfvars"
+    entries:
+      - path: infra/example/.env.prod
+        class: vault
+        form: env
+        app: infra-example
+        env: prod
+        keys:
+          - TAILSCALE_AUTH_KEY
+          - { key: CLOUDFLARE_API_TOKEN, app: infra-edge, secret: edge-dns }
+          - { key: EXAMPLE_TOKEN, app: infra-example, secret: example-token }
+      - path: infra/example/terraform/terraform.tfvars
+        class: vault
+        form: file
+        app: infra-terraform
+        env: prod
+        secret: tfvars
+      - path: infra/example/ansible/inventory.ini
+        class: derived
+        reason: Rendered by the infrastructure stack from VM addresses.
+        by: infra/example/terraform/outputs.tf
+    templates:
+      - path: infra/example/ansible/.env.example
+        for: infra/example/.env.prod
+    github:
+      workflows: [".github/workflows/*.yml"]
+      builtin: [GITHUB_TOKEN]
+      secrets:
+        - name: EXAMPLE_TOKEN
+          source: { app: infra-example, env: prod, secret: example-token }
 toolchains: {}
 gates:
   entries:
