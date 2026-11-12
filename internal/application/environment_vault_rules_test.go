@@ -189,6 +189,16 @@ func vaultCases() []vaultCase {
 		{name: "ignored file claimed by an exact entry path", config: vaultReplace("    entries:\n", "    patterns: [\"**/.env*\"]\n    entries:\n"),
 			ignored: map[string]string{"infra/example/.env.prod": "marker\n"}, exit: 0},
 
+		// An ignored file is named and never read: an unreadable ignored file and an
+		// unreadable tracked template are both still reported as unclassified, where a
+		// read of either would refuse the run with exit 2.
+		{name: "unreadable ignored and template files are named, never read",
+			config:     vaultReplace("    entries:\n", "    patterns: [\"**/.env*\"]\n    entries:\n"),
+			tracked:    map[string]string{"infra/example/.env.example": "EXAMPLE_TOKEN=\n"},
+			ignored:    map[string]string{"apps/example/.env.dev": "EXAMPLE_TOKEN=placeholder\n"},
+			unreadable: []string{"apps/example/.env.dev", "infra/example/.env.example"}, exit: 1,
+			stderr: []string{"apps/example/.env.dev: vault-unclassified-ignored-file", "infra/example/.env.example: vault-unclassified-template"}},
+
 		// GitHub workflows.
 		{name: "workflow that holds an unlisted secret", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
 			tracked: map[string]string{".github/workflows/ci.yml": "run: x ${{ secrets.OTHER }}\n"}, exit: 1,
