@@ -9,6 +9,20 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [Unreleased]
+
+### Added
+
+- `environment.vault` declares a manifest of the secrets a repository holds: its provider and server, the item prefix,
+  the closed environment set, the secret-bearing path patterns, the entries, the tracked templates, and the GitHub
+  workflow references. An absent `vault` key changes nothing.
+- `env validate` checks the manifest and reports six new finding kinds: `vault-manifest-invalid`,
+  `vault-name-grammar`, `vault-unclassified-ignored-file`, `vault-unclassified-template`,
+  `vault-github-unlisted-reference`, and `vault-github-source-unknown`. Each names a path or a name, never a value. They
+  take no allowlist entry.
+- The vault check reads only Git names: the tracked and ignored paths, and the secret and variable names in tracked
+  workflows. It never opens an ignored file. A tree without a Git name boundary refuses the check with exit `2`.
+
 ## [v0.16.7] — 2026-11-01
 
 A patch release: `md readme-index validate` finishes in a fraction of a second on a repository of about 3,800 files.

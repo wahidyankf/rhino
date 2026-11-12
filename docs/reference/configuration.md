@@ -20,7 +20,8 @@ covers, the checked-in schema, modelines, and predecessor handling; this page in
 - `policies.conventions` — Configured license paths, identifiers, digests, exact exclusions, and emoji-prohibited
   surfaces.
 - `policies.plans` — Reserved policy owner; no validator reads it.
-- `environment` — Declared key contracts, example/target pairs, detectors, allowlists, and staged-path policy.
+- `environment` — Declared key contracts, example/target pairs, detectors, allowlists, staged-path policy, and the
+  environment vault manifest.
 - `toolchains` — Declared probes and explicit provision vectors.
 - `gates` — Closed lifecycle membership, typed inputs, and declared argv projection.
 - `extensions` — Opaque, namespaced mappings that Rhino preserves without interpreting.

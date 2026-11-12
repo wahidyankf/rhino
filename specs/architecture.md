@@ -129,6 +129,11 @@ The application package declares each boundary as an interface. A validator neve
 inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any component of a path is a link, and
 `Read` refuses such a path before it opens anything.
 
+The disk tree also answers two read-only Git name queries: `TrackedFiles` (`git ls-files`) and `IgnoredFiles`
+(`git ls-files --others --ignored --exclude-standard`). The environment vault rules call them only when
+`environment.vault` is declared. They return names, never file contents, and a tree without a Git name boundary refuses
+the check.
+
 ## Data
 
 - **Configuration:** one YAML document, decoded once into a `config.Document`. `repo-config validate` refuses an unknown
@@ -167,6 +172,7 @@ reported as `2`, a gate that could not run. RHINO's own status describes RHINO o
 | `internal/**/*_test.go` | Parsers, validator cores, and adapters in temporary directories | `go test ./...`       |
 | `tests/bdd/`            | Every scenario in `specs/behaviours`, against the built binary  | `go test ./tests/bdd` |
 | `tests/bdd` compliance  | Every step is bound once, every binding is used, count matches  | `go test ./tests/bdd` |
+| `tests/bdd/vault/`      | Vault step registry, bound at three layers                      | `go test ./tests/bdd` |
 
 The behaviour suite builds the binary once per run. Each scenario gets its own temporary repository, its own Git
 repository built with plumbing commands, and its own `PATH` directory. It runs `rhino` as a child process and asserts on

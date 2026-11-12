@@ -282,7 +282,25 @@ never is.
 - `unsupported-dynamic-access` — A detected source reads a key whose name is computed, reported as `<dynamic>`.
 - `staged-environment-file` — An indexed path matches a forbidden staging pattern and no allowed one.
 
-An allowlist entry can suppress every kind except `staged-environment-file`.
+The vault kinds below report only when `environment.vault` is declared. Each one names a path or a name, never a value.
+
+- `vault-manifest-invalid` — A vault shape rule is broken, among others: an unknown provider, a server that is not
+  `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
+  duplicate path, a duplicate item name, or a GitHub secret with no name or source. It names the entry's path, the item
+  name for a duplicate, or `github.secrets` for a GitHub secret.
+- `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
+  names the entry's path and the item name.
+- `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
+  The file is named and never opened.
+- `vault-unclassified-template` — A tracked `*.example` file is named by no `templates` row and by no entry.
+- `vault-github-unlisted-reference` — A tracked workflow matching `github.workflows` reads a `secrets.X` or `vars.X`
+  that the manifest does not list. It names the workflow and the reference.
+- `vault-github-source-unknown` — A listed GitHub secret names a source that matches no vault item. It names
+  `github.secrets` and the secret.
+
+An allowlist entry can suppress every kind except `staged-environment-file` and the vault kinds. A declared check that
+cannot read Git names exits `2` with `rhino.repository.unusable`, and a workflow it cannot read exits `2` with
+`rhino.file.unreadable`.
 
 ## Toolchains
 
