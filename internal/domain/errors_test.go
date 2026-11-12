@@ -26,8 +26,8 @@ func TestErrorCodesAreClosedNamespacedAndUnique(t *testing.T) {
 		}
 		seen[text] = true
 	}
-	if len(domain.All) != 18 {
-		t.Fatalf("expected 18 codes, got %d", len(domain.All))
+	if len(domain.All) != 20 {
+		t.Fatalf("expected 20 codes, got %d", len(domain.All))
 	}
 }
 
