@@ -11,8 +11,8 @@ boundary when they are invoked, and adapter generation replaces only declared ad
 after planning every output in memory, starting at most a tier's declared `model-resolve` argv. The validator boundaries
 are enforced as tests, not incidental properties of the current implementation: the import and dependency rules live in
 `internal/bootstrap/boundary_test.go`, and the tree adapter's write and Git rules live in
-`internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of `gate run` or the Git plumbing of
-the mutation boundary; behaviour tests check their outcomes.
+`internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of `gate run`, the `bw` argv of the
+vault commands, or the Git plumbing of the mutation boundary; behaviour tests check their outcomes.
 
 ## The four boundaries
 
