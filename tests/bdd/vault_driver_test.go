@@ -117,6 +117,22 @@ func (d *cliVaultDriver) Validate(ctx context.Context, asJSON bool) (vault.Resul
 	return vault.Result{ExitCode: run.exitCode, Stdout: run.stdout, Stderr: run.stderr, Processes: processes}, nil
 }
 
+// Executable makes the fake bw absent from the scenario's bin directory, or
+// present there without the execute bit, so the run's PATH meets that state.
+func (d *cliVaultDriver) Executable(_ context.Context, state vault.Executable) error {
+	if err := d.ensureVault(); err != nil {
+		return err
+	}
+	bw := filepath.Join(d.world.bin, "bw")
+	switch state {
+	case vault.ExecutableMissing:
+		return os.Remove(bw)
+	case vault.ExecutableNotRunnable:
+		return os.Chmod(bw, 0o644)
+	}
+	return fmt.Errorf("unknown executable state %q", state)
+}
+
 // Session sets the state the fake vault reports, and the session key the run
 // may see. No key removes the variable, so the adapter has nothing to unlock.
 func (d *cliVaultDriver) Session(_ context.Context, state vault.Session, server string) error {

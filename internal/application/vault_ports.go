@@ -53,10 +53,13 @@ type VaultAttachment struct {
 }
 
 // VaultFault is why a provider call could not complete. Code is one of the
-// two vault codes; Reason is a fixed sentence that names no value.
+// two vault codes; Reason is a fixed sentence that names no value. Exit is the
+// status the refusal ends with when the Bitwarden executable could not run: 127
+// when it was not found, 126 when it cannot be executed. Zero means 2.
 type VaultFault struct {
 	Code   domain.ErrorCode
 	Reason string
+	Exit   int
 }
 
 // VaultFile is one declared local file a pull writes. Replace authorizes

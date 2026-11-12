@@ -2472,6 +2472,47 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 0
     And stdout contains "planned 0"
 
+  Scenario: Toolchain provisioning exits 127 when an applied provision child is not found
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: absent-installer
+            executable: absent-tool
+            probe: [--version]
+            required: false
+            provision:
+              - {platform: linux, executable: ./absent-installer, arguments: [install]}
+              - {platform: macos, executable: ./absent-installer, arguments: [install]}
+              - {platform: windows, executable: ./absent-installer, arguments: [install]}
+      """
+    When I invoke the CLI with "toolchain|provision|--apply|--output|json"
+    Then the exit code is 127
+    And stderr contains "rhino.toolchain.failed"
+
+  Scenario: Toolchain provisioning exits 126 when an applied provision child is not executable
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: unrunnable-installer
+            executable: absent-tool
+            probe: [--version]
+            required: false
+            provision:
+              - {platform: linux, executable: ./unrunnable-installer, arguments: [install]}
+              - {platform: macos, executable: ./unrunnable-installer, arguments: [install]}
+              - {platform: windows, executable: ./unrunnable-installer, arguments: [install]}
+      """
+    And the repository contains:
+      | path                 | content      |
+      | unrunnable-installer | echo install |
+    When I invoke the CLI with "toolchain|provision|--apply|--output|json"
+    Then the exit code is 126
+    And stderr contains "rhino.toolchain.failed"
+
   Scenario: Toolchain provisioning plans as one JSON object
     Given the configuration file is this text:
       """

@@ -79,7 +79,7 @@ The convention asks each adopter to record which of its own tools sits at which 
 | `scripts/*.sh`                            | Floor    | Shipped scripts a gate or a hook calls                    |
 
 `rhino` is full bar except three named gaps, recorded in
-[its conformance record](command-line-interface/009-rhino-conformance.md). It starts gate children, so it additionally
-owes the supervisor statuses `126` and `127`, and it takes the one check-child exception in
-[the exit status contract](command-line-interface/001-exit-status-contract.md). The wrappers start the tool they install
-and return `125` when they refuse; no other surface here starts another program.
+[its conformance record](command-line-interface/009-rhino-conformance.md). It starts gate children, the Bitwarden CLI,
+and provision children, so it additionally owes the supervisor statuses `126` and `127`, and it takes the one
+check-child exception in [the exit status contract](command-line-interface/001-exit-status-contract.md). The wrappers
+start the tool they install and return `125` when they refuse; no other surface here starts another program.

@@ -97,8 +97,8 @@ selected root.
 | `0`     | The command completed cleanly.                                                                         |
 | `1`     | A declared policy found a violation, a vault command reported a finding, or a `gate run` child failed. |
 | `2`     | The invocation, root, configuration, or declared boundary was unusable.                                |
-| `126`   | A declared gate child could not be executed. Only `gate run` returns it.                               |
-| `127`   | A declared gate child was not found. Only `gate run` returns it.                                       |
+| `126`   | A required child could not be executed: a gate child, `bw`, or a provision child.                      |
+| `127`   | A required child was not found: a gate child, `bw`, or a provision child.                              |
 | `128+N` | RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe.        |
 
 ## Related

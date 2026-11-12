@@ -134,7 +134,7 @@ func environmentTransfer(document *config.Document, tree Tree, ports VaultPorts,
 		failure = faultFailure(ports.Vault.Status(manifest.Server))
 	}
 	if failure != nil {
-		return RefuseWith(format, failure.code, failure.message)
+		return failure.refusal(format)
 	}
 	run := &transfer{
 		operation: operation, format: format, manifest: manifest, tree: tree,
@@ -143,10 +143,10 @@ func environmentTransfer(document *config.Document, tree Tree, ports VaultPorts,
 		tally: map[entryStatus]int{},
 	}
 	if failure := run.plan(entries); failure != nil {
-		return RefuseWith(format, failure.code, failure.message)
+		return failure.refusal(format)
 	}
 	if failure := run.apply(); failure != nil {
-		return RefuseWith(format, failure.code, failure.message)
+		return failure.refusal(format)
 	}
 	return run.render()
 }
@@ -444,7 +444,7 @@ func faultFailure(fault *VaultFault) *vaultFailure {
 	if fault == nil {
 		return nil
 	}
-	return &vaultFailure{code: fault.Code, message: fault.Reason}
+	return &vaultFailure{code: fault.Code, message: fault.Reason, exit: fault.Exit}
 }
 
 // render maps the run to its outcome: 0 clean, 1 findings. The text form

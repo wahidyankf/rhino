@@ -42,12 +42,14 @@ const bitwardenExecutable = "bw"
 const (
 	reasonNoSession    = "no BW_SESSION is set; unlock the vault in your own session first"
 	reasonNoExecutable = "the bw executable is not on PATH"
-	reasonLocked       = "the vault is not unlocked"
-	reasonOtherServer  = "the vault serves another server than the declared one"
-	reasonCallFailed   = "the vault provider did not complete the call"
-	reasonAnswer       = "the vault provider answered something this build does not understand"
-	reasonStaging      = "the attachment could not be staged for the vault provider"
-	reasonNoAttachment = "the vault provider did not name the uploaded attachment"
+	// reasonNotExecutable names a bw that is on PATH but cannot be executed.
+	reasonNotExecutable = "the bw executable cannot be executed"
+	reasonLocked        = "the vault is not unlocked"
+	reasonOtherServer   = "the vault serves another server than the declared one"
+	reasonCallFailed    = "the vault provider did not complete the call"
+	reasonAnswer        = "the vault provider answered something this build does not understand"
+	reasonStaging       = "the attachment could not be staged for the vault provider"
+	reasonNoAttachment  = "the vault provider did not name the uploaded attachment"
 )
 
 // bwItem is the part of one item JSON the adapter reads.
@@ -318,13 +320,43 @@ func (v BitwardenVault) call(executable string, stdin []byte, argv ...string) ([
 	return bytes.TrimSuffix(stdout.Bytes(), []byte("\n")), nil
 }
 
-// bitwardenPath resolves bw on the current PATH, or refuses when it is absent.
+// bitwardenPath resolves bw on the current PATH. An absent bw ends the run with
+// status 127 and one that is on PATH but cannot be executed with 126, the statuses
+// RHINO gives every child it requires; both keep the unavailable code. Any other
+// lookup failure stays a refusal with status 2.
 func bitwardenPath() (string, *application.VaultFault) {
 	executable, err := exec.LookPath(bitwardenExecutable)
-	if err != nil {
+	if err == nil {
+		return executable, nil
+	}
+	if startStatus(err) != statusChildNotFound {
 		return "", vaultUnavailable(reasonNoExecutable)
 	}
-	return executable, nil
+	if bitwardenNotExecutableOnPath() {
+		return "", &application.VaultFault{Code: domain.VaultUnavailable, Reason: reasonNotExecutable, Exit: statusChildNotExecutable}
+	}
+	return "", &application.VaultFault{Code: domain.VaultUnavailable, Reason: reasonNoExecutable, Exit: statusChildNotFound}
+}
+
+// bitwardenNotExecutableOnPath reports whether a PATH entry holds a bw that
+// cannot be executed. LookPath cannot say so: it answers ErrNotFound for a bare
+// name that only a non-executable file holds. Each entry's candidate is asked by
+// its own path instead, where the operating system reports the permission
+// failure that startStatus maps to 126.
+func bitwardenNotExecutableOnPath() bool {
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		if dir == "" {
+			dir = "."
+		}
+		candidate := filepath.Join(dir, bitwardenExecutable)
+		if !strings.ContainsRune(candidate, filepath.Separator) {
+			candidate = "." + string(filepath.Separator) + candidate
+		}
+		if _, err := exec.LookPath(candidate); startStatus(err) == statusChildNotExecutable {
+			return true
+		}
+	}
+	return false
 }
 
 // childVariables is the allowlist of variables the provider child receives. A

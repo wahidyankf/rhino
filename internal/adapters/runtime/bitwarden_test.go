@@ -51,6 +51,43 @@ func TestBitwardenVaultRefusesWithoutASessionKey(t *testing.T) {
 	}
 }
 
+// TestBitwardenVaultExitsWithTheChildStatusWhenBwIsNotOnPath proves a bw that is
+// not on PATH ends the run with status 127 under the unavailable code.
+func TestBitwardenVaultExitsWithTheChildStatusWhenBwIsNotOnPath(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("BW_SESSION", "fixture-session-key")
+	fault := runtime.BitwardenVault{}.Status(fixtureServerURL)
+	if fault == nil || fault.Code != domain.VaultUnavailable || fault.Exit != 127 {
+		t.Fatalf("fault = %+v, want unavailable with exit 127", fault)
+	}
+}
+
+// TestBitwardenVaultExitsWithTheChildStatusWhenBwCannotBeExecuted proves a bw that
+// is on PATH without the execute bit ends the run with status 126.
+func TestBitwardenVaultExitsWithTheChildStatusWhenBwCannotBeExecuted(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "bw"), []byte("not a program\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("BW_SESSION", "fixture-session-key")
+	fault := runtime.BitwardenVault{}.Status(fixtureServerURL)
+	if fault == nil || fault.Code != domain.VaultUnavailable || fault.Exit != 126 {
+		t.Fatalf("fault = %+v, want unavailable with exit 126", fault)
+	}
+}
+
+// TestBitwardenVaultMissingSessionKeyStaysExitTwo proves the session check runs
+// first: with no key and no bw, the refusal keeps status 2 (Exit zero).
+func TestBitwardenVaultMissingSessionKeyStaysExitTwo(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("BW_SESSION", "")
+	fault := runtime.BitwardenVault{}.Status(fixtureServerURL)
+	if fault == nil || fault.Exit != 0 {
+		t.Fatalf("fault = %+v, want exit zero (status 2)", fault)
+	}
+}
+
 // TestBitwardenVaultRefusesWhenBwIsNotOnPath proves a missing bw is unavailable,
 // not a crash, and that the run never reaches the vault.
 func TestBitwardenVaultRefusesWhenBwIsNotOnPath(t *testing.T) {

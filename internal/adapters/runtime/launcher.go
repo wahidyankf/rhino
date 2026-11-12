@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"sort"
@@ -15,6 +16,13 @@ import (
 // gate child, and the only thing a leaf may branch on. It mirrors the
 // oracle's `.env("RHINO_GATE_SURFACE", launch.surface)`.
 const gateSurfaceVariable = "RHINO_GATE_SURFACE"
+
+// The two statuses a child RHINO requires can end with when it never ran: 127
+// when it was not found, 126 when it was found but cannot be executed.
+const (
+	statusChildNotFound      = 127
+	statusChildNotExecutable = 126
+)
 
 // OSLauncher starts declared gate children as operating-system processes.
 // Only gate dispatch uses it; tree validators never do.
@@ -65,16 +73,10 @@ func (launcher OSLauncher) Launch(launch application.GateLaunch) application.Lau
 		if errors.As(err, &exit) {
 			return application.Launched{Code: exit.ExitCode()}
 		}
-		// LookPath reports a bare name through ErrNotFound, while an
-		// absolute path surfaces the kernel's ENOENT directly; the oracle
-		// maps both by kind to 127.
-		if errors.Is(err, exec.ErrNotFound) || errors.Is(err, os.ErrNotExist) {
+		switch startStatus(err) {
+		case statusChildNotFound:
 			return application.Launched{NotFound: true}
-		}
-		// The oracle maps PermissionDenied to 126. Go surfaces a
-		// non-executable child as EACCES, which is neither an ExitError nor
-		// ErrNotFound, so without this arm the 126 path is unreachable.
-		if os.IsPermission(err) {
+		case statusChildNotExecutable:
 			return application.Launched{NotExecutable: true}
 		}
 		return application.Launched{Refused: err.Error()}
@@ -106,4 +108,25 @@ func gateEnvironment(launch application.GateLaunch) []string {
 		environment = append(environment, name+"="+merged[name])
 	}
 	return environment
+}
+
+// startStatus classifies an error from starting a child: 127 when the
+// executable was not found, 126 when it was found but cannot be executed, and 0
+// for any other failure, which a caller reports as a refusal. Gate children and
+// every other required child share this one mapping. It reads the error through
+// any wrapping, so a caller may add context with %w before it classifies.
+func startStatus(err error) int {
+	// LookPath reports a bare name through ErrNotFound, while an absolute path
+	// surfaces the kernel's ENOENT directly; the oracle maps both by kind to 127.
+	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, os.ErrNotExist) {
+		return statusChildNotFound
+	}
+	// The oracle maps PermissionDenied to 126. Go surfaces a non-executable
+	// child as EACCES, which is neither an ExitError nor ErrNotFound, so without
+	// this arm the 126 path is unreachable. Go reports a non-executable file it
+	// finds by path as fs.ErrPermission, which the same arm reads.
+	if errors.Is(err, fs.ErrPermission) {
+		return statusChildNotExecutable
+	}
+	return 0
 }

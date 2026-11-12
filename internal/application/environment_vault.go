@@ -53,10 +53,22 @@ var (
 	inheritedSecrets = regexp.MustCompile(`(?m)^\s*(?:-\s+)?secrets:[ \t]*inherit[ \t]*$|[{,]\s*secrets:\s*inherit\s*[,}]`)
 )
 
-// vaultFailure is a refusal the vault rules end the run with.
+// vaultFailure is a refusal the vault rules end the run with. exit is the status
+// it ends with when that is not 2: a Bitwarden executable that is absent or cannot
+// run ends with 127 or 126. Zero means 2.
 type vaultFailure struct {
 	code    domain.ErrorCode
 	message string
+	exit    int
+}
+
+// refusal renders the failure as the run's outcome: exit 2 under the code, or
+// the failure's own status, with the same error document on standard error.
+func (f *vaultFailure) refusal(format Format) Outcome {
+	if f.exit == 0 {
+		return RefuseWith(format, f.code, f.message)
+	}
+	return Outcome{ExitCode: f.exit, Stderr: domain.Body(format, f.code, f.message)}
 }
 
 // vaultChecks runs the vault rules when a manifest is declared. An undeclared

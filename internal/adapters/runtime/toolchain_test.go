@@ -3,7 +3,9 @@ package runtime_test
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -198,5 +200,29 @@ func TestDiskToolchainRunnerKeepsArgumentsLiteralAndDiscardsDiagnostics(t *testi
 	result, err = runVector(t, "/bin/sh", "-c", "echo noise >&2; echo kept; cat")
 	if err != nil || result.Code != 0 || result.Stdout != "kept\n" {
 		t.Fatalf("diagnostics or standard input leaked: %+v %v", result, err)
+	}
+}
+
+// A child that cannot start ends the run with its supervisor status rather than
+// a refusal: 127 when the executable is absent, 126 when it is present but not
+// executable.
+func TestDiskToolchainRunnerReportsAChildThatCannotStartWithItsStatus(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "absent-tool")
+	_, err := runVector(t, missing)
+	assertChildStartStatus(t, err, 127)
+
+	unrunnable := filepath.Join(t.TempDir(), "unrunnable-tool")
+	if err := os.WriteFile(unrunnable, []byte("echo install\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = runVector(t, unrunnable)
+	assertChildStartStatus(t, err, 126)
+}
+
+func assertChildStartStatus(t *testing.T, err error, status int) {
+	t.Helper()
+	var start *application.ChildStartError
+	if !errors.As(err, &start) || start.Status != status {
+		t.Fatalf("want a child start error with status %d, got %v", status, err)
 	}
 }

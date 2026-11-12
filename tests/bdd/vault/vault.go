@@ -35,6 +35,9 @@ type Driver interface {
 	Validate(ctx context.Context, asJSON bool) (Result, error)
 	// Session sets the vault session the next command meets.
 	Session(ctx context.Context, state Session, server string) error
+	// Executable sets the Bitwarden CLI program the next command meets: absent
+	// from the path, or present on it without the execute bit.
+	Executable(ctx context.Context, state Executable) error
 	// Login adds one login item, with the password, under name. A name held
 	// already is held twice, which is how an ambiguous name is built.
 	Login(ctx context.Context, name, password string) error
@@ -58,6 +61,16 @@ type Driver interface {
 	// Close removes the scenario's fixture.
 	Close() error
 }
+
+// Executable is the state of the Bitwarden CLI program a scenario sets: absent
+// from the path, or present on it without the execute bit.
+type Executable string
+
+// The two executable states a scenario can set.
+const (
+	ExecutableMissing     Executable = "missing"
+	ExecutableNotRunnable Executable = "not-runnable"
+)
 
 // Session is the state of the vault session a scenario sets.
 type Session string
@@ -177,6 +190,7 @@ func Bindings() []Binding {
 		{`^the run started only read-only Git queries$`, startedOnlyReadOnlyQueries},
 		{`^the run started only the Bitwarden CLI$`, startedOnlyBitwarden},
 		{`^the vault session (is unlocked for the declared server|has no key|is locked|points at another server)$`, setSession},
+		{`^the Bitwarden CLI (is not on the path|cannot be executed)$`, setExecutable},
 		{`^the vault holds a login item "([^"]*)" with the password "([^"]*)"$`, addLogin},
 		{`^the vault holds the secure note "([^"]*)" with the attachment "([^"]*)" holding the content "([^"]*)"$`, addGeneration},
 		{`^the repository holds the local file "([^"]+)" with the content "([^"]*)"$`, writeLocal},
@@ -409,6 +423,23 @@ func setSession(ctx context.Context, phrase string) error {
 		server = otherServer
 	}
 	return current.driver.Session(ctx, state, server)
+}
+
+// setExecutable maps the executable phrase onto the state the driver sets.
+func setExecutable(ctx context.Context, phrase string) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	states := map[string]Executable{
+		"is not on the path": ExecutableMissing,
+		"cannot be executed": ExecutableNotRunnable,
+	}
+	state, ok := states[phrase]
+	if !ok {
+		return fmt.Errorf("unknown executable phrase %q", phrase)
+	}
+	return current.driver.Executable(ctx, state)
 }
 
 func addLogin(ctx context.Context, name, password string) error {

@@ -183,6 +183,22 @@ func (d *diskVaultDriver) Session(_ context.Context, state vault.Session, server
 	})
 }
 
+// Executable makes the fake bw absent from its directory, or present there
+// without the execute bit, so the real adapter's PATH lookup meets that state.
+func (d *diskVaultDriver) Executable(_ context.Context, state vault.Executable) error {
+	if err := d.ensureVault(); err != nil {
+		return err
+	}
+	bw := filepath.Join(d.binDir, "bw")
+	switch state {
+	case vault.ExecutableMissing:
+		return os.Remove(bw)
+	case vault.ExecutableNotRunnable:
+		return os.Chmod(bw, 0o644)
+	}
+	return fmt.Errorf("unknown executable state %q", state)
+}
+
 func (d *diskVaultDriver) Login(_ context.Context, name, password string) error {
 	return d.editVault(func(v *fakebw.Vault) error {
 		v.Create(fakebw.Item{Name: name, Type: 1, Login: &fakebw.Login{Password: &password}})

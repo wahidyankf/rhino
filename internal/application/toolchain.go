@@ -9,6 +9,7 @@
 package application
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -41,6 +42,19 @@ type ToolchainResult struct {
 type ToolchainRunner interface {
 	Run(launch ToolchainLaunch) (ToolchainResult, error)
 }
+
+// ChildStartError is a declared child that could not be started. Status is 127
+// when the executable was not found and 126 when it was found but cannot be
+// executed. The runner classifies the operating-system error; the application
+// reads only the status.
+type ChildStartError struct {
+	Status int
+	Err    error
+}
+
+func (e *ChildStartError) Error() string { return e.Err.Error() }
+
+func (e *ChildStartError) Unwrap() error { return e.Err }
 
 // closedRunner fails every launch closed, the way the oracle's
 // NoToolchainRunner does: a probe records every required toolchain as
@@ -193,8 +207,13 @@ func provisionToolchains(document *config.Document, runner ToolchainRunner, goos
 			TimeoutSeconds: item.entry.timeout,
 		})
 		if err != nil {
-			return RefuseWith(format, domain.ToolchainFailed,
+			refusal := RefuseWith(format, domain.ToolchainFailed,
 				fmt.Sprintf("toolchain `%s` could not start: %s", item.entry.id, err.Error()))
+			var start *ChildStartError
+			if errors.As(err, &start) {
+				refusal.ExitCode = start.Status
+			}
+			return refusal
 		}
 		if result.Code != 0 {
 			return RefuseWith(format, domain.ToolchainFailed,

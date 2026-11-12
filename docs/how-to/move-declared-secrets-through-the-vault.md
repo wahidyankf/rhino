@@ -17,9 +17,12 @@ those files from the vault, seed the vault from them, or compare the two. The co
 export BW_SESSION="<the key your own bw unlock printed>"
 ```
 
-RHINO refuses before it writes anything when the key is absent, when `bw` is not on the path, when the vault is locked,
-or when the vault serves a server other than the one the manifest declares. Each refusal exits `2` with the
-`rhino.vault.unavailable` code under `--output json`.
+RHINO refuses before it writes anything when the key is absent, when the vault is locked, or when the vault serves a
+server other than the one the manifest declares. Each of those refusals exits `2` with the `rhino.vault.unavailable`
+code under `--output json`. When `bw` is not on the path, the command exits `127`; when `bw` is on the path but cannot
+be executed, it exits `126`. Both use the same `rhino.vault.unavailable` code. Both are checked before the first write,
+so neither writes anything when `bw` fails that check. A `bw` that disappears mid-run can exit `127` or `126` after
+earlier writes; a vault run is not transactional.
 
 ## Compare first
 
