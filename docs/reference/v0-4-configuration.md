@@ -574,14 +574,17 @@ zero-tool plan or `--apply` result without launching a child.
 `environment.vault` declares which files hold secrets, which items in the vault they map to, which templates are
 tracked, and which GitHub secrets and variables the workflows read. An absent `vault` key changes nothing. The keys are:
 
-- `provider` (`bitwarden`), `server` (an `https://` URL), `prefix` (two kebab-case segments), and `environments` (a
-  closed set of kebab-case names).
+- `provider` (`bitwarden`), `server` (an `https://` URL), `prefix` (one or more kebab-case segments), and `environments`
+  (a closed set of kebab-case names).
 - `patterns` — secret-bearing path globs. An ignored file that matches one must be classified by an entry.
 - `entries` — each has a `class`: `vault` (with a `form` of `env`, `file`, or `resident`), `derived`, `generated`, or
   `machine-local`. A `vault` entry names an exact `path`, except a resident entry, which names none. A `derived`,
-  `generated`, or `machine-local` entry requires a `reason`, and a `derived` or `generated` entry names its `by`.
-- `templates` — each row names a template file with `path` and the entry it stands for with `for`. A tracked `*.example`
-  file must be named by a row or by an entry.
+  `generated`, or `machine-local` entry requires a `reason`, and a `derived` or `generated` entry names its `by`. Such
+  an entry names no vault field (`form`, `app`, `env`, `secret`, or `keys`). An env entry names no entry-level `secret`,
+  and a file or resident entry names no `keys`. The manifest refuses each one rather than ignore it. `mode`, when
+  present, is a quoted octal string such as `"0600"`.
+- `templates` — each row names a template file with `path` and the entry it stands for with `for`, which must be the
+  exact `path` of an entry. A tracked `*.example` file must be named by a row or by an entry's exact `path`.
 - `github` — `workflows` (globs of the workflow files to read), `builtin`, `secrets` (each with a `name` and a `source`
   of `app`, `env`, and `secret`), and `variables`.
 

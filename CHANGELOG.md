@@ -22,6 +22,11 @@ the commits behind any release, see its
   take no allowlist entry.
 - The vault check reads only Git names: the tracked and ignored paths, and the secret and variable names in tracked
   workflows. It never opens an ignored file. A tree without a Git name boundary refuses the check with exit `2`.
+- `vault-github-unlisted-reference` also reads the bracket forms `secrets['X']` and `secrets["X"]`, and reports the
+  references it cannot resolve to one name: `secrets[dynamic]`, `secrets (whole context)`, and `secrets: inherit`.
+- `vault-manifest-invalid` also refuses an exact entry path that another entry's glob covers, a templates row whose
+  `for` names no entry, a `mode` that is not a quoted octal string, and a field that an entry's class or form never reads.
+  A `prefix` may now have any number of kebab-case segments.
 
 ## [v0.16.7] — 2026-11-01
 

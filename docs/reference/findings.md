@@ -286,21 +286,37 @@ The vault kinds below report only when `environment.vault` is declared. Each one
 
 - `vault-manifest-invalid` — A vault shape rule is broken, among others: an unknown provider, a server that is not
   `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
-  duplicate path, a duplicate item name, or a GitHub secret with no name or source. It names the entry's path, the item
-  name for a duplicate, or `github.secrets` for a GitHub secret.
+  `mode` that is not a quoted octal file mode such as `"0600"`, a duplicate path, an exact path that another entry's
+  glob covers, a `templates` row whose `for` names no entry, a field the entry's class or form never reads, a duplicate
+  item name, or a GitHub secret with no name or source. It names the entry's path, the template's path, the item name
+  for a duplicate, or `github.secrets` for a GitHub secret.
 - `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
   names the entry's path and the item name.
 - `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
   The file is named and never opened.
-- `vault-unclassified-template` — A tracked `*.example` file is named by no `templates` row and by no entry.
-- `vault-github-unlisted-reference` — A tracked workflow matching `github.workflows` reads a `secrets.X` or `vars.X`
-  that the manifest does not list. It names the workflow and the reference.
+- `vault-unclassified-template` — A tracked `*.example` file is named by no `templates` row and by no entry's exact
+  `path`. A glob entry does not name a template, so a broad glob cannot classify one.
+- `vault-github-unlisted-reference` — A tracked workflow matching `github.workflows` reads a `secrets` or `vars` name
+  that the manifest does not list, or reads one that cannot be resolved to a single name. It names the workflow and the
+  reference, which is one of:
+  - `secrets.X` or `vars.X`, from the dotted form or the bracket form `secrets['X']` or `secrets["X"]`;
+  - `secrets[dynamic]` or `vars[dynamic]`, for an index that is an expression;
+  - `secrets (whole context)` or `vars (whole context)`, for a read of the whole context such as `toJSON(secrets)`;
+  - `secrets: inherit`, for a job that passes every secret on.
+
+  The rule reads commented-out text too, so a reference in a comment is reported. A reference is listed when the
+  manifest lists its name in `github.secrets` or `github.variables`, or when it is a built-in secret.
+
 - `vault-github-source-unknown` — A listed GitHub secret names a source that matches no vault item. It names
   `github.secrets` and the secret.
 
 An allowlist entry can suppress every kind except `staged-environment-file` and the vault kinds. A declared check that
 cannot read Git names exits `2` with `rhino.repository.unusable`, and a workflow it cannot read exits `2` with
-`rhino.file.unreadable`.
+`rhino.file.unreadable`. A tracked workflow deleted only in the working tree is such a workflow: Git still lists it, so
+the check exits `2` rather than report a tree it did not read.
+
+The vault rules have these limits. Two globs that overlap each other are not compared, so an overlap between two globs
+is not reported. The rules recognise the `*.example` template suffix only.
 
 ## Toolchains
 
