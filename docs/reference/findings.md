@@ -312,10 +312,12 @@ The vault kinds below report only when `environment.vault` is declared. Each one
   string literal is not read, and a context word is a read only as a whole word that is not a property of another value:
   `github.secrets` is not a read. A `${{ }}` expression inside a YAML comment is still read.
 
-  Context names and listed names compare case-insensitively. So `SECRETS.X` reads the `secrets` context, and `x` matches
-  a listed `X`. GitHub's own case rule for these names is not verified in this repository. If GitHub does distinguish
-  case for them, a case variant of a listed name could hide an unlisted name. The assumption is recorded here so it can
-  be checked.
+  Listed names compare case-insensitively, so `x` matches a listed `X`. GitHub documents this for secrets: names are
+  "Case insensitive when referenced. GitHub stores secret names as uppercase regardless of how they are entered"
+  ([Naming your secrets][github-secrets]). GitHub documents the same rule for configuration variables ([Naming
+  conventions for configuration variables][github-variables]). The docs say nothing about the case of the `secrets` and
+  `vars` context names, so the rule reads those case-insensitively as well: `SECRETS.X` reads the `secrets` context.
+  That is the safe direction, because a case variant of an unlisted name is then reported.
 
   A reference is listed when the manifest lists its name in `github.secrets` or `github.variables`, or when it is a
   built-in secret.
@@ -330,8 +332,11 @@ the check exits `2` rather than report a tree it did not read.
 
 The vault rules have these limits. Two globs that overlap each other are not compared, so an overlap between two globs
 is not reported. The rules recognise the `*.example` template suffix only. The workflow scan reads only the surfaces
-named above, so a reference written anywhere else in a workflow is not reported. The case rule is the unverified
-assumption named above.
+named above, so a reference written anywhere else in a workflow is not reported. Names compare case-insensitively, as
+described in the workflow rule above.
+
+[github-secrets]: https://docs.github.com/en/actions/reference/security/secrets
+[github-variables]: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
 
 ## Toolchains
 

@@ -592,8 +592,8 @@ func (r *vaultRules) checkWorkflow(path, text string, listedSecrets, listedVaria
 }
 
 // listedRead reports whether a literal read names a listed secret or variable.
-// Names compare case-insensitively, the safe direction while GitHub's case rule
-// for context names is unverified; findings.md records the assumption.
+// Names compare case-insensitively, as GitHub documents for secrets and
+// configuration variables; findings.md gives the sources.
 func listedRead(read workflowRead, listedSecrets, listedVariables map[string]bool) bool {
 	name := strings.ToLower(read.name)
 	if read.kind == "secrets" {

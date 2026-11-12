@@ -29,8 +29,8 @@ the commits behind any release, see its
   or leaves a `[` unclosed, a `mode` that is not a quoted octal string, and each field an entry's class never reads.
   A `prefix` may now have any number of kebab-case segments.
 - The workflow scan reads only `${{ }}` expressions and bare `if:` values, so a `secrets` or `vars` word elsewhere in a
-  workflow is no longer reported. A quoted string literal inside an expression is not read. Context and listed names
-  compare case-insensitively.
+  workflow is no longer reported. A quoted string literal inside an expression is not read. Listed names compare
+  case-insensitively, as GitHub documents for secrets and configuration variables; `findings.md` gives the sources.
 
 ## [v0.16.7] — 2026-11-01
 
