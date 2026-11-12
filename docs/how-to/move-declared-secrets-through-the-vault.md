@@ -36,7 +36,12 @@ Exit `0` means every selected entry is identical. Exit `1` lists each finding, s
 `0600` when it declares none. It names the path only and repairs nothing. A resident entry holds no file, so `diff`
 checks only that its login item is held exactly once under its name.
 
-Narrow the run to one declared entry with `--entry <path>`, which may repeat:
+When `diff` reports `item-missing`, it also prints
+`[env-diff] an item is missing: sync the vault in your own session if you expect it, then diff again` on standard
+output. RHINO never runs `bw sync`, so sync in your own session first.
+
+Narrow the run to one declared entry with `--entry <path>`, which may repeat. A path that is not a declared vault entry
+refuses the run with exit `2` before the vault is read:
 
 ```text
 rhino env diff --entry config/app.env
@@ -92,6 +97,10 @@ rhino env push
 | `0`  | Every selected entry is clean, identical, or written.                                                      |
 | `1`  | At least one finding. Each names a class and an entry or key. Nothing is written for a flagged pull entry. |
 | `2`  | The session, server, manifest, a local file, or a write was unusable. Read the message.                    |
+
+A vault run is not transactional. A session check refuses before any write. A later apply step can fail after earlier
+writes have landed, and those writes stay in place. Running the same command again converges on the declared state,
+because an entry that already matches is left alone.
 
 Under `--output json`, each run reports one object with `command`, `count`, `findings` (each with `class` and `name`),
 and `status`. The full list of finding classes is in the [findings reference](../reference/findings.md#vault-transfer).

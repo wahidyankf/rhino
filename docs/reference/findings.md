@@ -357,7 +357,7 @@ must:
 and no finding ever carries a value:
 
 - `item-missing` — The vault holds no item of the exact name for a key, a file entry's secure note, or a resident entry.
-  The name is the item's name.
+  The name is the key for an env entry, the entry's path for a file entry, and the item's name for a resident entry.
 - `item-ambiguous` — The vault holds more than one item of the exact name, or the one item it holds is of the other
   kind: a secure note where a login belongs, or a login where a secure note belongs. Matching is exact, so an item whose
   name only contains the expected name is never used.
@@ -385,6 +385,10 @@ and removes every older one, and only after the new generation verifies.
 
 `--force` on `env pull` replaces a local file that differs from the vault. A local file that holds no UTF-8 text refuses
 every vault command with exit `2`, `--force` included, so such a file must be moved or removed by hand.
+
+A vault run is not transactional. A session check refuses before any write, but a later apply step can fail after
+earlier writes have landed, and those writes stay in place. Running the same command again converges on the declared
+state, because an entry that already matches is left alone.
 
 Text mode also prints one summary line on standard output. JSON mode reports one object with `count` and `findings`.
 
