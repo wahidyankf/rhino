@@ -23,8 +23,9 @@ repository is clean. It was never checked, because the surface the default named
 
 **A finding always means the repository broke a rule it wrote down.** There is no third category of "RHINO thinks you
 should". Exit `1` is never a matter of taste, which is what makes it safe to put in front of a push. `gate run` also
-exits `1` when a declared gate child fails. That is a declared command failing, not a rule RHINO judged, and it is the
-one place a `1` does not come from a validator.
+exits `1` when a declared gate child fails. That is a declared command failing, not a rule RHINO judged. A vault finding
+from `env pull`, `env push`, or `env diff` is the second place a `1` does not come from a validator: it reports that a
+vault item and a local file disagree under a declared entry.
 
 **Configuration is the specification.** `repo-config.yml` is the whole policy in one readable file. A maintainer asking
 "what does this repository enforce?" reads it, rather than reading the tool's source and subtracting the overrides.
@@ -62,6 +63,11 @@ The quality-gate check holds the same kind of fixed behaviour. Its file names â€
 its ceiling of three cycles belong to the bounded gate contract it checks, not to any one repository. That ceiling is a
 bound rather than a default: a repository still declares where its gates live, which families it holds, and the headings
 and verdicts they carry, and declaring nothing still exits `2`.
+
+The vault commands keep one fixed fallback of this kind. A file `env pull` writes takes mode `0600`, owner read and
+write only, when its entry declares no `mode`. It is a safe fallback for a secret file on every machine, not a
+repository policy, and a repository declares any other octal mode it needs. The vault commands use it when an entry
+declares none, and this paragraph records it so the exception stays visible.
 
 ## The test that keeps it honest
 

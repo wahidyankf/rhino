@@ -270,7 +270,8 @@ func (r *vaultRules) checkVaultEntry(label string, entry config.VaultEntry) {
 	case "env":
 		// An env entry reads its items from keys, so an entry-level secret would be ignored.
 		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || len(entry.Keys) == 0 ||
-			hasInvalidKey(entry.Keys) || !onlyFields(entry, "path", "form", "app", "env", "keys", "mode") {
+			hasInvalidKey(entry.Keys) || hasUnreadField(entry.Keys) ||
+			!onlyFields(entry, "path", "form", "app", "env", "keys", "mode") {
 			r.invalid(label)
 		}
 	case "file":
@@ -472,6 +473,17 @@ func isDistinctKebab(values []string) bool {
 		seen[value] = true
 	}
 	return true
+}
+
+// hasUnreadField reports whether one env key names a field this build does not read.
+// Only the login password is read; a field the build would silently ignore is refused.
+func hasUnreadField(keys []config.VaultKey) bool {
+	for _, key := range keys {
+		if key.Field != "" && key.Field != vaultValueField {
+			return true
+		}
+	}
+	return false
 }
 
 // hasInvalidKey reports whether one env entry names a key blank or declares a

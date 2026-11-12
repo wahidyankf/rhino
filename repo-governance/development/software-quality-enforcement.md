@@ -8,8 +8,8 @@ to pass — passed, with the output.
 The policy floor is 99% line coverage over the deterministic core: the domain, application, and config packages, the
 exact `-coverpkg` list in `scripts/test-quick.sh`.
 
-The gate pins 99%, so a regression below 99% fails the quick gate. The total was 99.8% when this text was written, so
-new deterministic-core code needs its own tests to keep the floor.
+The gate pins 99%, so a regression below 99% fails the quick gate. New deterministic-core code needs its own tests to
+keep the floor.
 
 The Go gate declares no exclusions. A package outside that list, such as the command adapter, is not measured.
 
@@ -37,6 +37,8 @@ The remaining reach is confined, and each confinement is a test unless noted:
   pull-request adds and removes a disposable worktree. Not covered by a boundary test;
   `TestDiskMutationApplyIndexRefusesAnUnselectedChange` and
   `TestDiskMutationVerifyCleanReportsTheReplayAgainstItsRevision` check outcomes.
+- `env pull`, `env push`, `env diff` start only `bw`. The corpus records bare-name `PATH` starts; an absolute-path start
+  is unrecorded. A unit double proves only the call.
 - `harness adapters validate` never starts the model resolver, even when one is supplied
   (`internal/application/harness_validate_resolver_test.go`).
 - Explicit boundaries fail closed when missing, never falling back to the read port: environment and harness refuse
@@ -45,10 +47,10 @@ The remaining reach is confined, and each confinement is a test unless noted:
   `environment_faults_test.go`).
 
 Named tests enforce these rather than documentation, because a documented invariant is an intention. The no-loopback
-rule is stricter than the integration layer's own boundary, which permits an owned socket — deliberately, because a
-validator a maintainer hesitates to point at an unfamiliar tree is a validator that does not get run.
+rule is stricter than the integration layer, which permits an owned socket, deliberately, for the reason the
+[vision](../vision/README.md) gives.
 
-`go tool govulncheck ./...` runs in the full gate, and a vulnerability it reports is a defect to fix rather than a rule
+A vulnerability `govulncheck` reports in the [full gate](quality-gates.md#the-full-gate) is a defect to fix, not a rule
 to relax.
 
 ## Prohibited Data Enforced by a Gate

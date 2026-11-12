@@ -22,5 +22,7 @@ func Execute(ctx context.Context, args []string) int {
 		Adapters:    runtime.DiskAdapterStore{},
 		Models:      runtime.DiskModelResolver{},
 		Mutations:   runtime.DiskMutationRunner{},
+		Vault:       runtime.BitwardenVault{Ctx: ctx},
+		VaultFiles:  runtime.DiskVaultFileStore{},
 	}.RunArgs(ctx, args)
 }

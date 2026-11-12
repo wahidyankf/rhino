@@ -49,6 +49,11 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
 - `rhino.toolchain.failed` — A declared toolchain operation did not complete.
 - `rhino.toolchain.undeclared` — A declared toolchain has no provision declaration for this platform.
 - `rhino.harness.refused` — A declared harness operation was refused.
+- `rhino.vault.unavailable` — The vault cannot be used: the `bw` executable is not on the path, no session key is set,
+  the vault is locked, or it serves another server. A session check that fails runs before any write, so it writes
+  nothing.
+- `rhino.vault.refused` — The vault answered something this build does not understand. A session check that refuses
+  leaves the vault's state as it was. A later step can refuse after earlier writes; see the vault how-to.
 
 Error codes are public identifiers, and a caller may branch on one. Adding a code moves the minor version, because a
 caller may treat the vocabulary as closed. Renaming or removing a code moves the contract: it needs a major version, or

@@ -127,6 +127,22 @@ func (t *DiskTree) Read(path string) (string, *TreeError) {
 	return string(data), nil
 }
 
+// FileMode returns the permission bits of the regular file a path names. A
+// path that passes through a link refuses, as Read does, and nothing is followed.
+func (t *DiskTree) FileMode(path string) (uint32, *TreeError) {
+	if leavesRoot(path) || t.PassesThroughLink(path) {
+		return 0, &TreeError{Kind: "escapes", Reason: "`" + path + "` passes through a filesystem link"}
+	}
+	info, err := os.Lstat(filepath.Join(t.Dir, filepath.FromSlash(path)))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, &TreeError{Kind: "missing", Reason: path + ": no such file"}
+		}
+		return 0, &TreeError{Kind: "unreadable", Reason: path + ": " + err.Error()}
+	}
+	return uint32(info.Mode().Perm()), nil
+}
+
 // Links lists every filesystem link under the root, with where its target
 // lies. The walk finds links by their type and never follows one.
 func (t *DiskTree) Links() []application.TreeLink {

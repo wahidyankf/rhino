@@ -13,11 +13,12 @@ rather than an implementation detail.
 - `127` — a gate child was not found. Only `gate run` returns it.
 - `128+N` — RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe.
 
-Only a validator, or a `gate run` whose gate child reports a finding, may report `1`. A check child's non-zero exit or
-signal death is a finding; a mutation child's non-zero exit is a finding, and its signal death is a refusal, `2`. The
-distinction that matters is between "checked and clean" and "never checked": a caller must be able to act on the code
-alone, without knowing which subcommand ran. A check that cannot run reports `2` rather than an empty finding list,
-because an unread tree and a clean tree are not the same claim.
+Only a validator, an `env pull`, `env push`, or `env diff` that reports a vault finding, or a `gate run` whose gate
+child reports a finding, may report `1`. A check child's non-zero exit or signal death is a finding; a mutation child's
+non-zero exit is a finding, and its signal death is a refusal, `2`. The distinction that matters is between "checked and
+clean" and "never checked": a caller must be able to act on the code alone, without knowing which subcommand ran. A
+check that cannot run reports `2` rather than an empty finding list, because an unread tree and a clean tree are not the
+same claim.
 
 ## `version --json`
 

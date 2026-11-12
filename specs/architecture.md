@@ -5,25 +5,26 @@ that preceded it is gone, and nothing here reasons about crates, features, or a 
 
 RHINO is one process. A command reads one repository's `repo-config.yml`, decides what to inspect, and exits with a code
 the caller can branch on. Reads go through the `Tree` port. Writes reach the repository only through the environment
-store, the adapter store, and the apply step of a mutation gate.
+store, the vault file store (`env pull`), the adapter store, and the apply step of a mutation gate.
 
 ## Level 1: System Context
 
 ```mermaid
 flowchart TD
     accTitle: System context
-    accDescr: Developers, hooks, and CI jobs run one static RHINO binary against a repository, Git, and gate children.
+    accDescr: Developers, hooks, and CI jobs run a static binary against a repository, Git, gate children, and a vault.
     Dev["Developer or hook"] --> Rhino["RHINO<br/>one static binary"]
     CI["CI job"] --> Rhino
     Rhino --> Repo["Repository<br/>working tree plus<br/>repo-config"]
     Rhino --> Git["Git plumbing<br/>index, range,<br/>hook message"]
     Rhino --> Kids["Declared children<br/>gate commands,<br/>mutators, toolchain"]
+    Rhino --> Vault["Vault provider<br/>bw, declared only"]
     classDef actor fill:#DE8F05,stroke:#000000,color:#000000,stroke-width:2px
     classDef core fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px
     classDef external fill:#029E73,stroke:#000000,color:#000000,stroke-width:2px
     class Dev,CI actor
     class Rhino core
-    class Repo,Git,Kids external
+    class Repo,Git,Kids,Vault external
 ```
 
 The repository is the only source of policy. RHINO holds no default for any policy key: an undeclared policy is a
@@ -102,14 +103,16 @@ checks that decide which lifecycle surfaces each gate runs.
 
 Every operating-system interaction lives in this package:
 
-| File           | Port implemented                | Responsibility                                      |
-| -------------- | ------------------------------- | --------------------------------------------------- |
-| `disk.go`      | `Tree`                          | Read-only walk; never follows a link to read a file |
-| `launcher.go`  | `Launcher`                      | Gate children: argv, environment, working directory |
-| `mutation.go`  | `MutationRunner`                | Index snapshot and pull-request replay checkouts    |
-| `toolchain.go` | `ToolchainRunner`               | Bounded output, timeouts, and no shell              |
-| `adapters.go`  | `AdapterStore`, `ModelResolver` | Generation writes; model commands run declared argv |
-| `gitpaths.go`  | Git plumbing helpers            | Mode-aware index and range path listing             |
+| File             | Port implemented                | Responsibility                                      |
+| ---------------- | ------------------------------- | --------------------------------------------------- |
+| `disk.go`        | `Tree`                          | Read-only walk; never follows a link to read a file |
+| `launcher.go`    | `Launcher`                      | Gate children: argv, environment, working directory |
+| `mutation.go`    | `MutationRunner`                | Index snapshot and pull-request replay checkouts    |
+| `toolchain.go`   | `ToolchainRunner`               | Bounded output, timeouts, and no shell              |
+| `adapters.go`    | `AdapterStore`, `ModelResolver` | Generation writes; model commands run declared argv |
+| `gitpaths.go`    | Git plumbing helpers            | Mode-aware index and range path listing             |
+| `bitwarden.go`   | `SecretVault`                   | Bitwarden CLI child: allowlisted environment only   |
+| `vault_files.go` | `VaultFileStore`                | Staged write, sync, and rename; links refused       |
 
 ## Ports
 
@@ -124,6 +127,8 @@ The application package declares each boundary as an interface. A validator neve
 | `EnvironmentStore` | `environment.go` | `runtime.DiskEnvironmentStore` | `environment init`, `backup`, `restore` |
 | `AdapterStore`     | `harness.go`     | `runtime.DiskAdapterStore`     | `harness adapters generate`             |
 | `ModelResolver`    | `harness.go`     | `runtime.DiskModelResolver`    | adapter generation with model commands  |
+| `SecretVault`      | `vault_ports.go` | `runtime.BitwardenVault`       | `env pull`, `env push`, `env diff`      |
+| `VaultFileStore`   | `vault_ports.go` | `runtime.DiskVaultFileStore`   | `env pull`                              |
 
 `Tree` is link-aware. `Files` lists regular files and never a link. `Links` lists every link with where its target lies:
 inside the root, outside it, or nowhere. `PassesThroughLink` reports whether any component of a path is a link, and
@@ -133,6 +138,10 @@ The disk tree also answers two read-only Git name queries: `TrackedFiles` (`git 
 (`git ls-files --others --ignored --exclude-standard`). The environment vault rules call them only when
 `environment.vault` is declared. They return names, never file contents, and a tree without a Git name boundary refuses
 the check.
+
+The vault commands hold two ports of their own. `SecretVault` is implemented by `internal/adapters/runtime/bitwarden.go`
+over the Bitwarden CLI, and `VaultFileStore` by `internal/adapters/runtime/vault_files.go` with atomic writes.
+`ExecuteWithVault` hands both to `env pull`, `env push`, and `env diff` only; no validator receives them.
 
 ## Data
 
@@ -152,14 +161,14 @@ the check.
 
 ## Exit Codes
 
-| Exit    | Meaning                                                                               |
-| ------- | ------------------------------------------------------------------------------------- |
-| `0`     | Ran and found nothing                                                                 |
-| `1`     | Ran and found a violation, or a `gate run` child exited non-zero or ended by a signal |
-| `2`     | Could not run: invocation, configuration, or an unreadable input                      |
-| `126`   | `gate run` only: a declared child exists but cannot be executed                       |
-| `127`   | `gate run` only: a declared child cannot be found                                     |
-| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe  |
+| Exit    | Meaning                                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------------ |
+| `0`     | Ran and found nothing                                                                                  |
+| `1`     | Ran and found a violation, a vault finding, or a `gate run` child exited non-zero or ended by a signal |
+| `2`     | Could not run: invocation, configuration, or an unreadable input                                       |
+| `126`   | `gate run` only: a declared child exists but cannot be executed                                        |
+| `127`   | `gate run` only: a declared child cannot be found                                                      |
+| `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe                   |
 
 A check child that ends by a signal is a failing gate, reported as `1`. A mutation child that ends by a signal is
 reported as `2`, a gate that could not run. RHINO's own status describes RHINO only, so a child's signal never becomes
@@ -172,7 +181,7 @@ reported as `2`, a gate that could not run. RHINO's own status describes RHINO o
 | `internal/**/*_test.go` | Parsers, validator cores, and adapters in temporary directories | `go test ./...`       |
 | `tests/bdd/`            | Every scenario in `specs/behaviours`, against the built binary  | `go test ./tests/bdd` |
 | `tests/bdd` compliance  | Every step is bound once, every binding is used, count matches  | `go test ./tests/bdd` |
-| `tests/bdd/vault/`      | Vault step registry, bound at three layers                      | `go test ./tests/bdd` |
+| `tests/bdd/vault/`      | Vault step registry for both corpora, bound at three layers     | `go test ./tests/bdd` |
 
 The behaviour suite builds the binary once per run. Each scenario gets its own temporary repository, its own Git
 repository built with plumbing commands, and its own `PATH` directory. It runs `rhino` as a child process and asserts on

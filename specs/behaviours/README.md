@@ -24,3 +24,5 @@ Run the corpus with `go test ./tests/bdd`.
   exit codes (126, 127, 130, and 143 for signals), scan exclusion scope, and toolchain output and timeout bounds.
 - [environment-vault-validation.feature](environment-vault-validation.feature) — the `environment.vault` rules:
   unclassified ignored files and templates, GitHub workflow references, closed name grammar, and no printed value.
+- [environment-vault.feature](environment-vault.feature) — `env pull`, `env push`, and `env diff`: restore, seed,
+  compare, and overwrite with recovery points; refusal of an unusable vault; exact-name matching; and no printed value.

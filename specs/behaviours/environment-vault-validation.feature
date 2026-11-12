@@ -914,3 +914,28 @@ Feature: Environment vault manifest validation
     When I run environment validation
     Then the command exits 0
     And the run started only read-only Git queries
+
+  Scenario: Reject an env key field other than password
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys:
+                - key: EXAMPLE_TOKEN
+                  field: notes
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-manifest-invalid"
+    And the output names "infra/example/.env.prod"

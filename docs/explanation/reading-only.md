@@ -6,12 +6,13 @@ mutation gate, fixed Git plumbing inside the mutation boundary, which writes the
 pre-commit or adds and removes a disposable worktree at pull-request; toolchain commands start declared typed argv
 without a shell or reported output, `env validate` runs one `git diff --cached` query for the staged paths when
 `environment.staged` is declared, and two `git ls-files` queries for the tracked and ignored names when
-`environment.vault` is declared, and adapter generation replaces only declared adapter families and exact adapter files
+`environment.vault` is declared, `env pull`, `env push`, and `env diff` start the Bitwarden CLI, `bw`, through the vault
+boundary when they are invoked, and adapter generation replaces only declared adapter families and exact adapter files
 after planning every output in memory, starting at most a tier's declared `model-resolve` argv. The validator boundaries
 are enforced as tests, not incidental properties of the current implementation: the import and dependency rules live in
 `internal/bootstrap/boundary_test.go`, and the tree adapter's write and Git rules live in
-`internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of `gate run` or the Git plumbing of
-the mutation boundary; behaviour tests check their outcomes.
+`internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of `gate run`, the `bw` argv of the
+vault commands, or the Git plumbing of the mutation boundary; behaviour tests check their outcomes.
 
 ## The four boundaries
 

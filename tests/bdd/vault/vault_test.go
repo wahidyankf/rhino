@@ -75,16 +75,18 @@ func TestUnboundNamesEachUnboundScenario(t *testing.T) {
 	}
 }
 
-// TestUnboundRejectsAnUnusedBinding proves a binding no scenario uses is named.
-func TestUnboundRejectsAnUnusedBinding(t *testing.T) {
+// TestUnboundIgnoresAnUnusedBinding proves Unbound checks one corpus for
+// undefined and ambiguous steps only. A binding no corpus uses is Unused's
+// concern, which TestUnusedRejectsABindingNoCorpusUses covers across corpora.
+func TestUnboundIgnoresAnUnusedBinding(t *testing.T) {
 	bindings := append(boundOnly(), vault.Binding{Pattern: `^never used$`, Handler: func() {}})
 	feature := "Feature: Fixture\n\n  Scenario: Bound\n    When I run environment validation\n    Then the command exits 0\n"
 	problems, err := vault.Unbound(writeFeature(t, feature), bindings)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(problems) != 1 || !strings.Contains(problems[0], "used by no scenario") {
-		t.Fatalf("problems = %v, want one naming the unused binding", problems)
+	if len(problems) != 0 {
+		t.Fatalf("problems = %v, want none for a corpus every step of which is bound", problems)
 	}
 }
 

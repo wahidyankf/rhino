@@ -8,4 +8,4 @@ Boundary implementations behind application-declared interfaces.
   composition checks.
 - `runtime/` walks the repository read-only: no symlink following, no network, UTF-8 text only. The rest of the runtime
   holds the declared operations: writes to declared targets and child processes for declared gates, toolchains, and
-  models.
+  models, and the `bw` child of an explicit vault command.

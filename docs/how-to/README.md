@@ -16,6 +16,8 @@ If you are still learning what RHINO does, start with the [tutorials](../tutoria
 - [How to narrow a run](./narrow-a-run.md) — check one file, one directory, standard input, or another repository.
 - [How to consume the JSON output](./consume-the-json-output.md) — read a run programmatically without parsing the human
   report.
+- [How to move declared secrets through the vault](./move-declared-secrets-through-the-vault.md) — pull, push, and diff
+  the vault entries a repository declares, from your own unlocked session.
 - [How to run work under the HIPPO guard](./run-work-under-the-hippo-guard.md) — run local compute under HIPPO
   admission, read exits 124 and 125, and know the HIPPO v0.13.0 opt-in keys.
 

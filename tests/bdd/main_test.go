@@ -10,15 +10,22 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/wahidyankf/rhino/tests/bdd/vault/fakebw"
 )
 
 // rhinoBinary is the compiled executable under test. TestMain assigns it once,
 // before any test runs, and no test writes it afterwards.
 var rhinoBinary string
 
-// TestMain builds the rhino command once into a temporary directory and removes
-// that directory after the run. Building in TestMain keeps the build out of
-// every scenario's time budget and gives all scenarios the same binary.
+// fakeBWBinary is the compiled fake of the Bitwarden CLI that vault scenarios
+// install as bw. TestMain assigns it once, as it does rhinoBinary.
+var fakeBWBinary string
+
+// TestMain builds the rhino command and the fake bw once into a temporary
+// directory and removes that directory after the run. Building in TestMain keeps
+// the build out of every scenario's time budget and gives all scenarios the same
+// binaries.
 func TestMain(m *testing.M) {
 	os.Exit(runWithBinary(m))
 }
@@ -40,6 +47,12 @@ func runWithBinary(m *testing.M) int {
 		fmt.Fprintf(os.Stderr, "build rhino for the behaviour suite: %v\n", err)
 		return 2
 	}
+	fake, err := fakebw.Build(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "build the fake bw for the behaviour suite: %v\n", err)
+		return 2
+	}
+	fakeBWBinary = fake
 	return m.Run()
 }
 

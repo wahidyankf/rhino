@@ -18,5 +18,6 @@ launcher. A mutation gate runs through the consumer-declared `MutationRunner`, w
 write it makes. Declared toolchain validate and applied provision start only declared no-shell vectors through the
 consumer-declared `ToolchainRunner`. The other writers each have a port of their own: declared environment init, backup,
 and restore through the consumer-declared `EnvironmentStore`, and `harness adapters generate` through `AdapterStore`.
-Every leaf in the closed command table has a routed core, and a leaf without one panics rather than reporting a tree it
-never checked.
+`env pull`, `env push`, and `env diff` reach the vault provider only through `SecretVault`, and write local files only
+through `VaultFileStore`. Every leaf in the closed command table has a routed core, and a leaf without one panics rather
+than reporting a tree it never checked.

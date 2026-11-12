@@ -28,6 +28,8 @@ const (
 	ToolchainFailed
 	ToolchainUndeclared
 	HarnessRefused
+	VaultUnavailable
+	VaultRefused
 )
 
 // All lists every member in --help publication order.
@@ -50,6 +52,8 @@ var All = []ErrorCode{
 	ToolchainFailed,
 	ToolchainUndeclared,
 	HarnessRefused,
+	VaultUnavailable,
+	VaultRefused,
 }
 
 // String returns the dotted code.
@@ -91,6 +95,10 @@ func (c ErrorCode) String() string {
 		return "rhino.toolchain.undeclared"
 	case HarnessRefused:
 		return "rhino.harness.refused"
+	case VaultUnavailable:
+		return "rhino.vault.unavailable"
+	case VaultRefused:
+		return "rhino.vault.refused"
 	default:
 		return "rhino.args.unrecognized"
 	}

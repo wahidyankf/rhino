@@ -9,7 +9,8 @@ it; RHINO does not invent a policy or route an old command through a replacement
 - **Configuration** — `repo-config validate`
 - **Lifecycle gates** — `gate list`, `gate validate`, `gate run --surface <name>`
 - **Harness adapters** — `harness adapters validate`, `harness adapters generate`
-- **Environment** — `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`
+- **Environment** — `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`,
+  `env pull [--entry <path>] [--force]`, `env push [--entry <path>] [--overwrite]`, `env diff [--entry <path>]`
 - **Toolchains** — `toolchain validate`, `toolchain provision --apply`
 - **Markdown** — `md frontmatter validate`, `md heading-hierarchy validate`, `md internal-link validate`,
   `md mermaid validate`, `md naming validate`, `md readme-index validate`
@@ -58,8 +59,18 @@ gate execution, environment operations, and toolchain provision use their own ex
   - Accepted by: `env init`, `toolchain provision`
   - Meaning: Authorize the declared mutation after planning.
 - `--force`
-  - Accepted by: `env restore`
-  - Meaning: Authorize replacement after a recoverable backup plan.
+  - Accepted by: `env pull`, `env restore`
+  - Meaning: Authorize replacement. `env restore` replaces only after a recoverable backup plan; `env pull` replaces a
+    local file that differs from the vault. `env pull` still refuses a local file that holds no UTF-8 text, with exit
+    `2`, so such a file must be moved or removed by hand.
+- `--entry <path>`
+  - Accepted by: `env pull`, `env push`, `env diff`
+  - Meaning: Narrow the run to one declared vault entry. Repeatable. A path that is not a declared vault entry refuses
+    the run.
+- `--overwrite`
+  - Accepted by: `env push`
+  - Meaning: Replace a differing vault value. A login keeps its previous password in its history; a file keeps its
+    newest previous generation and removes every older one, and only after the new generation verifies.
 - `--surface <name>`
   - Accepted by: `gate run`
   - Meaning: Select one closed lifecycle surface.
@@ -81,14 +92,14 @@ selected root.
 
 ## Exit codes
 
-| Code    | Meaning                                                                                         |
-| ------- | ----------------------------------------------------------------------------------------------- |
-| `0`     | The command completed cleanly.                                                                  |
-| `1`     | A declared policy found a violation, or a `gate run` child failed.                              |
-| `2`     | The invocation, root, configuration, or declared boundary was unusable.                         |
-| `126`   | A declared gate child could not be executed. Only `gate run` returns it.                        |
-| `127`   | A declared gate child was not found. Only `gate run` returns it.                                |
-| `128+N` | RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe. |
+| Code    | Meaning                                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------------ |
+| `0`     | The command completed cleanly.                                                                         |
+| `1`     | A declared policy found a violation, a vault command reported a finding, or a `gate run` child failed. |
+| `2`     | The invocation, root, configuration, or declared boundary was unusable.                                |
+| `126`   | A declared gate child could not be executed. Only `gate run` returns it.                               |
+| `127`   | A declared gate child was not found. Only `gate run` returns it.                                       |
+| `128+N` | RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe.        |
 
 ## Related
 

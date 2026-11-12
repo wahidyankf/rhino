@@ -288,11 +288,11 @@ The vault kinds below report only when `environment.vault` is declared. Each one
   `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
   `mode` that is not a quoted octal file mode such as `"0600"`, a duplicate path, an exact path that another entry's
   glob covers, a `templates` row whose `path` or `for` is a glob or whose `for` names no entry, a field its entry's
-  class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a
-  `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[` unclosed, or a GitHub secret with no name
-  or source. It names the entry by its path, its consumer, or its index in `environment.vault.entries`; the template by
-  its path, or its index when the path is not exact; the item name for a duplicate; `github.workflows` with the glob; or
-  `github.secrets` for a GitHub secret.
+  class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a `keys`
+  item whose `field` is not `password`, a `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[`
+  unclosed, or a GitHub secret with no name or source. It names the entry by its path, its consumer, or its index in
+  `environment.vault.entries`; the template by its path, or its index when the path is not exact; the item name for a
+  duplicate; `github.workflows` with the glob; or `github.secrets` for a GitHub secret.
 - `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
   names the entry's path and the item name.
 - `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
@@ -349,6 +349,48 @@ must:
 
 [github-secrets]: https://docs.github.com/en/actions/reference/security/secrets
 [github-variables]: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+
+## Vault transfer
+
+`env pull`, `env push`, and `env diff` report their findings with exit `1`. Each finding is one line on standard error,
+`[env-<operation>] <class> <name>`, sorted by class and name. The name is an entry path, a key name, or an item name,
+and no finding ever carries a value:
+
+- `item-missing` — The vault holds no item of the exact name for a key, a file entry's secure note, or a resident entry.
+  The name is the key for an env entry, the entry's path for a file entry, and the item's name for a resident entry.
+- `item-ambiguous` — The vault holds more than one item of the exact name, or the one item it holds is of the other
+  kind: a secure note where a login belongs, or a login where a secure note belongs. Matching is exact, so an item whose
+  name only contains the expected name is never used.
+- `local-missing` — A declared local file, or a key the local file should hold, is absent.
+- `local-differs` — `pull` found a local file that differs from the vault, and `--force` was not given.
+- `vault-differs` — A vault value differs from the local file. `push` reports it without `--overwrite`; `diff` always
+  reports it.
+- `undeclared-key` — A local env file holds a key the manifest does not declare.
+- `attachment-missing` — A file entry's secure note holds no generation of its file.
+- `mode-differs` — `diff` found a local file whose permission bits differ from the mode its entry declares, or from
+  `0600` when the entry declares none. The name is the path, and no value is compared. `pull` repairs the mode in place
+  without `--force` when the bytes already match.
+
+A resident entry holds no file. `env pull` and `env push` skip it. `env diff` checks only that its login item is held
+exactly once under its name, and reports `item-missing` or `item-ambiguous` under that name.
+
+These refusals exit `2` with `rhino.vault.refused`, and the run writes nothing, because they stop it while it plans:
+
+- a login item whose password the vault holds as null, because no value can be read from it;
+- a file entry whose newest generation cannot be read. RHINO never uses an older generation in its place.
+
+Generation names are `<basename>.gNNNN`: four digits at least, zero-padded below ten thousand, and never with a leading
+zero beyond that padding. Generation zero is never a generation. `push --overwrite` keeps the newest previous generation
+and removes every older one, and only after the new generation verifies.
+
+`--force` on `env pull` replaces a local file that differs from the vault. A local file that holds no UTF-8 text refuses
+every vault command with exit `2`, `--force` included, so such a file must be moved or removed by hand.
+
+A vault run is not transactional. A session check refuses before any write, but a later apply step can fail after
+earlier writes have landed, and those writes stay in place. Running the same command again converges on the declared
+state, because an entry that already matches is left alone.
+
+Text mode also prints one summary line on standard output. JSON mode reports one object with `count` and `findings`.
 
 ## Toolchains
 

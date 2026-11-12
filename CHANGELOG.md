@@ -13,6 +13,15 @@ the commits behind any release, see its
 
 ### Added
 
+- `env pull`, `env push`, and `env diff` move the vault entries of `environment.vault` between the local files and an
+  unlocked Bitwarden CLI session. `pull` writes each declared file with mode `0600` unless its entry declares one, and
+  replaces a differing file only with `--force`; `push` seeds missing items and, with `--overwrite`, replaces differing
+  values and keeps the previous file generation; `diff` reports every difference by name. Each command reports names and
+  counts only, and refuses an unusable session before it writes anything.
+- `env pull`, `env push`, and `env diff` accept `--entry <path>`, which may repeat. `env push` accepts `--overwrite`.
+  The `--force` help text now names the backup plan only `env restore` makes.
+- New error codes `rhino.vault.unavailable` (the vault cannot be used) and `rhino.vault.refused` (the vault answered
+  something the build does not understand).
 - `environment.vault` declares a manifest of the secrets a repository holds: its provider and server, the item prefix,
   the closed environment set, the secret-bearing path patterns, the entries, the tracked templates, and the GitHub
   workflow references. An absent `vault` key changes nothing.

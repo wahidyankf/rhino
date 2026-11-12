@@ -56,6 +56,9 @@ type world struct {
 	// pathOnly, when set, replaces PATH for the next rhino process. A traced
 	// validation run sets it to a directory holding only the git shim.
 	pathOnly string
+	// extraEnv adds variables to every rhino process of the scenario. An empty
+	// value leaves the variable unset, so a scenario can remove one it set.
+	extraEnv map[string]string
 }
 
 // invocation records one rhino process and the repository state either side.
@@ -151,14 +154,15 @@ func shellQuote(value string) string {
 }
 
 // environment returns the variables every rhino process and fixture child sees.
-// Inherited RHINO_ and GIT_ variables are dropped, so a developer's shell cannot
-// change a scenario. PATH gains the scenario bin directory first, and Git reads
-// only the scenario's empty configuration.
+// Inherited RHINO_, GIT_, and BW_ variables are dropped, so a developer's shell
+// cannot change a scenario or reach its vault session. PATH gains the scenario
+// bin directory first, and Git reads only the scenario's empty configuration.
 func (w *world) environment() []string {
 	var env []string
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
-		if name == "PATH" || strings.HasPrefix(name, "RHINO_") || strings.HasPrefix(name, "GIT_") {
+		if name == "PATH" || strings.HasPrefix(name, "RHINO_") || strings.HasPrefix(name, "GIT_") ||
+			strings.HasPrefix(name, "BW_") {
 			continue
 		}
 		env = append(env, entry)
@@ -167,6 +171,11 @@ func (w *world) environment() []string {
 		env = append(env, "PATH="+w.pathOnly)
 	} else {
 		env = append(env, "PATH="+w.bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	}
+	for name, value := range w.extraEnv {
+		if value != "" {
+			env = append(env, name+"="+value)
+		}
 	}
 	return append(env, w.gitEnvironment()...)
 }
