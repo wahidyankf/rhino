@@ -35,12 +35,14 @@ type SecretVault interface {
 }
 
 // VaultItem is one item the provider holds. Kind is "login", "note", or
-// "other"; a login carries its Password, and a note its Attachments.
+// "other"; a login carries its Password, or NoPassword when the provider holds
+// none, and a note its Attachments.
 type VaultItem struct {
 	ID          string
 	Name        string
 	Kind        string
 	Password    string
+	NoPassword  bool
 	Attachments []VaultAttachment
 }
 

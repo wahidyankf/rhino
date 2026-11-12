@@ -58,6 +58,7 @@ func (s *recordingStore) Write(_ string, file application.VaultFile) error {
 		return fmt.Errorf("`%s` already exists", file.Path)
 	}
 	s.tree.files[file.Path] = string(file.Contents)
+	s.tree.modes[file.Path] = file.Mode
 	s.writes = append(s.writes, file)
 	return nil
 }

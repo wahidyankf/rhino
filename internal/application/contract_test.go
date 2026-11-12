@@ -11,6 +11,7 @@ import (
 
 type memoryTree struct {
 	files           map[string]string
+	modes           map[string]uint32
 	unreadable      map[string]bool
 	vanished        map[string]bool
 	binary          map[string]bool
@@ -31,7 +32,7 @@ type memoryTree struct {
 }
 
 func newMemoryTree(root string) *memoryTree {
-	return &memoryTree{files: map[string]string{}, unreadable: map[string]bool{}, vanished: map[string]bool{}, binary: map[string]bool{}, links: map[string]bool{}, escapes: map[string]bool{}, root: root, changed: map[[2]string][]string{}, changedRegular: map[[2]string][]string{}, commitMessages: map[[2]string]string{}, gitRefs: map[string]string{}}
+	return &memoryTree{files: map[string]string{}, modes: map[string]uint32{}, unreadable: map[string]bool{}, vanished: map[string]bool{}, binary: map[string]bool{}, links: map[string]bool{}, escapes: map[string]bool{}, root: root, changed: map[[2]string][]string{}, changedRegular: map[[2]string][]string{}, commitMessages: map[[2]string]string{}, gitRefs: map[string]string{}}
 }
 
 // stagePaths sorts and deduplicates one staged selection, the way the
@@ -107,7 +108,22 @@ func (m *memoryTree) Files() []string {
 	return out
 }
 
+// FileMode answers the permission bits of a file the tree holds. A file with no
+// recorded mode is owner-only, so a scenario that declares no mode does not drift.
+func (m *memoryTree) FileMode(path string) (uint32, *application.ReadError) {
+	if _, err := m.Read(path); err != nil {
+		return 0, err
+	}
+	if mode, ok := m.modes[path]; ok {
+		return mode, nil
+	}
+	return 0o600, nil
+}
+
 func (m *memoryTree) Read(path string) (string, *application.ReadError) {
+	if path == "" {
+		return "", &application.ReadError{Kind: "escapes", Reason: "`` passes through a filesystem link"}
+	}
 	if m.unreadable[path] {
 		return "", &application.ReadError{Kind: "unreadable", Reason: path + ": permission denied"}
 	}

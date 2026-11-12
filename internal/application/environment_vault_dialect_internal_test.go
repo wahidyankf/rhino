@@ -122,3 +122,27 @@ func TestEntryModeReadsTheDeclaredOrDefault(t *testing.T) {
 		t.Fatalf("declared mode = %o", got)
 	}
 }
+
+// TestGenerationNamesAcceptAnyCanonicalWidth proves a generation past ten
+// thousand is still counted, and a name that is not canonical, or whose number
+// does not fit a number, is never a generation.
+func TestGenerationNamesAcceptAnyCanonicalWidth(t *testing.T) {
+	attachments := []VaultAttachment{
+		{ID: "a", FileName: "service.json.g9999"},
+		{ID: "b", FileName: "service.json.g10000"},
+		{ID: "c", FileName: "service.json.g10001"},
+		{ID: "d", FileName: "service.json.g00001"},
+		{ID: "e", FileName: "service.json.g1"},
+		{ID: "f", FileName: "service.json.g99999999999999999999999"},
+	}
+	generations := generationsOf("service.json", attachments)
+	if len(generations) != 3 || generations[9999].ID != "a" || generations[10001].ID != "c" {
+		t.Fatalf("generations = %v", generations)
+	}
+	if highestGeneration(generations) != 10001 {
+		t.Fatalf("highest generation = %d", highestGeneration(generations))
+	}
+	if got := generationName("service.json", 10000); got != "service.json.g10000" {
+		t.Fatalf("generation name = %q", got)
+	}
+}
