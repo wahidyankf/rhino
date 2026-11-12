@@ -376,10 +376,22 @@ and no finding ever carries a value:
 A resident entry holds no file. `env pull` and `env push` skip it. `env diff` checks only that its login item is held
 exactly once under its name, and reports `item-missing` or `item-ambiguous` under that name.
 
-These refusals exit `2` with `rhino.vault.refused`, and the run writes nothing, because they stop it while it plans:
+These refusals exit `2` with `rhino.vault.refused`. A refusal raised while planning stops the run before any write:
 
-- a login item whose password the vault holds as null, because no value can be read from it;
-- a file entry whose newest generation cannot be read. RHINO never uses an older generation in its place.
+- `bw status` or `bw list items` answers something this build does not decode;
+- an attachment download, such as a file entry's newest generation, does not produce exactly one regular file. RHINO
+  never uses an older generation in its place;
+- a login item whose password the vault holds as null, under `env pull`, `env push`, or `env diff`, because no value can
+  be read from it;
+- a login value holds a line break, under `env pull`, because an env file cannot hold it on one line.
+
+A refusal raised while applying can leave the writes made before it in place:
+
+- `bw get item`, `bw create item`, or `bw create attachment` answers something this build does not decode, an upload
+  does not name the uploaded attachment, an attachment name is empty, `.`, `..`, or holds a path separator, or an item
+  cannot be encoded for the provider;
+- an uploaded generation under `env push` does not read back equal to the bytes it was meant to store. RHINO deletes
+  that unverified upload and keeps every older generation.
 
 Generation names are `<basename>.gNNNN`: four digits at least, zero-padded below ten thousand, and never with a leading
 zero beyond that padding. Generation zero is never a generation. `push --overwrite` keeps the newest previous generation

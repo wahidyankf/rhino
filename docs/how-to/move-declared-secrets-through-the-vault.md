@@ -4,6 +4,12 @@ Use this guide when a repository declares the secrets its files hold under `envi
 those files from the vault, seed the vault from them, or compare the two. The commands are `env pull`, `env push`, and
 `env diff`. Each one is explicit: no validator starts them, and none runs unless you invoke it.
 
+The commands below were not exercised against a real vault in this documentation pass. The behaviour corpus runs them
+against a fake `bw`.
+
+The binary opens no socket. Only these three commands reach a network, and they do it through `bw`, the Bitwarden CLI,
+to the server the manifest declares.
+
 ## Before you start
 
 - Declare the entries in `repo-config.yml`. The keys are listed in the

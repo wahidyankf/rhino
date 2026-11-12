@@ -593,8 +593,10 @@ tracked, and which GitHub secrets and variables the workflows read. An absent `v
   no `mode` takes `0600`, owner read and write only. That is a safe fallback for a secret file on every machine, not a
   repository policy.
 
-  Each `keys` item names a `key`, an `app`, a `secret`, and an optional `field`. The only field the commands read is the
-  login `password`, so a `field` set to anything else refuses the manifest as `vault-manifest-invalid`.
+  Each `keys` item is either a bare key name, or a mapping whose `key` names the key and whose optional `app`, `secret`,
+  and `field` override that one key. A bare name takes the entry's `app` and the secret segment derived from the key.
+  The only `field` the commands read is the login `password`, so a `field` set to anything else refuses the manifest as
+  `vault-manifest-invalid`.
 
   A `resident` entry holds no file. `env pull` and `env push` skip it, and `env diff` checks only that its login item is
   held exactly once under its name.

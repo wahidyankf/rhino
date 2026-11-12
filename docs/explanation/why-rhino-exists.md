@@ -62,8 +62,9 @@ repository makes about itself.
 **Not a general fixer.** Validators read and report. The distinct adapter, environment, and toolchain operations plan
 first and require explicit authority because the correct resolution remains a maintainer decision.
 
-**Not a service.** No daemon, no network, no state between runs. A single binary, a directory walk, and an exit code.
-See [why RHINO only reads](./reading-only.md).
+**Not a service.** No daemon, and the binary opens no socket. Only the explicit vault commands (`env pull`, `env push`,
+and `env diff`) reach a network, through `bw`, the Bitwarden CLI, to the server the manifest declares. No state between
+runs. A single binary, a directory walk, and an exit code. See [why RHINO only reads](./reading-only.md).
 
 ## Related
 
