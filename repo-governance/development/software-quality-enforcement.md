@@ -25,8 +25,8 @@ directly. The binary's dependency graph has no `net` package, and no product sou
 
 The remaining reach is confined, and each confinement is a test unless noted:
 
-- The tree adapter (`disk.go`) starts only read-only Git queries (`diff`, `log`, `rev-parse`), and only its environment
-  transaction writes (`internal/adapters/runtime/read_boundary_test.go`).
+- The tree adapter (`disk.go`) starts only read-only Git queries (`diff`, `log`, `ls-files`, `rev-parse`), and only its
+  environment transaction writes (`internal/adapters/runtime/read_boundary_test.go`).
 - `os/exec` is imported only by the runtime adapter; `syscall` only by the CLI adapter, for signals and EPIPE.
 - `toolchain` and `harness adapters generate` start only their declared argv, through their own boundaries;
   `TestDiskToolchainRunnerRunsDeclaredVectorsDirectly` and `TestDiskModelResolverRunsTheDeclaredVector` pin the declared

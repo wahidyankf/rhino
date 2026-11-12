@@ -276,6 +276,61 @@ func (t *DiskTree) IndexedFiles() ([]string, error) {
 	return out, nil
 }
 
+// TrackedFiles lists every path the Git index tracks. It is a read-only name
+// query: no content is read, and the working tree is never consulted.
+func (t *DiskTree) TrackedFiles() ([]string, error) {
+	output, err := exec.Command("git", "-C", t.Dir, "ls-files", "-z", "--").Output()
+	if err != nil {
+		return nil, gitNameQueryError("tracked", err)
+	}
+	return gitNamePaths("tracked", output)
+}
+
+// IgnoredFiles lists every path under the repository that Git ignores. It is a
+// read-only name query: an ignored file is named, never opened.
+func (t *DiskTree) IgnoredFiles() ([]string, error) {
+	output, err := exec.Command("git", "-C", t.Dir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--").Output()
+	if err != nil {
+		return nil, gitNameQueryError("ignored", err)
+	}
+	return gitNamePaths("ignored", output)
+}
+
+// gitNameQueryError names a failed name query without printing its output.
+func gitNameQueryError(what string, err error) error {
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return fmt.Errorf("Git refused the %s name query with status %d", what, exit.ExitCode())
+	}
+	return fmt.Errorf("could not read the %s names from Git: %s", what, err.Error())
+}
+
+// gitNamePaths parses a NUL-separated name list into sorted, unique
+// repository-relative paths. A path that escapes the repository is refused.
+func gitNamePaths(what string, output []byte) ([]string, error) {
+	if !utf8.Valid(output) {
+		return nil, fmt.Errorf("the %s names from Git contain a non-UTF-8 path", what)
+	}
+	var paths []string
+	for _, raw := range strings.Split(string(output), "\x00") {
+		if raw == "" {
+			continue
+		}
+		if !isRepositoryPath(raw) {
+			return nil, fmt.Errorf("the %s names from Git return an escaping path `%s`", what, raw)
+		}
+		paths = append(paths, raw)
+	}
+	sort.Strings(paths)
+	out := paths[:0]
+	for _, path := range paths {
+		if len(out) == 0 || out[len(out)-1] != path {
+			out = append(out, path)
+		}
+	}
+	return out, nil
+}
+
 // IndexedRegularFiles selects regular-file destinations from the Git index
 // snapshot. Raw Git metadata decides: destination modes 100644 and 100755
 // are included, while symlinks, gitlinks, and deletions are excluded.

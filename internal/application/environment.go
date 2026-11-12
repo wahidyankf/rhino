@@ -88,7 +88,11 @@ func environmentValidate(document *config.Document, tree Tree, format Format) Ou
 	if err := validateDetectorPolicy(policy); err != nil {
 		return RefuseWith(format, domain.ConfigUnusable, "environment detector policy: "+err.Error())
 	}
-	var inspected int
+	vaultFound, vaultInspected, failure := vaultChecks(document, tree)
+	if failure != nil {
+		return RefuseWith(format, failure.code, failure.message)
+	}
+	inspected := vaultInspected
 	findings := map[environmentFinding]bool{}
 	if policy.staged != nil {
 		for _, path := range policy.staged.allowed {
@@ -161,12 +165,15 @@ func environmentValidate(document *config.Document, tree Tree, format Format) Ou
 			findings[environmentFinding{rule: "declared-but-unread", path: pair[0], key: pair[1], hasKey: true}] = true
 		}
 	}
-	ordered := make([]environmentFinding, 0, len(findings))
+	ordered := make([]environmentFinding, 0, len(findings)+len(vaultFound))
 	for finding := range findings {
 		if finding.rule == "staged-environment-file" || !allowlisted(policy, finding) {
 			ordered = append(ordered, finding)
 		}
 	}
+	// Vault findings take no allowlist: an allowlist entry must not be able to
+	// excuse the very classification the vault rules exist to require.
+	ordered = append(ordered, vaultFound...)
 	sort.Slice(ordered, func(i, j int) bool { return compareEnvironmentFindings(ordered[i], ordered[j]) < 0 })
 	return renderEnvironmentFindings(ordered, inspected, format)
 }
@@ -302,7 +309,7 @@ func decodeEnvironment(document *config.Document) (*environmentPolicy, *Refusal)
 	policy := &environmentPolicy{}
 	for key := range mapping {
 		switch key {
-		case "examples", "staged", "contracts", "detectors", "allowlists":
+		case "examples", "staged", "contracts", "detectors", "allowlists", "vault":
 		default:
 			return nil, &Refusal{Code: domain.ConfigUnusable,
 				Message: fmt.Sprintf("environment names unknown key `%s`", key)}

@@ -53,6 +53,9 @@ type world struct {
 	runs       []invocation
 	git        gitState
 	snapshotOn bool
+	// pathOnly, when set, replaces PATH for the next rhino process. A traced
+	// validation run sets it to a directory holding only the git shim.
+	pathOnly string
 }
 
 // invocation records one rhino process and the repository state either side.
@@ -160,7 +163,11 @@ func (w *world) environment() []string {
 		}
 		env = append(env, entry)
 	}
-	env = append(env, "PATH="+w.bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if w.pathOnly != "" {
+		env = append(env, "PATH="+w.pathOnly)
+	} else {
+		env = append(env, "PATH="+w.bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	}
 	return append(env, w.gitEnvironment()...)
 }
 

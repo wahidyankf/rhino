@@ -282,7 +282,73 @@ never is.
 - `unsupported-dynamic-access` — A detected source reads a key whose name is computed, reported as `<dynamic>`.
 - `staged-environment-file` — An indexed path matches a forbidden staging pattern and no allowed one.
 
-An allowlist entry can suppress every kind except `staged-environment-file`.
+The vault kinds below report only when `environment.vault` is declared. Each one names a path or a name, never a value.
+
+- `vault-manifest-invalid` — A vault shape rule is broken, among others: an unknown provider, a server that is not
+  `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
+  `mode` that is not a quoted octal file mode such as `"0600"`, a duplicate path, an exact path that another entry's
+  glob covers, a `templates` row whose `path` or `for` is a glob or whose `for` names no entry, a field its entry's
+  class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a
+  `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[` unclosed, or a GitHub secret with no name
+  or source. It names the entry by its path, its consumer, or its index in `environment.vault.entries`; the template by
+  its path, or its index when the path is not exact; the item name for a duplicate; `github.workflows` with the glob; or
+  `github.secrets` for a GitHub secret.
+- `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
+  names the entry's path and the item name.
+- `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
+  The file is named and never opened.
+- `vault-unclassified-template` — A tracked `*.example` file is named by no `templates` row and by no entry's exact
+  `path`. A glob entry does not name a template, so a broad glob cannot classify one.
+- `vault-github-unlisted-reference` — A tracked workflow matching `github.workflows` reads a `secrets` or `vars` name
+  that the manifest does not list, or reads one that cannot be resolved to a single name. It names the workflow and the
+  reference, which is one of:
+  - `secrets.X` or `vars.X`, from the dotted form or the bracket form `secrets['X']` or `secrets["X"]`;
+  - `secrets[dynamic]` or `vars[dynamic]`, for an index that is an expression;
+  - `secrets (whole context)` or `vars (whole context)`, for a read of the whole context such as `toJSON(secrets)`;
+  - `secrets: inherit`, for a job that passes every secret on, written as a block key or as an entry of a flow mapping.
+
+  The rule reads two surfaces of a workflow and nothing else: each `${{ }}` expression, and each bare `if:` value. So a
+  `secrets` or `vars` word in a run script, a document, or a path is not a reference. Inside an expression, a quoted
+  string literal is not read, and a context word is a read only as a whole word that is not a property of another value:
+  `github.secrets` is not a read. A `${{ }}` expression inside a YAML comment is still read.
+
+  Listed names compare case-insensitively, so `x` matches a listed `X`. GitHub documents this for secrets: names are
+  "Case insensitive when referenced. GitHub stores secret names as uppercase regardless of how they are entered"
+  ([Naming your secrets][github-secrets]). GitHub documents the same rule for configuration variables ([Naming
+  conventions for configuration variables][github-variables]). The docs say nothing about the case of the `secrets` and
+  `vars` context names, so the rule reads those case-insensitively as well: `SECRETS.X` reads the `secrets` context.
+  That is the safe direction, because a case variant of an unlisted name is then reported.
+
+  A reference is listed when the manifest lists its name in `github.secrets` or `github.variables`, or when it is a
+  built-in secret.
+
+- `vault-github-source-unknown` — A listed GitHub secret names a source that matches no vault item. It names
+  `github.secrets` and the secret.
+
+An allowlist entry can suppress every kind except `staged-environment-file` and the vault kinds. A declared check that
+cannot read Git names exits `2` with `rhino.repository.unusable`, and a workflow it cannot read exits `2` with
+`rhino.file.unreadable`. A tracked workflow deleted only in the working tree is such a workflow: Git still lists it, so
+the check exits `2` rather than report a tree it did not read.
+
+The vault rules have these limits. Two globs that overlap each other are not compared, so an overlap between two globs
+is not reported. The rules recognise the `*.example` template suffix only. The workflow scan reads only the surfaces
+named above, so a reference written anywhere else in a workflow is not reported. Names compare case-insensitively, as
+described in the workflow rule above.
+
+The workflow scanner has these known limits. The first three leave a read unscanned. The last two report more than they
+must:
+
+- A single-quoted `if:` scalar, such as `if: 'secrets.X != '''`, is not scanned, because the scanner reads its leading
+  quote as the start of a string literal.
+- A `}}` inside a string literal ends the `${{ }}` expression early, so a read after it in the same expression is not
+  scanned.
+- A flow mapping such as `{ if: ... }` is not read as an `if:` value.
+- A trailing `# comment` on an `if:` line is part of the value that is scanned, so a `secrets` or `vars` word in that
+  comment is reported.
+- `secrets [ 'X' ]` with a space before the bracket is reported as a whole-context read. That is the safe direction.
+
+[github-secrets]: https://docs.github.com/en/actions/reference/security/secrets
+[github-variables]: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
 
 ## Toolchains
 

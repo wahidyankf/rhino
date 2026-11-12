@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cucumber/godog"
+	"github.com/wahidyankf/rhino/tests/bdd/vault"
 )
 
 // behavioursCorpus is the Gherkin corpus the suite executes, relative to this
@@ -27,7 +28,7 @@ func TestBehaviours(t *testing.T) {
 				return ctx, err
 			}
 			executed++
-			return withWorld(ctx, w), nil
+			return vault.WithDriver(withWorld(ctx, w), &cliVaultDriver{world: w}), nil
 		})
 		scenarios.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 			w, err := worldFrom(ctx)

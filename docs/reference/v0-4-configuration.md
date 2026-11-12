@@ -541,11 +541,12 @@ The same list projected by a `toml` adapter as `lists: { preload: skills }` rend
 
 `environment.examples` declares public example-source and local-target path pairs. `environment.contracts` names public
 declaration paths and key names; `environment.detectors` names one of six curated languages and exact source paths.
-`env validate` reads only those source-code paths plus optional Git-index names, and never reports file contents.
-`env init` plans the pairs by default and creates only absent targets with `--apply`; it rejects escaping, duplicate,
-same-path, unreadable, and existing targets before a write. `env backup --dir` copies only declared local targets into a
-new repository-relative destination. `env restore --dir` refuses a conflicting target unless `--force` explicitly
-authorizes a recoverable replacement.
+`env validate` reads only those source-code paths and optional Git-index names. When `environment.vault` is declared it
+also reads the Git names of tracked and ignored files and the secret and variable names in tracked workflows. It never
+reports file contents and never opens an ignored file. `env init` plans the pairs by default and creates only absent
+targets with `--apply`; it rejects escaping, duplicate, same-path, unreadable, and existing targets before a write.
+`env backup --dir` copies only declared local targets into a new repository-relative destination. `env restore --dir`
+refuses a conflicting target unless `--force` explicitly authorizes a recoverable replacement.
 
 ```yaml
 environment:
@@ -567,6 +568,55 @@ toolchains:
 
 An omitted `environment` or `toolchains` group refuses its operation. An explicitly empty `toolchains` group permits the
 zero-tool plan or `--apply` result without launching a child.
+
+### Environment vault manifest
+
+`environment.vault` declares which files hold secrets, which items in the vault they map to, which templates are
+tracked, and which GitHub secrets and variables the workflows read. An absent `vault` key changes nothing. The keys are:
+
+- `provider` (`bitwarden`), `server` (an `https://` URL), `prefix` (one or more kebab-case segments), and `environments`
+  (a closed set of kebab-case names).
+- `patterns` — secret-bearing path globs. An ignored file that matches one must be classified by an entry.
+- `entries` — each has a `class`: `vault` (with a `form` of `env`, `file`, or `resident`), `derived`, `generated`, or
+  `machine-local`. Each class reads only the fields below. The manifest refuses any other field the entry sets, rather
+  than ignore it:
+  - `vault` with `form: env` — an exact `path`, `app`, `env`, `keys`, and `mode`;
+  - `vault` with `form: file` — an exact `path`, `app`, `env`, `secret`, and `mode`;
+  - `vault` with `form: resident` — `app`, `env`, `secret`, and `consumer`, and no `path`;
+  - `derived` or `generated` — a glob `path`, a `reason`, and a `by`;
+  - `machine-local` — a glob `path` and a `reason`.
+
+  `mode`, when present, is a quoted octal string such as `"0600"`.
+
+- `templates` — each row names a template file with `path` and the entry it stands for with `for`. Both are exact paths,
+  and `for` must be the exact `path` of an entry. A tracked `*.example` file must be named by a row or by an entry's
+  exact `path`.
+- `github` — `workflows` (globs of the workflow files to read, relative to the repository root, with no `..` and every
+  `[` closed), `builtin`, `secrets` (each with a `name` and a `source` of `app`, `env`, and `secret`), and `variables`.
+
+```yaml
+environment:
+  vault:
+    provider: bitwarden
+    server: https://vault.example.com
+    prefix: org/example-repo
+    environments: [local, stag, canary, prod]
+    patterns: ["**/.env*"]
+    entries:
+      - path: infra/example/.env.prod
+        class: vault
+        form: env
+        app: infra-example
+        env: prod
+        keys: [TAILSCALE_AUTH_KEY]
+    github:
+      workflows: [".github/workflows/*.yml"]
+      builtin: [GITHUB_TOKEN]
+```
+
+The item name of each key is `<prefix>/<app>/<env>/<secret>`. The secret segment is the key, lowercased, with each
+underscore written as a hyphen, unless the key overrides it. The rules that check the manifest, the names, and the
+Git-derived classification are listed under [Environment](findings.md#environment).
 
 When `environment.staged` is present, `env validate` checks only paths from the Git index. It reports a forbidden staged
 path unless an `allowed` pattern matches. `allowed` accepts exact repository-relative paths only, so it cannot silence a

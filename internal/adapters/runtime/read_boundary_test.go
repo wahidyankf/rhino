@@ -23,7 +23,9 @@ var osWriteFunctions = map[string]bool{
 }
 
 // readOnlyGitVerbs are the only Git subcommands the tree adapter may start.
-var readOnlyGitVerbs = map[string]bool{"diff": true, "log": true, "rev-parse": true}
+// ls-files reads the index's tracked and ignored names for the environment
+// vault rules; it lists names and reads no file content.
+var readOnlyGitVerbs = map[string]bool{"diff": true, "log": true, "rev-parse": true, "ls-files": true}
 
 // adapterScan records, per function, the os write calls it makes and the Git
 // verb each exec.Command call starts. A verb that is not a literal is "?".

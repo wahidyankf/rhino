@@ -365,6 +365,16 @@
               "type": "null"
             }
           ]
+        },
+        "vault": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvironmentVault"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "type": "object"
@@ -456,6 +466,229 @@
         }
       },
       "required": ["input"],
+      "type": "object"
+    },
+    "EnvironmentVault": {
+      "additionalProperties": false,
+      "description": "The environment vault manifest: the provider, the item-name prefix, the classified files, the templates, and the GitHub names a repository reads. It declares names and paths only, never values.",
+      "properties": {
+        "environments": {
+          "description": "The closed environment set an item name may use.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/EnvironmentVaultEntry"
+          },
+          "type": "array"
+        },
+        "github": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvironmentVaultGitHub"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "patterns": {
+          "description": "Secret-bearing path globs. An ignored file that matches one must be classified by an entry.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prefix": {
+          "description": "One or more kebab-case segments, such as a namespace and a repository name.",
+          "type": "string"
+        },
+        "provider": {
+          "enum": ["bitwarden"],
+          "type": "string"
+        },
+        "server": {
+          "description": "The provider server URL. It must start with https://.",
+          "type": "string"
+        },
+        "templates": {
+          "items": {
+            "$ref": "#/$defs/EnvironmentVaultTemplate"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "EnvironmentVaultEntry": {
+      "additionalProperties": false,
+      "description": "One classification. A vault entry maps its file or resident item to vault items. A derived, generated, or machine-local entry names a file another tool owns, and states why it is not in the vault.",
+      "properties": {
+        "app": {
+          "type": "string"
+        },
+        "by": {
+          "description": "The tool that derives or generates the file. Required for derived and generated entries.",
+          "type": "string"
+        },
+        "class": {
+          "enum": ["vault", "derived", "generated", "machine-local"],
+          "type": "string"
+        },
+        "consumer": {
+          "description": "The file that reads a resident item at run time.",
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "form": {
+          "enum": ["env", "file", "resident"],
+          "type": "string"
+        },
+        "keys": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/EnvironmentVaultKey"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "mode": {
+          "description": "The file mode for a restored file, as a quoted octal string. Recorded here; the default is 0600.",
+          "pattern": "^0[0-7]{3}$",
+          "type": "string"
+        },
+        "path": {
+          "description": "A repository-relative path. Exact for vault entries; a glob is allowed for derived, generated, and machine-local entries.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why the file is not in the vault. Required for derived, generated, and machine-local entries.",
+          "type": "string"
+        },
+        "secret": {
+          "type": "string"
+        }
+      },
+      "required": ["class"],
+      "type": "object"
+    },
+    "EnvironmentVaultGitHub": {
+      "additionalProperties": false,
+      "description": "The workflow references a repository may hold: the workflow files to read, the built-in secrets, and the listed secrets and variables.",
+      "properties": {
+        "builtin": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "secrets": {
+          "items": {
+            "$ref": "#/$defs/EnvironmentVaultGitHubSecret"
+          },
+          "type": "array"
+        },
+        "variables": {
+          "items": {
+            "$ref": "#/$defs/EnvironmentVaultGitHubVariable"
+          },
+          "type": "array"
+        },
+        "workflows": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "EnvironmentVaultGitHubSecret": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/EnvironmentVaultSource"
+        }
+      },
+      "required": ["name", "source"],
+      "type": "object"
+    },
+    "EnvironmentVaultGitHubVariable": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": ["name"],
+      "type": "object"
+    },
+    "EnvironmentVaultKey": {
+      "additionalProperties": false,
+      "description": "One key of an env entry, with optional overrides of its app, secret, and hidden field.",
+      "properties": {
+        "app": {
+          "type": "string"
+        },
+        "field": {
+          "description": "The hidden custom field that holds a second value of this key.",
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string"
+        }
+      },
+      "required": ["key"],
+      "type": "object"
+    },
+    "EnvironmentVaultSource": {
+      "additionalProperties": false,
+      "description": "The vault item a GitHub secret comes from, named by the parts its item name is built from.",
+      "properties": {
+        "app": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string"
+        }
+      },
+      "required": ["app", "env", "secret"],
+      "type": "object"
+    },
+    "EnvironmentVaultTemplate": {
+      "additionalProperties": false,
+      "description": "One tracked example template and the entry it stands for.",
+      "properties": {
+        "for": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": ["path"],
       "type": "object"
     },
     "Frontmatter": {
