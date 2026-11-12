@@ -18,8 +18,8 @@ Three properties follow from that and are not negotiable.
 **Its tree validators are safe to point at anything.** They are read-only, network-free, path-contained, and start no
 process except read-only Git queries. A validator a maintainer hesitates to run on an unfamiliar tree is a validator
 that does not get run. A declared gate child, toolchain probe/provision, or generated-adapter write is explicit,
-narrowly scoped, and fails closed before it acts. An explicit vault command starts only the declared provider executable
-through the vault boundary and fails closed without it.
+narrowly scoped, and fails closed before it acts. An explicit vault command starts only the executable of the declared
+provider through the vault boundary and fails closed without it.
 
 **Its findings are trustworthy.** Exit codes distinguish clean, findings, and an unusable invocation, so a caller can
 act on the code without knowing which subcommand ran. A check that cannot run reports that it could not, rather than
