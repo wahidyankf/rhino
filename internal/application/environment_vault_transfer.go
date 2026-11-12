@@ -6,9 +6,11 @@
 // the recorded file writes in manifest order, then the recorded provider changes
 // in the same order. The vault cannot be changed as one transaction, so an apply
 // failure stops the run where it failed and keeps the changes made before it. A
-// finding keeps only the entry it names out of the change set; every other clean
-// entry still applies. Names and counts are reported; no value, digest, length,
-// item ID, or provider message is ever printed.
+// finding holds back the change it names. A pull writes no file for an entry
+// with any finding. A push holds back only the key or file it names, so the
+// other keys of an env entry still apply. Every other clean entry still applies.
+// Names and counts are reported; no value, digest, length, item ID, or provider
+// message is ever printed.
 //
 // The env form lives in environment_vault_env.go, the file form and its
 // generations in environment_vault_file.go, and the env dialect in
@@ -121,9 +123,6 @@ func environmentTransfer(document *config.Document, tree Tree, ports VaultPorts,
 	if failure == nil {
 		entries, failure = selectVaultEntries(manifest, invocation.Entries)
 	}
-	if failure == nil {
-		failure = unreadFields(entries)
-	}
 	if failure == nil && ports.Vault == nil {
 		failure = &vaultFailure{code: domain.VaultUnavailable, message: "no vault provider is wired into this run"}
 	}
@@ -161,21 +160,6 @@ func transferUsable(manifest *config.VaultManifest) *vaultFailure {
 	if len(rules.found) > 0 {
 		return &vaultFailure{code: domain.ConfigUnusable,
 			message: "environment vault manifest breaks its rules; run `rhino env validate` to see which"}
-	}
-	return nil
-}
-
-// unreadFields refuses a selected entry whose key names a field this build does
-// not read. The manifest rules already refuse such a key; this check stays as a
-// second line for a manifest that reached the transfer by another route.
-func unreadFields(entries []config.VaultEntry) *vaultFailure {
-	for _, entry := range entries {
-		for _, key := range entry.Keys {
-			if key.Field != "" && key.Field != vaultValueField {
-				return &vaultFailure{code: domain.ConfigUnusable,
-					message: "environment vault field `" + key.Field + "` is not read by this build; only `password` is"}
-			}
-		}
 	}
 	return nil
 }
