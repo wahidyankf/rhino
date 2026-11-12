@@ -55,7 +55,8 @@ Confidence decides what happens to a blocking row once the writer has it:
 | `MEDIUM`         | recorded `needs-decision`; no edit, because the repair is a judgement call |
 | `FALSE_POSITIVE` | recorded `not-applicable` with the disproof                                |
 
-A `needs-decision` row stays open, and an open one at the end of the run makes the verdict `FAIL`.
+A `needs-decision` row stays open, and an open blocking one at the end of the run makes the verdict `FAIL`; an open
+non-blocking one ends `PASS_WITH_FINDINGS`.
 
 ## The Deterministic Boundary
 

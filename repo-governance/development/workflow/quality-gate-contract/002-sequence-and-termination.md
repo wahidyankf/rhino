@@ -66,17 +66,17 @@ At the ceiling, verified repairs stay. Nothing asks a person mid-run whether to 
 
 ## Termination
 
-| Condition                                                              | Verdict                        |
-| ---------------------------------------------------------------------- | ------------------------------ |
-| An audit has no open row                                               | `PASS`                         |
-| An audit has open rows but none blocking                               | `PASS_WITH_FINDINGS`           |
-| After the final repair: every blocking row resolved, exit run green    | `PASS` or `PASS_WITH_FINDINGS` |
-| Blocking rows remain at the ceiling, or a `needs-decision` row is open | `FAIL`                         |
-| The open blocking count did not fall between two audits                | `FAIL`                         |
-| Entry tooling still red after 3 root-cause attempts                    | `BLOCKED` (tooling)            |
-| The subject changed during the run                                     | `BLOCKED` (input-changed)      |
-| The checker or the propagation could not run                           | `BLOCKED` (unavailable)        |
-| `max-cycles` is outside 1–3, or `subject` is missing                   | Refuses to start               |
+| Condition                                                                       | Verdict                        |
+| ------------------------------------------------------------------------------- | ------------------------------ |
+| An audit has no open row                                                        | `PASS`                         |
+| An audit has open rows but none blocking                                        | `PASS_WITH_FINDINGS`           |
+| After the final repair: every blocking row resolved, exit run green             | `PASS` or `PASS_WITH_FINDINGS` |
+| Blocking rows remain at the ceiling, or a blocking `needs-decision` row is open | `FAIL`                         |
+| The open blocking count did not fall between two audits                         | `FAIL`                         |
+| Entry tooling still red after 3 root-cause attempts                             | `BLOCKED` (tooling)            |
+| The subject changed during the run                                              | `BLOCKED` (input-changed)      |
+| The checker or the propagation could not run                                    | `BLOCKED` (unavailable)        |
+| `max-cycles` is outside 1–3, or `subject` is missing                            | Refuses to start               |
 
 Every run reaches exactly one row of this table. A gate file copies the table unchanged into its `## Termination`
 section or links it, and adds no row of its own.
