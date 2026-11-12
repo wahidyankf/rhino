@@ -578,15 +578,21 @@ tracked, and which GitHub secrets and variables the workflows read. An absent `v
   (a closed set of kebab-case names).
 - `patterns` — secret-bearing path globs. An ignored file that matches one must be classified by an entry.
 - `entries` — each has a `class`: `vault` (with a `form` of `env`, `file`, or `resident`), `derived`, `generated`, or
-  `machine-local`. A `vault` entry names an exact `path`, except a resident entry, which names none. A `derived`,
-  `generated`, or `machine-local` entry requires a `reason`, and a `derived` or `generated` entry names its `by`. Such
-  an entry names no vault field (`form`, `app`, `env`, `secret`, or `keys`). An env entry names no entry-level `secret`,
-  and a file or resident entry names no `keys`. The manifest refuses each one rather than ignore it. `mode`, when
-  present, is a quoted octal string such as `"0600"`.
-- `templates` — each row names a template file with `path` and the entry it stands for with `for`, which must be the
-  exact `path` of an entry. A tracked `*.example` file must be named by a row or by an entry's exact `path`.
-- `github` — `workflows` (globs of the workflow files to read), `builtin`, `secrets` (each with a `name` and a `source`
-  of `app`, `env`, and `secret`), and `variables`.
+  `machine-local`. Each class reads only the fields below. The manifest refuses any other field the entry sets, rather
+  than ignore it:
+  - `vault` with `form: env` — an exact `path`, `app`, `env`, `keys`, and `mode`;
+  - `vault` with `form: file` — an exact `path`, `app`, `env`, `secret`, and `mode`;
+  - `vault` with `form: resident` — `app`, `env`, `secret`, and `consumer`, and no `path`;
+  - `derived` or `generated` — a glob `path`, a `reason`, and a `by`;
+  - `machine-local` — a glob `path` and a `reason`.
+
+  `mode`, when present, is a quoted octal string such as `"0600"`.
+
+- `templates` — each row names a template file with `path` and the entry it stands for with `for`. Both are exact paths,
+  and `for` must be the exact `path` of an entry. A tracked `*.example` file must be named by a row or by an entry's
+  exact `path`.
+- `github` — `workflows` (globs of the workflow files to read, relative to the repository root, with no `..` and every
+  `[` closed), `builtin`, `secrets` (each with a `name` and a `source` of `app`, `env`, and `secret`), and `variables`.
 
 ```yaml
 environment:

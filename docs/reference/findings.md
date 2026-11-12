@@ -287,9 +287,12 @@ The vault kinds below report only when `environment.vault` is declared. Each one
 - `vault-manifest-invalid` — A vault shape rule is broken, among others: an unknown provider, a server that is not
   `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
   `mode` that is not a quoted octal file mode such as `"0600"`, a duplicate path, an exact path that another entry's
-  glob covers, a `templates` row whose `for` names no entry, a field the entry's class or form never reads, a duplicate
-  item name, or a GitHub secret with no name or source. It names the entry's path, the template's path, the item name
-  for a duplicate, or `github.secrets` for a GitHub secret.
+  glob covers, a `templates` row whose `path` or `for` is a glob or whose `for` names no entry, a field its entry's
+  class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a
+  `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[` unclosed, or a GitHub secret with no name
+  or source. It names the entry by its path, its consumer, or its index in `environment.vault.entries`; the template by
+  its path, or its index when the path is not exact; the item name for a duplicate; `github.workflows` with the glob; or
+  `github.secrets` for a GitHub secret.
 - `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
   names the entry's path and the item name.
 - `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
@@ -302,10 +305,20 @@ The vault kinds below report only when `environment.vault` is declared. Each one
   - `secrets.X` or `vars.X`, from the dotted form or the bracket form `secrets['X']` or `secrets["X"]`;
   - `secrets[dynamic]` or `vars[dynamic]`, for an index that is an expression;
   - `secrets (whole context)` or `vars (whole context)`, for a read of the whole context such as `toJSON(secrets)`;
-  - `secrets: inherit`, for a job that passes every secret on.
+  - `secrets: inherit`, for a job that passes every secret on, written as a block key or as an entry of a flow mapping.
 
-  The rule reads commented-out text too, so a reference in a comment is reported. A reference is listed when the
-  manifest lists its name in `github.secrets` or `github.variables`, or when it is a built-in secret.
+  The rule reads two surfaces of a workflow and nothing else: each `${{ }}` expression, and each bare `if:` value. So a
+  `secrets` or `vars` word in a run script, a document, or a path is not a reference. Inside an expression, a quoted
+  string literal is not read, and a context word is a read only as a whole word that is not a property of another value:
+  `github.secrets` is not a read. A `${{ }}` expression inside a YAML comment is still read.
+
+  Context names and listed names compare case-insensitively. So `SECRETS.X` reads the `secrets` context, and `x` matches
+  a listed `X`. GitHub's own case rule for these names is not verified in this repository. If GitHub does distinguish
+  case for them, a case variant of a listed name could hide an unlisted name. The assumption is recorded here so it can
+  be checked.
+
+  A reference is listed when the manifest lists its name in `github.secrets` or `github.variables`, or when it is a
+  built-in secret.
 
 - `vault-github-source-unknown` — A listed GitHub secret names a source that matches no vault item. It names
   `github.secrets` and the secret.
@@ -316,7 +329,9 @@ cannot read Git names exits `2` with `rhino.repository.unusable`, and a workflow
 the check exits `2` rather than report a tree it did not read.
 
 The vault rules have these limits. Two globs that overlap each other are not compared, so an overlap between two globs
-is not reported. The rules recognise the `*.example` template suffix only.
+is not reported. The rules recognise the `*.example` template suffix only. The workflow scan reads only the surfaces
+named above, so a reference written anywhere else in a workflow is not reported. The case rule is the unverified
+assumption named above.
 
 ## Toolchains
 

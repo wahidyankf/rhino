@@ -24,9 +24,13 @@ the commits behind any release, see its
   workflows. It never opens an ignored file. A tree without a Git name boundary refuses the check with exit `2`.
 - `vault-github-unlisted-reference` also reads the bracket forms `secrets['X']` and `secrets["X"]`, and reports the
   references it cannot resolve to one name: `secrets[dynamic]`, `secrets (whole context)`, and `secrets: inherit`.
-- `vault-manifest-invalid` also refuses an exact entry path that another entry's glob covers, a templates row whose
-  `for` names no entry, a `mode` that is not a quoted octal string, and a field that an entry's class or form never reads.
+- `vault-manifest-invalid` also refuses an exact entry path that another entry's glob covers, a `templates` row whose
+  `path` or `for` is a glob or whose `for` names no entry, a `github.workflows` glob that is absolute, climbs with `..`,
+  or leaves a `[` unclosed, a `mode` that is not a quoted octal string, and each field an entry's class never reads.
   A `prefix` may now have any number of kebab-case segments.
+- The workflow scan reads only `${{ }}` expressions and bare `if:` values, so a `secrets` or `vars` word elsewhere in a
+  workflow is no longer reported. A quoted string literal inside an expression is not read. Context and listed names
+  compare case-insensitively.
 
 ## [v0.16.7] — 2026-11-01
 

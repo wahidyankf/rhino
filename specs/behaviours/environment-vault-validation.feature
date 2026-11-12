@@ -1,8 +1,8 @@
 Feature: Environment vault manifest validation
 
   A repository declares its secret-bearing files, its templates, and the secrets its workflows read under
-  environment.vault. env validate reports what that manifest leaves unclassified. It reads names from Git and the
-  contents of tracked workflows only, and it never opens an ignored file.
+  environment.vault. env validate reports what that manifest leaves unclassified. It reads names from Git. From tracked workflows it reads only the
+  secret and variable references in their expressions and if: values. It never opens an ignored file.
 
   Scenario: Reject an unclassified ignored secret file
     Given the repository declares this environment configuration:
@@ -185,6 +185,31 @@ Feature: Environment vault manifest validation
     And the output names "infra/example/.env.example"
     And the output names "vault-manifest-invalid"
 
+  Scenario: Reject a templates row whose for is a glob
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/*/gen.json
+              class: derived
+              reason: Generated from the vault.
+              by: scripts/generate.mjs
+          templates:
+            - path: infra/example/.env.example
+              for: infra/*/gen.json
+      """
+    And the repository tracks "infra/example/.env.example" with the content "EXAMPLE_TOKEN="
+    When I run environment validation
+    Then the command exits 1
+    And the output names "infra/example/.env.example"
+    And the output names "vault-manifest-invalid"
+
   Scenario: Reject a workflow secret reference that the manifest does not list
     Given the repository declares this environment configuration:
       """
@@ -347,6 +372,157 @@ Feature: Environment vault manifest validation
       | run: echo ${{ toJSON(secrets) }}        | secrets (whole context)   |
       | secrets: inherit                        | secrets: inherit          |
 
+  Scenario Outline: Reject a workflow glob that is not a relative pattern
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+          github:
+            workflows: ["<glob>"]
+            builtin: [GITHUB_TOKEN]
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "github.workflows"
+    And the output names "<glob>"
+    And the output names "vault-manifest-invalid"
+
+    Examples:
+      | glob       |
+      | /abs/*.yml |
+      | ../x.yml   |
+      | [bad       |
+
+  Scenario: Accept workflow text that names a secret outside an expression
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+          github:
+            workflows: [".github/workflows/*.yml"]
+            builtin: [GITHUB_TOKEN]
+            secrets:
+              - name: EXAMPLE_TOKEN
+                source: { app: infra-example, env: prod, secret: example-token }
+      """
+    And the repository tracks ".github/workflows/release.yml" with the content "run: cat docs/secrets.md && node -e @vars.yml"
+    When I run environment validation
+    Then the command exits 0
+
+  Scenario: Accept a context name inside a string literal of an expression
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+          github:
+            workflows: [".github/workflows/*.yml"]
+            builtin: [GITHUB_TOKEN]
+            secrets:
+              - name: EXAMPLE_TOKEN
+                source: { app: infra-example, env: prod, secret: example-token }
+      """
+    And the repository tracks ".github/workflows/release.yml" with the content "run: echo ${{ format('org/secrets-repo') }} ${{ contains(inputs.x, 'vars') }}"
+    When I run environment validation
+    Then the command exits 0
+
+  Scenario: Reject a workflow reference written in another letter case
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+          github:
+            workflows: [".github/workflows/*.yml"]
+            builtin: [GITHUB_TOKEN]
+            secrets:
+              - name: EXAMPLE_TOKEN
+                source: { app: infra-example, env: prod, secret: example-token }
+      """
+    And the repository tracks ".github/workflows/release.yml" with the content "run: echo ${{ SECRETS.OTHER_TOKEN }}"
+    When I run environment validation
+    Then the command exits 1
+    And the output names ".github/workflows/release.yml"
+    And the output names "secrets.OTHER_TOKEN"
+    And the output names "vault-github-unlisted-reference"
+
+  Scenario: Reject a workflow if condition that reads an unlisted secret
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+          github:
+            workflows: [".github/workflows/*.yml"]
+            builtin: [GITHUB_TOKEN]
+            secrets:
+              - name: EXAMPLE_TOKEN
+                source: { app: infra-example, env: prod, secret: example-token }
+      """
+    And the repository tracks ".github/workflows/release.yml" with the content "if: secrets.OTHER_TOKEN != ''"
+    When I run environment validation
+    Then the command exits 1
+    And the output names ".github/workflows/release.yml"
+    And the output names "secrets.OTHER_TOKEN"
+    And the output names "vault-github-unlisted-reference"
+
   Scenario: Reject an item name whose environment is outside the declared set
     Given the repository declares this environment configuration:
       """
@@ -412,6 +588,162 @@ Feature: Environment vault manifest validation
     Then the command exits 1
     And the output names "apps/example/.secrets/postgres-password"
     And the output names "vault-manifest-invalid"
+
+  Scenario: Reject a vault env entry that names a reason
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+              reason: Not read by an env entry.
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "infra/example/.env.prod"
+    And the output names "vault-manifest-invalid"
+
+  Scenario: Reject a vault file entry that names a consumer
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/terraform/terraform.tfvars
+              class: vault
+              form: file
+              app: infra-example
+              env: prod
+              secret: tfvars
+              consumer: scripts/apply.mjs
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "infra/example/terraform/terraform.tfvars"
+    And the output names "vault-manifest-invalid"
+
+  Scenario: Reject a resident entry that sets a mode
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - class: vault
+              form: resident
+              app: infra-example
+              env: prod
+              secret: resident-token
+              mode: "0600"
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "environment.vault.entries[0]"
+    And the output names "vault-manifest-invalid"
+
+  Scenario: Reject a derived entry that names a consumer
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: apps/example/gen.json
+              class: derived
+              reason: Generated from the vault.
+              by: scripts/generate.mjs
+              consumer: scripts/apply.mjs
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "apps/example/gen.json"
+    And the output names "vault-manifest-invalid"
+
+  Scenario: Reject a machine-local entry that names a by
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: hippo.local.json
+              class: machine-local
+              reason: Written by this machine only.
+              by: scripts/setup.mjs
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "hippo.local.json"
+    And the output names "vault-manifest-invalid"
+
+  Scenario: Accept each field a class reads
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, canary, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys: [EXAMPLE_TOKEN]
+              mode: "0600"
+            - path: infra/example/terraform/terraform.tfvars
+              class: vault
+              form: file
+              app: infra-example
+              env: prod
+              secret: tfvars
+              mode: "0600"
+            - class: vault
+              form: resident
+              app: infra-example
+              env: prod
+              secret: resident-token
+              consumer: scripts/apply.mjs
+            - path: apps/example/gen.json
+              class: derived
+              reason: Generated from the vault.
+              by: scripts/generate.mjs
+            - path: hippo.local.json
+              class: machine-local
+              reason: Written by this machine only.
+      """
+    When I run environment validation
+    Then the command exits 0
 
   Scenario: Reject a GitHub secret whose source names no entry
     Given the repository declares this environment configuration:

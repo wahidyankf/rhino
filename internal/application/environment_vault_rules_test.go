@@ -76,6 +76,12 @@ const workflowsGlob = `    github:
           source: { app: infra-example, env: prod, secret: example-token }
 `
 
+// workflowsWith declares the GitHub block with one workflow glob and no listed
+// names, so a case proves the glob alone.
+func workflowsWith(glob string) string {
+	return vaultReplace("    entries:\n", "    github:\n      workflows: [\""+glob+"\"]\n    entries:\n")
+}
+
 func vaultCases() []vaultCase {
 	entry := func(extra string) string { return vaultBase + extra }
 	return []vaultCase{
@@ -224,6 +230,53 @@ func vaultCases() []vaultCase {
 			tracked: map[string]string{".github/workflows/ci.yml": "# run: echo ${{ secrets.OLD }}\n"}, exit: 1,
 			stderr: []string{".github/workflows/ci.yml: vault-github-unlisted-reference (secrets.OLD)"}},
 
+		// Workflow globs, scanned surfaces, and field refusals (round three).
+		{name: "workflow glob that is absolute", config: workflowsWith("/abs/*.yml"), exit: 1,
+			stderr: []string{"github.workflows: vault-manifest-invalid (/abs/*.yml)"}},
+		{name: "workflow glob that climbs out of the repository", config: workflowsWith("../x.yml"), exit: 1,
+			stderr: []string{"github.workflows: vault-manifest-invalid (../x.yml)"}},
+		{name: "workflow glob with an unterminated class", config: workflowsWith("[bad"), exit: 1,
+			stderr: []string{"github.workflows: vault-manifest-invalid ([bad)"}},
+		{name: "template for that is a glob", config: entry("      - path: infra/*/gen.json\n        class: derived\n        reason: r\n        by: t\n") +
+			"    templates:\n      - { path: infra/example/.env.example, for: infra/*/gen.json }\n",
+			tracked: map[string]string{"infra/example/.env.example": "EXAMPLE_TOKEN=\n"}, exit: 1,
+			stderr: []string{"infra/example/.env.example: vault-manifest-invalid"}},
+		{name: "vault env entry that names a reason", config: vaultReplace("keys: [EXAMPLE_TOKEN]", "keys: [EXAMPLE_TOKEN]\n        reason: r"), exit: 1,
+			stderr: []string{"infra/example/.env.prod: vault-manifest-invalid"}},
+		{name: "vault file entry that names a consumer", config: entry("      - path: infra/example/terraform/terraform.tfvars\n        class: vault\n        form: file\n        app: infra-terraform\n        env: prod\n        secret: tfvars\n        consumer: scripts/x.mjs\n"), exit: 1,
+			stderr: []string{"infra/example/terraform/terraform.tfvars: vault-manifest-invalid"}},
+		{name: "vault file entry with a mode", config: entry("      - path: infra/example/terraform/terraform.tfvars\n        class: vault\n        form: file\n        app: infra-terraform\n        env: prod\n        secret: tfvars\n        mode: \"0600\"\n"), exit: 0},
+		{name: "resident entry with a mode", config: entry("      - class: vault\n        form: resident\n        app: infra-example\n        env: prod\n        secret: resident-token\n        mode: \"0600\"\n"), exit: 1,
+			stderr: []string{"environment.vault.entries[1]: vault-manifest-invalid"}},
+		{name: "derived entry with a mode", config: entry("      - path: apps/example/gen.json\n        class: derived\n        reason: r\n        by: t\n        mode: \"0600\"\n"), exit: 1,
+			stderr: []string{"apps/example/gen.json: vault-manifest-invalid"}},
+		{name: "derived entry with a consumer", config: entry("      - path: apps/example/gen.json\n        class: derived\n        reason: r\n        by: t\n        consumer: x.mjs\n"), exit: 1,
+			stderr: []string{"apps/example/gen.json: vault-manifest-invalid"}},
+		{name: "machine-local entry that names a by", config: entry("      - path: hippo.local.json\n        class: machine-local\n        reason: r\n        by: t\n"), exit: 1,
+			stderr: []string{"hippo.local.json: vault-manifest-invalid"}},
+
+		// Workflow scanning: expressions only, whole words only, case-insensitive.
+		{name: "string literal that names a context is not a reference", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ format('org/secrets-repo') }}\n"}, exit: 0},
+		{name: "context word inside a string literal is not a whole-context read", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ contains(inputs.x, 'vars') }}\n"}, exit: 0},
+		{name: "a context word with a hyphen is not a context", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ inputs.secrets-repo }}\n"}, exit: 0},
+		{name: "a quoted literal inside an expression is not a reference", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ 'secrets.OTHER' }}\n"}, exit: 0},
+		{name: "free text outside an expression is not read", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: cat docs/secrets.md && node -e @vars.yml\n"}, exit: 0},
+		{name: "a context name in another case is reported", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ SECRETS.OTHER }}\n"}, exit: 1,
+			stderr: []string{".github/workflows/ci.yml: vault-github-unlisted-reference (secrets.OTHER)"}},
+		{name: "a listed name in another case is listed", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ secrets.example_token }}\n"}, exit: 0},
+		{name: "a whole-context read in another case is reported", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "run: echo ${{ TOJSON(Secrets) }}\n"}, exit: 1,
+			stderr: []string{".github/workflows/ci.yml: vault-github-unlisted-reference (secrets (whole context))"}},
+		{name: "an if condition that reads an unlisted secret is reported", config: vaultReplace("    entries:\n", workflowsGlob+"    entries:\n"),
+			tracked: map[string]string{".github/workflows/ci.yml": "if: secrets.OTHER != ''\n"}, exit: 1,
+			stderr: []string{".github/workflows/ci.yml: vault-github-unlisted-reference (secrets.OTHER)"}},
 		// Whole-manifest and Git-boundary cases.
 		{name: "undeclared vault changes nothing", config: "schema: rhino/repo-config/v2\nenvironment: {}\n", exit: 0},
 		{name: "vault written as text refuses", config: "schema: rhino/repo-config/v2\nenvironment:\n  vault: marker-7f3a\n", exit: 2,

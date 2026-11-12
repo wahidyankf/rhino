@@ -40,20 +40,17 @@ var (
 	kebabSegment = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 	// vaultFileMode is an octal file mode, written quoted in the manifest.
 	vaultFileMode = regexp.MustCompile(`^0[0-7]{3}$`)
-	// workflowReference is a literal secrets or vars name in one of its three
-	// forms: dotted, single-quoted bracket, or double-quoted bracket. Group 1 is
-	// the context. Groups 2 to 4 hold the name in each form. The leading class
-	// keeps a longer dotted name, such as github.secrets.x, from reading as one.
-	workflowReference = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.])(secrets|vars)(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\]|\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\])`)
 	// workflowExpression is one ${{ }} expression of a workflow.
 	workflowExpression = regexp.MustCompile(`(?s)\$\{\{(.*?)\}\}`)
-	// workflowContext is a secrets or vars token inside an expression.
-	workflowContext = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.])(secrets|vars)`)
-	// literalAccess is what follows a context token that names its key in full,
-	// so the literal scan already reports it.
-	literalAccess = regexp.MustCompile(`^(?:\.[A-Za-z_]|\[\s*(?:'[A-Za-z_][A-Za-z0-9_]*'|"[A-Za-z_][A-Za-z0-9_]*")\s*\])`)
-	// inheritedSecrets is a job that passes every secret on, secrets: inherit.
-	inheritedSecrets = regexp.MustCompile(`(?:^|[\s{,])secrets:\s*inherit\b`)
+	// workflowIf is a bare if: value. GitHub reads it as an expression with no ${{ }}.
+	workflowIf = regexp.MustCompile(`(?m)^\s*(?:-\s+)?if:[ \t]*(.+?)[ \t]*$`)
+	// workflowName is a key after a dot, or the text inside a quoted bracket key.
+	workflowName = regexp.MustCompile(`^[A-Za-z0-9_-]+`)
+	// workflowBracketKey is a quoted key in a bracket index, such as secrets['X'].
+	// Group 1 is the single-quoted form, group 2 the double-quoted form.
+	workflowBracketKey = regexp.MustCompile(`^\[\s*(?:'([A-Za-z0-9_-]+)'|"([A-Za-z0-9_-]+)")\s*\]`)
+	// inheritedSecrets is a job that passes every secret on: a block key, or an entry of a flow mapping.
+	inheritedSecrets = regexp.MustCompile(`(?m)^\s*(?:-\s+)?secrets:[ \t]*inherit[ \t]*$|[{,]\s*secrets:\s*inherit\s*[,}]`)
 )
 
 // vaultFailure is a refusal the vault rules end the run with.
@@ -212,7 +209,7 @@ func entryLabel(index int, entry config.VaultEntry) string {
 }
 
 // checkEntry applies the rules of one entry's class and form, and the file mode
-// when one is declared.
+// when one is declared. Each class refuses every field it never reads.
 func (r *vaultRules) checkEntry(label string, entry config.VaultEntry) {
 	if entry.Mode != "" && !vaultFileMode.MatchString(entry.Mode) {
 		r.invalid(label)
@@ -221,11 +218,11 @@ func (r *vaultRules) checkEntry(label string, entry config.VaultEntry) {
 	case "vault":
 		r.checkVaultEntry(label, entry)
 	case "derived", "generated":
-		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || entry.By == "" || hasVaultFields(entry) {
+		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || entry.By == "" || !onlyFields(entry, "path", "reason", "by") {
 			r.invalid(label)
 		}
 	case "machine-local":
-		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || hasVaultFields(entry) {
+		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || !onlyFields(entry, "path", "reason") {
 			r.invalid(label)
 		}
 	default:
@@ -233,30 +230,58 @@ func (r *vaultRules) checkEntry(label string, entry config.VaultEntry) {
 	}
 }
 
-// hasVaultFields reports whether an entry of a derived, generated, or
-// machine-local class names a field only a vault entry reads. That class never
-// reads the field, so the manifest refuses it rather than ignore it silently.
-func hasVaultFields(entry config.VaultEntry) bool {
-	return entry.Form != "" || entry.App != "" || entry.Env != "" || entry.Secret != "" || len(entry.Keys) > 0
+// entryFields maps each manifest field of an entry to whether the entry sets it.
+func entryFields(entry config.VaultEntry) map[string]bool {
+	return map[string]bool{
+		"path":     entry.Path != "",
+		"form":     entry.Form != "",
+		"app":      entry.App != "",
+		"env":      entry.Env != "",
+		"secret":   entry.Secret != "",
+		"keys":     len(entry.Keys) > 0,
+		"mode":     entry.Mode != "",
+		"reason":   entry.Reason != "",
+		"by":       entry.By != "",
+		"consumer": entry.Consumer != "",
+	}
+}
+
+// onlyFields reports whether an entry sets no field outside allowed. A class
+// never reads the fields it does not name, so the manifest refuses them rather
+// than ignore them silently.
+func onlyFields(entry config.VaultEntry, allowed ...string) bool {
+	permitted := map[string]bool{}
+	for _, name := range allowed {
+		permitted[name] = true
+	}
+	for name, set := range entryFields(entry) {
+		if set && !permitted[name] {
+			return false
+		}
+	}
+	return true
 }
 
 // checkVaultEntry applies the rules of a vault entry: an exact path for a file
-// or an env file, no path for a resident item, and unique keys in an env entry.
+// or an env file, no path for a resident item, unique keys in an env entry, and
+// only the fields its form reads.
 func (r *vaultRules) checkVaultEntry(label string, entry config.VaultEntry) {
 	switch entry.Form {
 	case "env":
 		// An env entry reads its items from keys, so an entry-level secret would be ignored.
 		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || len(entry.Keys) == 0 ||
-			hasInvalidKey(entry.Keys) || entry.Secret != "" {
+			hasInvalidKey(entry.Keys) || !onlyFields(entry, "path", "form", "app", "env", "keys", "mode") {
 			r.invalid(label)
 		}
 	case "file":
 		// A file entry names one secret, so keys would be ignored.
-		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || entry.Secret == "" || len(entry.Keys) > 0 {
+		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || entry.Secret == "" ||
+			!onlyFields(entry, "path", "form", "app", "env", "secret", "mode") {
 			r.invalid(label)
 		}
 	case "resident":
-		if entry.Path != "" || entry.App == "" || entry.Env == "" || entry.Secret == "" || len(entry.Keys) > 0 {
+		if entry.App == "" || entry.Env == "" || entry.Secret == "" ||
+			!onlyFields(entry, "form", "app", "env", "secret", "consumer") {
 			r.invalid(label)
 		}
 	default:
@@ -267,6 +292,11 @@ func (r *vaultRules) checkVaultEntry(label string, entry config.VaultEntry) {
 // checkGitHubDeclarations applies the shape rules of the GitHub block: every
 // listed secret names a source and every listed name is non-empty.
 func (r *vaultRules) checkGitHubDeclarations() {
+	for _, glob := range r.manifest.GitHub.Workflows {
+		if !validGlob(glob) {
+			r.flag(ruleVaultManifestInvalid, "github.workflows", glob)
+		}
+	}
 	for _, secret := range r.manifest.GitHub.Secrets {
 		if secret.Name == "" || secret.Source.App == "" || secret.Source.Env == "" || secret.Source.Secret == "" {
 			r.flag(ruleVaultManifestInvalid, "github.secrets", secret.Name)
@@ -511,7 +541,7 @@ func (r *vaultRules) checkTemplateRows() {
 		}
 	}
 	for index, template := range r.manifest.Templates {
-		if !isExactPath(template.Path) || !entries[template.For] {
+		if !isExactPath(template.Path) || !isExactPath(template.For) || !entries[template.For] {
 			r.invalid(templateLabel(index, template))
 		}
 	}
@@ -531,48 +561,144 @@ func templateLabel(index int, template config.VaultTemplate) string {
 func listedNames(github *config.VaultGitHub) (map[string]bool, map[string]bool) {
 	secrets := map[string]bool{}
 	for _, name := range github.Builtin {
-		secrets[name] = true
+		secrets[strings.ToLower(name)] = true
 	}
 	for _, secret := range github.Secrets {
-		secrets[secret.Name] = true
+		secrets[strings.ToLower(secret.Name)] = true
 	}
 	variables := map[string]bool{}
 	for _, variable := range github.Variables {
-		variables[variable.Name] = true
+		variables[strings.ToLower(variable.Name)] = true
 	}
 	return secrets, variables
 }
 
-// checkWorkflow reports, for one tracked workflow, every literal reference the
-// manifest does not list. It also reports every reference it cannot resolve to
-// one name: a dynamic index, a whole-context read, or an inherited secret set.
-// Commented-out text is read as well, so it is reported too; that is the safe
-// direction, and findings.md documents it.
+// checkWorkflow reports, for one tracked workflow, every secrets or vars read the
+// manifest does not list. The scanned surface is each ${{ }} expression and each
+// bare if: value; the rest of the text, including comments and free text, is not
+// read. A read that cannot resolve to one name is reported too: a dynamic index,
+// a whole-context read, or an inherited secret set.
 func (r *vaultRules) checkWorkflow(path, text string, listedSecrets, listedVariables map[string]bool) {
-	for _, match := range workflowReference.FindAllStringSubmatch(text, -1) {
-		// Exactly one of the three name groups matches, so their concatenation is the name.
-		kind, name := match[1], match[2]+match[3]+match[4]
-		listed := (kind == "secrets" && listedSecrets[name]) || (kind == "vars" && listedVariables[name])
-		if !listed {
-			r.flag(ruleVaultGitHubUnlistedReference, path, kind+"."+name)
-		}
-	}
-	for _, expression := range workflowExpression.FindAllStringSubmatch(text, -1) {
-		body := expression[1]
-		for _, token := range workflowContext.FindAllStringSubmatchIndex(body, -1) {
-			kind := body[token[2]:token[3]]
-			rest := body[token[1]:]
-			switch {
-			case literalAccess.MatchString(rest):
-				// The literal scan above reports the name this token reads.
-			case strings.HasPrefix(rest, "["):
-				r.flag(ruleVaultGitHubUnlistedReference, path, kind+"[dynamic]")
-			default:
-				r.flag(ruleVaultGitHubUnlistedReference, path, kind+" (whole context)")
+	for _, body := range workflowBodies(text) {
+		for _, read := range workflowReads(body) {
+			if read.name == "" || !listedRead(read, listedSecrets, listedVariables) {
+				r.flag(ruleVaultGitHubUnlistedReference, path, read.label())
 			}
 		}
 	}
 	if inheritedSecrets.MatchString(text) {
 		r.flag(ruleVaultGitHubUnlistedReference, path, "secrets: inherit")
 	}
+}
+
+// listedRead reports whether a literal read names a listed secret or variable.
+// Names compare case-insensitively, the safe direction while GitHub's case rule
+// for context names is unverified; findings.md records the assumption.
+func listedRead(read workflowRead, listedSecrets, listedVariables map[string]bool) bool {
+	name := strings.ToLower(read.name)
+	if read.kind == "secrets" {
+		return listedSecrets[name]
+	}
+	return listedVariables[name]
+}
+
+// workflowRead is one read an expression makes of the secrets or vars context.
+// A literal read names its key; a dynamic read indexes with a non-literal
+// expression; a whole-context read takes the context itself.
+type workflowRead struct {
+	kind    string
+	name    string
+	dynamic bool
+}
+
+// label names a read in a finding.
+func (read workflowRead) label() string {
+	switch {
+	case read.name != "":
+		return read.kind + "." + read.name
+	case read.dynamic:
+		return read.kind + "[dynamic]"
+	default:
+		return read.kind + " (whole context)"
+	}
+}
+
+// workflowBodies returns the expression bodies a workflow text holds: each
+// ${{ }} expression and each bare if: value.
+func workflowBodies(text string) []string {
+	var bodies []string
+	for _, match := range workflowExpression.FindAllStringSubmatch(text, -1) {
+		bodies = append(bodies, match[1])
+	}
+	for _, match := range workflowIf.FindAllStringSubmatch(text, -1) {
+		bodies = append(bodies, match[1])
+	}
+	return bodies
+}
+
+// workflowReads returns every read an expression body makes of the secrets or
+// vars context. Quoted strings are skipped, and only whole words count, so a
+// context named inside a string or inside a longer word is not a read. A word
+// after a dot is a property of another value, not a context.
+func workflowReads(body string) []workflowRead {
+	var reads []workflowRead
+	for i := 0; i < len(body); {
+		if body[i] == '\'' {
+			i = skipQuoted(body, i)
+			continue
+		}
+		if !isWordByte(body[i]) {
+			i++
+			continue
+		}
+		start := i
+		for i < len(body) && isWordByte(body[i]) {
+			i++
+		}
+		kind := strings.ToLower(body[start:i])
+		if (kind != "secrets" && kind != "vars") || (start > 0 && body[start-1] == '.') {
+			continue
+		}
+		reads = append(reads, contextRead(kind, body[i:]))
+	}
+	return reads
+}
+
+// contextRead classifies the text after a secrets or vars word: a dotted key,
+// a quoted bracket key, a dynamic bracket index, or nothing at all.
+func contextRead(kind, rest string) workflowRead {
+	if strings.HasPrefix(rest, ".") {
+		if name := workflowName.FindString(rest[1:]); name != "" {
+			return workflowRead{kind: kind, name: name}
+		}
+	}
+	if match := workflowBracketKey.FindStringSubmatch(rest); match != nil {
+		return workflowRead{kind: kind, name: match[1] + match[2]}
+	}
+	if strings.HasPrefix(rest, "[") {
+		return workflowRead{kind: kind, dynamic: true}
+	}
+	return workflowRead{kind: kind}
+}
+
+// skipQuoted returns the index just past the single-quoted string that opens at
+// i. A doubled quote inside the string is an escaped quote. An unterminated
+// string runs to the end of the body.
+func skipQuoted(body string, i int) int {
+	for j := i + 1; j < len(body); j++ {
+		if body[j] != '\'' {
+			continue
+		}
+		if j+1 < len(body) && body[j+1] == '\'' {
+			j++
+			continue
+		}
+		return j + 1
+	}
+	return len(body)
+}
+
+// isWordByte reports whether a byte can be part of a GitHub expression word.
+func isWordByte(c byte) bool {
+	return c == '_' || c == '-' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
