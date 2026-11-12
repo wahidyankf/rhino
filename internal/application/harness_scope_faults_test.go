@@ -52,3 +52,32 @@ func TestHarnessGenerateRefusesAMarkerSurfaceThatCannotBeRead(t *testing.T) {
 		t.Fatal("generate wrote an adapter before refusing the marker surface")
 	}
 }
+
+// TestHarnessGenerateRefusesWithExitTwoWhenAGeneratedMarkerIsStale proves generation
+// still writes the adapters it owns, then refuses with exit 2 and the harness refusal
+// code when a declared marker surface claims RHINO output that generation does not
+// write. The same finding stays exit 1 under validation, which is read-only.
+func TestHarnessGenerateRefusesWithExitTwoWhenAGeneratedMarkerIsStale(t *testing.T) {
+	tree := harnessTree(harnessInstructionConfig + "  marker-surfaces: ['.codex/config.toml']\n")
+	tree.files["AGENTS.md"] = harnessRootInstruction
+	tree.files[".codex/config.toml"] = "[agents]\n# Rhino generated: codex agents\n"
+	store := &memoryHarnessStore{tree: tree}
+	outcome := runHarnessGenerate(tree, store, &stubModelResolver{}, "harness", "adapters", "generate", "--output", "json")
+	if outcome.ExitCode != 2 {
+		t.Fatalf("generate with a stale marker exited %d, want 2: %+v", outcome.ExitCode, outcome)
+	}
+	if outcome.Stdout != "" {
+		t.Fatalf("a refused generate wrote to stdout: %q", outcome.Stdout)
+	}
+	if !strings.Contains(outcome.Stderr, `"code":"rhino.harness.refused"`) ||
+		!strings.Contains(outcome.Stderr, ".codex/config.toml: stale-marker") {
+		t.Fatalf("the refusal does not carry the harness code and the stale marker: %q", outcome.Stderr)
+	}
+	if _, written := tree.files["CLAUDE.md"]; !written {
+		t.Fatal("generate did not write the adapters it owns before refusing the stale marker")
+	}
+	validated := runHarnessValidate(tree, "harness", "adapters", "validate")
+	if validated.ExitCode != 1 || !strings.Contains(validated.Stderr, ".codex/config.toml: stale-marker") {
+		t.Fatalf("validate no longer reports the stale marker as exit 1: %+v", validated)
+	}
+}

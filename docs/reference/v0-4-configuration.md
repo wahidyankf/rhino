@@ -498,11 +498,12 @@ Neither key applies to a skill adapter; declaring one there refuses.
 `marker-surfaces` is an optional list of globs under `harness` naming files outside every adapter family, such as a
 harness's own settings file, for adapter validation to inspect. A matched file with a line containing `Rhino generated`,
 in any letter case, claims to be RHINO output. No adapter generation writes that phrase or such a file, so
-`harness adapters validate` and `harness adapters generate` report it as `stale-marker` and exit `1`. A file under a
-declared family root or at an exact adapter path is never inspected here, because the adapter comparison already covers
-it, and neither is a file in a directory `scan.exclude-directories` names. A glob that climbs out of the root refuses
-with `rhino.config.unusable`, a matched file that cannot be read refuses with `rhino.file.unreadable`, and a file
-holding no text is skipped. Like every surface glob, a marker surface follows a symbolic link only as
+`harness adapters validate` reports it as `stale-marker` and exits `1`; `harness adapters generate` writes its own
+adapters and then refuses with `rhino.harness.refused` and exits `2`, naming each stale marker. A file under a declared
+family root or at an exact adapter path is never inspected here, because the adapter comparison already covers it, and
+neither is a file in a directory `scan.exclude-directories` names. A glob that climbs out of the root refuses with
+`rhino.config.unusable`, a matched file that cannot be read refuses with `rhino.file.unreadable`, and a file holding no
+text is skipped. Like every surface glob, a marker surface follows a symbolic link only as
 [surface globs and symbolic links](#surface-globs-and-symbolic-links) describes. Omitted, nothing is inspected.
 
 ```yaml

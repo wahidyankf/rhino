@@ -166,8 +166,8 @@ over the Bitwarden CLI, and `VaultFileStore` by `internal/adapters/runtime/vault
 | `0`     | Ran and found nothing                                                                                  |
 | `1`     | Ran and found a violation, a vault finding, or a `gate run` child exited non-zero or ended by a signal |
 | `2`     | Could not run: invocation, configuration, or an unreadable input                                       |
-| `126`   | `gate run` only: a declared child exists but cannot be executed                                        |
-| `127`   | `gate run` only: a declared child cannot be found                                                      |
+| `126`   | A required child exists but cannot be executed: a gate child, `bw`, or a provision child               |
+| `127`   | A required child cannot be found: a gate child, `bw`, or a provision child                             |
 | `128+N` | RHINO was ended by signal `N`: `130` interrupt, `143` termination, `141` closed pipe                   |
 
 A check child that ends by a signal is a failing gate, reported as `1`. A mutation child that ends by a signal is

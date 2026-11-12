@@ -40,6 +40,18 @@ the commits behind any release, see its
   workflow is not reported. A quoted string literal inside an expression is not read. Listed names compare
   case-insensitively, as GitHub documents for secrets and configuration variables; `findings.md` gives the sources.
 
+### Changed — breaking
+
+- **`harness adapters generate` exits `2`, not `1`, when a generated marker remains.** It writes its adapters first, then
+  refuses with `rhino.harness.refused`, naming each marker. `harness adapters validate` still reports the same marker as
+  a finding with exit `1`.
+- **`env pull`, `env push`, and `env diff` exit `127` or `126` when `bw` cannot start.** `127` means `bw` was not found,
+  and `126` that it cannot be executed. Both used to exit `2` with `rhino.vault.unavailable`, which keeps its code. The
+  check runs before the first write.
+- **`toolchain provision --apply` exits `127` or `126` when an applied child cannot start.** `127` means the child was
+  not found, and `126` that it cannot be executed. Both used to exit `2` with `rhino.toolchain.failed`, which keeps its
+  code. Provision children declared before it already ran.
+
 ## [v0.16.7] — 2026-11-01
 
 A patch release: `md readme-index validate` finishes in a fraction of a second on a repository of about 3,800 files.

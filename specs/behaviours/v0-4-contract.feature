@@ -2224,7 +2224,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And stderr contains ".codex/config.toml: stale-marker"
 
-  Scenario: Harness adapter generation writes its adapters and reports a generated marker it does not own
+  Scenario: Harness adapter generation writes its adapters and refuses a generated marker it does not own
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2246,9 +2246,35 @@ Feature: Rhino v0.4 contracts
       | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
       | .codex/config.toml         | [agents]\n# Rhino generated: codex agents\n                         |
     When I invoke the CLI with "harness|adapters|generate"
-    Then the exit code is 1
+    Then the exit code is 2
     And stderr contains ".codex/config.toml: stale-marker"
     And the generated adapter at "adapters/alpha/agents/reviewer.md" contains "name: reviewer"
+
+  Scenario: Harness adapter generation refuses a generated marker it does not own under the harness code
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      harness:
+        canonical:
+          agents: {name: name, description: description, grants: capabilities, denials: denies, constraints: constraints}
+        marker-surfaces: [".codex/config.toml"]
+        profiles:
+          - id: alpha
+            agent-adapter: {path: "adapters/alpha/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely.", identity: {name: name}}
+          - id: beta
+            agent-adapter: {path: "adapters/beta/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+          - id: gamma
+            agent-adapter: {path: "adapters/gamma/agents/{name}.md", format: front-matter, route-field: body, route: "Read {path} completely."}
+      """
+    And the repository contains:
+      | path                       | content                                                             |
+      | AGENTS.md                  | Canonical instruction                                               |
+      | .agents/agents/reviewer.md | ---\nname: reviewer\ndescription: Review changes\n---\nCanonical agent |
+      | .codex/config.toml         | [agents]\n# Rhino generated: codex agents\n                         |
+    When I invoke the CLI with "harness|adapters|generate|--output|json"
+    Then the exit code is 2
+    And stderr contains "rhino.harness.refused"
+    And stderr contains ".codex/config.toml: stale-marker"
 
   Scenario: A native-shaped agent adapter path generates and validates
     Given the configuration file is this text:
@@ -2445,6 +2471,47 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "toolchain|provision"
     Then the exit code is 0
     And stdout contains "planned 0"
+
+  Scenario: Toolchain provisioning exits 127 when an applied provision child is not found
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: absent-installer
+            executable: absent-tool
+            probe: [--version]
+            required: false
+            provision:
+              - {platform: linux, executable: ./absent-installer, arguments: [install]}
+              - {platform: macos, executable: ./absent-installer, arguments: [install]}
+              - {platform: windows, executable: ./absent-installer, arguments: [install]}
+      """
+    When I invoke the CLI with "toolchain|provision|--apply|--output|json"
+    Then the exit code is 127
+    And stderr contains "rhino.toolchain.failed"
+
+  Scenario: Toolchain provisioning exits 126 when an applied provision child is not executable
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: unrunnable-installer
+            executable: absent-tool
+            probe: [--version]
+            required: false
+            provision:
+              - {platform: linux, executable: ./unrunnable-installer, arguments: [install]}
+              - {platform: macos, executable: ./unrunnable-installer, arguments: [install]}
+              - {platform: windows, executable: ./unrunnable-installer, arguments: [install]}
+      """
+    And the repository contains:
+      | path                 | content      |
+      | unrunnable-installer | echo install |
+    When I invoke the CLI with "toolchain|provision|--apply|--output|json"
+    Then the exit code is 126
+    And stderr contains "rhino.toolchain.failed"
 
   Scenario: Toolchain provisioning plans as one JSON object
     Given the configuration file is this text:

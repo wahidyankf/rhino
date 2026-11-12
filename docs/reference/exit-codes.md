@@ -7,25 +7,27 @@ RHINO never invents a status outside this set.
 | ------- | --------------------------------------------------- | --------------------------------------------------- |
 | `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.        |
 | `1`     | A finding, a vault finding, or a failed gate child  | Read the findings or gate output and fix the cause. |
-| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
-| `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.  |
-| `127`   | A gate child was not found                          | Fix the `command.executable` key. `gate run` only.  |
+| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. See below.    |
+| `126`   | A required child was found but cannot be executed   | Fix that child's permissions. See below.            |
+| `127`   | A required child was not found                      | Fix that child's path or install it. See below.     |
 | `128+N` | Ended by signal `N`; `130`, `143`, or `141`         | Nothing ran to completion. See below.               |
 
 The distinction that matters is between `1` and `2`. **Exit `1` means a finding: a validator reported that the
 repository breaks a rule its configuration declares, or `env pull`, `env push`, or `env diff` reported a vault
 finding.** `gate run` also exits `1` when a declared child fails, which is the one way `1` can come from a command's
-exit status rather than from a rule RHINO checked. Exit `2` means RHINO never got as far as forming an opinion — the
-command was misspelled, the root had no configuration, the configuration could not be parsed, or a selected file could
-not be read.
+exit status rather than from a rule RHINO checked. Exit `2` means RHINO never got as far as forming an opinion
+(`harness adapters generate` is the one exception; see the list below) — the command was misspelled, the root had no
+configuration, the configuration could not be parsed, or a selected file could not be read.
 
 A gate that treats every non-zero code the same will tell a maintainer to fix a document when the real problem is a typo
 in a flag.
 
-`126` and `127` draw the same line one step further out, and only `gate run` can produce them. A gate that ran and
-reported something says one thing about the repository; a gate that never started says nothing at all, and reporting the
-second as the first would let a broken hook read as a caught violation. They are the statuses a shell already reports
-for these two situations, so a caller needs no RHINO-specific vocabulary to act on them.
+`126` and `127` draw the same line one step further out, and only three required children can produce them: a gate child
+under `gate run`, the Bitwarden CLI under `env pull`, `env push`, or `env diff`, and a provision child under
+`toolchain provision --apply`. A child that ran and reported something says one thing about the repository; a child that
+never started says nothing at all, and reporting the second as the first would let a broken hook read as a caught
+violation. They are the statuses a shell already reports for these two situations, so a caller needs no RHINO-specific
+vocabulary to act on them.
 
 ## Which situations produce which code
 
@@ -62,8 +64,10 @@ nothing for a flagged entry. A vault session, server, manifest, or answer RHINO 
 - a symbolic link a declared surface glob reaches that leads outside the repository root, loops back into itself, or
   leads to nothing;
 - a file the run has to write that cannot be written;
-- a vault command whose session is not usable (`rhino.vault.unavailable`), or whose vault answer it does not understand
-  (`rhino.vault.refused`);
+- a `harness adapters generate` that wrote its own adapters and then finds a generated marker it does not own
+  (`rhino.harness.refused`); validation reports the same marker as a finding, `1`, and writes nothing;
+- a vault command whose session is missing, whose vault is locked, or whose server is not the configured one
+  (`rhino.vault.unavailable`), or whose vault answer it does not understand (`rhino.vault.refused`);
 - a vault manifest that breaks its rules, an `--entry` that names no declared vault entry, or a local env line that
   cannot be read;
 - a local file that holds no UTF-8 text, which `env pull`, `env push`, and `env diff` refuse even with `--force`;
@@ -73,11 +77,21 @@ nothing for a flagged entry. A vault session, server, manifest, or answer RHINO 
   with status `2`, prints the panic message and a goroutine trace on stderr, and writes no error document, even under
   `--output json`.
 
-`126` — `gate run` only: a child in the selected surface's sequence exists and could not be executed, because its
-`command.executable` is not executable.
+`126` — a required child exists and could not be executed, because it is not executable. The required children are:
 
-`127` — `gate run` only: a child in the selected surface's sequence could not be found at all. In both cases the gates
-before it in declaration order already ran; the ones after it did not.
+- a gate child in the selected surface's sequence, whose `command.executable` is not executable, under `gate run`;
+- the Bitwarden CLI (`bw`), under `env pull`, `env push`, or `env diff`;
+- a provision child declared for `toolchain provision --apply`.
+
+`127` — a required child from the same three sources could not be found at all.
+
+For a gate child, the gates before it in declaration order already ran; the ones after it did not. For a provision
+child, the children declared before it already ran. `env` refuses before any vault write, so a `bw` that cannot start at
+that check changes neither the repository nor the vault. A `bw` that disappears mid-run can exit `127` or `126` after
+earlier writes, because a vault run is not transactional. The error code under `--output json` does not change with
+these statuses: a gate child reports `rhino.gate.child-not-found` or `rhino.gate.child-not-executable`, a `bw` reports
+`rhino.vault.unavailable`, and a provision child reports `rhino.toolchain.failed`. A `toolchain validate` probe that
+cannot start is not a required child; it stays a finding, `1`.
 
 `128+N` — RHINO was ended by signal `N` and reports `128+N`, never a value from the result range. `130` is `SIGINT`,
 `143` is `SIGTERM`, and `141` is a closed pipe: a reader closed stdout or stderr, which the operating system reports as

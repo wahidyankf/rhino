@@ -39,7 +39,11 @@ func (DiskToolchainRunner) Run(launch application.ToolchainLaunch) (application.
 	captured := boundedCapture{limit: maxToolchainOutput}
 	command.Stdout = &captured
 	if err := command.Start(); err != nil {
-		return application.ToolchainResult{}, fmt.Errorf("could not start declared toolchain: %w", err)
+		err = fmt.Errorf("could not start declared toolchain: %w", err)
+		if status := startStatus(err); status != 0 {
+			return application.ToolchainResult{}, &application.ChildStartError{Status: status, Err: err}
+		}
+		return application.ToolchainResult{}, err
 	}
 	waited := make(chan error, 1)
 	go func() { waited <- command.Wait() }()

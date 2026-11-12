@@ -266,8 +266,10 @@ stdout carries the same `<path>: <kind>` strings.
   exact path covers it.
 
 `harness adapters generate` writes exactly the files that clear every kind but `stale-marker`. Generation owns no file a
-marker surface names, so it still writes its adapters, then reports each stale marker and exits `1`; remove the marker,
-or the region it labels, by hand.
+marker surface names, so it still writes its adapters, then refuses with `rhino.harness.refused` and exits `2`. The
+refusal names each stale marker: under text output it is one `rhino:` line on standard error, and under `--output json`
+it is the error document, with the markers in its message. Validation reports the same markers as findings and exits
+`1`. Remove the marker, or the region it labels, by hand.
 
 ## Environment
 

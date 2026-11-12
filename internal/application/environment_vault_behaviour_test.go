@@ -51,6 +51,8 @@ type unitVaultDriver struct {
 	tree  *vaultMemoryTree
 	vault *fakebw.Vault
 	noKey bool
+	// executable is the state the Bitwarden program is in for the run.
+	executable vault.Executable
 	// calls records each provider call the run made, as the process record.
 	calls []vault.Process
 }
@@ -102,6 +104,14 @@ func (d *unitVaultDriver) Session(_ context.Context, state vault.Session, server
 	return nil
 }
 
+// Executable sets the state the in-memory provider reports for the Bitwarden
+// program: absent from the path, or present without the execute bit. The
+// adapter reports those two states before any call.
+func (d *unitVaultDriver) Executable(_ context.Context, state vault.Executable) error {
+	d.executable = state
+	return nil
+}
+
 func (d *unitVaultDriver) Login(_ context.Context, name, password string) error {
 	d.vault.Create(fakebw.Item{Name: name, Type: 1, Login: &fakebw.Login{Password: &password}})
 	return nil
@@ -140,7 +150,7 @@ func (d *unitVaultDriver) Command(_ context.Context, arguments []string) (vault.
 	localBefore, vaultBefore := d.localDigest(), d.vault.Digest()
 	d.calls = nil
 	ports := application.VaultPorts{
-		Vault: &memorySecretVault{vault: d.vault, noKey: d.noKey, calls: &d.calls},
+		Vault: &memorySecretVault{vault: d.vault, noKey: d.noKey, executable: d.executable, calls: &d.calls},
 		Files: memoryFileStore{tree: d.tree},
 	}
 	outcome := application.ExecuteWithVault(d.tree, arguments, nil, nil, nil, nil, nil, nil, nil, ports)
@@ -183,9 +193,10 @@ func (d *unitVaultDriver) Close() error { return nil }
 // fake vault. It answers the same way the command-line fake does: a search is a
 // substring match, an edit keeps history, and a session without a key is refused.
 type memorySecretVault struct {
-	vault *fakebw.Vault
-	noKey bool
-	calls *[]vault.Process
+	vault      *fakebw.Vault
+	noKey      bool
+	executable vault.Executable
+	calls      *[]vault.Process
 }
 
 // record notes one provider call the run made. The double starts no process;
@@ -203,6 +214,10 @@ func (m *memorySecretVault) Status(server string) *application.VaultFault {
 	switch {
 	case m.noKey:
 		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "no session key"}
+	case m.executable == vault.ExecutableMissing:
+		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "the bw executable is not on PATH", Exit: 127}
+	case m.executable == vault.ExecutableNotRunnable:
+		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "the bw executable cannot be executed", Exit: 126}
 	case m.vault.Status != "unlocked":
 		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "the vault is not unlocked"}
 	case m.vault.ServerURL != server:

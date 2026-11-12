@@ -46,11 +46,15 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
 - `rhino.gate.child-not-executable` — A declared gate child was found and could not be executed.
 - `rhino.gate.child-refused` — A declared gate child was refused for any other reason.
 - `rhino.gate.undeclared` — A selected gate declares no executable command.
-- `rhino.toolchain.failed` — A declared toolchain operation did not complete.
+- `rhino.toolchain.failed` — A declared toolchain operation did not complete. An applied provision child that cannot be
+  found or executed exits `127` or `126` under this code.
 - `rhino.toolchain.undeclared` — A declared toolchain has no provision declaration for this platform.
-- `rhino.harness.refused` — A declared harness operation was refused.
-- `rhino.vault.unavailable` — The vault cannot be used: the `bw` executable is not on the path, no session key is set,
-  the vault is locked, or it serves another server. A session check that fails runs before any write, so it writes
+- `rhino.harness.refused` — A declared harness operation was refused. A `harness adapters generate` that has written its
+  adapters and still finds a generated marker it does not own is refused with this code too, and its message names each
+  marker.
+- `rhino.vault.unavailable` — The vault cannot be used: the `bw` executable is not on the path or cannot be executed, no
+  session key is set, the vault is locked, or it serves another server. A `bw` that is missing or cannot be executed
+  exits `127` or `126`; the other causes exit `2`. A session check that fails runs before any write, so it writes
   nothing.
 - `rhino.vault.refused` — The vault answered something this build does not understand. A session check that refuses
   leaves the vault's state as it was. A later step can refuse after earlier writes; see the vault how-to.

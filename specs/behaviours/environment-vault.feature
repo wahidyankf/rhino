@@ -305,6 +305,46 @@ Feature: Move declared secrets between a vault and the repository
       | is locked                | diff    |
       | points at another server | diff    |
 
+  Scenario Outline: End with the child status when the Bitwarden CLI cannot be started
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/app.env
+              class: vault
+              form: env
+              app: web
+              env: local
+              mode: "0600"
+              keys: [ALPHA_KEY]
+      """
+    And the vault session is unlocked for the declared server
+    And the Bitwarden CLI <state>
+    And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-vault"
+    And the repository holds the local file "config/app.env" with the content "ALPHA_KEY=marker-alpha-local"
+    When I run environment <command> in json format
+    Then the command exits <status>
+    And the output names "rhino.vault.unavailable"
+    And the local files are unchanged by the last run
+    And the vault is unchanged by the last run
+    And no run output contains "marker-alpha-vault"
+    And no run output contains "marker-alpha-local"
+
+    Examples:
+      | state              | status | command |
+      | is not on the path | 127    | pull    |
+      | is not on the path | 127    | push    |
+      | is not on the path | 127    | diff    |
+      | cannot be executed | 126    | pull    |
+      | cannot be executed | 126    | push    |
+      | cannot be executed | 126    | diff    |
+
   Scenario: Refuse an ambiguous exact name
     Given the repository declares this environment configuration:
       """

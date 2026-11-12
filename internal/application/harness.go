@@ -1042,16 +1042,20 @@ func harnessGenerate(document *config.Document, tree Tree, adapters AdapterStore
 		}
 	}
 	// Generation owns only its families and exact files, so it cannot clear
-	// a marker elsewhere; it writes what it owns and reports the rest.
+	// a marker elsewhere. It writes what it owns, then refuses with the harness
+	// code while a marker remains: exit 2, not the validator's exit 1, because
+	// the run changed files and left the repository in a state it refuses.
 	var outcome Outcome
 	if len(markers) == 0 {
 		outcome = harnessClean(format, "canonical adapter generation is current")
 	} else {
-		outcome = harnessFindings(format, markers)
+		outcome = harnessRefused(format, "generation wrote its adapters, but these generated markers remain: "+strings.Join(markers, "; "))
 	}
+	var warnings strings.Builder
 	for _, warning := range plan.warnings {
-		outcome.Stderr += "[harness-adapters] warning: " + warning + "\n"
+		warnings.WriteString("[harness-adapters] warning: " + warning + "\n")
 	}
+	outcome.Stderr = warnings.String() + outcome.Stderr
 	return outcome
 }
 

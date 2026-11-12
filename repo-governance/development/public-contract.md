@@ -8,9 +8,12 @@ rather than an implementation detail.
 
 - `0` — the requested checks ran and found nothing.
 - `1` — the requested checks ran and reported findings.
-- `2` — the invocation, the root, or the configuration was unusable, so nothing was checked.
-- `126` — a gate child was found and could not be executed. Only `gate run` returns it.
-- `127` — a gate child was not found. Only `gate run` returns it.
+- `2` — the invocation, the root, or the configuration was unusable, so nothing was checked. `harness adapters generate`
+  is the one command that writes its own adapters first and then exits `2` when a generated marker remains.
+- `126` — a child RHINO requires was found and could not be executed: a gate child, the Bitwarden CLI (`bw`) that an
+  `env pull`, `env push`, or `env diff` starts, or a provision child that `toolchain provision --apply` starts. Only
+  those commands return it.
+- `127` — a child RHINO requires was not found, from the same three sources. Only those commands return it.
 - `128+N` — RHINO was ended by signal `N`; `130` is an interrupt, `143` a termination, `141` a closed pipe.
 
 Only a validator, an `env pull`, `env push`, or `env diff` that reports a vault finding, or a `gate run` whose gate

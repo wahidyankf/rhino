@@ -970,11 +970,12 @@ func TestHarnessMarkerSurfaces(t *testing.T) {
 		tree.files["docs/notes.md"] = "rhino generated\n"
 		store := &memoryHarnessStore{tree: tree}
 		outcome := runHarnessGenerate(tree, store, &stubModelResolver{}, "harness", "adapters", "generate")
-		if outcome.ExitCode != 1 {
-			t.Fatalf("exit = %d, want 1 (%q)", outcome.ExitCode, outcome.Stderr)
+		if outcome.ExitCode != 2 {
+			t.Fatalf("exit = %d, want 2 (%q)", outcome.ExitCode, outcome.Stderr)
 		}
-		if outcome.Stderr != "[harness-adapters] docs/notes.md: stale-marker\n" {
-			t.Fatalf("stderr = %q", outcome.Stderr)
+		want := "rhino: [harness-adapters] generation wrote its adapters, but these generated markers remain: docs/notes.md: stale-marker\n"
+		if outcome.Stderr != want {
+			t.Fatalf("stderr = %q, want %q", outcome.Stderr, want)
 		}
 		if tree.files["CLAUDE.md"] != "Read AGENTS.md and follow it.\n" {
 			t.Fatalf("CLAUDE.md = %q", tree.files["CLAUDE.md"])
