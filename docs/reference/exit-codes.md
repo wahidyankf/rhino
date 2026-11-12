@@ -7,7 +7,7 @@ RHINO never invents a status outside this set.
 | ------- | --------------------------------------------------- | --------------------------------------------------- |
 | `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.        |
 | `1`     | A finding, a vault finding, or a failed gate child  | Read the findings or gate output and fix the cause. |
-| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
+| `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. See below.    |
 | `126`   | A required child was found but cannot be executed   | Fix that child's permissions. See below.            |
 | `127`   | A required child was not found                      | Fix that child's path or install it. See below.     |
 | `128+N` | Ended by signal `N`; `130`, `143`, or `141`         | Nothing ran to completion. See below.               |
@@ -15,9 +15,9 @@ RHINO never invents a status outside this set.
 The distinction that matters is between `1` and `2`. **Exit `1` means a finding: a validator reported that the
 repository breaks a rule its configuration declares, or `env pull`, `env push`, or `env diff` reported a vault
 finding.** `gate run` also exits `1` when a declared child fails, which is the one way `1` can come from a command's
-exit status rather than from a rule RHINO checked. Exit `2` means RHINO never got as far as forming an opinion — the
-command was misspelled, the root had no configuration, the configuration could not be parsed, or a selected file could
-not be read.
+exit status rather than from a rule RHINO checked. Exit `2` means RHINO never got as far as forming an opinion
+(`harness adapters generate` is the one exception; see the list below) — the command was misspelled, the root had no
+configuration, the configuration could not be parsed, or a selected file could not be read.
 
 A gate that treats every non-zero code the same will tell a maintainer to fix a document when the real problem is a typo
 in a flag.
