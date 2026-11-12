@@ -454,8 +454,6 @@ func giveLocalMode(ctx context.Context, path, mode string) error {
 	return current.driver.Chmod(ctx, path, mode)
 }
 
-// runEnvironment runs one env command. The option is force or overwrite, or
-// empty; the format is text or json, or empty for text.
 // outputDoesNotName asserts that neither stream of the last run names text.
 func outputDoesNotName(ctx context.Context, text string) error {
 	current, err := scenarioFrom(ctx)
@@ -504,6 +502,8 @@ func runEnvironmentForEntry(ctx context.Context, command, entry string) error {
 	return nil
 }
 
+// runEnvironment runs one env command. The option is force or overwrite, or
+// empty; the format is text or json, or empty for text.
 func runEnvironment(ctx context.Context, command, option, format string) error {
 	current, err := scenarioFrom(ctx)
 	if err != nil {

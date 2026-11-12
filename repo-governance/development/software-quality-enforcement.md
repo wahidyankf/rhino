@@ -37,8 +37,8 @@ The remaining reach is confined, and each confinement is a test unless noted:
   pull-request adds and removes a disposable worktree. Not covered by a boundary test;
   `TestDiskMutationApplyIndexRefusesAnUnselectedChange` and
   `TestDiskMutationVerifyCleanReportsTheReplayAgainstItsRevision` check outcomes.
-- `env pull`, `env push`, `env diff` start only `bw`, by bare name. The corpus checks it; a unit double proves only the
-  call. No process-record check exists.
+- `env pull`, `env push`, `env diff` start only `bw`. The corpus records bare-name `PATH` starts; an absolute-path start
+  is unrecorded. A unit double proves only the call.
 - `harness adapters validate` never starts the model resolver, even when one is supplied
   (`internal/application/harness_validate_resolver_test.go`).
 - Explicit boundaries fail closed when missing, never falling back to the read port: environment and harness refuse

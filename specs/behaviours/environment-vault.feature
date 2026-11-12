@@ -665,10 +665,32 @@ Feature: Move declared secrets between a vault and the repository
       """
     And the local file "config/other.env" does not exist
     And no run output contains "marker-beta-entry"
+
+  Scenario: Refuse a diff of an entry that is not declared
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/app.env
+              class: vault
+              form: env
+              app: web
+              env: local
+              mode: "0600"
+              keys: [ALPHA_KEY]
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-entry"
     When I run environment diff for the entry "config/unknown.env"
     Then the command exits 2
     And the output names "names no declared vault entry"
-    And no run output contains "marker-beta-entry"
+    And no run output contains "marker-alpha-entry"
 
   Scenario: A pulled file with no declared mode is owner-only
     Given the repository declares this environment configuration:

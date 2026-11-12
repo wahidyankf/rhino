@@ -36,9 +36,9 @@ Exit `0` means every selected entry is identical. Exit `1` lists each finding, s
 `0600` when it declares none. It names the path only and repairs nothing. A resident entry holds no file, so `diff`
 checks only that its login item is held exactly once under its name.
 
-When `diff` reports `item-missing`, it also prints
+In text mode, when `diff` reports `item-missing`, it also prints
 `[env-diff] an item is missing: sync the vault in your own session if you expect it, then diff again` on standard
-output. RHINO never runs `bw sync`, so sync in your own session first.
+output. JSON mode does not print that line. RHINO never runs `bw sync`, so sync in your own session first.
 
 Narrow the run to one declared entry with `--entry <path>`, which may repeat. A path that is not a declared vault entry
 refuses the run with exit `2` before the vault is read:

@@ -106,8 +106,9 @@ type fileModeTree interface {
 }
 
 // environmentTransfer runs env pull, push, or diff. It refuses before any write
-// when the manifest is unusable, the selection names no vault entry, a selected
-// entry reads a field this build does not read, or the vault session is not usable.
+// when the manifest breaks its rules, which include a key field other than
+// password, when the selection names no vault entry, or when the vault session
+// is not usable.
 func environmentTransfer(document *config.Document, tree Tree, ports VaultPorts, invocation *Invocation) Outcome {
 	format := invocation.Format
 	operation := strings.TrimPrefix(invocation.Category, "environment-")
