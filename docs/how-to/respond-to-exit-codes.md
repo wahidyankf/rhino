@@ -8,7 +8,9 @@ You are wiring RHINO into a script, a gate, or CI, and you need each code to cau
 
 Exit `1` means RHINO ran a declared check and found the repository in breach of it, `env pull`, `env push`, or
 `env diff` reported a vault finding, or `gate run` saw a declared child fail. Exit `2` means RHINO never formed an
-opinion — it could not parse the command, find the root, read the configuration, or open a selected file.
+opinion — it could not parse the command, find the root, read the configuration, or open a selected file. The one
+exception is `harness adapters generate`: it writes its adapters, then exits `2` when a generated marker it does not own
+remains.
 
 A gate that collapses the two will tell a maintainer to shorten a document when the real problem is a typo in a flag.
 
@@ -32,7 +34,8 @@ case $status in
     exit 2
     ;;
   *)
-    # 126, 127, or 128+N: RHINO was not run, or a signal ended it. Pass it on.
+    # 126 or 127: RHINO ran, but a required child (a gate child, bw, or a provision child) could not start.
+    # 128+N: a signal ended RHINO. Pass it on.
     exit "$status"
     ;;
 esac
@@ -67,7 +70,8 @@ do
     0:* | 1:[12] | 2:2) ;;
     2:*) worst=2 ;;
     1:0) worst=1 ;;
-    # 126, 127, or 128+N: RHINO was not run, or a signal ended it. Stop and pass it on.
+    # 126 or 127: RHINO ran, but a required child (a gate child, bw, or a provision child) could not start.
+    # 128+N: a signal ended RHINO. Stop and pass it on.
     *) exit "$status" ;;
   esac
 done
