@@ -9,7 +9,17 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.17.0] — 2026-11-13
+
+A minor release: `env pull`, `env push`, and `env diff` move declared secrets between the local files and the vault,
+and `env validate` checks the vault manifest. A repository that declares the vault should move to this version. A
+repository without an `environment.vault` key sees no change from the vault commands.
+
+This release also contains breaking exit-status changes: `harness adapters generate` exits `2`, not `1`, when a
+generated marker remains; `env pull`, `env push`, and `env diff` exit `127` or `126`, not `2`, when `bw` cannot start;
+and `toolchain provision --apply` exits `127` or `126`, not `2`, when an applied child cannot start. Consumers that
+branch on those codes must update before they move to this version. The version moves in the minor position because
+RHINO is in `0.x`; read **Changed — breaking** before upgrading a pinned version.
 
 ### Added
 
@@ -19,7 +29,8 @@ the commits behind any release, see its
   values and keeps the previous file generation; `diff` reports every difference by name. Each command reports names and
   counts only, and refuses an unusable session before it writes anything. Exit codes: `0` when every selected entry is
   clean, identical, or written; `1` for a vault finding; `2` for a refusal, such as an unusable session, server,
-  manifest, or local file, or a vault answer this build does not understand.
+  manifest, or local file, or a vault answer this build does not understand; `127` or `126` when `bw` is missing or
+  cannot be executed.
 - `env pull`, `env push`, and `env diff` accept `--entry <path>`, which may repeat. `env push` accepts `--overwrite`.
   The `--force` help text now names the backup plan only `env restore` makes.
 - New error codes `rhino.vault.unavailable` (the vault cannot be used) and `rhino.vault.refused` (the vault answered
@@ -1013,6 +1024,7 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.17.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.17.0
 [v0.16.7]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.7
 [v0.16.6]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.6
 [v0.16.5]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.5
