@@ -408,7 +408,8 @@ state, because an entry that already matches is left alone. Each step first chec
 executable. A `bw` that is missing or cannot be executed at that check exits `127` or `126`, not `2`, under the same
 `rhino.vault.unavailable` code; see [exit codes](exit-codes.md).
 
-Text mode also prints one summary line on standard output. JSON mode reports one object with `count` and `findings`.
+Text mode also prints one summary line on standard output. JSON mode reports one object with `command`, `count`,
+`findings`, `schemaVersion`, and `status`; see [JSON output](./json-output.md).
 
 ## Toolchains
 

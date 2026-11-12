@@ -14,7 +14,8 @@ Under `--output json` every refusal writes one document to standard error:
 
 The exit status stays inside [its own closed vocabulary](./exit-codes.md); the code says which of the situations behind
 a status occurred. Under the default text output the same refusal is one `rhino: …` line carrying the message alone. A
-surface with no gates is not a refusal: `gate run` on it reports `clean` and exits `0`.
+surface with no gates is not a refusal: `gate run` on it exits `0`. Under `--output json` it reports `"result":"clean"`;
+under text output it prints nothing.
 
 ## The vocabulary
 
@@ -32,8 +33,8 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
   path or pattern that is absolute or climbs out of the root.
 - `rhino.config.undeclared` — The configuration omits the group or policy the command needs.
 - `rhino.path.escapes-root` — A `--file` or `--directory` selection is absolute, climbs out of the selected root, or
-  passes through a symbolic link; a `--dir` is absolute or climbs out; a declared surface glob reaches a symbolic link
-  that leads outside the root; or a declared environment example or staging allowance is not an exact
+  passes through a symbolic link; a `--dir` or `--entry` is absolute or climbs out; a declared surface glob reaches a
+  symbolic link that leads outside the root; or a declared environment example or staging allowance is not an exact
   repository-relative path.
 - `rhino.file.missing` — A named file or directory does not exist.
 - `rhino.file.unreadable` — A file RHINO had to read exists and could not be read, or lies behind a symbolic link RHINO

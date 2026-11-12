@@ -83,8 +83,9 @@ every other command would refuse for the same reason, and one clear message beat
 
 ## Tell a finding from a broken invocation without reading the code
 
-On exit `2`, **stdout is empty**. On `0` and `1` it carries the summary. So a caller that only has stdout can still tell
-them apart:
+On exit `2`, **stdout is empty**. On `1`, and on the `0` of a validator, it carries the summary. A `gate run` on a
+surface with no gates exits `0` and prints nothing in text mode, so read the exit code first. So a caller that only has
+stdout can still tell them apart:
 
 ```sh
 summary=$(rhino md internal-link validate 2>/dev/null)
