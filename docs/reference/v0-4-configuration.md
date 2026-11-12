@@ -588,7 +588,15 @@ tracked, and which GitHub secrets and variables the workflows read. An absent `v
   - `derived` or `generated` — a glob `path`, a `reason`, and a `by`;
   - `machine-local` — a glob `path` and a `reason`.
 
-  `mode`, when present, is a quoted octal string such as `"0600"`.
+  `mode`, when present, is a quoted octal string such as `"0600"`. A file `env pull` writes for an entry that declares
+  no `mode` takes `0600`, owner read and write only. That is a safe fallback for a secret file on every machine, not a
+  repository policy.
+
+  Each `keys` item names a `key`, an `app`, a `secret`, and an optional `field`. The only field the commands read is the
+  login `password`, so a `field` set to anything else refuses the manifest as `vault-manifest-invalid`.
+
+  A `resident` entry holds no file. `env pull` and `env push` skip it, and `env diff` checks only that its login item is
+  held exactly once under its name.
 
 - `templates` — each row names a template file with `path` and the entry it stands for with `for`. Both are exact paths,
   and `for` must be the exact `path` of an entry. A tracked `*.example` file must be named by a row or by an entry's

@@ -61,7 +61,8 @@ gate execution, environment operations, and toolchain provision use their own ex
 - `--force`
   - Accepted by: `env pull`, `env restore`
   - Meaning: Authorize replacement. `env restore` replaces only after a recoverable backup plan; `env pull` replaces a
-    local file that differs from the vault.
+    local file that differs from the vault. `env pull` still refuses a local file that holds no UTF-8 text, with exit
+    `2`, so such a file must be moved or removed by hand.
 - `--entry <path>`
   - Accepted by: `env pull`, `env push`, `env diff`
   - Meaning: Narrow the run to one declared vault entry. Repeatable. A path that is not a declared vault entry refuses
@@ -69,7 +70,7 @@ gate execution, environment operations, and toolchain provision use their own ex
 - `--overwrite`
   - Accepted by: `env push`
   - Meaning: Replace a differing vault value. A login keeps its previous password in its history; a file keeps its
-    newest previous generation and removes the one before it.
+    newest previous generation and removes every older one, and only after the new generation verifies.
 - `--surface <name>`
   - Accepted by: `gate run`
   - Meaning: Select one closed lifecycle surface.

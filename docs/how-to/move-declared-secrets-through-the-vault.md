@@ -32,6 +32,10 @@ rhino env diff
 Exit `0` means every selected entry is identical. Exit `1` lists each finding, such as `vault-differs ALPHA_KEY` or
 `item-missing BETA_KEY`, one per line on standard error. No value appears in any output.
 
+`env diff` also reports `mode-differs` when a local file's permission bits are not the mode its entry declares, or
+`0600` when it declares none. It names the path only and repairs nothing. A resident entry holds no file, so `diff`
+checks only that its login item is held exactly once under its name.
+
 Narrow the run to one declared entry with `--entry <path>`, which may repeat:
 
 ```text
@@ -48,12 +52,15 @@ rhino env pull
 ```
 
 - A file that does not exist is written.
-- A file that already matches the vault is left alone.
+- A file that already matches the vault in bytes and mode is left alone. A file that matches in bytes but has another
+  mode is repaired to its declared mode in place, without `--force`.
 - A file that differs from the vault is reported as `local-differs` and is not written. Replace it deliberately with
   `rhino env pull --force`.
 - A declared file whose vault items are missing or ambiguous is reported, and nothing is written for that file. Other
   clean entries are still written.
-- A symbolic link on the path, or a local file that holds no text, refuses the run before any write.
+- A symbolic link on the path, or a local file that holds no UTF-8 text, refuses the run before any write. `--force`
+  does not replace a file that holds no UTF-8 text; move or remove that file by hand first.
+- A resident entry holds no file, so `pull` skips it.
 
 ## Seed the vault from the local files
 
@@ -68,8 +75,13 @@ rhino env push
 - A differing value is reported as `vault-differs` and is not changed. Replace it deliberately with
   `rhino env push --overwrite`.
 - With `--overwrite`, a login keeps its previous password in the item's history. A file upload is read back and compared
-  with the bytes it meant to store. Only a verified generation retires the one before it. An upload that does not verify
-  is removed, and the previous generation stays.
+  with the bytes it meant to store. Once the new generation verifies, every older generation is removed, so the newest
+  previous generation stays. An upload that does not verify is removed, and every older generation stays.
+- A login item whose password the vault holds as null, and a file entry whose newest generation cannot be read, each
+  refuse the run with exit `2` and write nothing. RHINO never uses an older generation in place of an unreadable newest
+  one.
+- A key whose `field` in the manifest is anything other than `password` is reported by `rhino env validate` as
+  `vault-manifest-invalid`. Each vault command refuses that manifest with exit `2` before it reads the vault.
 - A local env line that cannot be read stops the run with exit `2`, and the message gives the line number only.
 - A key in the local file that the manifest does not declare is reported as `undeclared-key`.
 

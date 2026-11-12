@@ -63,10 +63,10 @@ its ceiling of three cycles belong to the bounded gate contract it checks, not t
 bound rather than a default: a repository still declares where its gates live, which families it holds, and the headings
 and verdicts they carry, and declaring nothing still exits `2`.
 
-The vault commands keep one fixed bound of this kind. A file `env pull` writes takes mode `0600`, owner read and write
-only, when its entry declares no `mode`. It is a floor for a secret file on every machine, not a repository policy, and
-a repository declares any other octal mode it needs. It is the only value the vault commands supply themselves, and this
-paragraph records it so the exception stays visible.
+The vault commands keep one fixed fallback of this kind. A file `env pull` writes takes mode `0600`, owner read and
+write only, when its entry declares no `mode`. It is a safe fallback for a secret file on every machine, not a
+repository policy, and a repository declares any other octal mode it needs. The vault commands use it when an entry
+declares none, and this paragraph records it so the exception stays visible.
 
 ## The test that keeps it honest
 

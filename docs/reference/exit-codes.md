@@ -6,17 +6,18 @@ RHINO never invents a status outside this set.
 | Code    | Meaning                                             | What to do                                          |
 | ------- | --------------------------------------------------- | --------------------------------------------------- |
 | `0`     | Checked and clean                                   | Nothing. The run happened and found nothing.        |
-| `1`     | A finding, or a `gate run` child that failed        | Read the findings or gate output and fix the cause. |
+| `1`     | A finding, a vault finding, or a failed gate child  | Read the findings or gate output and fix the cause. |
 | `2`     | The invocation, root, or configuration was unusable | Fix the command or `repo-config.yml`. Nothing ran.  |
 | `126`   | A gate child was found and could not be executed    | Fix the gate child's permissions. `gate run` only.  |
 | `127`   | A gate child was not found                          | Fix the `command.executable` key. `gate run` only.  |
 | `128+N` | Ended by signal `N`; `130`, `143`, or `141`         | Nothing ran to completion. See below.               |
 
 The distinction that matters is between `1` and `2`. **Exit `1` means a finding: a validator reported that the
-repository breaks a rule its configuration declares.** `gate run` also exits `1` when a declared child fails, which is
-the one way `1` can come from a command's exit status rather than from a rule RHINO checked. Exit `2` means RHINO never
-got as far as forming an opinion — the command was misspelled, the root had no configuration, the configuration could
-not be parsed, or a selected file could not be read.
+repository breaks a rule its configuration declares, or `env pull`, `env push`, or `env diff` reported a vault
+finding.** `gate run` also exits `1` when a declared child fails, which is the one way `1` can come from a command's
+exit status rather than from a rule RHINO checked. Exit `2` means RHINO never got as far as forming an opinion — the
+command was misspelled, the root had no configuration, the configuration could not be parsed, or a selected file could
+not be read.
 
 A gate that treats every non-zero code the same will tell a maintainer to fix a document when the real problem is a typo
 in a flag.
@@ -40,6 +41,11 @@ file. On `pre-commit`, the `apply-index` run applies such a change and the gate 
 RHINO writes `[gate] <id> failed` to stdout and one `reported a finding` line to stderr, and never repeats the child's
 output. Under `--output json` the result reports one finding for the gate.
 
+`1` from `env pull`, `env push`, or `env diff` — one or more vault findings, such as a vault item that is missing, or a
+local file that differs from the vault. Each finding names an entry path or a key, never a value, and `env pull` writes
+nothing for a flagged entry. A vault session, server, manifest, or answer RHINO does not understand exits `2`, never
+`1`.
+
 `2` — any of:
 
 - an unrecognized command or option;
@@ -60,6 +66,7 @@ output. Under `--output json` the result reports one finding for the gate.
   (`rhino.vault.refused`);
 - a vault manifest that breaks its rules, an `--entry` that names no declared vault entry, or a local env line that
   cannot be read;
+- a local file that holds no UTF-8 text, which `env pull`, `env push`, and `env diff` refuse even with `--force`;
 - a gate child that was refused for any reason other than the two below, including a mutation child that ends by a
   signal;
 - an uncaught panic. RHINO has no internal-error code and does not recover from a panic: the Go runtime ends the process
