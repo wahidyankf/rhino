@@ -16,20 +16,19 @@ the commits behind any release, see its
 - `environment.vault` declares a manifest of the secrets a repository holds: its provider and server, the item prefix,
   the closed environment set, the secret-bearing path patterns, the entries, the tracked templates, and the GitHub
   workflow references. An absent `vault` key changes nothing.
-- `env validate` checks the manifest and reports six new finding kinds: `vault-manifest-invalid`,
-  `vault-name-grammar`, `vault-unclassified-ignored-file`, `vault-unclassified-template`,
-  `vault-github-unlisted-reference`, and `vault-github-source-unknown`. Each names a path or a name, never a value. They
-  take no allowlist entry.
+- `env validate` checks the manifest and reports six finding kinds: `vault-manifest-invalid`, `vault-name-grammar`,
+  `vault-unclassified-ignored-file`, `vault-unclassified-template`, `vault-github-unlisted-reference`, and
+  `vault-github-source-unknown`. Each names a path or a name, never a value. They take no allowlist entry.
 - The vault check reads only Git names: the tracked and ignored paths, and the secret and variable names in tracked
   workflows. It never opens an ignored file. A tree without a Git name boundary refuses the check with exit `2`.
-- `vault-github-unlisted-reference` also reads the bracket forms `secrets['X']` and `secrets["X"]`, and reports the
+- `vault-github-unlisted-reference` reads the bracket forms `secrets['X']` and `secrets["X"]`, and reports the
   references it cannot resolve to one name: `secrets[dynamic]`, `secrets (whole context)`, and `secrets: inherit`.
-- `vault-manifest-invalid` also refuses an exact entry path that another entry's glob covers, a `templates` row whose
-  `path` or `for` is a glob or whose `for` names no entry, a `github.workflows` glob that is absolute, climbs with `..`,
-  or leaves a `[` unclosed, a `mode` that is not a quoted octal string, and each field an entry's class never reads.
-  A `prefix` may now have any number of kebab-case segments.
-- The workflow scan reads only `${{ }}` expressions and bare `if:` values, so a `secrets` or `vars` word elsewhere in a
-  workflow is no longer reported. A quoted string literal inside an expression is not read. Listed names compare
+- `vault-manifest-invalid` refuses an exact entry path that another entry's glob covers, a `templates` row whose `path`
+  or `for` is a glob or whose `for` names no entry, a `github.workflows` glob that is absolute, climbs with `..`, or
+  leaves a `[` unclosed, a `mode` that is not a quoted octal string, and each field an entry's class never reads. A
+  `prefix` has one or more kebab-case segments.
+- The workflow scan reads only `${{ }}` expressions and bare `if:` values. A `secrets` or `vars` word elsewhere in a
+  workflow is not reported. A quoted string literal inside an expression is not read. Listed names compare
   case-insensitively, as GitHub documents for secrets and configuration variables; `findings.md` gives the sources.
 
 ## [v0.16.7] — 2026-11-01

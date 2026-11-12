@@ -335,6 +335,18 @@ is not reported. The rules recognise the `*.example` template suffix only. The w
 named above, so a reference written anywhere else in a workflow is not reported. Names compare case-insensitively, as
 described in the workflow rule above.
 
+The workflow scanner has these known limits. The first three leave a read unscanned. The last two report more than they
+must:
+
+- A single-quoted `if:` scalar, such as `if: 'secrets.X != '''`, is not scanned, because the scanner reads its leading
+  quote as the start of a string literal.
+- A `}}` inside a string literal ends the `${{ }}` expression early, so a read after it in the same expression is not
+  scanned.
+- A flow mapping such as `{ if: ... }` is not read as an `if:` value.
+- A trailing `# comment` on an `if:` line is part of the value that is scanned, so a `secrets` or `vars` word in that
+  comment is reported.
+- `secrets [ 'X' ]` with a space before the bracket is reported as a whole-context read. That is the safe direction.
+
 [github-secrets]: https://docs.github.com/en/actions/reference/security/secrets
 [github-variables]: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
 
