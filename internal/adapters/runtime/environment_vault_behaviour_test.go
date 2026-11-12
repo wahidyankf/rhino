@@ -20,23 +20,32 @@ const environmentVaultCorpus = "../../../specs/behaviours/environment-vault-vali
 // repository whose index holds the tracked files, with a .gitignore that names
 // the ignored ones. The validator then reads that directory through DiskTree.
 type diskVaultDriver struct {
-	dir   string
-	trace *vault.GitTrace
+	dir      string
+	traceDir string
+	trace    *vault.GitTrace
 }
 
+// openDiskVaultDriver builds a scenario repository and, beside it, a separate
+// directory for the git shim and its log. The shim never sits inside the
+// repository under test, so the trace cannot show up as a file the run reads.
 func openDiskVaultDriver() (*diskVaultDriver, error) {
 	dir, err := os.MkdirTemp("", "rhino-vault-")
 	if err != nil {
 		return nil, err
 	}
-	driver := &diskVaultDriver{dir: dir}
-	if err := driver.git(context.Background(), "init", "-q"); err != nil {
+	traceDir, err := os.MkdirTemp("", "rhino-vault-trace-")
+	if err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
-	trace, err := vault.NewGitTrace(dir)
+	driver := &diskVaultDriver{dir: dir, traceDir: traceDir}
+	if err := driver.git(context.Background(), "init", "-q"); err != nil {
+		_ = driver.Close()
+		return nil, err
+	}
+	trace, err := vault.NewGitTrace(traceDir)
 	if err != nil {
-		_ = os.RemoveAll(dir)
+		_ = driver.Close()
 		return nil, err
 	}
 	driver.trace = trace
@@ -116,8 +125,14 @@ func (d *diskVaultDriver) Validate(_ context.Context, asJSON bool) (vault.Result
 	return vault.Result{ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr, Processes: processes}, nil
 }
 
+// Close removes the scenario repository and the shim directory beside it.
 func (d *diskVaultDriver) Close() error {
-	return os.RemoveAll(d.dir)
+	repoErr := os.RemoveAll(d.dir)
+	traceErr := os.RemoveAll(d.traceDir)
+	if repoErr != nil {
+		return repoErr
+	}
+	return traceErr
 }
 
 // TestEnvironmentVaultValidationAtIntegrationAdapter runs every scenario of the

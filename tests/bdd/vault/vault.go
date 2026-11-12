@@ -149,6 +149,21 @@ func runValidationIn(ctx context.Context, format string) error {
 // started at least the two Git name queries, and every process it started was
 // a git invocation with a read-only verb. A program name or verb is printed;
 // no argument value is.
+//
+// What this step proves, per adapter:
+//   - Unit: the in-memory tree records the argv its two name queries hard-code,
+//     so the verb here is the verb that double names. No process starts in the
+//     unit layer, so this step does not show that any process ran.
+//   - Integration and command line: the git child the PATH shim logged. The
+//     shim catches only a program started by bare name through PATH. A program
+//     started by absolute path is not logged, and no traffic is observed.
+//
+// Proofs that stand beside this step, and do not depend on it:
+//   - internal/adapters/runtime/read_boundary_test.go pins the Git verbs that
+//     disk.go may start, and which functions may write.
+//   - internal/bootstrap/boundary_test.go pins the validator cores' imports, the
+//     binary's dependency graph to hold no network package, and process
+//     spawning to the runtime adapter.
 func startedOnlyReadOnlyQueries(ctx context.Context) error {
 	current, err := scenarioFrom(ctx)
 	if err != nil {
