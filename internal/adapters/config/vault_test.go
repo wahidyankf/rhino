@@ -64,7 +64,7 @@ func TestVaultDecodesEveryContractField(t *testing.T) {
               secret: tfvars
             - class: vault
               form: resident
-              app: ose-example-app
+              app: example-app
               env: stag
               secret: cosign-password
               consumer: scripts/example-wrapper.mjs
@@ -80,7 +80,7 @@ func TestVaultDecodesEveryContractField(t *testing.T) {
             builtin: [GITHUB_TOKEN]
             secrets:
               - name: EXAMPLE_COSIGN_PASSWORD
-                source: { app: ose-example-app, env: stag, secret: cosign-password }
+                source: { app: example-app, env: stag, secret: cosign-password }
             variables:
               - name: EXAMPLE_LIVE_ENABLED
                 note: Plain switch.
@@ -104,7 +104,7 @@ func TestVaultDecodesEveryContractField(t *testing.T) {
 				},
 			},
 			{Path: "infra/example/terraform/terraform.tfvars", Class: "vault", Form: "file", App: "infra-terraform", Env: "prod", Secret: "tfvars"},
-			{Class: "vault", Form: "resident", App: "ose-example-app", Env: "stag", Secret: "cosign-password", Consumer: "scripts/example-wrapper.mjs"},
+			{Class: "vault", Form: "resident", App: "example-app", Env: "stag", Secret: "cosign-password", Consumer: "scripts/example-wrapper.mjs"},
 			{Path: "infra/example/ansible/inventory.ini", Class: "derived", Reason: "Rendered from addresses.", By: "infra/example/terraform/outputs.tf"},
 		},
 		Templates: []config.VaultTemplate{{Path: "infra/example/ansible/.env.example", For: "infra/example/.env.prod"}},
@@ -113,7 +113,7 @@ func TestVaultDecodesEveryContractField(t *testing.T) {
 			Builtin:   []string{"GITHUB_TOKEN"},
 			Secrets: []config.VaultGitHubSecret{{
 				Name:   "EXAMPLE_COSIGN_PASSWORD",
-				Source: config.VaultSource{App: "ose-example-app", Env: "stag", Secret: "cosign-password"},
+				Source: config.VaultSource{App: "example-app", Env: "stag", Secret: "cosign-password"},
 			}},
 			Variables: []config.VaultGitHubVariable{{Name: "EXAMPLE_LIVE_ENABLED", Note: "Plain switch."}},
 		},

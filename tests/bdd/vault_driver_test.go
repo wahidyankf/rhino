@@ -44,19 +44,32 @@ func (d *cliVaultDriver) Ignore(ctx context.Context, path, content string) error
 	return d.world.writeRepoFile(".gitignore", existing+"/"+path+"\n")
 }
 
+// Validate runs the built binary with PATH reduced to a git shim that logs each
+// invocation, so the run can start git and no other program found by name.
 func (d *cliVaultDriver) Validate(ctx context.Context, asJSON bool) (vault.Result, error) {
 	arguments := "env|validate"
 	if asJSON {
 		arguments += "|--output|json"
 	}
-	if err := d.world.invoke(ctx, arguments); err != nil {
+	trace, err := vault.NewGitTrace(d.world.dir)
+	if err != nil {
+		return vault.Result{}, err
+	}
+	d.world.pathOnly = trace.PATH()
+	err = d.world.invoke(ctx, arguments)
+	d.world.pathOnly = ""
+	if err != nil {
+		return vault.Result{}, err
+	}
+	processes, err := trace.Processes()
+	if err != nil {
 		return vault.Result{}, err
 	}
 	run, err := d.world.lastRun()
 	if err != nil {
 		return vault.Result{}, err
 	}
-	return vault.Result{ExitCode: run.exitCode, Stdout: run.stdout, Stderr: run.stderr}, nil
+	return vault.Result{ExitCode: run.exitCode, Stdout: run.stdout, Stderr: run.stderr, Processes: processes}, nil
 }
 
 // Close has nothing to remove: the scenario world the corpus creates owns the

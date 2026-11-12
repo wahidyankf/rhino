@@ -34,11 +34,38 @@ type Driver interface {
 	Close() error
 }
 
-// Result is one command run: its exit code and both of its streams.
+// Result is one command run: its exit code, both of its streams, and every
+// process the run started, in order.
 type Result struct {
-	ExitCode int
-	Stdout   string
-	Stderr   string
+	ExitCode  int
+	Stdout    string
+	Stderr    string
+	Processes []Process
+}
+
+// Process is one program a run started and its arguments, as the adapter saw
+// them. A unit run records the Git name queries it asked; a real run records
+// the git child the shim logged.
+type Process struct {
+	Program string
+	Args    []string
+}
+
+// readOnlyGitVerbs are the Git verbs a validation run may start. Every name
+// query is ls-files, and no other verb reads the repository without a write.
+var readOnlyGitVerbs = map[string]bool{"ls-files": true}
+
+// gitVerb returns the Git subcommand in argv, skipping the `-C <dir>` pair an
+// adapter prefixes, or an empty string when none is present.
+func gitVerb(args []string) string {
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-C" {
+			i++
+			continue
+		}
+		return args[i]
+	}
+	return ""
 }
 
 // Binding pairs one step expression with its handler, in the form godog
@@ -76,10 +103,11 @@ func Bindings() []Binding {
 		{`^the repository tracks "([^"]+)" with the content "([^"]*)"$`, trackFile},
 		{`^the repository ignores "([^"]+)" with the content "([^"]*)"$`, ignoreFile},
 		{`^I run environment validation$`, runValidation},
-		{`^I run environment validation as JSON$`, runValidationAsJSON},
+		{`^I run environment validation in (text|json) format$`, runValidationIn},
 		{`^the command exits (\d+)$`, commandExits},
 		{`^the output names "([^"]*)"$`, outputNames},
 		{`^no run output contains "([^"]*)"$`, noRunOutputContains},
+		{`^the run started only read-only Git queries$`, startedOnlyReadOnlyQueries},
 	}
 }
 
@@ -111,8 +139,37 @@ func runValidation(ctx context.Context) error {
 	return validate(ctx, false)
 }
 
-func runValidationAsJSON(ctx context.Context) error {
-	return validate(ctx, true)
+// runValidationIn runs the validation in the named output format: text, or
+// json for --output json.
+func runValidationIn(ctx context.Context, format string) error {
+	return validate(ctx, format == "json")
+}
+
+// startedOnlyReadOnlyQueries holds the last run to its process record: it
+// started at least the two Git name queries, and every process it started was
+// a git invocation with a read-only verb. A program name or verb is printed;
+// no argument value is.
+func startedOnlyReadOnlyQueries(ctx context.Context) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	last, err := current.lastRun()
+	if err != nil {
+		return err
+	}
+	if len(last.Processes) < 2 {
+		return fmt.Errorf("the last run recorded %d processes, want at least the two Git name queries", len(last.Processes))
+	}
+	for _, process := range last.Processes {
+		if process.Program != "git" {
+			return fmt.Errorf("the last run started %q, which is not a Git query", process.Program)
+		}
+		if verb := gitVerb(process.Args); !readOnlyGitVerbs[verb] {
+			return fmt.Errorf("the last run started git %q, which is not a read-only query", verb)
+		}
+	}
+	return nil
 }
 
 func validate(ctx context.Context, asJSON bool) error {

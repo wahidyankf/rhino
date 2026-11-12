@@ -20,7 +20,8 @@ const environmentVaultCorpus = "../../../specs/behaviours/environment-vault-vali
 // repository whose index holds the tracked files, with a .gitignore that names
 // the ignored ones. The validator then reads that directory through DiskTree.
 type diskVaultDriver struct {
-	dir string
+	dir   string
+	trace *vault.GitTrace
 }
 
 func openDiskVaultDriver() (*diskVaultDriver, error) {
@@ -33,6 +34,12 @@ func openDiskVaultDriver() (*diskVaultDriver, error) {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
+	trace, err := vault.NewGitTrace(dir)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, err
+	}
+	driver.trace = trace
 	return driver, nil
 }
 
@@ -83,13 +90,30 @@ func (d *diskVaultDriver) Ignore(_ context.Context, path, content string) error 
 	return file.Close()
 }
 
+// Validate runs the validation with PATH reduced to the git trace, so the run
+// can start git and no other program found by name. The trace records the git
+// invocations, which the result carries.
 func (d *diskVaultDriver) Validate(_ context.Context, asJSON bool) (vault.Result, error) {
 	args := []string{"env", "validate"}
 	if asJSON {
 		args = append(args, "--output", "json")
 	}
+	if err := d.trace.Reset(); err != nil {
+		return vault.Result{}, err
+	}
+	previous := os.Getenv("PATH")
+	if err := os.Setenv("PATH", d.trace.PATH()); err != nil {
+		return vault.Result{}, err
+	}
 	outcome := application.Execute(&runtime.DiskTree{Dir: d.dir}, args, nil)
-	return vault.Result{ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr}, nil
+	if err := os.Setenv("PATH", previous); err != nil {
+		return vault.Result{}, err
+	}
+	processes, err := d.trace.Processes()
+	if err != nil {
+		return vault.Result{}, err
+	}
+	return vault.Result{ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr, Processes: processes}, nil
 }
 
 func (d *diskVaultDriver) Close() error {
@@ -99,6 +123,9 @@ func (d *diskVaultDriver) Close() error {
 // TestEnvironmentVaultValidationAtIntegrationAdapter runs every scenario of the
 // vault validation corpus against a real temporary Git repository.
 func TestEnvironmentVaultValidationAtIntegrationAdapter(t *testing.T) {
+	// The developer's Git configuration must not change a scenario's result.
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	vault.RunSuite(t, environmentVaultCorpus, func() (vault.Driver, error) {
 		driver, err := openDiskVaultDriver()
 		if err != nil {

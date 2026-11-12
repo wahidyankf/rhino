@@ -18,13 +18,23 @@ type vaultMemoryTree struct {
 	*memoryTree
 	tracked []string
 	ignored []string
+	asked   []vault.Process
 }
 
-// TrackedFiles answers the tracked-name query from the declared paths.
-func (m *vaultMemoryTree) TrackedFiles() ([]string, error) { return m.tracked, nil }
+// TrackedFiles answers the tracked-name query from the declared paths, and
+// records the git invocation the disk tree would have started for it.
+func (m *vaultMemoryTree) TrackedFiles() ([]string, error) {
+	m.asked = append(m.asked, vault.Process{Program: "git", Args: []string{"-C", "/repository", "ls-files", "-z", "--"}})
+	return m.tracked, nil
+}
 
-// IgnoredFiles answers the ignored-name query from the declared paths.
-func (m *vaultMemoryTree) IgnoredFiles() ([]string, error) { return m.ignored, nil }
+// IgnoredFiles answers the ignored-name query from the declared paths, and
+// records the git invocation the disk tree would have started for it.
+func (m *vaultMemoryTree) IgnoredFiles() ([]string, error) {
+	m.asked = append(m.asked, vault.Process{Program: "git", Args: []string{
+		"-C", "/repository", "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--"}})
+	return m.ignored, nil
+}
 
 // unitVaultDriver builds one scenario in memory.
 type unitVaultDriver struct {
@@ -58,8 +68,10 @@ func (d *unitVaultDriver) Validate(_ context.Context, asJSON bool) (vault.Result
 	if asJSON {
 		args = append(args, "--output", "json")
 	}
+	d.tree.asked = nil
 	outcome := application.Execute(d.tree, args, nil)
-	return vault.Result{ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr}, nil
+	return vault.Result{ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr,
+		Processes: d.tree.asked}, nil
 }
 
 func (d *unitVaultDriver) Close() error { return nil }

@@ -38,9 +38,22 @@ type gitNameTree interface {
 
 var (
 	kebabSegment = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	// A workflow reference is a secrets or vars name. The leading class keeps
-	// a longer dotted name, such as github.secrets.x, from reading as one.
-	workflowReference = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.])(secrets|vars)\.([A-Za-z_][A-Za-z0-9_]*)`)
+	// vaultFileMode is an octal file mode, written quoted in the manifest.
+	vaultFileMode = regexp.MustCompile(`^0[0-7]{3}$`)
+	// workflowReference is a literal secrets or vars name in one of its three
+	// forms: dotted, single-quoted bracket, or double-quoted bracket. Group 1 is
+	// the context. Groups 2 to 4 hold the name in each form. The leading class
+	// keeps a longer dotted name, such as github.secrets.x, from reading as one.
+	workflowReference = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.])(secrets|vars)(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\]|\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\])`)
+	// workflowExpression is one ${{ }} expression of a workflow.
+	workflowExpression = regexp.MustCompile(`(?s)\$\{\{(.*?)\}\}`)
+	// workflowContext is a secrets or vars token inside an expression.
+	workflowContext = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.])(secrets|vars)`)
+	// literalAccess is what follows a context token that names its key in full,
+	// so the literal scan already reports it.
+	literalAccess = regexp.MustCompile(`^(?:\.[A-Za-z_]|\[\s*(?:'[A-Za-z_][A-Za-z0-9_]*'|"[A-Za-z_][A-Za-z0-9_]*")\s*\])`)
+	// inheritedSecrets is a job that passes every secret on, secrets: inherit.
+	inheritedSecrets = regexp.MustCompile(`(?:^|[\s{,])secrets:\s*inherit\b`)
 )
 
 // vaultFailure is a refusal the vault rules end the run with.
@@ -52,38 +65,18 @@ type vaultFailure struct {
 // vaultChecks runs the vault rules when a manifest is declared. An undeclared
 // manifest checks nothing and changes nothing. It returns the findings, the
 // number of declared files it inspected, and a refusal when a check could not run.
+// The phases run in order: decode the manifest, read the Git names, check the
+// manifest, derive and check the item names, check the ignored files and the
+// templates, then read the workflows.
 func vaultChecks(document *config.Document, tree Tree) ([]environmentFinding, int, *vaultFailure) {
-	manifest, err := document.Vault()
-	if err != nil {
-		return nil, 0, &vaultFailure{code: domain.ConfigUnusable, message: "environment vault: " + err.Error()}
+	manifest, failure := vaultManifest(document)
+	if failure != nil || manifest == nil {
+		return nil, 0, failure
 	}
-	if manifest == nil {
-		return nil, 0, nil
+	rules, failure := newVaultRules(manifest, tree)
+	if failure != nil {
+		return nil, 0, failure
 	}
-	names, ok := tree.(gitNameTree)
-	if !ok {
-		return nil, 0, &vaultFailure{code: domain.RepositoryUnusable,
-			message: "environment vault check refused: this tree has no Git name boundary"}
-	}
-	tracked, err := names.TrackedFiles()
-	if err != nil {
-		return nil, 0, &vaultFailure{code: domain.RepositoryUnusable,
-			message: "environment vault check refused: " + err.Error()}
-	}
-	ignored, err := names.IgnoredFiles()
-	if err != nil {
-		return nil, 0, &vaultFailure{code: domain.RepositoryUnusable,
-			message: "environment vault check refused: " + err.Error()}
-	}
-	rules := &vaultRules{
-		manifest: manifest,
-		tree:     tree,
-		tracked:  tracked,
-		ignored:  ignored,
-		found:    map[environmentFinding]bool{},
-		names:    map[string]bool{},
-	}
-	rules.inspected = len(manifest.Entries) + len(manifest.Templates)
 	rules.checkManifest()
 	rules.checkItems()
 	rules.checkIgnored()
@@ -91,11 +84,57 @@ func vaultChecks(document *config.Document, tree Tree) ([]environmentFinding, in
 	if failure := rules.checkGitHub(); failure != nil {
 		return nil, 0, failure
 	}
-	findings := make([]environmentFinding, 0, len(rules.found))
-	for finding := range rules.found {
-		findings = append(findings, finding)
+	return rules.findings(), rules.inspected, nil
+}
+
+// vaultManifest decodes environment.vault. A manifest that does not decode is a
+// refusal, not a finding.
+func vaultManifest(document *config.Document) (*config.VaultManifest, *vaultFailure) {
+	manifest, err := document.Vault()
+	if err != nil {
+		return nil, &vaultFailure{code: domain.ConfigUnusable, message: "environment vault: " + err.Error()}
 	}
-	return findings, rules.inspected, nil
+	return manifest, nil
+}
+
+// newVaultRules reads the tracked and ignored names once. A tree without a Git
+// name boundary, or a name query that fails, refuses the check.
+func newVaultRules(manifest *config.VaultManifest, tree Tree) (*vaultRules, *vaultFailure) {
+	names, ok := tree.(gitNameTree)
+	if !ok {
+		return nil, nameRefusal("this tree has no Git name boundary")
+	}
+	tracked, err := names.TrackedFiles()
+	if err != nil {
+		return nil, nameRefusal(err.Error())
+	}
+	ignored, err := names.IgnoredFiles()
+	if err != nil {
+		return nil, nameRefusal(err.Error())
+	}
+	return &vaultRules{
+		manifest:  manifest,
+		tree:      tree,
+		tracked:   tracked,
+		ignored:   ignored,
+		found:     map[environmentFinding]bool{},
+		names:     map[string]bool{},
+		inspected: len(manifest.Entries) + len(manifest.Templates),
+	}, nil
+}
+
+// nameRefusal is the refusal for a check that cannot read the Git names it needs.
+func nameRefusal(reason string) *vaultFailure {
+	return &vaultFailure{code: domain.RepositoryUnusable, message: "environment vault check refused: " + reason}
+}
+
+// findings returns the findings the run collected, in no particular order.
+func (r *vaultRules) findings() []environmentFinding {
+	out := make([]environmentFinding, 0, len(r.found))
+	for finding := range r.found {
+		out = append(out, finding)
+	}
+	return out
 }
 
 // vaultRules holds one run's manifest, its Git names, and the findings so far.
@@ -153,11 +192,8 @@ func (r *vaultRules) checkManifest() {
 			r.invalid(path)
 		}
 	}
-	for index, template := range m.Templates {
-		if !isExactPath(template.Path) {
-			r.invalid(fmt.Sprintf("environment.vault.templates[%d]", index))
-		}
-	}
+	r.checkGlobOverlaps()
+	r.checkTemplateRows()
 	if m.GitHub != nil {
 		r.checkGitHubDeclarations()
 	}
@@ -175,17 +211,21 @@ func entryLabel(index int, entry config.VaultEntry) string {
 	}
 }
 
-// checkEntry applies the rules of one entry's class and form.
+// checkEntry applies the rules of one entry's class and form, and the file mode
+// when one is declared.
 func (r *vaultRules) checkEntry(label string, entry config.VaultEntry) {
+	if entry.Mode != "" && !vaultFileMode.MatchString(entry.Mode) {
+		r.invalid(label)
+	}
 	switch entry.Class {
 	case "vault":
 		r.checkVaultEntry(label, entry)
 	case "derived", "generated":
-		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || entry.By == "" {
+		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || entry.By == "" || hasVaultFields(entry) {
 			r.invalid(label)
 		}
 	case "machine-local":
-		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" {
+		if entry.Path == "" || !validGlob(entry.Path) || entry.Reason == "" || hasVaultFields(entry) {
 			r.invalid(label)
 		}
 	default:
@@ -193,20 +233,30 @@ func (r *vaultRules) checkEntry(label string, entry config.VaultEntry) {
 	}
 }
 
+// hasVaultFields reports whether an entry of a derived, generated, or
+// machine-local class names a field only a vault entry reads. That class never
+// reads the field, so the manifest refuses it rather than ignore it silently.
+func hasVaultFields(entry config.VaultEntry) bool {
+	return entry.Form != "" || entry.App != "" || entry.Env != "" || entry.Secret != "" || len(entry.Keys) > 0
+}
+
 // checkVaultEntry applies the rules of a vault entry: an exact path for a file
 // or an env file, no path for a resident item, and unique keys in an env entry.
 func (r *vaultRules) checkVaultEntry(label string, entry config.VaultEntry) {
 	switch entry.Form {
 	case "env":
-		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || len(entry.Keys) == 0 || hasInvalidKey(entry.Keys) {
+		// An env entry reads its items from keys, so an entry-level secret would be ignored.
+		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || len(entry.Keys) == 0 ||
+			hasInvalidKey(entry.Keys) || entry.Secret != "" {
 			r.invalid(label)
 		}
 	case "file":
-		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || entry.Secret == "" {
+		// A file entry names one secret, so keys would be ignored.
+		if !isExactPath(entry.Path) || entry.App == "" || entry.Env == "" || entry.Secret == "" || len(entry.Keys) > 0 {
 			r.invalid(label)
 		}
 	case "resident":
-		if entry.Path != "" || entry.App == "" || entry.Env == "" || entry.Secret == "" {
+		if entry.Path != "" || entry.App == "" || entry.Env == "" || entry.Secret == "" || len(entry.Keys) > 0 {
 			r.invalid(label)
 		}
 	default:
@@ -291,7 +341,7 @@ func (r *vaultRules) checkIgnored() {
 // templates row nor an entry names.
 func (r *vaultRules) checkTemplates() {
 	for _, path := range r.tracked {
-		if !strings.HasSuffix(path, ".example") || r.templated(path) || r.claimed(path) {
+		if !strings.HasSuffix(path, ".example") || r.templated(path) || r.namesExactly(path) {
 			continue
 		}
 		r.flag(ruleVaultUnclassifiedTemplate, path, "")
@@ -306,17 +356,7 @@ func (r *vaultRules) checkGitHub() *vaultFailure {
 	if github == nil {
 		return nil
 	}
-	listedSecrets := map[string]bool{}
-	for _, name := range github.Builtin {
-		listedSecrets[name] = true
-	}
-	for _, secret := range github.Secrets {
-		listedSecrets[secret.Name] = true
-	}
-	listedVariables := map[string]bool{}
-	for _, variable := range github.Variables {
-		listedVariables[variable.Name] = true
-	}
+	listedSecrets, listedVariables := listedNames(github)
 	for _, path := range r.tracked {
 		if !matchAny(github.Workflows, path) {
 			continue
@@ -327,13 +367,7 @@ func (r *vaultRules) checkGitHub() *vaultFailure {
 				message: "environment vault workflow `" + path + "` could not be read: " + readErr.Reason}
 		}
 		r.inspected++
-		for _, match := range workflowReference.FindAllStringSubmatch(text, -1) {
-			kind, name := match[1], match[2]
-			listed := (kind == "secrets" && listedSecrets[name]) || (kind == "vars" && listedVariables[name])
-			if !listed {
-				r.flag(ruleVaultGitHubUnlistedReference, path, kind+"."+name)
-			}
-		}
+		r.checkWorkflow(path, text, listedSecrets, listedVariables)
 	}
 	for _, secret := range github.Secrets {
 		source := secret.Source
@@ -370,7 +404,7 @@ func (r *vaultRules) templated(path string) bool {
 // claims reports whether one declared path covers path: an exact match, or a
 // match of the declared glob.
 func claims(declared, path string) bool {
-	if !strings.ContainsAny(declared, "*?[") {
+	if !isGlob(declared) {
 		return declared == path
 	}
 	ok, err := Match(declared, path)
@@ -383,14 +417,16 @@ func validGlob(pattern string) bool {
 	return err == nil
 }
 
-// isPrefix accepts a two-segment namespace of kebab-case segments, such as a
-// namespace and a repository name.
+// isPrefix accepts a namespace of one or more kebab-case segments, such as
+// `org/example-repo` or `example-repo`. How many segments a prefix carries is
+// the manifest's choice, so the rule does not fix a count.
 func isPrefix(prefix string) bool {
-	segments := strings.Split(prefix, "/")
-	if len(segments) != 2 {
-		return false
+	for _, segment := range strings.Split(prefix, "/") {
+		if !kebabSegment.MatchString(segment) {
+			return false
+		}
 	}
-	return kebabSegment.MatchString(segments[0]) && kebabSegment.MatchString(segments[1])
+	return true
 }
 
 // isDistinctKebab accepts a non-empty list of unique kebab-case names.
@@ -430,4 +466,113 @@ func deriveSecretSegment(key string) string {
 // itemName joins the parts of a vault item name, `<prefix>/<app>/<env>/<secret>`.
 func itemName(prefix, app, env, secret string) string {
 	return prefix + "/" + app + "/" + env + "/" + secret
+}
+
+// isGlob reports whether a declared path is a pattern rather than one exact path.
+func isGlob(path string) bool {
+	return strings.ContainsAny(path, "*?[")
+}
+
+// namesExactly reports whether an entry names path exactly. A glob names the
+// files it matches, but a tracked template is named by its own path, so a broad
+// glob cannot swallow it.
+func (r *vaultRules) namesExactly(path string) bool {
+	for _, entry := range r.manifest.Entries {
+		if entry.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
+// checkGlobOverlaps reports an exact entry path that another entry's glob
+// covers, so one file would carry two classifications. Two globs that overlap
+// each other are not compared; that limit is documented in findings.md.
+func (r *vaultRules) checkGlobOverlaps() {
+	for _, exact := range r.manifest.Entries {
+		if exact.Path == "" || isGlob(exact.Path) {
+			continue
+		}
+		for _, glob := range r.manifest.Entries {
+			if glob.Path != "" && isGlob(glob.Path) && claims(glob.Path, exact.Path) {
+				r.invalid(exact.Path)
+			}
+		}
+	}
+}
+
+// checkTemplateRows checks each templates row: its path is exact, and its for
+// names the exact path of an entry.
+func (r *vaultRules) checkTemplateRows() {
+	entries := map[string]bool{}
+	for _, entry := range r.manifest.Entries {
+		if entry.Path != "" {
+			entries[entry.Path] = true
+		}
+	}
+	for index, template := range r.manifest.Templates {
+		if !isExactPath(template.Path) || !entries[template.For] {
+			r.invalid(templateLabel(index, template))
+		}
+	}
+}
+
+// templateLabel names a templates row in a finding: its path when the path is
+// exact, otherwise its index.
+func templateLabel(index int, template config.VaultTemplate) string {
+	if isExactPath(template.Path) {
+		return template.Path
+	}
+	return fmt.Sprintf("environment.vault.templates[%d]", index)
+}
+
+// listedNames returns the secret and variable names the GitHub block lists,
+// with the built-in secrets included.
+func listedNames(github *config.VaultGitHub) (map[string]bool, map[string]bool) {
+	secrets := map[string]bool{}
+	for _, name := range github.Builtin {
+		secrets[name] = true
+	}
+	for _, secret := range github.Secrets {
+		secrets[secret.Name] = true
+	}
+	variables := map[string]bool{}
+	for _, variable := range github.Variables {
+		variables[variable.Name] = true
+	}
+	return secrets, variables
+}
+
+// checkWorkflow reports, for one tracked workflow, every literal reference the
+// manifest does not list. It also reports every reference it cannot resolve to
+// one name: a dynamic index, a whole-context read, or an inherited secret set.
+// Commented-out text is read as well, so it is reported too; that is the safe
+// direction, and findings.md documents it.
+func (r *vaultRules) checkWorkflow(path, text string, listedSecrets, listedVariables map[string]bool) {
+	for _, match := range workflowReference.FindAllStringSubmatch(text, -1) {
+		// Exactly one of the three name groups matches, so their concatenation is the name.
+		kind, name := match[1], match[2]+match[3]+match[4]
+		listed := (kind == "secrets" && listedSecrets[name]) || (kind == "vars" && listedVariables[name])
+		if !listed {
+			r.flag(ruleVaultGitHubUnlistedReference, path, kind+"."+name)
+		}
+	}
+	for _, expression := range workflowExpression.FindAllStringSubmatch(text, -1) {
+		body := expression[1]
+		for _, token := range workflowContext.FindAllStringSubmatchIndex(body, -1) {
+			kind := body[token[2]:token[3]]
+			rest := body[token[1]:]
+			switch {
+			case literalAccess.MatchString(rest):
+				// The literal scan above reports the name this token reads.
+			case strings.HasPrefix(rest, "["):
+				r.flag(ruleVaultGitHubUnlistedReference, path, kind+"[dynamic]")
+			default:
+				r.flag(ruleVaultGitHubUnlistedReference, path, kind+" (whole context)")
+			}
+		}
+	}
+	if inheritedSecrets.MatchString(text) {
+		r.flag(ruleVaultGitHubUnlistedReference, path, "secrets: inherit")
+	}
 }

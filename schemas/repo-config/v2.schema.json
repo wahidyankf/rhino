@@ -503,7 +503,7 @@
           "type": "array"
         },
         "prefix": {
-          "description": "Two kebab-case segments, such as a namespace and a repository name.",
+          "description": "One or more kebab-case segments, such as a namespace and a repository name.",
           "type": "string"
         },
         "provider": {
@@ -563,7 +563,8 @@
           "type": "array"
         },
         "mode": {
-          "description": "The file mode for a restored file, as an octal string. Recorded here; the default is 0600.",
+          "description": "The file mode for a restored file, as a quoted octal string. Recorded here; the default is 0600.",
+          "pattern": "^0[0-7]{3}$",
           "type": "string"
         },
         "path": {
