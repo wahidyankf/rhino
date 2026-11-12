@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -98,7 +99,7 @@ func RunSuite(t *testing.T, path string, open func() (Driver, error)) {
 	expected := len(pickles)
 	executed := 0
 	status := godog.TestSuite{
-		Name: "environment-vault-validation",
+		Name: "environment-vault: " + filepath.Base(path),
 		ScenarioInitializer: func(scenarios *godog.ScenarioContext) {
 			scenarios.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				driver, err := open()

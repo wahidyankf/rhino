@@ -51,14 +51,14 @@ type unitVaultDriver struct {
 	tree  *vaultMemoryTree
 	vault *fakebw.Vault
 	noKey bool
-	modes map[string]string
+	// calls records each provider call the run made, as the process record.
+	calls []vault.Process
 }
 
 func newUnitVaultDriver() *unitVaultDriver {
 	return &unitVaultDriver{
 		tree:  &vaultMemoryTree{memoryTree: newMemoryTree("/repository")},
 		vault: &fakebw.Vault{Status: "unlocked", Blobs: map[string][]byte{}},
-		modes: map[string]string{},
 	}
 }
 
@@ -118,9 +118,19 @@ func (d *unitVaultDriver) Generation(_ context.Context, name, file, content stri
 	return nil
 }
 
+// Chmod sets the mode the in-memory tree reports for a file.
+func (d *unitVaultDriver) Chmod(_ context.Context, path, mode string) error {
+	var perm uint32
+	if _, err := fmt.Sscanf(mode, "%o", &perm); err != nil {
+		return err
+	}
+	d.tree.modes[path] = perm
+	return nil
+}
+
 func (d *unitVaultDriver) Local(_ context.Context, path, content string) error {
 	d.tree.files[path] = content
-	d.modes[path] = "0644"
+	d.tree.modes[path] = 0o644
 	return nil
 }
 
@@ -128,15 +138,16 @@ func (d *unitVaultDriver) Local(_ context.Context, path, content string) error {
 // fingerprints both either side of the run.
 func (d *unitVaultDriver) Command(_ context.Context, arguments []string) (vault.Result, error) {
 	localBefore, vaultBefore := d.localDigest(), d.vault.Digest()
+	d.calls = nil
 	ports := application.VaultPorts{
-		Vault: &memorySecretVault{vault: d.vault, noKey: d.noKey},
-		Files: memoryFileStore{tree: d.tree, modes: d.modes},
+		Vault: &memorySecretVault{vault: d.vault, noKey: d.noKey, calls: &d.calls},
+		Files: memoryFileStore{tree: d.tree},
 	}
 	outcome := application.ExecuteWithVault(d.tree, arguments, nil, nil, nil, nil, nil, nil, nil, ports)
 	return vault.Result{
 		ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr,
 		LocalBefore: localBefore, LocalAfter: d.localDigest(),
-		VaultBefore: vaultBefore, VaultAfter: d.vault.Digest(),
+		VaultBefore: vaultBefore, VaultAfter: d.vault.Digest(), Processes: d.calls,
 	}, nil
 }
 
@@ -149,7 +160,7 @@ func (d *unitVaultDriver) localDigest() string {
 	sort.Strings(paths)
 	hash := sha256.New()
 	for _, path := range paths {
-		fmt.Fprintf(hash, "%s %s %q\n", path, d.modes[path], d.tree.files[path])
+		fmt.Fprintf(hash, "%s %o %q\n", path, d.tree.modes[path], d.tree.files[path])
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }
@@ -159,7 +170,7 @@ func (d *unitVaultDriver) LocalFile(_ context.Context, path string) (vault.Local
 	if !ok {
 		return vault.LocalFile{}, nil
 	}
-	return vault.LocalFile{Exists: true, Content: content, Mode: d.modes[path]}, nil
+	return vault.LocalFile{Exists: true, Content: content, Mode: fmt.Sprintf("%04o", d.tree.modes[path])}, nil
 }
 
 func (d *unitVaultDriver) Items(_ context.Context, name string) ([]vault.ItemView, error) {
@@ -174,9 +185,21 @@ func (d *unitVaultDriver) Close() error { return nil }
 type memorySecretVault struct {
 	vault *fakebw.Vault
 	noKey bool
+	calls *[]vault.Process
+}
+
+// record notes one provider call the run made. The double starts no process;
+// the record stands for the bw call the adapter would start.
+func (m *memorySecretVault) record(method string) {
+	if m.calls != nil {
+		*m.calls = append(*m.calls, vault.Process{Program: "bw", Args: []string{method}})
+	}
 }
 
 func (m *memorySecretVault) Status(server string) *application.VaultFault {
+	if !m.noKey {
+		m.record("status")
+	}
 	switch {
 	case m.noKey:
 		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "no session key"}
@@ -189,6 +212,7 @@ func (m *memorySecretVault) Status(server string) *application.VaultFault {
 }
 
 func (m *memorySecretVault) Find(name string) ([]application.VaultItem, *application.VaultFault) {
+	m.record("find")
 	var found []application.VaultItem
 	for _, item := range m.vault.Search(name) {
 		found = append(found, memoryItemView(item))
@@ -197,10 +221,12 @@ func (m *memorySecretVault) Find(name string) ([]application.VaultItem, *applica
 }
 
 func (m *memorySecretVault) CreateLogin(name, password string) (application.VaultItem, *application.VaultFault) {
+	m.record("create-login")
 	return memoryItemView(m.vault.Create(fakebw.Item{Name: name, Type: 1, Login: &fakebw.Login{Password: &password}})), nil
 }
 
 func (m *memorySecretVault) UpdateLogin(item application.VaultItem, password string) *application.VaultFault {
+	m.record("edit-login")
 	current, ok := m.vault.Get(item.ID)
 	if !ok {
 		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "item not found"}
@@ -213,10 +239,12 @@ func (m *memorySecretVault) UpdateLogin(item application.VaultItem, password str
 }
 
 func (m *memorySecretVault) CreateNote(name string) (application.VaultItem, *application.VaultFault) {
+	m.record("create-note")
 	return memoryItemView(m.vault.Create(fakebw.Item{Name: name, Type: 2})), nil
 }
 
 func (m *memorySecretVault) AddAttachment(itemID, fileName string, contents []byte) (application.VaultAttachment, *application.VaultFault) {
+	m.record("create-attachment")
 	item, ok := m.vault.AddAttachment(itemID, fileName, contents)
 	if !ok {
 		return application.VaultAttachment{}, &application.VaultFault{Code: domain.VaultUnavailable, Reason: "item not found"}
@@ -231,6 +259,7 @@ func (m *memorySecretVault) AddAttachment(itemID, fileName string, contents []by
 }
 
 func (m *memorySecretVault) ReadAttachment(itemID, attachmentID string) ([]byte, *application.VaultFault) {
+	m.record("get-attachment")
 	data, ok := m.vault.ReadAttachment(itemID, attachmentID)
 	if !ok {
 		return nil, &application.VaultFault{Code: domain.VaultRefused, Reason: "attachment not found"}
@@ -239,6 +268,7 @@ func (m *memorySecretVault) ReadAttachment(itemID, attachmentID string) ([]byte,
 }
 
 func (m *memorySecretVault) DeleteAttachment(itemID, attachmentID string) *application.VaultFault {
+	m.record("delete-attachment")
 	if !m.vault.DeleteAttachment(itemID, attachmentID) {
 		return &application.VaultFault{Code: domain.VaultUnavailable, Reason: "attachment not found"}
 	}
@@ -251,7 +281,9 @@ func memoryItemView(item fakebw.Item) application.VaultItem {
 	switch item.Type {
 	case 1:
 		view.Kind = "login"
-		if item.Login != nil && item.Login.Password != nil {
+		if item.Login == nil || item.Login.Password == nil {
+			view.NoPassword = true
+		} else {
 			view.Password = *item.Login.Password
 		}
 	case 2:
@@ -266,8 +298,7 @@ func memoryItemView(item fakebw.Item) application.VaultItem {
 // memoryFileStore writes a pulled file into the in-memory tree, refusing an
 // existing target unless the write replaces it, as the disk store does.
 type memoryFileStore struct {
-	tree  *vaultMemoryTree
-	modes map[string]string
+	tree *vaultMemoryTree
 }
 
 func (s memoryFileStore) Write(_ string, file application.VaultFile) error {
@@ -275,7 +306,7 @@ func (s memoryFileStore) Write(_ string, file application.VaultFile) error {
 		return fmt.Errorf("`%s` already exists", file.Path)
 	}
 	s.tree.files[file.Path] = string(file.Contents)
-	s.modes[file.Path] = fmt.Sprintf("%04o", file.Mode)
+	s.tree.modes[file.Path] = file.Mode
 	return nil
 }
 

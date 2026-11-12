@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/wahidyankf/rhino/internal/adapters/runtime"
@@ -201,6 +203,15 @@ func (d *diskVaultDriver) Generation(_ context.Context, name, file, content stri
 	})
 }
 
+// Chmod sets the permission bits of a file the scenario's repository holds.
+func (d *diskVaultDriver) Chmod(_ context.Context, path, mode string) error {
+	var perm uint32
+	if _, err := fmt.Sscanf(mode, "%o", &perm); err != nil {
+		return err
+	}
+	return os.Chmod(filepath.Join(d.dir, filepath.FromSlash(path)), os.FileMode(perm))
+}
+
 func (d *diskVaultDriver) Local(_ context.Context, path, content string) error {
 	return d.write(path, content)
 }
@@ -220,10 +231,18 @@ func (d *diskVaultDriver) Command(_ context.Context, arguments []string) (vault.
 	if err != nil {
 		return vault.Result{}, err
 	}
+	start, err := fakebw.CallCount(d.log)
+	if err != nil {
+		return vault.Result{}, err
+	}
 	restore := setEnvironment(map[string]string{"PATH": d.binDir, "BW_SESSION": d.sessionKey()})
 	ports := application.VaultPorts{Vault: runtime.BitwardenVault{}, Files: runtime.DiskVaultFileStore{}}
 	outcome := application.ExecuteWithVault(&runtime.DiskTree{Dir: d.dir}, arguments, nil, nil, nil, nil, nil, nil, nil, ports)
 	restore()
+	argv, err := fakebw.CallsSince(d.log, start)
+	if err != nil {
+		return vault.Result{}, err
+	}
 	localAfter, err := vault.DigestTree(d.dir)
 	if err != nil {
 		return vault.Result{}, err
@@ -235,6 +254,7 @@ func (d *diskVaultDriver) Command(_ context.Context, arguments []string) (vault.
 	return vault.Result{
 		ExitCode: outcome.ExitCode, Stdout: outcome.Stdout, Stderr: outcome.Stderr,
 		LocalBefore: localBefore, LocalAfter: localAfter, VaultBefore: vaultBefore, VaultAfter: vaultAfter,
+		Processes: bwProcesses(argv),
 	}, nil
 }
 
@@ -342,10 +362,7 @@ func TestEnvironmentVaultValidationAtIntegrationAdapter(t *testing.T) {
 func TestEnvironmentVaultCommandsAtIntegrationAdapter(t *testing.T) {
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	binary, err := fakebw.Build(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	binary := sharedFakeBW(t)
 	vault.RunSuite(t, environmentVaultCommandsCorpus, func() (vault.Driver, error) {
 		driver, err := openDiskVaultDriver()
 		if err != nil {
@@ -354,4 +371,113 @@ func TestEnvironmentVaultCommandsAtIntegrationAdapter(t *testing.T) {
 		driver.fakeBW = binary
 		return driver, nil
 	})
+}
+
+// sharedFakeBWDir holds the one fake bw build every integration test in this
+// binary shares; TestMain removes it after the last test.
+var (
+	sharedFakeBWOnce sync.Once
+	sharedFakeBWDir  string
+	sharedFakeBWPath string
+	sharedFakeBWErr  error
+)
+
+// sharedFakeBW builds the fake bw once per test binary and returns its path.
+func sharedFakeBW(t *testing.T) string {
+	t.Helper()
+	sharedFakeBWOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "rhino-fake-bw-")
+		if err != nil {
+			sharedFakeBWErr = err
+			return
+		}
+		sharedFakeBWDir = dir
+		sharedFakeBWPath, sharedFakeBWErr = fakebw.Build(dir)
+	})
+	if sharedFakeBWErr != nil {
+		t.Fatal(sharedFakeBWErr)
+	}
+	return sharedFakeBWPath
+}
+
+// TestMain removes the shared fake build after every test in the binary has run.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if sharedFakeBWDir != "" {
+		_ = os.RemoveAll(sharedFakeBWDir)
+	}
+	os.Exit(code)
+}
+
+// bwProcesses names each bw call a run made as a process of the run. The
+// program is bw; the arguments are the call's own, and only the program is printed.
+func bwProcesses(argv [][]string) []vault.Process {
+	var processes []vault.Process
+	for _, call := range argv {
+		processes = append(processes, vault.Process{Program: "bw", Args: call})
+	}
+	return processes
+}
+
+// TestCorruptDownloadRefusesThePushThroughTheRealAdapter proves a push whose
+// uploaded generation does not read back is refused through the real adapter:
+// the uploaded copy is removed, the previous generation is kept, and no value
+// reaches the output.
+func TestCorruptDownloadRefusesThePushThroughTheRealAdapter(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	ctx := context.Background()
+	driver, err := openDiskVaultDriver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = driver.Close() })
+	driver.fakeBW = sharedFakeBW(t)
+	const server = "https://vault.example.com"
+	const note = "example/fixture/api/local/service-config"
+	const configuration = "schema: rhino/repo-config/v2\nenvironment:\n  vault:\n    provider: bitwarden\n" +
+		"    server: " + server + "\n    prefix: example/fixture\n    environments: [local, stag, prod]\n" +
+		"    entries:\n      - path: config/service.json\n        class: vault\n        form: file\n" +
+		"        app: api\n        env: local\n        secret: service-config\n        mode: \"0600\"\n"
+	if err := driver.Declare(ctx, configuration); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Session(ctx, vault.SessionUnlocked, server); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Generation(ctx, note, "service.json.g0001", "marker-service-one"); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.editVault(func(v *fakebw.Vault) error {
+		v.Corrupt = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Local(ctx, "config/service.json", "marker-service-two"); err != nil {
+		t.Fatal(err)
+	}
+	result, err := driver.Command(ctx, []string{"env", "push", "--overwrite"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ExitCode != 2 {
+		t.Fatalf("push exited %d, want 2", result.ExitCode)
+	}
+	if strings.Contains(result.Stdout+result.Stderr, "marker-service") {
+		t.Fatal("a refused push printed a value")
+	}
+	held, err := driver.Items(ctx, note)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(held) != 1 || held[0].Kind != "note" {
+		t.Fatalf("the vault holds %d items under the note name, want one secure note", len(held))
+	}
+	if held[0].Attachments["service.json.g0001"] != "marker-service-one" {
+		t.Fatal("the previous generation was not kept")
+	}
+	if _, ok := held[0].Attachments["service.json.g0002"]; ok {
+		t.Fatal("the unverified upload was not removed")
+	}
 }

@@ -1,5 +1,7 @@
-// Package vault is the shared step registry for the environment vault
-// validation corpus, specs/behaviours/environment-vault-validation.feature.
+// Package vault is the shared step registry for the two environment vault
+// corpora: specs/behaviours/environment-vault-validation.feature, which holds
+// the manifest rules, and specs/behaviours/environment-vault.feature, which
+// holds the commands.
 //
 // Every adapter binds these step texts once, here, and supplies only a Driver:
 // the unit adapter builds the repository in memory, the integration adapter in
@@ -42,6 +44,9 @@ type Driver interface {
 	// Local writes a repository file that the repository does not track, with
 	// content and the default mode a checkout gives it.
 	Local(ctx context.Context, path, content string) error
+	// Chmod sets the permission bits of a repository file the scenario holds,
+	// as four octal digits.
+	Chmod(ctx context.Context, path, mode string) error
 	// Command runs one env command with its arguments, and records the
 	// repository and the vault before and after the run.
 	Command(ctx context.Context, arguments []string) (Result, error)
@@ -168,11 +173,13 @@ func Bindings() []Binding {
 		{`^the output names "([^"]*)"$`, outputNames},
 		{`^no run output contains "([^"]*)"$`, noRunOutputContains},
 		{`^the run started only read-only Git queries$`, startedOnlyReadOnlyQueries},
+		{`^the run started only the Bitwarden CLI$`, startedOnlyBitwarden},
 		{`^the vault session (is unlocked for the declared server|has no key|is locked|points at another server)$`, setSession},
 		{`^the vault holds a login item "([^"]*)" with the password "([^"]*)"$`, addLogin},
 		{`^the vault holds the secure note "([^"]*)" with the attachment "([^"]*)" holding the content "([^"]*)"$`, addGeneration},
 		{`^the repository holds the local file "([^"]+)" with the content "([^"]*)"$`, writeLocal},
 		{`^the repository holds the local file "([^"]+)" with this content:$`, writeLocalDocument},
+		{`^the repository gives the local file "([^"]+)" the mode "([0-7]{4})"$`, giveLocalMode},
 		{`^I run environment (pull|push|diff)(?: with (force|overwrite))?(?: in (text|json) format)?$`, runEnvironment},
 		{`^the local file "([^"]+)" holds the content "([^"]*)"$`, localHoldsContent},
 		{`^the local file "([^"]+)" holds this content:$`, localHoldsDocument},
@@ -270,6 +277,36 @@ func startedOnlyReadOnlyQueries(ctx context.Context) error {
 		}
 		if verb := gitVerb(process.Args); !readOnlyGitVerbs[verb] {
 			return fmt.Errorf("the last run started git %q, which is not a read-only query", verb)
+		}
+	}
+	return nil
+}
+
+// startedOnlyBitwarden holds the last run to its process record: it started at
+// least one process, and every process it started was the Bitwarden CLI. A
+// program name is printed; no argument value is.
+//
+// What this step proves, per adapter:
+//   - Unit: the in-memory double records each provider call it answers, as the
+//     program bw. No process starts in the unit layer.
+//   - Integration and command line: the bw child the fake logged. The fake is
+//     reached only by its bare name through PATH, so a bw started by absolute
+//     path is not logged.
+func startedOnlyBitwarden(ctx context.Context) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	last, err := current.lastRun()
+	if err != nil {
+		return err
+	}
+	if len(last.Processes) == 0 {
+		return errors.New("the last run recorded no process, so the claim cannot be checked")
+	}
+	for _, process := range last.Processes {
+		if process.Program != "bw" {
+			return fmt.Errorf("the last run started %q, which is not the Bitwarden CLI", process.Program)
 		}
 	}
 	return nil
@@ -395,8 +432,23 @@ func writeLocal(ctx context.Context, path, content string) error {
 	return current.driver.Local(ctx, path, content)
 }
 
+// writeLocalDocument writes a docstring as a file. A file ends with a newline,
+// which a docstring does not carry, so one is added when the text lacks it.
 func writeLocalDocument(ctx context.Context, path string, doc *godog.DocString) error {
-	return writeLocal(ctx, path, doc.Content)
+	content := doc.Content
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return writeLocal(ctx, path, content)
+}
+
+// giveLocalMode sets the permission bits of a repository file the scenario holds.
+func giveLocalMode(ctx context.Context, path, mode string) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	return current.driver.Chmod(ctx, path, mode)
 }
 
 // runEnvironment runs one env command. The option is force or overwrite, or

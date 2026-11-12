@@ -145,37 +145,3 @@ func TestVaultFileStoreRefusesWhatItCannotInstall(t *testing.T) {
 		}
 	})
 }
-
-// TestVaultFileStoreLeavesTheTargetWhenAWriteFails proves a write that cannot
-// stage its temporary file leaves the existing target as it was, and removes
-// nothing it did not create.
-func TestVaultFileStoreLeavesTheTargetWhenAWriteFails(t *testing.T) {
-	root := fileRoot(t)
-	dir := filepath.Join(root, "config")
-	if err := os.Mkdir(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	target := filepath.Join(dir, "app.env")
-	if err := os.WriteFile(target, []byte("kept\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("root writes into a read-only directory, so the staging failure cannot be forced in this process")
-	}
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
-	err := runtime.DiskVaultFileStore{}.Write(root, application.VaultFile{Path: "config/app.env", Contents: []byte("new\n"), Mode: 0o600, Replace: true})
-	if err == nil {
-		t.Fatal("a write into a read-only directory succeeded")
-	}
-	_ = os.Chmod(dir, 0o755)
-	if data, _ := os.ReadFile(target); string(data) != "kept\n" {
-		t.Fatalf("a failed write changed the target to %q", data)
-	}
-	entries, _ := os.ReadDir(dir)
-	if len(entries) != 1 {
-		t.Fatalf("a failed write left %d entries beside the target", len(entries))
-	}
-}

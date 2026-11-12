@@ -21,10 +21,7 @@ const fixtureServerURL = "https://vault.example.com"
 func fakeVault(t *testing.T, configure func(*fakebw.Vault)) string {
 	t.Helper()
 	dir := t.TempDir()
-	binary, err := fakebw.Build(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	binary := sharedFakeBW(t)
 	state := filepath.Join(dir, "state.json")
 	logPath := filepath.Join(dir, "calls.log")
 	vault := &fakebw.Vault{Status: "unlocked", ServerURL: fixtureServerURL, Blobs: map[string][]byte{}}
@@ -96,19 +93,24 @@ func TestBitwardenVaultStatusHoldsTheDeclaredServerAndSession(t *testing.T) {
 	})
 }
 
-// TestBitwardenVaultDropsTheParentVariablesThatChangeTheProvider proves BW_RESPONSE
-// and BW_CLEANEXIT in the parent never reach bw. Under BW_RESPONSE the fake would
-// wrap every answer, so a status that still passes proves the variable was dropped.
-// Under BW_CLEANEXIT the fake would turn a failed call into a silent success.
-func TestBitwardenVaultDropsTheParentVariablesThatChangeTheProvider(t *testing.T) {
+// TestBitwardenVaultPassesOnlyAllowlistedVariables proves the child receives the
+// allowlisted variables and none of the others. The parent sets BW_RESPONSE and
+// BW_CLEANEXIT, which change the output and the exit code, and a forge token and an
+// unlisted credential, which the child never needs. The fake's call log names the
+// variables each call received, so the names prove what reached bw. A status that
+// passes proves BW_RESPONSE was dropped, and an update of a missing item that stays
+// unavailable proves BW_CLEANEXIT was.
+func TestBitwardenVaultPassesOnlyAllowlistedVariables(t *testing.T) {
 	logPath := fakeVault(t, nil)
 	t.Setenv("BW_RESPONSE", "1")
 	t.Setenv("BW_CLEANEXIT", "1")
-	vault := runtime.BitwardenVault{}
-	if fault := vault.Status(fixtureServerURL); fault != nil {
+	t.Setenv("GITHUB_TOKEN", "marker-forge-token")
+	t.Setenv("EXAMPLE_API_KEY", "marker-unlisted-key")
+	provider := runtime.BitwardenVault{}
+	if fault := provider.Status(fixtureServerURL); fault != nil {
 		t.Fatalf("status = %+v; BW_RESPONSE reached bw", fault)
 	}
-	fault := vault.UpdateLogin(application.VaultItem{ID: "item-missing"}, "marker-new")
+	fault := provider.UpdateLogin(application.VaultItem{ID: "item-missing"}, "marker-new")
 	if fault == nil || fault.Code != domain.VaultUnavailable {
 		t.Fatalf("update of a missing item = %+v; BW_CLEANEXIT reached bw", fault)
 	}
@@ -116,11 +118,20 @@ func TestBitwardenVaultDropsTheParentVariablesThatChangeTheProvider(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(calls) == 0 {
+		t.Fatal("no call reached the fake")
+	}
+	forbidden := map[string]bool{"BW_RESPONSE": true, "BW_CLEANEXIT": true, "GITHUB_TOKEN": true, "EXAMPLE_API_KEY": true}
 	for _, call := range calls {
+		received := map[string]bool{}
 		for _, name := range call.Environment {
-			if name == "BW_RESPONSE" || name == "BW_CLEANEXIT" {
+			if forbidden[name] {
 				t.Fatalf("call %v received %s", call.Argv, name)
 			}
+			received[name] = true
+		}
+		if !received["PATH"] || !received["BW_SESSION"] {
+			t.Fatalf("call %v did not receive PATH and BW_SESSION", call.Argv)
 		}
 	}
 }

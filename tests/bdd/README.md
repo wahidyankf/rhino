@@ -4,10 +4,11 @@ This package runs the Gherkin corpus in `specs/behaviours` against the real `rhi
 command-line scenarios: the command-line adapter drives the compiled executable, and no such scenario binds to an
 internal function.
 
-The environment vault corpus, `environment-vault-validation.feature`, is the exception. Its steps are bound once, in
-`tests/bdd/vault`, and that one registry runs at three adapters: the unit adapter (an in-process, in-memory tree), the
-integration adapter (a real temporary Git repository), and the command-line adapter in this package. The unit and
-integration runners sit beside the code they test, in `internal/application` and `internal/adapters/runtime`.
+The environment vault corpora, `environment-vault-validation.feature` and `environment-vault.feature`, are the
+exception. Their steps are bound once, in `tests/bdd/vault`, and that one registry runs at three adapters: the unit
+adapter (an in-process, in-memory tree), the integration adapter (a real temporary Git repository), and the command-line
+adapter in this package. The unit and integration runners sit beside the code they test, in `internal/application` and
+`internal/adapters/runtime`.
 
 Run it with `go test ./tests/bdd`. `scripts/test.sh` runs it again under the race detector.
 

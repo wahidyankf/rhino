@@ -161,6 +161,19 @@ func (d *cliVaultDriver) Generation(_ context.Context, name, file, content strin
 	})
 }
 
+// Chmod sets the permission bits of a file in the scenario's repository.
+func (d *cliVaultDriver) Chmod(_ context.Context, path, mode string) error {
+	var perm uint32
+	if _, err := fmt.Sscanf(mode, "%o", &perm); err != nil {
+		return err
+	}
+	file, err := d.world.repoPath(path)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(file, os.FileMode(perm))
+}
+
 func (d *cliVaultDriver) Local(_ context.Context, path, content string) error {
 	return d.world.writeRepoFile(path, content)
 }
@@ -175,9 +188,17 @@ func (d *cliVaultDriver) Command(ctx context.Context, arguments []string) (vault
 	if err != nil {
 		return vault.Result{}, err
 	}
+	start, err := fakebw.CallCount(d.vaultLog())
+	if err != nil {
+		return vault.Result{}, err
+	}
 	d.world.pathOnly = d.world.bin
 	err = d.world.invoke(ctx, strings.Join(arguments, "|"))
 	d.world.pathOnly = ""
+	if err != nil {
+		return vault.Result{}, err
+	}
+	argv, err := fakebw.CallsSince(d.vaultLog(), start)
 	if err != nil {
 		return vault.Result{}, err
 	}
@@ -193,6 +214,7 @@ func (d *cliVaultDriver) Command(ctx context.Context, arguments []string) (vault
 		ExitCode: run.exitCode, Stdout: run.stdout, Stderr: run.stderr,
 		LocalBefore: digestSnapshot(run.before), LocalAfter: digestSnapshot(run.after),
 		VaultBefore: vaultBefore, VaultAfter: vaultAfter,
+		Processes: bwProcesses(argv),
 	}, nil
 }
 
@@ -246,3 +268,12 @@ func (d *cliVaultDriver) Items(_ context.Context, name string) ([]vault.ItemView
 // Close has nothing to remove: the scenario world the corpus creates owns the
 // directory and removes it after the scenario.
 func (d *cliVaultDriver) Close() error { return nil }
+
+// bwProcesses names each bw call a run made as a process of the run.
+func bwProcesses(argv [][]string) []vault.Process {
+	var processes []vault.Process
+	for _, call := range argv {
+		processes = append(processes, vault.Process{Program: "bw", Args: call})
+	}
+	return processes
+}

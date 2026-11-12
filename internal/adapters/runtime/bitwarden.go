@@ -21,8 +21,9 @@ import (
 //
 //   - every call is argv only, with --nointeraction; a value travels on
 //     standard input, never in argv, and item JSON is encoded by `bw encode`;
-//   - the child keeps BW_SESSION, PATH, and HOME, and drops every other BW_*
-//     variable, the cloud and forge tokens, and the Terraform and AWS variables;
+//   - the child receives only the variables the allowlist names, so the session
+//     key, the locale, the proxy and certificate settings, and the platform
+//     basics reach it, and no other variable does;
 //   - status must answer unlocked, for the declared server, before any call;
 //   - an item is found by its exact name, then used by its ID;
 //   - an attachment moves through a 0700 temporary directory under its own name;
@@ -70,7 +71,9 @@ func (item bwItem) toVault() application.VaultItem {
 	switch item.Type {
 	case 1:
 		view.Kind = "login"
-		if item.Login != nil && item.Login.Password != nil {
+		if item.Login == nil || item.Login.Password == nil {
+			view.NoPassword = true
+		} else {
 			view.Password = *item.Login.Password
 		}
 	case 2:
@@ -324,9 +327,22 @@ func bitwardenPath() (string, *application.VaultFault) {
 	return executable, nil
 }
 
-// childEnvironment keeps the variables the provider needs and drops the rest of
-// the sensitive ones. BW_CLEANEXIT and BW_RESPONSE in particular change the
-// exit code and the output shape, so a parent that sets them must not reach bw.
+// childVariables is the allowlist of variables the provider child receives. A
+// variable outside it is dropped, so a token or a cloud credential in the parent
+// environment never reaches bw. BW_SESSION is the only BW_* variable kept, and
+// BW_CLEANEXIT and BW_RESPONSE, which change the exit code and the output shape,
+// are dropped with the rest.
+var childVariables = map[string]bool{
+	"BW_SESSION": true, "PATH": true, "HOME": true, "TMPDIR": true, "LANG": true,
+	"TZ": true, "USER": true, "LOGNAME": true, "BITWARDENCLI_APPDATA_DIR": true,
+	"HTTP_PROXY": true, "HTTPS_PROXY": true, "NO_PROXY": true,
+	"http_proxy": true, "https_proxy": true, "no_proxy": true,
+	"SSL_CERT_FILE": true, "SSL_CERT_DIR": true, "NODE_EXTRA_CA_CERTS": true,
+	"SystemRoot": true, "APPDATA": true, "LOCALAPPDATA": true, "USERPROFILE": true,
+	"ComSpec": true, "PATHEXT": true, "TEMP": true, "TMP": true,
+}
+
+// childEnvironment keeps only the allowlisted variables of the parent environment.
 func childEnvironment(parent []string) []string {
 	var kept []string
 	for _, entry := range parent {
@@ -338,17 +354,10 @@ func childEnvironment(parent []string) []string {
 	return kept
 }
 
-// keepChildVariable reports whether a variable reaches the provider.
+// keepChildVariable reports whether a variable reaches the provider: an
+// allowlisted name, a locale variable, or an XDG base-directory variable.
 func keepChildVariable(name string) bool {
-	switch {
-	case name == "BW_SESSION" || name == "PATH" || name == "HOME":
-		return true
-	case strings.HasPrefix(name, "BW_"), name == "GITHUB_TOKEN", strings.HasPrefix(name, "GH_"),
-		strings.HasPrefix(name, "CLOUDFLARE_"), strings.HasPrefix(name, "TF_VAR_"), strings.HasPrefix(name, "AWS_"):
-		return false
-	default:
-		return true
-	}
+	return childVariables[name] || strings.HasPrefix(name, "LC_") || strings.HasPrefix(name, "XDG_")
 }
 
 // decodeStrict reads exactly one JSON value and refuses any trailing content.
