@@ -9,7 +9,8 @@ it; RHINO does not invent a policy or route an old command through a replacement
 - **Configuration** — `repo-config validate`
 - **Lifecycle gates** — `gate list`, `gate validate`, `gate run --surface <name>`
 - **Harness adapters** — `harness adapters validate`, `harness adapters generate`
-- **Environment** — `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`
+- **Environment** — `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`,
+  `env pull [--entry <path>] [--force]`, `env push [--entry <path>] [--overwrite]`, `env diff [--entry <path>]`
 - **Toolchains** — `toolchain validate`, `toolchain provision --apply`
 - **Markdown** — `md frontmatter validate`, `md heading-hierarchy validate`, `md internal-link validate`,
   `md mermaid validate`, `md naming validate`, `md readme-index validate`
@@ -58,8 +59,17 @@ gate execution, environment operations, and toolchain provision use their own ex
   - Accepted by: `env init`, `toolchain provision`
   - Meaning: Authorize the declared mutation after planning.
 - `--force`
-  - Accepted by: `env restore`
-  - Meaning: Authorize replacement after a recoverable backup plan.
+  - Accepted by: `env pull`, `env restore`
+  - Meaning: Authorize replacement. `env restore` replaces only after a recoverable backup plan; `env pull` replaces a
+    local file that differs from the vault.
+- `--entry <path>`
+  - Accepted by: `env pull`, `env push`, `env diff`
+  - Meaning: Narrow the run to one declared vault entry. Repeatable. A path that is not a declared vault entry refuses
+    the run.
+- `--overwrite`
+  - Accepted by: `env push`
+  - Meaning: Replace a differing vault value. A login keeps its previous password in its history; a file keeps its
+    newest previous generation and removes the one before it.
 - `--surface <name>`
   - Accepted by: `gate run`
   - Meaning: Select one closed lifecycle surface.

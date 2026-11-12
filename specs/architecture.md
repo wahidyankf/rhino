@@ -134,6 +134,10 @@ The disk tree also answers two read-only Git name queries: `TrackedFiles` (`git 
 `environment.vault` is declared. They return names, never file contents, and a tree without a Git name boundary refuses
 the check.
 
+The vault commands hold two ports of their own. `SecretVault` is implemented by `internal/adapters/runtime/bitwarden.go`
+over the Bitwarden CLI, and `VaultFileStore` by `internal/adapters/runtime/vault_files.go` with atomic writes.
+`ExecuteWithVault` hands both to `env pull`, `env push`, and `env diff` only; no validator receives them.
+
 ## Data
 
 - **Configuration:** one YAML document, decoded once into a `config.Document`. `repo-config validate` refuses an unknown
@@ -172,7 +176,7 @@ reported as `2`, a gate that could not run. RHINO's own status describes RHINO o
 | `internal/**/*_test.go` | Parsers, validator cores, and adapters in temporary directories | `go test ./...`       |
 | `tests/bdd/`            | Every scenario in `specs/behaviours`, against the built binary  | `go test ./tests/bdd` |
 | `tests/bdd` compliance  | Every step is bound once, every binding is used, count matches  | `go test ./tests/bdd` |
-| `tests/bdd/vault/`      | Vault step registry, bound at three layers                      | `go test ./tests/bdd` |
+| `tests/bdd/vault/`      | Vault step registry for both corpora, bound at three layers     | `go test ./tests/bdd` |
 
 The behaviour suite builds the binary once per run. Each scenario gets its own temporary repository, its own Git
 repository built with plumbing commands, and its own `PATH` directory. It runs `rhino` as a child process and asserts on

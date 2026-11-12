@@ -546,7 +546,9 @@ also reads the Git names of tracked and ignored files and the secret and variabl
 reports file contents and never opens an ignored file. `env init` plans the pairs by default and creates only absent
 targets with `--apply`; it rejects escaping, duplicate, same-path, unreadable, and existing targets before a write.
 `env backup --dir` copies only declared local targets into a new repository-relative destination. `env restore --dir`
-refuses a conflicting target unless `--force` explicitly authorizes a recoverable replacement.
+refuses a conflicting target unless `--force` explicitly authorizes a recoverable replacement. `env pull`, `env push`,
+and `env diff` move the vault entries of `environment.vault` between their local files and the vault; the
+[how-to](../how-to/move-declared-secrets-through-the-vault.md) gives the flow.
 
 ```yaml
 environment:

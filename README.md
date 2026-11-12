@@ -14,8 +14,9 @@ ships no repository, organization, harness, tree, or threshold defaults.
 RHINO validates declared Markdown, governance, lifecycle, harness, environment, and toolchain policy. Tree validators
 read local files only: they do not write, start any process except read-only Git queries, or connect to a network.
 `env validate` asks Git for the staged paths when a staging guard is declared, and for the tracked and ignored names
-when `environment.vault` is declared. `toolchain validate` runs each declared probe. Declared gates and explicit
-operations use separate, narrow boundaries.
+when `environment.vault` is declared. `toolchain validate` runs each declared probe. `env pull`, `env push`, and
+`env diff` move declared secrets between local files and the Bitwarden CLI, only when invoked. Declared gates and
+explicit operations use separate, narrow boundaries.
 
 ## Highlights
 

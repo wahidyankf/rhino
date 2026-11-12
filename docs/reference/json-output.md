@@ -144,6 +144,10 @@ carries the verdict.
 - `env validate`
   - `command`: `environment-validate`
   - Other fields: `exitCode`, and `inspected` when clean or `findings` (objects with `rule`, `path`, `key`) when not
+- `env pull`, `env push`, and `env diff`
+  - `command`: `environment-pull`, `environment-push`, or `environment-diff`
+  - Other fields: `count` and `findings` (objects with `class` and `name`), and `status`: `completed` when clean or
+    `findings` when not. No value, digest, length, or item ID appears.
 - `toolchain validate`
   - `command`: `toolchain-validate`
   - Other fields: `exitCode`, and `inspected` when clean or `findings` (objects with `toolchain`, `rule`) when not

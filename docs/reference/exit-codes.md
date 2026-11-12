@@ -56,6 +56,10 @@ output. Under `--output json` the result reports one finding for the gate.
 - a symbolic link a declared surface glob reaches that leads outside the repository root, loops back into itself, or
   leads to nothing;
 - a file the run has to write that cannot be written;
+- a vault command whose session is not usable (`rhino.vault.unavailable`), or whose vault answer it does not understand
+  (`rhino.vault.refused`);
+- a vault manifest that breaks its rules, an `--entry` that names no declared vault entry, or a local env line that
+  cannot be read;
 - a gate child that was refused for any reason other than the two below, including a mutation child that ends by a
   signal;
 - an uncaught panic. RHINO has no internal-error code and does not recover from a panic: the Go runtime ends the process

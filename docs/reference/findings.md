@@ -350,6 +350,23 @@ must:
 [github-secrets]: https://docs.github.com/en/actions/reference/security/secrets
 [github-variables]: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
 
+## Vault transfer
+
+`env pull`, `env push`, and `env diff` report their findings with exit `1`. Each finding is one line on standard error,
+`[env-<operation>] <class> <name>`, sorted by class and name. The name is an entry path or a key name, and no finding
+ever carries a value:
+
+- `item-missing` — The vault holds no item of the exact name for a key, or no secure note for a file entry.
+- `item-ambiguous` — The vault holds more than one item of the exact name.
+- `local-missing` — A declared local file, or a key the local file should hold, is absent.
+- `local-differs` — `pull` found a local file that differs from the vault, and `--force` was not given.
+- `vault-differs` — A vault value differs from the local file. `push` reports it without `--overwrite`; `diff` always
+  reports it.
+- `undeclared-key` — A local env file holds a key the manifest does not declare.
+- `attachment-missing` — A file entry's secure note holds no generation of its file.
+
+Text mode also prints one summary line on standard output. JSON mode reports one object with `count` and `findings`.
+
 ## Toolchains
 
 `toolchain validate` reports `[toolchain-validate] <id>: <kind>` on stderr for each required toolchain that fails its
