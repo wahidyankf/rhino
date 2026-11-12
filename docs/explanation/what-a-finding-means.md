@@ -10,7 +10,10 @@ It enforces what `repo-config.yml` says and nothing else. So a finding is never 
 and never a matter of taste.
 
 This is what makes exit `1` usable in a gate. If findings mixed "you broke your own rule" with "the tool would prefer
-otherwise", nobody could block a push on one without arguing about the other.
+otherwise", nobody could block a push on one without arguing about the other. Vault transfer findings are breaches of a
+rule the repository declared, because the manifest declares each entry they check: `env pull`, `env push`, and
+`env diff` report `item-missing`, `item-ambiguous`, `local-missing`, `local-differs`, `vault-differs`, `undeclared-key`,
+`attachment-missing`, and `mode-differs` against that declaration, and each one exits `1`.
 
 ## A finding is attributable
 

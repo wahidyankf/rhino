@@ -24,8 +24,9 @@ repository is clean. It was never checked, because the surface the default named
 **A finding always means the repository broke a rule it wrote down.** There is no third category of "RHINO thinks you
 should". Exit `1` is never a matter of taste, which is what makes it safe to put in front of a push. `gate run` also
 exits `1` when a declared gate child fails. That is a declared command failing, not a rule RHINO judged. A vault finding
-from `env pull`, `env push`, or `env diff` is the second place a `1` does not come from a validator: it reports that a
-vault item and a local file disagree under a declared entry.
+from `env pull`, `env push`, or `env diff` is the second place a `1` does not come from a validator, and it still
+breaches a declared rule: the manifest declares each entry, so an item or local file that disagrees with its entry
+breaks that declaration.
 
 **Configuration is the specification.** `repo-config.yml` is the whole policy in one readable file. A maintainer asking
 "what does this repository enforce?" reads it, rather than reading the tool's source and subtracting the overrides.
