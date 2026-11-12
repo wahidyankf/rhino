@@ -387,9 +387,11 @@ These refusals exit `2` with `rhino.vault.refused`. A refusal raised while plann
 
 A refusal raised while applying can leave the writes made before it in place:
 
-- `bw get item`, `bw create item`, or `bw create attachment` answers something this build does not decode, an upload
-  does not name the uploaded attachment, an attachment name is empty, `.`, `..`, or holds a path separator, or an item
-  cannot be encoded for the provider;
+- `bw get item` answers something this build does not decode, or is `null`; `bw create item` or `bw create attachment`
+  answers something this build does not decode; an upload does not name the uploaded attachment, an attachment name is
+  empty, `.`, `..`, or holds a path separator, or an item cannot be encoded for the provider;
+- the read-back of an uploaded generation under `env push`, a `bw get attachment` download, does not produce exactly one
+  regular file;
 - an uploaded generation under `env push` does not read back equal to the bytes it was meant to store. RHINO deletes
   that unverified upload and keeps every older generation.
 
@@ -402,7 +404,9 @@ every vault command with exit `2`, `--force` included, so such a file must be mo
 
 A vault run is not transactional. A session check refuses before any write, but a later apply step can fail after
 earlier writes have landed, and those writes stay in place. Running the same command again converges on the declared
-state, because an entry that already matches is left alone.
+state, because an entry that already matches is left alone. Each step first checks that `bw` is on the path and
+executable. A `bw` that is missing or cannot be executed at that check exits `127` or `126`, not `2`, under the same
+`rhino.vault.unavailable` code; see [exit codes](exit-codes.md).
 
 Text mode also prints one summary line on standard output. JSON mode reports one object with `count` and `findings`.
 

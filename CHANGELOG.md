@@ -25,12 +25,12 @@ RHINO is in `0.x`; read **Changed — breaking** before upgrading a pinned versi
 
 - `env pull`, `env push`, and `env diff` move the vault entries of `environment.vault` between the local files and an
   unlocked Bitwarden CLI session. `pull` writes each declared file with mode `0600` unless its entry declares one, and
-  replaces a differing file only with `--force`; `push` seeds missing items and, with `--overwrite`, replaces differing
-  values and keeps the previous file generation; `diff` reports every difference by name. Each command reports names and
-  counts only, and refuses an unusable session before it writes anything. Exit codes: `0` when every selected entry is
-  clean, identical, or written; `1` for a vault finding; `2` for a refusal, such as an unusable session, server,
-  manifest, or local file, or a vault answer this build does not understand; `127` or `126` when `bw` is missing or
-  cannot be executed.
+  replaces a differing file only with `--force`; `push` seeds missing items. With `--overwrite`, it replaces differing
+  login values, and for each file entry it uploads a new generation and keeps the newest previous one; `diff` reports
+  every difference by name. Each command reports names and counts only, and refuses an unusable session before it writes
+  anything. Exit codes: `0` when every selected entry is clean, identical, or written; `1` for a vault finding; `2` for
+  a refusal, such as an unusable session, server, manifest, or local file, or a vault answer this build does not
+  understand; `127` or `126` when `bw` is missing or cannot be executed.
 - `env pull`, `env push`, and `env diff` accept `--entry <path>`, which may repeat. `env push` accepts `--overwrite`.
   The `--force` help text now names the backup plan only `env restore` makes.
 - New error codes `rhino.vault.unavailable` (the vault cannot be used) and `rhino.vault.refused` (the vault answered

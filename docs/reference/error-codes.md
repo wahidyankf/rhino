@@ -52,10 +52,11 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
 - `rhino.harness.refused` — A declared harness operation was refused. A `harness adapters generate` that has written its
   adapters and still finds a generated marker it does not own is refused with this code too, and its message names each
   marker.
-- `rhino.vault.unavailable` — The vault cannot be used: the `bw` executable is not on the path or cannot be executed, no
-  session key is set, the vault is locked, or it serves another server. A `bw` that is missing or cannot be executed
-  exits `127` or `126`; the other causes exit `2`. A session check that fails runs before any write, so it writes
-  nothing.
+- `rhino.vault.unavailable` — The vault cannot be used: no session key is set, the vault is locked, it serves another
+  server, a `bw` call does not complete, or an attachment cannot be staged in a temporary file for the provider. The
+  `bw` executable is not on the path or cannot be executed; that exits `127` or `126`, and the other causes exit `2`. A
+  session check that fails runs before any write, so it writes nothing. A call that fails during apply can leave earlier
+  writes in place; see [findings](findings.md#vault-transfer).
 - `rhino.vault.refused` — The vault answered something this build does not understand, or a value cannot be read or
   written safely: a `bw status`, `bw list items`, `bw get item`, `bw create item`, or `bw create attachment` answer that
   does not decode, an attachment download that is not exactly one regular file, a login whose password the vault holds

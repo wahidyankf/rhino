@@ -7,8 +7,8 @@ those files from the vault, seed the vault from them, or compare the two. The co
 The commands below were not exercised against a real vault in this documentation pass. The behaviour corpus runs them
 against a fake `bw`.
 
-The binary opens no socket. Only these three commands reach a network, and they do it through `bw`, the Bitwarden CLI,
-to the server the manifest declares.
+The binary opens no socket. Its vault commands reach a network only through `bw`, the Bitwarden CLI, to the server the
+manifest declares.
 
 ## Before you start
 
@@ -101,11 +101,13 @@ rhino env push
 
 ## Read the exit codes
 
-| Exit | Meaning for these commands                                                                                 |
-| ---- | ---------------------------------------------------------------------------------------------------------- |
-| `0`  | Every selected entry is clean, identical, or written.                                                      |
-| `1`  | At least one finding. Each names a class and an entry or key. Nothing is written for a flagged pull entry. |
-| `2`  | The session, server, manifest, a local file, or a write was unusable. Read the message.                    |
+| Exit  | Meaning for these commands                                                                                 |
+| ----- | ---------------------------------------------------------------------------------------------------------- |
+| `0`   | Every selected entry is clean, identical, or written.                                                      |
+| `1`   | At least one finding. Each names a class and an entry or key. Nothing is written for a flagged pull entry. |
+| `2`   | The session, server, manifest, a local file, a `bw` call, or a write was unusable. Read the message.       |
+| `126` | `bw` is on the path but cannot be executed. A failed check before the first write writes nothing.          |
+| `127` | `bw` is not on the path. A failed check before the first write writes nothing.                             |
 
 A vault run is not transactional. A session check refuses before any write. A later apply step can fail after earlier
 writes have landed, and those writes stay in place. Running the same command again converges on the declared state,
