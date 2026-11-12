@@ -357,11 +357,13 @@ Feature: Move declared secrets between a vault and the repository
       """
     And the vault session is unlocked for the declared server
     And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-vault"
+    And the vault holds a login item "example/fixture/web/local/beta-key-old" with the password "marker-beta-old"
     When I run environment pull
     Then the command exits 1
     And the output names "item-missing BETA_KEY"
     And the local file "config/app.env" does not exist
     And no run output contains "marker-alpha-vault"
+    And no run output contains "marker-beta-old"
 
   Scenario Outline: Print no value in any output
     Given the repository declares this environment configuration:
@@ -523,7 +525,39 @@ Feature: Move declared secrets between a vault and the repository
       | pull    |
       | push    |
 
-  Scenario: Report a looser local mode by name and repair it on pull
+  Scenario Outline: Skip an absent resident item in pull and push
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - class: vault
+              form: resident
+              app: web
+              env: local
+              secret: resident-token
+      """
+    And the vault session is unlocked for the declared server
+    # The vault holds no item under the resident name, so pull and push must not report it as missing.
+    When I run environment <command>
+    Then the command exits 0
+    And the output does not name "item-missing"
+    And the summary line is "<summary>"
+    And the local files are unchanged by the last run
+    And the vault is unchanged by the last run
+    And the run started only the Bitwarden CLI
+
+    Examples:
+      | command | summary                                      |
+      | pull    | [env-pull] 0 entries: 0 written, 0 identical |
+      | push    | [env-push] 0 entries: 0 pushed, 0 identical  |
+
+  Scenario: Report a looser local mode by name
     Given the repository declares this environment configuration:
       """
       schema: rhino/repo-config/v2
@@ -549,11 +583,40 @@ Feature: Move declared secrets between a vault and the repository
       # Written by rhino env pull from the vault; change the vault, not this file.
       ALPHA_KEY=marker-alpha-one
       """
+    And the repository gives the local file "config/app.env" the mode "0644"
     When I run environment diff
     Then the command exits 1
     And the output names "mode-differs config/app.env"
     And the local files are unchanged by the last run
     And no run output contains "marker-alpha-one"
+
+  Scenario: Repair a looser local mode on pull
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/app.env
+              class: vault
+              form: env
+              app: web
+              env: local
+              mode: "0600"
+              keys: [ALPHA_KEY]
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-one"
+    And the repository holds the local file "config/app.env" with this content:
+      """
+      # Written by rhino env pull from the vault; change the vault, not this file.
+      ALPHA_KEY=marker-alpha-one
+      """
+    And the repository gives the local file "config/app.env" the mode "0644"
     When I run environment pull
     Then the command exits 0
     And the local file "config/app.env" has the mode "0600"
@@ -563,6 +626,49 @@ Feature: Move declared secrets between a vault and the repository
       ALPHA_KEY=marker-alpha-one
       """
     And no run output contains "marker-alpha-one"
+
+  Scenario: Narrow a run to one declared entry with --entry
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/app.env
+              class: vault
+              form: env
+              app: web
+              env: local
+              mode: "0600"
+              keys: [ALPHA_KEY]
+            - path: config/other.env
+              class: vault
+              form: env
+              app: api
+              env: local
+              mode: "0600"
+              keys: [BETA_KEY]
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-entry"
+    And the vault holds a login item "example/fixture/api/local/beta-key" with the password "marker-beta-entry"
+    When I run environment pull for the entry "config/app.env"
+    Then the command exits 0
+    And the local file "config/app.env" holds this content:
+      """
+      # Written by rhino env pull from the vault; change the vault, not this file.
+      ALPHA_KEY=marker-alpha-entry
+      """
+    And the local file "config/other.env" does not exist
+    And no run output contains "marker-beta-entry"
+    When I run environment diff for the entry "config/unknown.env"
+    Then the command exits 2
+    And the output names "names no declared vault entry"
+    And no run output contains "marker-beta-entry"
 
   Scenario: A pulled file with no declared mode is owner-only
     Given the repository declares this environment configuration:

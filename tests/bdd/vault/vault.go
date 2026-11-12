@@ -171,6 +171,8 @@ func Bindings() []Binding {
 		{`^I run environment validation in (text|json) format$`, runValidationIn},
 		{`^the command exits (\d+)$`, commandExits},
 		{`^the output names "([^"]*)"$`, outputNames},
+		{`^the output does not name "([^"]*)"$`, outputDoesNotName},
+		{`^the summary line is "([^"]*)"$`, summaryLineIs},
 		{`^no run output contains "([^"]*)"$`, noRunOutputContains},
 		{`^the run started only read-only Git queries$`, startedOnlyReadOnlyQueries},
 		{`^the run started only the Bitwarden CLI$`, startedOnlyBitwarden},
@@ -181,6 +183,7 @@ func Bindings() []Binding {
 		{`^the repository holds the local file "([^"]+)" with this content:$`, writeLocalDocument},
 		{`^the repository gives the local file "([^"]+)" the mode "([0-7]{4})"$`, giveLocalMode},
 		{`^I run environment (pull|push|diff)(?: with (force|overwrite))?(?: in (text|json) format)?$`, runEnvironment},
+		{`^I run environment (pull|push|diff) for the entry "([^"]+)"$`, runEnvironmentForEntry},
 		{`^the local file "([^"]+)" holds the content "([^"]*)"$`, localHoldsContent},
 		{`^the local file "([^"]+)" holds this content:$`, localHoldsDocument},
 		{`^the local file "([^"]+)" does not exist$`, localAbsent},
@@ -453,6 +456,54 @@ func giveLocalMode(ctx context.Context, path, mode string) error {
 
 // runEnvironment runs one env command. The option is force or overwrite, or
 // empty; the format is text or json, or empty for text.
+// outputDoesNotName asserts that neither stream of the last run names text.
+func outputDoesNotName(ctx context.Context, text string) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	last, err := current.lastRun()
+	if err != nil {
+		return err
+	}
+	if strings.Contains(last.Stdout, text) || strings.Contains(last.Stderr, text) {
+		return fmt.Errorf("the last run's output names %q", text)
+	}
+	return nil
+}
+
+// summaryLineIs asserts that one line of the last run's standard output is line.
+func summaryLineIs(ctx context.Context, line string) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	last, err := current.lastRun()
+	if err != nil {
+		return err
+	}
+	for _, got := range strings.Split(last.Stdout, "\n") {
+		if got == line {
+			return nil
+		}
+	}
+	return fmt.Errorf("the last run's standard output has no summary line %q", line)
+}
+
+// runEnvironmentForEntry runs one env command narrowed to one declared entry.
+func runEnvironmentForEntry(ctx context.Context, command, entry string) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	result, err := current.driver.Command(ctx, []string{"env", command, "--entry", entry})
+	if err != nil {
+		return err
+	}
+	current.runs = append(current.runs, result)
+	return nil
+}
+
 func runEnvironment(ctx context.Context, command, option, format string) error {
 	current, err := scenarioFrom(ctx)
 	if err != nil {
