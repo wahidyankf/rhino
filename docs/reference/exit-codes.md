@@ -71,7 +71,8 @@ nothing for a flagged entry. A vault session, server, manifest, or answer RHINO 
   start exits `127` or `126` instead, see below), or whose vault answer it does not understand (`rhino.vault.refused`);
 - a vault manifest that breaks its rules, an `--entry` that names no declared vault entry, or a local env line that
   cannot be read;
-- a local file that holds no UTF-8 text, which `env pull`, `env push`, and `env diff` refuse even with `--force`;
+- a local file that holds no UTF-8 text, which `env pull`, `env push`, and `env diff` refuse even with `--force`
+  whenever they read it (`env pull` reads a file only after its vault items are found);
 - a gate child that was refused for any reason other than the two below, including a mutation child that ends by a
   signal;
 - an uncaught panic. RHINO has no internal-error code and does not recover from a panic: the Go runtime ends the process

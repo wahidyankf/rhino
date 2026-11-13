@@ -43,10 +43,11 @@ position because RHINO is in `0.x`; read **Changed — breaking** before upgradi
   workflows. It never opens an ignored file. A tree without a Git name boundary refuses the check with exit `2`.
 - `vault-github-unlisted-reference` reads the bracket forms `secrets['X']` and `secrets["X"]`, and reports the
   references it cannot resolve to one name: `secrets[dynamic]`, `secrets (whole context)`, and `secrets: inherit`.
-- `vault-manifest-invalid` refuses an exact entry path that another entry's glob covers, a `templates` row whose `path`
+- `vault-manifest-invalid` reports an exact entry path that another entry's glob covers, a `templates` row whose `path`
   or `for` is a glob or whose `for` names no entry, a `github.workflows` glob that is absolute, climbs with `..`, or
-  leaves a `[` unclosed, a `mode` that is not a quoted octal string, and each field an entry's class never reads. A
-  `prefix` has one or more kebab-case segments.
+  leaves a `[` unclosed, a `mode` string that is not an octal file mode, and each field an entry's class never reads.
+  A `prefix` has one or more kebab-case segments. An unquoted `mode`, such as `mode: 0600`, is not a finding: the
+  configuration is refused when it loads (exit `2`, `rhino.config.unusable`).
 - The workflow scan reads only `${{ }}` expressions and bare `if:` values. A `secrets` or `vars` word elsewhere in a
   workflow is not reported. A quoted string literal inside an expression is not read. Listed names compare
   case-insensitively, as GitHub documents for secrets and configuration variables; `findings.md` gives the sources.

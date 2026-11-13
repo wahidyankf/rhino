@@ -288,13 +288,16 @@ The vault kinds below report only when `environment.vault` is declared. Each one
 
 - `vault-manifest-invalid` — A vault shape rule is broken, among others: an unknown provider, a server that is not
   `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
-  `mode` that is not a quoted octal file mode such as `"0600"`, a duplicate path, an exact path that another entry's
+  `mode` string that is not an octal file mode such as `"rw-r--"`, a duplicate path, an exact path that another entry's
   glob covers, a `templates` row whose `path` or `for` is a glob or whose `for` names no entry, a field its entry's
   class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a `keys`
   item whose `field` is not `password`, a `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[`
   unclosed, or a GitHub secret with no name or source. It names the entry by its path, its consumer, or its index in
   `environment.vault.entries`; the template by its path, or its index when the path is not exact; the item name for a
-  duplicate; `github.workflows` with the glob; or `github.secrets` for a GitHub secret.
+  duplicate; `github.workflows` with the glob; or `github.secrets` for a GitHub secret. `env validate` reports each one
+  as a finding with exit `1`, and the vault commands refuse a manifest that has one with exit `2`. An unquoted `mode`,
+  such as `mode: 0600`, is not a finding: the configuration is refused when it loads, with exit `2` and
+  `rhino.config.unusable`, for `env validate`, `env pull`, `env push`, and `env diff`.
 - `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
   names the entry's path and the item name.
 - `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
@@ -400,7 +403,9 @@ zero beyond that padding. Generation zero is never a generation. `push --overwri
 and removes every older one, and only after the new generation verifies.
 
 `--force` on `env pull` replaces a local file that differs from the vault. A local file that holds no UTF-8 text refuses
-every vault command with exit `2`, `--force` included, so such a file must be moved or removed by hand.
+every vault command that reads it with exit `2`, `--force` included, so such a file must be moved or removed by hand.
+`env pull` plans the vault side first: when a declared entry's vault item is missing or ambiguous, it reports that
+finding with exit `1` and never reads the local file.
 
 A vault run is not transactional. A session check refuses before any write, but a later apply step can fail after
 earlier writes have landed, and those writes stay in place. Running the same command again converges on the declared

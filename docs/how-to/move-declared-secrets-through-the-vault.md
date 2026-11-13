@@ -72,8 +72,10 @@ rhino env pull
   `rhino env pull --force`.
 - A declared file whose vault items are missing or ambiguous is reported, and nothing is written for that file. Other
   clean entries are still written.
-- A symbolic link on the path, or a local file that holds no UTF-8 text, refuses the run before any write. `--force`
-  does not replace a file that holds no UTF-8 text; move or remove that file by hand first.
+- A symbolic link on the path, or a local file that holds no UTF-8 text the command reads, refuses the run before any
+  write. `env pull` reads a file only after the vault items for its entry are found; with an item missing, it reports
+  `item-missing` and exits `1` without reading the file. `--force` does not replace a file that holds no UTF-8 text;
+  move or remove that file by hand first.
 - A resident entry holds no file, so `pull` skips it.
 
 ## Seed the vault from the local files
