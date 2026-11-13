@@ -415,7 +415,7 @@ func HelpFor(segments []string) (string, bool) {
 		AcceptApply:            "  --apply                Authorize this declared mutation.\n",
 		AcceptForce:            "  --force                Replace an existing target. Environment restore plans a backup first.\n",
 		AcceptEntry:            "  --entry <path>         Narrow the run to one declared entry. Repeatable.\n",
-		AcceptOverwrite:        "  --overwrite            Replace a differing vault value, keeping its previous generation.\n",
+		AcceptOverwrite:        "  --overwrite            Replace a differing vault value. Only a file entry keeps\n                         its previous generation.\n",
 		AcceptSurface:          "  --surface <name>       Which closed lifecycle surface is dispatching.\n",
 		AcceptMessageFile:      "  --message-file <path>  Exact commit-msg hook path, read only for that surface.\n",
 		AcceptPushUpdatesStdin: "  --push-updates-stdin   Read Git pre-push update records from standard input.\n",

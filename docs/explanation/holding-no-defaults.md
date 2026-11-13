@@ -24,7 +24,7 @@ repository is clean. It was never checked, because the surface the default named
 **A finding always means the repository broke a rule it wrote down.** There is no third category of "RHINO thinks you
 should". Exit `1` is never a matter of taste, which is what makes it safe to put in front of a push. `gate run` also
 exits `1` when a declared gate child fails. That is a declared command failing, not a rule RHINO judged. A vault finding
-from `env pull`, `env push`, or `env diff` is the second place a `1` does not come from a validator, and it still
+from `env pull`, `env push`, or `env diff` is the second case where a `1` does not come from a validator. It still
 breaches a declared rule: the manifest declares each entry, so an item or local file that disagrees with its entry
 breaks that declaration.
 
@@ -45,7 +45,8 @@ The configuration also has to name every value it enforces. Only `schema` is req
 an omitted group is never a quiet pass: the leaf that needs it exits `2` and names the missing policy. The difference
 between _this repository declares no Mermaid policy_ and _I forgot to configure Mermaid_ stays visible, because neither
 is ever reported as clean. An empty group is different: it is a declaration. `gates: {}` says this repository runs no
-gate, so `gate run` reports clean; leaving `gates` out says nothing, so every `gate` leaf exits `2`.
+gate, so `gate run` exits `0` (JSON reports `"result":"clean"`; text prints nothing); leaving `gates` out says nothing,
+so every `gate` leaf exits `2`.
 
 ## Where the rule bends, and where it does not
 

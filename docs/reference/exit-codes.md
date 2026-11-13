@@ -46,7 +46,7 @@ output. Under `--output json` the result reports one finding for the gate.
 `1` from `env pull`, `env push`, or `env diff` — one or more vault findings, such as a vault item that is missing, or a
 local file that differs from the vault. Each finding names an entry path or a key, never a value, and `env pull` writes
 nothing for a flagged entry. A vault session, server, manifest, or answer RHINO does not understand exits `2`, never
-`1`.
+`1`; a `bw` that cannot start exits `127` or `126`.
 
 `2` — any of:
 
@@ -66,11 +66,13 @@ nothing for a flagged entry. A vault session, server, manifest, or answer RHINO 
 - a file the run has to write that cannot be written;
 - a `harness adapters generate` that wrote its own adapters and then finds a generated marker it does not own
   (`rhino.harness.refused`); validation reports the same marker as a finding, `1`, and writes nothing;
-- a vault command whose session is missing, whose vault is locked, or whose server is not the configured one
-  (`rhino.vault.unavailable`), or whose vault answer it does not understand (`rhino.vault.refused`);
+- a vault command whose session is missing, whose vault is locked, or whose server is not the configured one, a `bw`
+  call that does not complete, or an attachment that cannot be staged (`rhino.vault.unavailable`; a `bw` that cannot
+  start exits `127` or `126` instead, see below), or whose vault answer it does not understand (`rhino.vault.refused`);
 - a vault manifest that breaks its rules, an `--entry` that names no declared vault entry, or a local env line that
   cannot be read;
-- a local file that holds no UTF-8 text, which `env pull`, `env push`, and `env diff` refuse even with `--force`;
+- a local file that holds no UTF-8 text, which `env pull`, `env push`, and `env diff` refuse even with `--force`
+  whenever they read it (`env pull` reads a file only after its vault items are found);
 - a gate child that was refused for any reason other than the two below, including a mutation child that ends by a
   signal;
 - an uncaught panic. RHINO has no internal-error code and does not recover from a panic: the Go runtime ends the process

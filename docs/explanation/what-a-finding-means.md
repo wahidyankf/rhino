@@ -10,10 +10,13 @@ It enforces what `repo-config.yml` says and nothing else. So a finding is never 
 and never a matter of taste.
 
 This is what makes exit `1` usable in a gate. If findings mixed "you broke your own rule" with "the tool would prefer
-otherwise", nobody could block a push on one without arguing about the other. Vault transfer findings are breaches of a
-rule the repository declared, because the manifest declares each entry they check: `env pull`, `env push`, and
-`env diff` report `item-missing`, `item-ambiguous`, `local-missing`, `local-differs`, `vault-differs`, `undeclared-key`,
-`attachment-missing`, and `mode-differs` against that declaration, and each one exits `1`.
+otherwise", nobody could block a push on one without arguing about the other.
+
+Vault transfer findings are breaches of a rule the repository declared, because the manifest declares each entry they
+check. `env pull`, `env push`, and `env diff` compare local files and keys with the vault, and report `item-missing`,
+`item-ambiguous`, `local-missing`, `local-differs`, `vault-differs`, `undeclared-key`, `attachment-missing`, and
+`mode-differs` against that declaration. Each one exits `1`. See
+[vault transfer findings](../reference/findings.md#vault-transfer).
 
 ## A finding is attributable
 
@@ -52,12 +55,12 @@ is judged by the checks that need no grammar; see [Mermaid findings](../referenc
 
 **Zero.** A surface that matched no files, a tree with no directories — these pass. But the run says how many it
 inspected, every time, including when the answer is zero. A clean word-budget run lists every path it read. The
-transcript below is real output, run on the rhino repository on 2026-11-01. The first four lines are shown; the run
-printed 184 more `scanned` lines, one per file, which are left out here.
+transcript below is real output, run on the rhino repository on 2026-11-13. The first four lines are shown; the run
+printed 182 more `scanned` lines, one per file, which are left out here.
 
 ```console
 $ go run ./cmd/rhino governance word-budget validate
-[word-budget] checked 187 files, no findings
+[word-budget] checked 185 files, no findings
 [word-budget] scanned AGENTS.md
 [word-budget] scanned README.md
 [word-budget] scanned repo-governance/README.md
@@ -71,8 +74,9 @@ anything.
 One finding type, one printer, one exit-code mapping, shared by every tree validator: the configuration, Markdown,
 metadata, governance, and convention leaves. The alternative — a nearly-identical result type and printer per validator
 — drifts apart one fix at a time until a caller has to know which validator produced a line before it can read it. The
-harness-adapter, environment, and toolchain validators still print one shorter line of their own, described in
-[Findings](../reference/findings.md#harness-adapters).
+harness-adapter, environment, and toolchain validators still print one shorter line of their own. Each is described in
+its own section: [harness adapters](../reference/findings.md#harness-adapters),
+[environment](../reference/findings.md#environment), and [toolchains](../reference/findings.md#toolchains).
 
 The category prefix is atomic rather than assembled from the command path, so `grep '\[word-budget\]'` gets that
 validator's output and nothing else, whichever spelling of the command produced it.

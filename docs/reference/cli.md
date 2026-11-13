@@ -62,7 +62,9 @@ gate execution, environment operations, and toolchain provision use their own ex
   - Accepted by: `env pull`, `env restore`
   - Meaning: Authorize replacement. `env restore` replaces only after a recoverable backup plan; `env pull` replaces a
     local file that differs from the vault. `env pull` still refuses a local file that holds no UTF-8 text, with exit
-    `2`, so such a file must be moved or removed by hand.
+    `2`, when it reads that file. It reads a file only after the vault items for its entry are found, so with an item
+    missing it reports `item-missing` and exits `1` without reading the file. Such a file must be moved or removed by
+    hand.
 - `--entry <path>`
   - Accepted by: `env pull`, `env push`, `env diff`
   - Meaning: Narrow the run to one declared vault entry. Repeatable. A path that is not a declared vault entry refuses

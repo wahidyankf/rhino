@@ -14,7 +14,8 @@ Under `--output json` every refusal writes one document to standard error:
 
 The exit status stays inside [its own closed vocabulary](./exit-codes.md); the code says which of the situations behind
 a status occurred. Under the default text output the same refusal is one `rhino: …` line carrying the message alone. A
-surface with no gates is not a refusal: `gate run` on it reports `clean` and exits `0`.
+surface with no gates is not a refusal: `gate run` on it exits `0`. Under `--output json` it reports `"result":"clean"`;
+under text output it prints nothing.
 
 ## The vocabulary
 
@@ -32,8 +33,8 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
   path or pattern that is absolute or climbs out of the root.
 - `rhino.config.undeclared` — The configuration omits the group or policy the command needs.
 - `rhino.path.escapes-root` — A `--file` or `--directory` selection is absolute, climbs out of the selected root, or
-  passes through a symbolic link; a `--dir` is absolute or climbs out; a declared surface glob reaches a symbolic link
-  that leads outside the root; or a declared environment example or staging allowance is not an exact
+  passes through a symbolic link; a `--dir` or `--entry` is absolute or climbs out; a declared surface glob reaches a
+  symbolic link that leads outside the root; or a declared environment example or staging allowance is not an exact
   repository-relative path.
 - `rhino.file.missing` — A named file or directory does not exist.
 - `rhino.file.unreadable` — A file RHINO had to read exists and could not be read, or lies behind a symbolic link RHINO
@@ -52,12 +53,17 @@ Every code is `rhino.<area>.<reason>`. RHINO emits no code outside this list.
 - `rhino.harness.refused` — A declared harness operation was refused. A `harness adapters generate` that has written its
   adapters and still finds a generated marker it does not own is refused with this code too, and its message names each
   marker.
-- `rhino.vault.unavailable` — The vault cannot be used: the `bw` executable is not on the path or cannot be executed, no
-  session key is set, the vault is locked, or it serves another server. A `bw` that is missing or cannot be executed
-  exits `127` or `126`; the other causes exit `2`. A session check that fails runs before any write, so it writes
-  nothing.
-- `rhino.vault.refused` — The vault answered something this build does not understand. A session check that refuses
-  leaves the vault's state as it was. A later step can refuse after earlier writes; see the vault how-to.
+- `rhino.vault.unavailable` — The vault cannot be used: no session key is set, the vault is locked, it serves another
+  server, a `bw` call does not complete, or an attachment cannot be staged in a temporary file for the provider. The
+  `bw` executable is not on the path or cannot be executed; that exits `127` or `126`, and the other causes exit `2`. A
+  session check that fails runs before any write, so it writes nothing. A call that fails during apply can leave earlier
+  writes in place; see [findings](findings.md#vault-transfer).
+- `rhino.vault.refused` — The vault answered something this build does not understand, or a value cannot be read or
+  written safely: a `bw status`, `bw list items`, `bw get item`, `bw create item`, or `bw create attachment` answer that
+  does not decode, a `bw get item` answer that is `null`, an attachment download that is not exactly one regular file, a
+  login whose password the vault holds as null, a login value with a line break under `env pull`, or an uploaded
+  generation that does not read back. A session check that refuses leaves the vault's state as it was. A refusal raised
+  during apply can leave earlier writes in place; see [findings](findings.md#vault-transfer) and the vault how-to.
 
 Error codes are public identifiers, and a caller may branch on one. Adding a code moves the minor version, because a
 caller may treat the vocabulary as closed. Renaming or removing a code moves the contract: it needs a major version, or

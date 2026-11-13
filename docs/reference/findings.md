@@ -288,13 +288,16 @@ The vault kinds below report only when `environment.vault` is declared. Each one
 
 - `vault-manifest-invalid` — A vault shape rule is broken, among others: an unknown provider, a server that is not
   `https://`, a bad prefix or environment set, a missing `reason` or a missing `by` on a derived or generated entry, a
-  `mode` that is not a quoted octal file mode such as `"0600"`, a duplicate path, an exact path that another entry's
+  `mode` string that is not an octal file mode such as `"rw-r--"`, a duplicate path, an exact path that another entry's
   glob covers, a `templates` row whose `path` or `for` is a glob or whose `for` names no entry, a field its entry's
   class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a `keys`
   item whose `field` is not `password`, a `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[`
   unclosed, or a GitHub secret with no name or source. It names the entry by its path, its consumer, or its index in
   `environment.vault.entries`; the template by its path, or its index when the path is not exact; the item name for a
-  duplicate; `github.workflows` with the glob; or `github.secrets` for a GitHub secret.
+  duplicate; `github.workflows` with the glob; or `github.secrets` for a GitHub secret. `env validate` reports each one
+  as a finding with exit `1`, and the vault commands refuse a manifest that has one with exit `2`. An unquoted `mode`,
+  such as `mode: 0600`, is not a finding: the configuration is refused when it loads, with exit `2` and
+  `rhino.config.unusable`, for `env validate`, `env pull`, `env push`, and `env diff`.
 - `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
   names the entry's path and the item name.
 - `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
@@ -376,23 +379,42 @@ and no finding ever carries a value:
 A resident entry holds no file. `env pull` and `env push` skip it. `env diff` checks only that its login item is held
 exactly once under its name, and reports `item-missing` or `item-ambiguous` under that name.
 
-These refusals exit `2` with `rhino.vault.refused`, and the run writes nothing, because they stop it while it plans:
+These refusals exit `2` with `rhino.vault.refused`. A refusal raised while planning stops the run before any write:
 
-- a login item whose password the vault holds as null, because no value can be read from it;
-- a file entry whose newest generation cannot be read. RHINO never uses an older generation in its place.
+- `bw status` or `bw list items` answers something this build does not decode;
+- an attachment download, such as a file entry's newest generation, does not produce exactly one regular file. RHINO
+  never uses an older generation in its place;
+- a login item whose password the vault holds as null, under `env pull`, `env push`, or `env diff`, because no value can
+  be read from it;
+- a login value holds a line break, under `env pull`, because an env file cannot hold it on one line.
+
+A refusal raised while applying can leave the writes made before it in place:
+
+- `bw get item` answers something this build does not decode, or is `null`; `bw create item` or `bw create attachment`
+  answers something this build does not decode; an upload does not name the uploaded attachment, an attachment name is
+  empty, `.`, `..`, or holds a path separator, or an item cannot be encoded for the provider;
+- the read-back of an uploaded generation under `env push`, a `bw get attachment` download, does not produce exactly one
+  regular file;
+- an uploaded generation under `env push` does not read back equal to the bytes it was meant to store. RHINO deletes
+  that unverified upload and keeps every older generation.
 
 Generation names are `<basename>.gNNNN`: four digits at least, zero-padded below ten thousand, and never with a leading
 zero beyond that padding. Generation zero is never a generation. `push --overwrite` keeps the newest previous generation
 and removes every older one, and only after the new generation verifies.
 
 `--force` on `env pull` replaces a local file that differs from the vault. A local file that holds no UTF-8 text refuses
-every vault command with exit `2`, `--force` included, so such a file must be moved or removed by hand.
+every vault command that reads it with exit `2`, `--force` included, so such a file must be moved or removed by hand.
+`env pull` plans the vault side first: when a declared entry's vault item is missing or ambiguous, it reports that
+finding with exit `1` and never reads the local file.
 
 A vault run is not transactional. A session check refuses before any write, but a later apply step can fail after
 earlier writes have landed, and those writes stay in place. Running the same command again converges on the declared
-state, because an entry that already matches is left alone.
+state, because an entry that already matches is left alone. Each step first checks that `bw` is on the path and
+executable. A `bw` that is missing or cannot be executed at that check exits `127` or `126`, not `2`, under the same
+`rhino.vault.unavailable` code; see [exit codes](exit-codes.md).
 
-Text mode also prints one summary line on standard output. JSON mode reports one object with `count` and `findings`.
+Text mode also prints one summary line on standard output. JSON mode reports one object with `command`, `count`,
+`findings`, `schemaVersion`, and `status`; see [JSON output](./json-output.md).
 
 ## Toolchains
 

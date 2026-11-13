@@ -589,12 +589,17 @@ tracked, and which GitHub secrets and variables the workflows read. An absent `v
   - `derived` or `generated` — a glob `path`, a `reason`, and a `by`;
   - `machine-local` — a glob `path` and a `reason`.
 
-  `mode`, when present, is a quoted octal string such as `"0600"`. A file `env pull` writes for an entry that declares
-  no `mode` takes `0600`, owner read and write only. That is a safe fallback for a secret file on every machine, not a
-  repository policy.
+  `mode`, when present, is a string holding an octal file mode such as `"0600"`. An unquoted YAML number such as
+  `mode: 0600` is refused when the configuration loads, with exit `2` and `rhino.config.unusable`, for `env validate`,
+  `env pull`, `env push`, and `env diff`. A string that is not an octal mode, such as `"rw-r--"`, is a
+  `vault-manifest-invalid` finding from `env validate`. A file `env pull` writes for an entry that declares no `mode`
+  takes `0600`, owner read and write only. That is a safe fallback for a secret file on every machine, not a repository
+  policy.
 
-  Each `keys` item names a `key`, an `app`, a `secret`, and an optional `field`. The only field the commands read is the
-  login `password`, so a `field` set to anything else refuses the manifest as `vault-manifest-invalid`.
+  Each `keys` item is either a bare key name, or a mapping whose `key` names the key and whose optional `app`, `secret`,
+  and `field` override that one key. A bare name takes the entry's `app` and the secret segment derived from the key.
+  The only `field` the commands read is the login `password`, so a `field` set to anything else refuses the manifest as
+  `vault-manifest-invalid`.
 
   A `resident` entry holds no file. `env pull` and `env push` skip it, and `env diff` checks only that its login item is
   held exactly once under its name.
@@ -656,8 +661,8 @@ Inputs are named as `files`, `commit-message`, `commit-range`, or `repository-st
 such as `git-index`, `hook-message-file`, `push-updates`, `explicit-range`, or `checkout`. Commands are an executable,
 typed argv mappings, and explicit environment projections; they are never a shell string. Use `gate list` to inspect the
 seven surfaces and `gate validate` to check declaration, composition, binding, and projection without starting a child.
-An omitted `gates` group makes `gate list`, `gate validate`, and `gate run` exit `2`; `gates: {}` declares no gate and
-reports clean.
+An omitted `gates` group makes `gate list`, `gate validate`, and `gate run` exit `2`; `gates: {}` says this repository
+runs no gate, so `gate run` exits `0` (JSON reports `"result":"clean"`; text prints nothing).
 
 A `files` input binds `git-index` for a local mutation or `explicit-range` with `range: explicit` for a pull-request
 replay. The latter resolves only changed repository-relative paths from the immutable `base..head` pair; it never turns

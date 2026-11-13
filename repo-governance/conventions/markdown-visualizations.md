@@ -24,8 +24,8 @@ duplicating what a neighbouring table already says better, is worse than no diag
 - Meet WCAG AA text contrast: at least 4.5:1 for text on its fill.
 - Keep Mermaid source readable, and update a diagram in the same change as the structure it depicts.
 
-Directory trees are not diagrams; they stay in `text` blocks in their usual form. Literal command output, file
-contents, and commit messages also stay in their fenced blocks and are never diagrams.
+Directory trees are not diagrams; they stay in `text` blocks in their usual form. Literal command output, file contents,
+and commit messages also stay in their fenced blocks and are never diagrams.
 
 ## Enforcement
 

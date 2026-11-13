@@ -9,17 +9,28 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.17.0] — 2026-11-13
+
+A minor release: `env pull`, `env push`, and `env diff` move declared secrets between the local files and the vault,
+and `env validate` checks the vault manifest. A repository that declares the vault should move to this version. A
+repository without an `environment.vault` key sees no change from the vault commands.
+
+This release also contains breaking exit-status changes: `harness adapters generate` exits `2`, not `1`, when a
+generated marker remains, and `toolchain provision --apply` exits `127` or `126`, not `2`, when an applied child cannot
+start. Consumers that branch on those codes must update before they move to this version. The version moves in the minor
+position because RHINO is in `0.x`; read **Changed — breaking** before upgrading a pinned version.
 
 ### Added
 
 - `env pull`, `env push`, and `env diff` move the vault entries of `environment.vault` between the local files and an
   unlocked Bitwarden CLI session. `pull` writes each declared file with mode `0600` unless its entry declares one, and
-  replaces a differing file only with `--force`; `push` seeds missing items and, with `--overwrite`, replaces differing
-  values and keeps the previous file generation; `diff` reports every difference by name. Each command reports names and
-  counts only, and refuses an unusable session before it writes anything.
+  replaces a differing file only with `--force`; `push` seeds missing items. With `--overwrite`, it replaces differing
+  login values, and for each file entry it uploads a new generation and keeps the newest previous one; `diff` reports
+  every difference by name. Each command reports names and counts only, and refuses an unusable session before it writes
+  anything. Exit codes: `0` when every selected entry is clean, identical, or written; `1` for a vault finding; `2` for
+  a refusal, such as an unusable session, server, manifest, or local file, or a vault answer this build does not
+  understand; `127` or `126` when `bw` is missing or cannot be executed.
 - `env pull`, `env push`, and `env diff` accept `--entry <path>`, which may repeat. `env push` accepts `--overwrite`.
-  The `--force` help text now names the backup plan only `env restore` makes.
 - New error codes `rhino.vault.unavailable` (the vault cannot be used) and `rhino.vault.refused` (the vault answered
   something the build does not understand).
 - `environment.vault` declares a manifest of the secrets a repository holds: its provider and server, the item prefix,
@@ -32,22 +43,24 @@ the commits behind any release, see its
   workflows. It never opens an ignored file. A tree without a Git name boundary refuses the check with exit `2`.
 - `vault-github-unlisted-reference` reads the bracket forms `secrets['X']` and `secrets["X"]`, and reports the
   references it cannot resolve to one name: `secrets[dynamic]`, `secrets (whole context)`, and `secrets: inherit`.
-- `vault-manifest-invalid` refuses an exact entry path that another entry's glob covers, a `templates` row whose `path`
+- `vault-manifest-invalid` reports an exact entry path that another entry's glob covers, a `templates` row whose `path`
   or `for` is a glob or whose `for` names no entry, a `github.workflows` glob that is absolute, climbs with `..`, or
-  leaves a `[` unclosed, a `mode` that is not a quoted octal string, and each field an entry's class never reads. A
-  `prefix` has one or more kebab-case segments.
+  leaves a `[` unclosed, a `mode` string that is not an octal file mode, and each field an entry's class never reads.
+  A `prefix` has one or more kebab-case segments. An unquoted `mode`, such as `mode: 0600`, is not a finding: the
+  configuration is refused when it loads (exit `2`, `rhino.config.unusable`).
 - The workflow scan reads only `${{ }}` expressions and bare `if:` values. A `secrets` or `vars` word elsewhere in a
   workflow is not reported. A quoted string literal inside an expression is not read. Listed names compare
   case-insensitively, as GitHub documents for secrets and configuration variables; `findings.md` gives the sources.
 
+### Changed
+
+- The `--force` help text now says that `env restore` plans a backup first.
+
 ### Changed — breaking
 
-- **`harness adapters generate` exits `2`, not `1`, when a generated marker remains.** It writes its adapters first, then
-  refuses with `rhino.harness.refused`, naming each marker. `harness adapters validate` still reports the same marker as
-  a finding with exit `1`.
-- **`env pull`, `env push`, and `env diff` exit `127` or `126` when `bw` cannot start.** `127` means `bw` was not found,
-  and `126` that it cannot be executed. Both used to exit `2` with `rhino.vault.unavailable`, which keeps its code. The
-  check runs before the first write.
+- **`harness adapters generate` exits `2`, not `1`, when a generated marker remains.** It writes its adapters first,
+  then refuses with `rhino.harness.refused`, naming each marker. `harness adapters validate` still reports the same
+  marker as a finding with exit `1`.
 - **`toolchain provision --apply` exits `127` or `126` when an applied child cannot start.** `127` means the child was
   not found, and `126` that it cannot be executed. Both used to exit `2` with `rhino.toolchain.failed`, which keeps its
   code. Provision children declared before it already ran.
@@ -1011,6 +1024,7 @@ The first release, so everything below is new.
   loopback. Each of those is held by a boundary-policy test rather than by
   convention.
 
+[v0.17.0]: https://github.com/wahidyankf/rhino/releases/tag/v0.17.0
 [v0.16.7]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.7
 [v0.16.6]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.6
 [v0.16.5]: https://github.com/wahidyankf/rhino/releases/tag/v0.16.5
