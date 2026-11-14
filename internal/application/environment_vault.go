@@ -155,6 +155,7 @@ type vaultRules struct {
 	ignored   []string
 	found     map[environmentFinding]bool
 	names     map[string]bool
+	owners    map[string][]int
 	inspected int
 }
 
@@ -324,8 +325,11 @@ func (r *vaultRules) checkGitHubDeclarations() {
 
 // checkItems derives every vault item name from the entries and checks it
 // against the grammar: the closed environment set and kebab-case segments. A
-// name two entries both derive is reported as a second claim on one name.
+// name two entries both derive is reported as a second claim on one name. A
+// reference key names an item another entry owns, so it claims no name: it is
+// checked against the owners instead.
 func (r *vaultRules) checkItems() {
+	r.owners = r.itemOwners()
 	for index, entry := range r.manifest.Entries {
 		if entry.Class != "vault" {
 			continue
@@ -337,20 +341,76 @@ func (r *vaultRules) checkItems() {
 				if key.Key == "" {
 					continue
 				}
-				segment := key.Secret
-				if segment == "" {
-					segment = deriveSecretSegment(key.Key)
+				if key.Reference {
+					r.reference(label, index, entry, key)
+					continue
 				}
-				app := key.App
-				if app == "" {
-					app = entry.App
-				}
-				r.item(label, app, entry.Env, segment)
+				r.item(label, keyApp(entry, key), entry.Env, keySegment(key))
 			}
 		case "file", "resident":
 			r.item(label, entry.App, entry.Env, entry.Secret)
 		}
 	}
+}
+
+// itemOwners maps each item name that a declared entry owns to the indexes of
+// the entries that own it: every key of an env entry that is not a reference,
+// and every resident entry. A reference resolves through this map only.
+func (r *vaultRules) itemOwners() map[string][]int {
+	owners := map[string][]int{}
+	for index, entry := range r.manifest.Entries {
+		if entry.Class != "vault" {
+			continue
+		}
+		switch entry.Form {
+		case "env":
+			for _, key := range entry.Keys {
+				if key.Key == "" || key.Reference {
+					continue
+				}
+				name := keyItem(r.manifest.Prefix, entry, key)
+				owners[name] = append(owners[name], index)
+			}
+		case "resident":
+			name := itemName(r.manifest.Prefix, entry.App, entry.Env, entry.Secret)
+			owners[name] = append(owners[name], index)
+		}
+	}
+	return owners
+}
+
+// reference checks one reference key of the entry at index. Its item name must
+// follow the grammar, and it must resolve to an item that another entry owns.
+// The two rules fire on their own conditions, so a name outside the grammar
+// that also resolves to nothing reports both. A reference with no app is an
+// entry shape finding already, so its name is not derived. Its secret segment
+// is never empty: the caller skips a key with no name, and a name always
+// derives a non-empty segment.
+func (r *vaultRules) reference(label string, index int, entry config.VaultEntry, key config.VaultKey) {
+	app, segment := keyApp(entry, key), keySegment(key)
+	if app == "" {
+		return
+	}
+	name := keyItem(r.manifest.Prefix, entry, key)
+	if !kebabSegment.MatchString(app) || !kebabSegment.MatchString(segment) || !kebabSegment.MatchString(key.Env) ||
+		!contains(r.manifest.Environments, key.Env) {
+		r.flag(ruleVaultNameGrammar, label, name)
+	}
+	if !ownedByOtherEntry(r.owners[name], index) {
+		r.flag(ruleVaultManifestInvalid, label, name)
+	}
+}
+
+// ownedByOtherEntry reports whether the item is owned by some entry and by no
+// entry at index: an own item resolves to the entry that references it, which
+// the rules refuse, and an item nobody owns resolves to nothing.
+func ownedByOtherEntry(ownerIndexes []int, index int) bool {
+	for _, owner := range ownerIndexes {
+		if owner == index {
+			return false
+		}
+	}
+	return len(ownerIndexes) > 0
 }
 
 // item checks one derived name. An entry missing a segment is a manifest
@@ -520,6 +580,34 @@ func deriveSecretSegment(key string) string {
 // itemName joins the parts of a vault item name, `<prefix>/<app>/<env>/<secret>`.
 func itemName(prefix, app, env, secret string) string {
 	return prefix + "/" + app + "/" + env + "/" + secret
+}
+
+// keyApp is the app of one env key: its own override, or the entry's app.
+func keyApp(entry config.VaultEntry, key config.VaultKey) string {
+	if key.App != "" {
+		return key.App
+	}
+	return entry.App
+}
+
+// keySegment is the secret segment of one env key: its own override, or the
+// segment derived from the key name.
+func keySegment(key config.VaultKey) string {
+	if key.Secret != "" {
+		return key.Secret
+	}
+	return deriveSecretSegment(key.Key)
+}
+
+// keyItem is the vault item one env key names. It takes the entry's environment,
+// or, for a reference, the environment the key sets, so it can name the item of
+// another entry.
+func keyItem(prefix string, entry config.VaultEntry, key config.VaultKey) string {
+	env := entry.Env
+	if key.Reference {
+		env = key.Env
+	}
+	return itemName(prefix, keyApp(entry, key), env, keySegment(key))
 }
 
 // isGlob reports whether a declared path is a pattern rather than one exact path.

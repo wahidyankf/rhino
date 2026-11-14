@@ -55,6 +55,14 @@ environment:
           - TAILSCALE_AUTH_KEY
           - { key: CLOUDFLARE_API_TOKEN, app: infra-edge, secret: edge-dns }
           - { key: EXAMPLE_TOKEN, app: infra-example, secret: example-token }
+      - path: infra/example/ansible/.env.stag
+        class: vault
+        form: env
+        app: infra-example
+        env: stag
+        keys:
+          # A reference: the item of the prod entry above, shared by one vault copy.
+          - { key: EXAMPLE_TOKEN, app: infra-example, env: prod }
       - path: infra/example/terraform/terraform.tfvars
         class: vault
         form: file

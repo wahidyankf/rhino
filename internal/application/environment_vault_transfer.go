@@ -412,17 +412,10 @@ func (t *transfer) readLocal(path string) (localFile, *vaultFailure) {
 	return localFile{exists: true, text: text, mode: mode}, nil
 }
 
-// keyItemName is the item an env key reads: its own app and secret, or the entry's app.
+// keyItemName is the item an env key reads: its own item, or, for a reference,
+// the item of the environment the key names.
 func (t *transfer) keyItemName(entry config.VaultEntry, key config.VaultKey) string {
-	app := key.App
-	if app == "" {
-		app = entry.App
-	}
-	segment := key.Secret
-	if segment == "" {
-		segment = deriveSecretSegment(key.Key)
-	}
-	return itemName(t.manifest.Prefix, app, entry.Env, segment)
+	return keyItem(t.manifest.Prefix, entry, key)
 }
 
 // fileItemName is the item a file entry, or a resident entry, names.

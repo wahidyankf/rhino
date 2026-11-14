@@ -41,6 +41,8 @@ func (t *transfer) desiredEnv(entry config.VaultEntry) (string, []transferFindin
 
 // pushEnv plans the login items of an env entry, one per declared key. A key
 // the vault lacks is created; a differing one is a finding unless overwrite is set.
+// A reference is skipped: its item belongs to another entry, which is the only
+// writer of it, so this push never creates, edits, or compares it.
 func (t *transfer) pushEnv(entry config.VaultEntry, text string) ([]transferFinding, bool, *vaultFailure) {
 	values, failure := envValues(entry, text)
 	if failure != nil {
@@ -49,6 +51,9 @@ func (t *transfer) pushEnv(entry config.VaultEntry, text string) ([]transferFind
 	findings := undeclaredFindings(entry, values)
 	changed := false
 	for _, key := range entry.Keys {
+		if key.Reference {
+			continue
+		}
 		value, present := values[key.Key]
 		if !present {
 			findings = append(findings, transferFinding{class: classLocalMissing, name: key.Key})

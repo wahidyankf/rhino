@@ -641,9 +641,13 @@
     },
     "EnvironmentVaultKey": {
       "additionalProperties": false,
-      "description": "One key of an env entry, with optional overrides of its app, secret, and hidden field.",
+      "description": "One key of an env entry, with optional overrides of its app, secret, and hidden field. A key that sets env is a reference to the item of another entry in that environment.",
       "properties": {
         "app": {
+          "type": "string"
+        },
+        "env": {
+          "description": "The environment segment of the vault item this key reads. A key that sets it is a reference to an item another entry owns: pull reads that item, and push never writes it.",
           "type": "string"
         },
         "field": {
