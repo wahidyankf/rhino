@@ -23,6 +23,8 @@ Run the corpus with `go test ./tests/bdd`.
 - [cli-surface.feature](cli-surface.feature) — build identity (`version`), the `--root` repository selection, process
   exit codes (126, 127, 130, and 143 for signals), scan exclusion scope, and toolchain output and timeout bounds.
 - [environment-vault-validation.feature](environment-vault-validation.feature) — the `environment.vault` rules:
-  unclassified ignored files and templates, GitHub workflow references, closed name grammar, and no printed value.
+  unclassified ignored files and templates, GitHub workflow references, closed name grammar, the resolution of a per-key
+  `env` reference, and no printed value.
 - [environment-vault.feature](environment-vault.feature) — `env pull`, `env push`, and `env diff`: restore, seed,
-  compare, and overwrite with recovery points; refusal of an unusable vault; exact-name matching; and no printed value.
+  compare, and overwrite with recovery points; refusal of an unusable vault; exact-name matching; a per-key reference
+  that reads another entry's item and that push never writes; and no printed value.

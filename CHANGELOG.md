@@ -9,6 +9,20 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [Unreleased]
+
+### Added
+
+- `environment.vault` keys accept an optional `env` beside `key`, `app`, `secret`, and `field`. A key that sets `env` is
+  a reference: its item is named with that environment, so it reads an item another entry owns. `env pull` writes the
+  referenced item's value under the key's own name. `env push` skips the reference and never creates, edits, or compares
+  the item, so the owning entry is its only writer. `env diff` compares the reference like any key. `env validate`
+  reports `vault-manifest-invalid` for a reference that names no item another entry owns, whether it names no declared
+  entry, an item of its own entry, or an item that only another reference names. It reports `vault-name-grammar` for an
+  `env` outside the declared `environments`, and `vault-manifest-invalid` too unless another entry owns that item.
+  `env pull`, `env push`, and `env diff` exit `2` on the same breach before they read the vault. A manifest without
+  `env` on any key validates and runs exactly as before, and no rule name, finding class, or error code is new.
+
 ## [v0.17.0] — 2026-11-13
 
 A minor release: `env pull`, `env push`, and `env diff` move declared secrets between the local files and the vault,
