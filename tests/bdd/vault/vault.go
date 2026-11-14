@@ -189,6 +189,8 @@ func Bindings() []Binding {
 		{`^no run output contains "([^"]*)"$`, noRunOutputContains},
 		{`^the run started only read-only Git queries$`, startedOnlyReadOnlyQueries},
 		{`^the run started only the Bitwarden CLI$`, startedOnlyBitwarden},
+		{`^the run made no Bitwarden CLI call$`, noBitwardenCall},
+		{`^the run made no vault write call$`, noVaultWriteCall},
 		{`^the vault session (is unlocked for the declared server|has no key|is locked|points at another server)$`, setSession},
 		{`^the Bitwarden CLI (is not on the path|cannot be executed)$`, setExecutable},
 		{`^the vault holds a login item "([^"]*)" with the password "([^"]*)"$`, addLogin},
@@ -324,6 +326,54 @@ func startedOnlyBitwarden(ctx context.Context) error {
 	for _, process := range last.Processes {
 		if process.Program != "bw" {
 			return fmt.Errorf("the last run started %q, which is not the Bitwarden CLI", process.Program)
+		}
+	}
+	return nil
+}
+
+// noBitwardenCall holds the last run to its process record: it started no
+// Bitwarden CLI call, so it refused before any call reached the vault. Each
+// adapter records every bw call it makes, as startedOnlyBitwarden describes,
+// so an empty record means no call was made.
+func noBitwardenCall(ctx context.Context) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	last, err := current.lastRun()
+	if err != nil {
+		return err
+	}
+	if len(last.Processes) > 0 {
+		return fmt.Errorf("the last run started %d Bitwarden CLI calls, want none", len(last.Processes))
+	}
+	return nil
+}
+
+// noVaultWriteCall holds the last run to its process record: no Bitwarden CLI
+// call it started creates, edits, or deletes an item or attachment. The first
+// word of a bw call is its verb, and the unit double names its method with the
+// same verb as a prefix, such as create-login or edit-login. Item names and IDs
+// are never compared here; the vault digest step proves the state, and this
+// step proves the calls.
+func noVaultWriteCall(ctx context.Context) error {
+	current, err := scenarioFrom(ctx)
+	if err != nil {
+		return err
+	}
+	last, err := current.lastRun()
+	if err != nil {
+		return err
+	}
+	for _, process := range last.Processes {
+		if process.Program != "bw" || len(process.Args) == 0 {
+			continue
+		}
+		verb := process.Args[0]
+		for _, write := range []string{"create", "edit", "delete"} {
+			if strings.HasPrefix(verb, write) {
+				return fmt.Errorf("the last run started a Bitwarden CLI write call, %q", verb)
+			}
 		}
 	}
 	return nil

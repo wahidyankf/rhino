@@ -291,15 +291,17 @@ The vault kinds below report only when `environment.vault` is declared. Each one
   `mode` string that is not an octal file mode such as `"rw-r--"`, a duplicate path, an exact path that another entry's
   glob covers, a `templates` row whose `path` or `for` is a glob or whose `for` names no entry, a field its entry's
   class never reads (the fields each class reads are listed in v0-4-configuration.md), a duplicate item name, a `keys`
-  item whose `field` is not `password`, a `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[`
-  unclosed, or a GitHub secret with no name or source. It names the entry by its path, its consumer, or its index in
-  `environment.vault.entries`; the template by its path, or its index when the path is not exact; the item name for a
-  duplicate; `github.workflows` with the glob; or `github.secrets` for a GitHub secret. `env validate` reports each one
-  as a finding with exit `1`, and the vault commands refuse a manifest that has one with exit `2`. An unquoted `mode`,
-  such as `mode: 0600`, is not a finding: the configuration is refused when it loads, with exit `2` and
+  item whose `field` is not `password`, a per-key reference (a `keys` item that sets `env`) that names no item another
+  entry owns, a `github.workflows` glob that is absolute, climbs with `..`, or leaves a `[` unclosed, or a GitHub secret
+  with no name or source. It names the entry by its path, its consumer, or its index in `environment.vault.entries`; the
+  template by its path, or its index when the path is not exact; the item name for a duplicate or a refused reference;
+  `github.workflows` with the glob; or `github.secrets` for a GitHub secret. `env validate` reports each one as a
+  finding with exit `1`, and the vault commands refuse a manifest that has one with exit `2`. An unquoted `mode`, such
+  as `mode: 0600`, is not a finding: the configuration is refused when it loads, with exit `2` and
   `rhino.config.unusable`, for `env validate`, `env pull`, `env push`, and `env diff`.
-- `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case. It
-  names the entry's path and the item name.
+- `vault-name-grammar` — A derived item name has a segment outside the closed environment set or not in kebab-case,
+  including the `env` of a per-key reference. It names the entry's path and the item name. A reference whose `env` is
+  outside the set also gives `vault-manifest-invalid`, unless another entry owns that item.
 - `vault-unclassified-ignored-file` — Git ignores a file that a declared pattern matches, and no entry classifies it.
   The file is named and never opened.
 - `vault-unclassified-template` — A tracked `*.example` file is named by no `templates` row and by no entry's exact
@@ -369,7 +371,7 @@ and no finding ever carries a value:
 - `local-missing` — A declared local file, or a key the local file should hold, is absent.
 - `local-differs` — `pull` found a local file that differs from the vault, and `--force` was not given.
 - `vault-differs` — A vault value differs from the local file. `push` reports it without `--overwrite`; `diff` always
-  reports it.
+  reports it. A per-key reference is never reported by `push`, because `push` skips it.
 - `undeclared-key` — A local env file holds a key the manifest does not declare.
 - `attachment-missing` — A file entry's secure note holds no generation of its file.
 - `mode-differs` — `diff` found a local file whose permission bits differ from the mode its entry declares, or from

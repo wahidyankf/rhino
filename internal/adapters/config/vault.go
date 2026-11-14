@@ -37,12 +37,17 @@ type VaultEntry struct {
 	Keys     []VaultKey
 }
 
-// VaultKey is one key of an env entry and its optional per-key overrides.
+// VaultKey is one key of an env entry and its optional per-key overrides. A key
+// that sets env is a reference to the item of another entry, named with that
+// environment. Reference is set whenever the manifest sets env, even to an empty
+// value, so a blank environment is refused by the name rules, not ignored.
 type VaultKey struct {
-	Key    string
-	App    string
-	Secret string
-	Field  string
+	Key       string
+	App       string
+	Secret    string
+	Field     string
+	Env       string
+	Reference bool
 }
 
 // VaultTemplate names one tracked template and the entry it stands for.
@@ -153,7 +158,8 @@ func decodeVaultEntries(parent *vaultFields) ([]VaultEntry, error) {
 }
 
 // decodeVaultKeys reads an entry's keys: each is a bare key name, or a mapping
-// that may override the app, the secret, and the hidden field of that one key.
+// that may override the app, the secret, the hidden field, and the environment
+// of that one key.
 func decodeVaultKeys(parent *vaultFields, path string) ([]VaultKey, error) {
 	items, err := parent.items("keys")
 	if err != nil {
@@ -169,14 +175,17 @@ func decodeVaultKeys(parent *vaultFields, path string) ([]VaultKey, error) {
 		if _, isMapping := item.(map[string]any); !isMapping {
 			return nil, fmt.Errorf("%s must be a key name or a mapping", keyPath)
 		}
-		fields, err := newVaultFields(item, keyPath, "key", "app", "secret", "field")
+		fields, err := newVaultFields(item, keyPath, "key", "app", "secret", "field", "env")
 		if err != nil {
 			return nil, err
 		}
-		keys = append(keys, VaultKey{
+		key := VaultKey{
 			Key: fields.text("key"), App: fields.text("app"),
 			Secret: fields.text("secret"), Field: fields.text("field"),
-		})
+			Env: fields.text("env"),
+		}
+		_, key.Reference = fields.present("env")
+		keys = append(keys, key)
 		if err := fields.failure(); err != nil {
 			return nil, err
 		}

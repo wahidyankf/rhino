@@ -100,6 +100,49 @@ rhino env push
   `vault-manifest-invalid`. Each vault command refuses that manifest with exit `2` before it reads the vault.
 - A local env line that cannot be read stops the run with exit `2`, and the message gives the line number only.
 - A key in the local file that the manifest does not declare is reported as `undeclared-key`.
+- A key that sets `env` is a reference, and `env push` skips it: the referenced item is never created, edited, or
+  compared by this entry. Only the entry that owns the item writes it. See
+  [share one value between two entries](#share-one-value-between-two-entries).
+
+## Share one value between two entries
+
+A value that two files need can have one vault item. The entry that owns the item declares its key as usual. The other
+entry declares the same key as a reference, with `env` set to the environment of the item it reads:
+
+```yaml
+environment:
+  vault:
+    entries:
+      - path: infra/example/terraform/a/.env.prod
+        class: vault
+        form: env
+        app: infra-a
+        env: prod
+        keys: [SHARED_TOKEN]
+      - path: infra/example/terraform/b/.env.stag
+        class: vault
+        form: env
+        app: infra-b
+        env: stag
+        keys:
+          - { key: SHARED_TOKEN, app: infra-a, env: prod } # a reference to infra-a/prod/shared-token
+          - OWN_KEY
+```
+
+- `env pull` reads the referenced item and writes its value under the key's own name. The `b` file holds `SHARED_TOKEN`
+  with the value of the item `infra-a/prod/shared-token`.
+- `env push` skips the reference. It never creates, edits, or compares the referenced item, and a difference in the
+  reference's local value is never reported.
+- `env diff` reads the referenced item and compares it with the local value, using the usual finding classes, such as
+  `vault-differs` or `item-missing`. It writes nothing.
+- `env validate` refuses a reference that names no item another entry owns. An item that no declared entry owns is
+  refused, and so is an item of the reference's own entry, or an item that another reference names. Each refusal is
+  `vault-manifest-invalid`. An `env` outside the declared `environments` is `vault-name-grammar`, and also
+  `vault-manifest-invalid` unless another entry owns that item. A resident entry counts as an owner. The vault commands
+  refuse such a manifest with exit `2` before they read the vault.
+
+To rotate the shared value, change it in the owning entry's local file and run `rhino env push --overwrite` for that
+entry. Then run `rhino env pull --force --entry <referencing path>` so the referencing file takes the new value.
 
 ## Read the exit codes
 

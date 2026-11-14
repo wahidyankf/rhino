@@ -915,6 +915,51 @@ Feature: Environment vault manifest validation
     Then the command exits 0
     And the run started only read-only Git queries
 
+  Scenario: Accept a key whose env is null as a plain key
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/a.env
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys:
+                - { key: EXAMPLE_KEY, env: null }
+      """
+    When I run environment validation
+    Then the command exits 0
+  Scenario: Refuse a key whose env is an empty string
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/a.env
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys:
+                - { key: EXAMPLE_KEY, app: infra-other, env: "" }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-manifest-invalid"
+    And the output names "vault-name-grammar"
+    And the output names "infra/example/a.env"
   Scenario: Reject an env key field other than password
     Given the repository declares this environment configuration:
       """
@@ -939,3 +984,228 @@ Feature: Environment vault manifest validation
     Then the command exits 1
     And the output names "vault-manifest-invalid"
     And the output names "infra/example/.env.prod"
+
+  Scenario: Accept a reference that resolves to a key of another entry
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: infra/example/.env.stag
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    When I run environment validation
+    Then the command exits 0
+
+  Scenario: Accept a reference that resolves to a resident item
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - form: resident
+              class: vault
+              app: infra-r
+              env: prod
+              secret: tool-token
+              consumer: scripts/example-wrapper.mjs
+            - path: infra/example/.env.stag
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: TOOL_TOKEN, app: infra-r, env: prod, secret: tool-token }
+      """
+    When I run environment validation
+    Then the command exits 0
+
+  Scenario: Refuse a reference that resolves to no declared entry
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/.env.stag
+              class: vault
+              form: env
+              app: infra-example
+              env: stag
+              keys:
+                - { key: EXAMPLE_TOKEN, app: infra-other, env: prod }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-manifest-invalid"
+    And the output names "infra/example/.env.stag"
+    And the output names "org/example-repo/infra-other/prod/example-token"
+
+  Scenario: Refuse a reference that resolves to an item of its own entry
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-example
+              env: prod
+              keys:
+                - EXAMPLE_TOKEN
+                - { key: EXAMPLE_COPY, secret: example-token, env: prod }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-manifest-invalid"
+    And the output names "org/example-repo/infra-example/prod/example-token"
+
+  Scenario: Refuse a reference to an item that only another reference names
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              app: infra-o
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: infra/example/.env.stag
+              class: vault
+              form: env
+              app: infra-a
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-o, env: prod }
+            - path: infra/example/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: local
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: stag }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-manifest-invalid"
+    And the output names "infra/example/b.env"
+    And the output names "org/example-repo/infra-a/stag/shared-token"
+    And the output does not name "infra/example/.env.stag"
+
+  Scenario: Reject a reference whose environment is outside the declared set
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/.env.stag
+              class: vault
+              form: env
+              app: infra-example
+              env: stag
+              keys:
+                - { key: EXAMPLE_TOKEN, app: infra-example, env: dev }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-name-grammar"
+    And the output names "org/example-repo/infra-example/dev/example-token"
+
+  Scenario: Name a reference outside the declared environments when another entry owns its item
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: dev
+              keys: [SHARED_KEY]
+            - path: infra/example/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: prod
+              keys:
+                - { key: SHARED_KEY, app: infra-a, env: dev }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-name-grammar"
+    And the output names "infra/example/b.env"
+    And the output names "org/example-repo/infra-a/dev/shared-key"
+    And the output does not name "vault-manifest-invalid"
+  Scenario: Report an env entry with no app once, and not its reference
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: org/example-repo
+          environments: [local, stag, prod]
+          entries:
+            - path: infra/example/.env.prod
+              class: vault
+              form: env
+              env: prod
+              keys:
+                - { key: EXAMPLE_TOKEN, env: prod }
+      """
+    When I run environment validation
+    Then the command exits 1
+    And the output names "vault-manifest-invalid"
+    And the output names "infra/example/.env.prod"
+    And the output does not name "vault-name-grammar"

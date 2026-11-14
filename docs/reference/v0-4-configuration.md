@@ -597,9 +597,18 @@ tracked, and which GitHub secrets and variables the workflows read. An absent `v
   policy.
 
   Each `keys` item is either a bare key name, or a mapping whose `key` names the key and whose optional `app`, `secret`,
-  and `field` override that one key. A bare name takes the entry's `app` and the secret segment derived from the key.
-  The only `field` the commands read is the login `password`, so a `field` set to anything else refuses the manifest as
-  `vault-manifest-invalid`.
+  `field`, and `env` override that one key. A bare name takes the entry's `app` and the secret segment derived from the
+  key. The only `field` the commands read is the login `password`, so a `field` set to anything else refuses the
+  manifest as `vault-manifest-invalid`. A key that sets `env` is a **reference**: `env: null` leaves the key a plain
+  key, but `env: ""` is a reference and is refused. Its item is the one named with that environment instead of the
+  entry's, so it can name an item another entry owns. An item is owned by an `env` entry's key that is not a reference,
+  or by a `resident` entry. A reference that names no owned item is refused as `vault-manifest-invalid`: an item of no
+  declared entry, an item of its own entry, or an item that only another reference names. A chain is refused because a
+  reference key owns no item, so a reference cannot be followed. Its `env` must be one of the declared `environments`,
+  or the manifest is refused as `vault-name-grammar`, and also as `vault-manifest-invalid` unless another entry owns
+  that item. Only one hop is allowed, so no cycle can form. `env pull` reads the referenced item and writes its value
+  under the key's own name. `env push` skips a reference, so it never creates, edits, or compares the referenced item.
+  `env diff` compares the reference like any key. A manifest without `env` on any key behaves exactly as before.
 
   A `resident` entry holds no file. `env pull` and `env push` skip it, and `env diff` checks only that its login item is
   held exactly once under its name.

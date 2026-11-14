@@ -817,3 +817,325 @@ Feature: Move declared secrets between a vault and the repository
     And the secure note "example/fixture/api/local/service-config" does not hold the attachment "service.json.g0001"
     And the secure note "example/fixture/api/local/service-config" does not hold the attachment "service.json.g0002"
     And no run output contains "marker-service-four"
+
+  Scenario: Restore a key from the vault item of another entry
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault holds a login item "example/fixture/infra-b/stag/own-key" with the password "marker-own-two"
+    When I run environment pull
+    Then the command exits 0
+    And the local file "config/b.env" holds this content:
+      """
+      # Written by rhino env pull from the vault; change the vault, not this file.
+      SHARED_TOKEN=marker-shared-one
+      OWN_KEY=marker-own-two
+      """
+    And the vault holds the login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault is unchanged by the last run
+    And no run output contains "marker-shared-one"
+    And no run output contains "marker-own-two"
+    And the run started only the Bitwarden CLI
+
+  Scenario: Compare a referencing key with the item it references
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault holds a login item "example/fixture/infra-b/stag/own-key" with the password "marker-own-two"
+    And the repository holds the local file "config/a.env" with the content "SHARED_TOKEN=marker-shared-one"
+    And the repository holds the local file "config/b.env" with this content:
+      """
+      SHARED_TOKEN=marker-local-three
+      OWN_KEY=marker-own-two
+      """
+    When I run environment diff
+    Then the command exits 1
+    And the output names "vault-differs"
+    And the output names "SHARED_TOKEN"
+    And the output does not name "OWN_KEY"
+    And the vault is unchanged by the last run
+    And the local files are unchanged by the last run
+    And no run output contains "marker-shared-one"
+    And no run output contains "marker-local-three"
+
+  Scenario: Report a referenced item that the vault does not hold
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-b/stag/own-key" with the password "marker-own-two"
+    When I run environment pull
+    Then the command exits 1
+    And the output names "item-missing"
+    And the output names "SHARED_TOKEN"
+    And the vault is unchanged by the last run
+    And the local files are unchanged by the last run
+    And no run output contains "marker-own-two"
+
+  Scenario: Never write a referenced item from a referencing key
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault holds a login item "example/fixture/infra-b/stag/own-key" with the password "marker-own-two"
+    And the repository holds the local file "config/a.env" with the content "SHARED_TOKEN=marker-shared-one"
+    And the repository holds the local file "config/b.env" with this content:
+      """
+      SHARED_TOKEN=marker-local-three
+      OWN_KEY=marker-own-two
+      """
+    When I run environment push with overwrite
+    Then the command exits 0
+    And the output does not name "SHARED_TOKEN"
+    And the vault holds the login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault is unchanged by the last run
+    And the run started only the Bitwarden CLI
+    And the run made no vault write call
+    And no run output contains "marker-local-three"
+    And no run output contains "marker-shared-one"
+
+  Scenario: Skip a referenced key that differs locally on a push without overwrite
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault holds a login item "example/fixture/infra-b/stag/own-key" with the password "marker-own-two"
+    And the repository holds the local file "config/a.env" with the content "SHARED_TOKEN=marker-shared-one"
+    And the repository holds the local file "config/b.env" with this content:
+      """
+      SHARED_TOKEN=marker-local-three
+      OWN_KEY=marker-own-two
+      """
+    When I run environment push
+    Then the command exits 0
+    And the output does not name "SHARED_TOKEN"
+    And the vault is unchanged by the last run
+    And the run made no vault write call
+    And no run output contains "marker-local-three"
+    And no run output contains "marker-shared-one"
+
+  Scenario: Push without a referenced key that the local file lacks
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/a.env
+              class: vault
+              form: env
+              app: infra-a
+              env: prod
+              keys: [SHARED_TOKEN]
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    And the vault holds a login item "example/fixture/infra-b/stag/own-key" with the password "marker-own-two"
+    And the repository holds the local file "config/a.env" with the content "SHARED_TOKEN=marker-shared-one"
+    And the repository holds the local file "config/b.env" with the content "OWN_KEY=marker-own-two"
+    When I run environment push
+    Then the command exits 0
+    And the output does not name "local-missing"
+    And the vault is unchanged by the last run
+    And no run output contains "marker-own-two"
+    And no run output contains "marker-shared-one"
+
+  Scenario Outline: Refuse a reference that resolves to no declared entry before any vault call
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: prod }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/prod/shared-token" with the password "marker-shared-one"
+    When I run environment <command>
+    Then the command exits 2
+    And the output names "breaks its rules"
+    And the vault is unchanged by the last run
+    And the local files are unchanged by the last run
+    And the run made no Bitwarden CLI call
+    And no run output contains "marker-shared-one"
+
+    Examples:
+      | command |
+      | pull    |
+      | push    |
+      | diff    |
+
+  Scenario Outline: Refuse a reference whose environment is outside the declared set before any vault call
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
+            - path: config/b.env
+              class: vault
+              form: env
+              app: infra-b
+              env: stag
+              keys:
+                - { key: SHARED_TOKEN, app: infra-a, env: dev }
+                - OWN_KEY
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/infra-a/dev/shared-token" with the password "marker-shared-one"
+    When I run environment <command>
+    Then the command exits 2
+    And the output names "breaks its rules"
+    And the vault is unchanged by the last run
+    And the local files are unchanged by the last run
+    And the run made no Bitwarden CLI call
+    And no run output contains "marker-shared-one"
+
+    Examples:
+      | command |
+      | pull    |
+      | push    |
+      | diff    |
