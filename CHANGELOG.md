@@ -9,7 +9,13 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.18.0] — 2026-11-14
+
+A minor release: an `environment.vault` key may set an optional `env` to read the vault item another entry owns, so a
+shared secret has one stored copy. `env pull` writes that value under the key's own name, `env push` never writes
+through the reference, `env diff` compares it, and `env validate` refuses a reference that resolves to no other entry's
+item. Nothing breaks: the field is optional, a manifest without it behaves as before, and no rule name, finding class,
+or error code is new.
 
 ### Added
 
