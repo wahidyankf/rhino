@@ -8,3 +8,5 @@ a convention is judged against when the two appear to disagree.
 - [Governance continuity](governance-continuity.md) — rules survive a harness losing its context.
 - [Minimal sufficiency](minimal-sufficiency.md) — understand, reuse, minimize, verify.
 - [Progressive disclosure](progressive-disclosure.md) — reach a rule in one hop, not by reading everything.
+- [Consumer correctness](consumer-correctness.md) — when options differ, choose the one that helps the consumer be
+  correct.
