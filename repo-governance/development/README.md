@@ -17,7 +17,7 @@ Engineering standards, within every higher level. These govern how the product i
   form.
 - [Planning capability modules](planning-capabilities/README.md) — the seven modules that standard indexes.
 - [Quality](quality/README.md) — the software-development standards adopted from the shared catalog.
-- [Quality gates](quality-gates.md) — the quick gate, the full gate, and the server gate.
+- [Quality gates](quality-gates.md) — the local hooks, the quick and full gates, and where each one runs.
 - [Resource-aware development](resource-aware-development.md) — the HIPPO guard and its exit codes.
 - [Software quality enforcement](software-quality-enforcement.md) — coverage, product invariants, no superficial passes.
 - [Specification maintenance](specification-maintenance.md) — Gherkin first, bind everywhere, exempt only at a real

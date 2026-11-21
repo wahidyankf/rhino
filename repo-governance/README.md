@@ -12,6 +12,7 @@ Each layer constrains the one below it, from vision down to workflows.
 ```mermaid
 flowchart TD
     accTitle: Governance hierarchy
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: Each layer constrains the one below it, from vision down to workflows.
     Vision --> Principles
     Principles --> Conventions

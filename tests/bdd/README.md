@@ -12,18 +12,23 @@ adapter in this package. The unit and integration runners sit beside the code th
 
 Run it with `go test ./tests/bdd`. `scripts/test.sh` runs it again under the race detector.
 
+The package is not only a test package. `RunCorpus` runs the whole corpus in strict mode against a binary the caller
+builds, and `tests/e2e` calls it with its own build, so the end-to-end level runs the same steps against the same built
+binary in a child process per run.
+
 ## Files
 
-| File                   | Role                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------- |
-| `main_test.go`         | `TestMain` builds `rhino` once and removes it after                             |
-| `behaviours_test.go`   | `TestBehaviours`: runs the corpus in strict mode, fails on a count mismatch     |
-| `world_test.go`        | Per-scenario state: a temporary repository, a `bin` directory, logs             |
-| `git_test.go`          | Git fixtures built with plumbing: base commit, range head, real index           |
-| `steps_test.go`        | Command-line step bindings, plus the shared vault steps from `vault.Bindings()` |
-| `compliance_test.go`   | Corpus compliance: complete, bound once, every binding used, parses             |
-| `vault_driver_test.go` | Command-line driver for the vault corpus: a repository and the built `rhino`    |
-| `vault/`               | Shared vault step registry, suite runner, Git trace shim, wiring check          |
+| File                 | Role                                                                            |
+| -------------------- | ------------------------------------------------------------------------------- |
+| `main_test.go`       | `TestMain` builds `rhino` and the fake `bw` once and removes them after         |
+| `behaviours_test.go` | `TestBehaviours`: the integration level, which calls `RunCorpus` on the corpus  |
+| `corpus.go`          | `RunCorpus`: strict run, count check against the parsed corpus, shared by e2e   |
+| `world.go`           | Per-scenario state: a temporary repository, a `bin` directory, logs             |
+| `git.go`             | Git fixtures built with plumbing: base commit, range head, real index           |
+| `steps.go`           | Command-line step bindings, plus the shared vault steps from `vault.Bindings()` |
+| `compliance_test.go` | Corpus compliance: complete, bound once, every binding used, parses             |
+| `vault_driver.go`    | Command-line driver for the vault corpus: a repository and the built `rhino`    |
+| `vault/`             | Shared vault step registry, suite runner, Git trace shim, wiring check          |
 
 ## How A Scenario Runs
 

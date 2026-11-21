@@ -19,9 +19,30 @@ import (
 // for the signal that ended the run. The caller owns the stop function and must
 // defer it.
 func SignalContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return signalContext(parent, osSignals{})
+}
+
+// signalSource delivers operating-system signals to a channel, and stops that
+// delivery. The operating system is the production source; tests substitute one.
+type signalSource interface {
+	Notify(channel chan<- os.Signal, signals ...os.Signal)
+	Stop(channel chan<- os.Signal)
+}
+
+// osSignals forwards to the operating system's signal delivery.
+type osSignals struct{}
+
+func (osSignals) Notify(channel chan<- os.Signal, signals ...os.Signal) {
+	signal.Notify(channel, signals...)
+}
+
+func (osSignals) Stop(channel chan<- os.Signal) { signal.Stop(channel) }
+
+// signalContext is SignalContext over an explicit signal source.
+func signalContext(parent context.Context, source signalSource) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancelCause(parent)
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	source.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		select {
 		case received := <-signals:
@@ -34,9 +55,18 @@ func SignalContext(parent context.Context) (context.Context, context.CancelFunc)
 		}
 	}()
 	return ctx, func() {
-		signal.Stop(signals)
+		source.Stop(signals)
 		cancel(nil)
 	}
+}
+
+// orDefault returns value, or fallback when value is the zero value.
+func orDefault[T comparable](value, fallback T) T {
+	var zero T
+	if value == zero {
+		return fallback
+	}
+	return value
 }
 
 // signalCause is the cancellation cause of a run ended by a signal.
@@ -76,6 +106,10 @@ type Application struct {
 	// VaultFiles holds the local write boundary only env pull reaches; nil
 	// refuses a pull before any write.
 	VaultFiles application.VaultFileStore
+
+	// currentDirectory names the repository an invocation runs in; nil resolves
+	// the process working directory. Tests substitute it.
+	currentDirectory func() (application.Tree, error)
 }
 
 // Run executes args and returns the process exit code.
@@ -96,23 +130,12 @@ func cancelledExit(ctx context.Context) int {
 	return interruptedExit
 }
 
-// RunArgs executes explicit args and returns the process exit code.
+// RunArgs executes explicit args and returns the process exit code. The caller
+// passes a context; a nil context is a programming error, as in the standard library.
 func (app Application) RunArgs(ctx context.Context, args []string) int {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	stdin := app.Stdin
-	stdout := app.Stdout
-	stderr := app.Stderr
-	if stdout == nil {
-		stdout = os.Stdout
-	}
-	if stderr == nil {
-		stderr = os.Stderr
-	}
-	if stdin == nil {
-		stdin = os.Stdin
-	}
+	stdin := orDefault(app.Stdin, io.Reader(os.Stdin))
+	stdout := orDefault(app.Stdout, io.Writer(os.Stdout))
+	stderr := orDefault(app.Stderr, io.Writer(os.Stderr))
 	if app.Version != "" {
 		application.Version = app.Version
 	}
@@ -136,7 +159,11 @@ func (app Application) RunArgs(ctx context.Context, args []string) int {
 		}
 	}
 
-	tree, err := runtime.AtCurrentDirectory()
+	open := app.currentDirectory
+	if open == nil {
+		open = currentTree
+	}
+	tree, err := open()
 	if err != nil {
 		format := application.Text
 		if refusal == nil && parsed.Run != nil {
@@ -151,6 +178,11 @@ func (app Application) RunArgs(ctx context.Context, args []string) int {
 		return cancelledExit(ctx)
 	}
 	return emit(stdout, stderr, outcome)
+}
+
+// currentTree is the repository at the process working directory.
+func currentTree() (application.Tree, error) {
+	return runtime.AtCurrentDirectory()
 }
 
 func hasStdinFile(files []string) bool {

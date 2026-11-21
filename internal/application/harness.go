@@ -1129,7 +1129,7 @@ func harnessPlan(decoded *harnessConfig, tree Tree, models ModelResolver, record
 		// Validation keeps the model each binding recorded and never starts
 		// the declared command; generation resolves through the one boundary
 		// that may start it.
-		modelsResolved := harnessResolvedModels{rendered: map[string]string{}, recorded: map[string]string{}}
+		var modelsResolved harnessResolvedModels
 		if recordOnly {
 			modelsResolved = resolveHarnessRecorded(profile, tree)
 		} else {
@@ -2811,10 +2811,10 @@ func harnessYAMLScalarOf(value string) (string, bool) {
 		return "", false
 	}
 	for _, character := range value {
-		if !(character >= 'a' && character <= 'z' ||
-			character >= 'A' && character <= 'Z' ||
-			character >= '0' && character <= '9' ||
-			character == ' ' || character == '-' || character == '_' || character == '.') {
+		if (character < 'a' || character > 'z') &&
+			(character < 'A' || character > 'Z') &&
+			(character < '0' || character > '9') &&
+			character != ' ' && character != '-' && character != '_' && character != '.' {
 			return "", false
 		}
 	}
@@ -2837,10 +2837,10 @@ func harnessTOMLKey(key string) string {
 		return harnessTOMLScalar(key)
 	}
 	for _, character := range key {
-		if !(character >= 'a' && character <= 'z' ||
-			character >= 'A' && character <= 'Z' ||
-			character >= '0' && character <= '9' ||
-			character == '-' || character == '_' || character == '.') {
+		if (character < 'a' || character > 'z') &&
+			(character < 'A' || character > 'Z') &&
+			(character < '0' || character > '9') &&
+			character != '-' && character != '_' && character != '.' {
 			return harnessTOMLScalar(key)
 		}
 	}
@@ -2969,7 +2969,7 @@ func harnessTOMLBasic(value string, multiLine, newlinePrefix bool) string {
 				escaped, hasEscaped = escape, true
 				break
 			}
-			if (byte <= 0x1f || byte == 0x7f) && !(byte == 0x0a && multiLine) {
+			if (byte <= 0x1f || byte == 0x7f) && (byte != 0x0a || !multiLine) {
 				break
 			}
 			unescapedEnd = index + 1

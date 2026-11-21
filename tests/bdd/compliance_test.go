@@ -1,4 +1,4 @@
-package bdd_test
+package bdd
 
 import (
 	"errors"
@@ -8,47 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/cucumber/godog"
 )
-
-// corpus is the parsed form of a Gherkin corpus: how many feature files parsed,
-// how many scenarios the pickles hold, and every step text they use.
-type corpus struct {
-	features  int
-	scenarios int
-	steps     []string
-}
-
-// loadCorpus parses every feature file beneath path, expanding outlines into
-// one pickle per example row, so the scenario count is the count that runs.
-func loadCorpus(path string) (corpus, error) {
-	features, err := (godog.TestSuite{Options: &godog.Options{Paths: []string{path}, Strict: true}}).RetrieveFeatures()
-	if err != nil {
-		return corpus{}, fmt.Errorf("parse behaviour corpus: %w", err)
-	}
-	result := corpus{features: len(features)}
-	for _, feature := range features {
-		for _, pickle := range feature.Pickles {
-			result.scenarios++
-			for _, step := range pickle.Steps {
-				result.steps = append(result.steps, step.Text)
-			}
-		}
-	}
-	return result, nil
-}
-
-// corpusScenarioCount returns how many scenarios the corpus holds, failing the
-// test when the corpus does not parse.
-func corpusScenarioCount(t *testing.T, path string) int {
-	t.Helper()
-	parsed, err := loadCorpus(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return parsed.scenarios
-}
 
 // countFeatureFiles counts the .feature files on disk beneath path.
 func countFeatureFiles(path string) (int, error) {

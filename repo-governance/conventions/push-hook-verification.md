@@ -6,19 +6,17 @@ that lands through [worktree to pull request](../workflows/maintenance/worktree-
 
 ## What the Hooks Run
 
-[Public safety](public-repository-data-safety.md) runs first on all three, and every hook sets `-e` so a finding ends
-the sequence instead of passing silently above a successful commit. Exit `1` is a finding, exit `2` an untrusted scan;
-both block, and neither has a bypass.
+Each hook sets `-e` so a finding ends the sequence instead of passing silently above a successful commit. Exit `1` is a
+finding, exit `2` an untrusted scan; both block, and neither has a bypass. Each hook holds only its own surface's work
+(C6); every other check runs at the pull-request gate.
 
-- `commit-msg` screens the message, then runs `commitlint`, enforcing Conventional Commits.
-- `pre-commit` screens the staged content and names, then runs the `format-staged` gate, which runs Prettier on the
-  staged Markdown, JSON, and YAML files only.
-- `pre-push` screens the tracked tree and the branch name, then each pushed commit's additions, names, and message, then
-  runs the rest of its declared surface, which includes the quick gate, `./scripts/test-quick.sh`, under the pinned
-  HIPPO guard. It is the mechanical half of the [push review](../workflows/quality/pr-leak-review/002-push-review.md),
-  never the whole of it. Exit `124` means a limit stopped the work, and the reason on stderr says which: retry that same
-  invocation once the condition clears, or take the [worktree-to-PR exception](#worktree-to-pr-exception) when its
-  conditions hold — a hook held back before any check started holds no finding to fix.
+- `commit-msg` runs the commit-message format lint, `commitlint`, enforcing Conventional Commits, and nothing else.
+- `pre-commit` runs the `format-staged` gate only, which runs Prettier on the staged Markdown, JSON, and YAML files.
+- `pre-push` runs the [public safety](public-repository-data-safety.md) screen over each pushed commit's additions,
+  names, and message, and nothing else. It is the mechanical half of the
+  [push review](../workflows/quality/pr-leak-review/002-push-review.md), never the whole of it. The
+  [worktree-to-PR exception](#worktree-to-pr-exception) covers a hook held back before any check started, when its
+  conditions hold.
 
 ## Requirements
 

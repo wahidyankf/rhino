@@ -81,6 +81,7 @@ type Document struct {
 	gates    []Gate
 	hasGates bool
 	relation map[string]string
+	root     *yaml.Node
 }
 
 var ownerPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
@@ -133,6 +134,10 @@ func Parse(text string) (*Document, error) {
 	}
 	restoreDigestText(text, raw)
 	document := &Document{raw: raw}
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(text), &root); err == nil {
+		document.root = &root
+	}
 	if policies, ok := raw["policies"].(map[string]any); ok {
 		document.policies = policies
 	}

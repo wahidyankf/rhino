@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,7 +34,7 @@ type DiskAdapterStore struct{}
 // every desired byte is staged first, then each family and exact file is
 // moved into place with its predecessor preserved for rollback.
 func (DiskAdapterStore) Replace(root string, transaction application.AdapterTransaction) error {
-	info, err := os.Lstat(root)
+	info, err := hostFiles.Lstat(root)
 	if err != nil {
 		return fmt.Errorf("cannot inspect adapter root: %s", err.Error())
 	}
@@ -63,13 +64,11 @@ func (DiskAdapterStore) Replace(root string, transaction application.AdapterTran
 		}
 	}
 	ordinal := adapterTransactionOrdinal.Add(1) - 1
-	stage := filepath.Join(root, fmt.Sprintf(".rhino-adapter-transaction-%d-%d", os.Getpid(), ordinal))
-	if err := os.Mkdir(stage, 0o755); err != nil {
+	stage := filepath.Join(root, fmt.Sprintf(".rhino-adapter-transaction-%d-%d", hostEnv.Getpid(), ordinal))
+	if err := hostFiles.Mkdir(stage, 0o755); err != nil {
 		return fmt.Errorf("cannot create adapter transaction: %s", err.Error())
 	}
-	result := replaceAdapterEntries(root, stage, roots, exactPaths, desired)
-	_ = os.RemoveAll(stage)
-	return result
+	return finishStage(replaceAdapterEntries(root, stage, roots, exactPaths, desired), stage)
 }
 
 type managedAdapterKind int
@@ -86,9 +85,9 @@ type movedAdapter struct {
 	kind      managedAdapterKind
 }
 
-func replaceAdapterEntries(root, stage string, roots, exactPaths []string, desired map[string]string) error {
+func replaceAdapterEntries(root, stage string, roots, exactPaths []string, desired map[string]string) (err error) {
 	staged := filepath.Join(stage, "desired")
-	if err := os.Mkdir(staged, 0o755); err != nil {
+	if err := hostFiles.Mkdir(staged, 0o755); err != nil {
 		return fmt.Errorf("cannot stage adapter bytes: %s", err.Error())
 	}
 	ordered := make([]string, 0, len(desired))
@@ -98,61 +97,59 @@ func replaceAdapterEntries(root, stage string, roots, exactPaths []string, desir
 	sort.Strings(ordered)
 	for _, path := range ordered {
 		target := filepath.Join(staged, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := hostFiles.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("cannot create adapter stage path: %s", err.Error())
 		}
-		file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+		file, err := hostFiles.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 		if err != nil {
 			return fmt.Errorf("cannot stage adapter file: %s", err.Error())
 		}
 		if _, err := file.WriteString(desired[path]); err != nil {
-			_ = file.Close()
-			return fmt.Errorf("cannot write adapter stage file: %s", err.Error())
+			return errors.Join(fmt.Errorf("cannot write adapter stage file: %s", err.Error()), file.Close())
 		}
 		if err := file.Sync(); err != nil {
-			_ = file.Close()
-			return fmt.Errorf("cannot sync adapter stage file: %s", err.Error())
+			return errors.Join(fmt.Errorf("cannot sync adapter stage file: %s", err.Error()), file.Close())
 		}
 		if err := file.Close(); err != nil {
 			return fmt.Errorf("cannot sync adapter stage file: %s", err.Error())
 		}
 	}
 	backups := filepath.Join(stage, "backups")
-	if err := os.Mkdir(backups, 0o755); err != nil {
+	if err := hostFiles.Mkdir(backups, 0o755); err != nil {
 		return fmt.Errorf("cannot prepare adapter rollback: %s", err.Error())
 	}
 	var moved []movedAdapter
-	restore := func() { restoreAdapterEntries(moved) }
+	// Every failure after this point rolls the family and file moves back. A
+	// rollback that does not finish is joined to the report, never dropped.
+	defer func() {
+		if err != nil {
+			err = failWithRollback(err, restoreAdapterEntries(moved))
+		}
+	}()
 	for index, managed := range roots {
 		target := filepath.Join(root, filepath.FromSlash(managed))
 		stagedFamily := filepath.Join(staged, filepath.FromSlash(managed))
-		if info, err := os.Stat(stagedFamily); err != nil || !info.IsDir() {
-			restore()
+		if info, err := hostFiles.Stat(stagedFamily); err != nil || !info.IsDir() {
 			return fmt.Errorf("adapter transaction has no generated family for `%s`", managed)
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			restore()
+		if err := hostFiles.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("cannot create parent for adapter family `%s`: %s", managed, err.Error())
 		}
 		backup := filepath.Join(backups, fmt.Sprintf("%d", index))
-		if _, err := os.Stat(target); err == nil {
-			metadata, err := os.Lstat(target)
+		if _, err := hostFiles.Stat(target); err == nil {
+			metadata, err := hostFiles.Lstat(target)
 			if err != nil {
-				restore()
 				return fmt.Errorf("cannot inspect current adapter family `%s`: %s", managed, err.Error())
 			}
 			if metadata.Mode()&os.ModeSymlink != 0 || !metadata.IsDir() {
-				restore()
 				return fmt.Errorf("adapter family `%s` is not a non-link directory", managed)
 			}
-			if err := os.Rename(target, backup); err != nil {
-				restore()
+			if err := hostFiles.Rename(target, backup); err != nil {
 				return fmt.Errorf("cannot move current adapter family `%s` aside: %s", managed, err.Error())
 			}
 		}
 		moved = append(moved, movedAdapter{target: target, backup: backup, kind: managedFamily})
-		if err := os.Rename(stagedFamily, target); err != nil {
-			restore()
+		if err := hostFiles.Rename(stagedFamily, target); err != nil {
 			return fmt.Errorf("cannot install adapter family `%s`: %s", managed, err.Error())
 		}
 		moved[len(moved)-1].installed = true
@@ -160,33 +157,27 @@ func replaceAdapterEntries(root, stage string, roots, exactPaths []string, desir
 	for index, path := range exactPaths {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		stagedFile := filepath.Join(staged, filepath.FromSlash(path))
-		if info, err := os.Stat(stagedFile); err != nil || info.IsDir() {
-			restore()
+		if info, err := hostFiles.Stat(stagedFile); err != nil || info.IsDir() {
 			return fmt.Errorf("adapter transaction has no generated file for `%s`", path)
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			restore()
+		if err := hostFiles.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("cannot create parent for exact adapter `%s`: %s", path, err.Error())
 		}
 		backup := filepath.Join(backups, fmt.Sprintf("exact-%d", index))
-		if _, err := os.Stat(target); err == nil {
-			metadata, err := os.Lstat(target)
+		if _, err := hostFiles.Stat(target); err == nil {
+			metadata, err := hostFiles.Lstat(target)
 			if err != nil {
-				restore()
 				return fmt.Errorf("cannot inspect current exact adapter `%s`: %s", path, err.Error())
 			}
 			if metadata.Mode()&os.ModeSymlink != 0 || !metadata.Mode().IsRegular() {
-				restore()
 				return fmt.Errorf("exact adapter `%s` is not a regular non-link file", path)
 			}
-			if err := os.Rename(target, backup); err != nil {
-				restore()
+			if err := hostFiles.Rename(target, backup); err != nil {
 				return fmt.Errorf("cannot move current exact adapter `%s` aside: %s", path, err.Error())
 			}
 		}
 		moved = append(moved, movedAdapter{target: target, backup: backup, kind: managedFile})
-		if err := os.Rename(stagedFile, target); err != nil {
-			restore()
+		if err := hostFiles.Rename(stagedFile, target); err != nil {
 			return fmt.Errorf("cannot install exact adapter `%s`: %s", path, err.Error())
 		}
 		moved[len(moved)-1].installed = true
@@ -194,23 +185,33 @@ func replaceAdapterEntries(root, stage string, roots, exactPaths []string, desir
 	return nil
 }
 
-func restoreAdapterEntries(moved []movedAdapter) {
+// restoreAdapterEntries undoes the moves in reverse order and reports every step
+// that failed, so an incomplete rollback is never mistaken for a restored tree.
+func restoreAdapterEntries(moved []movedAdapter) error {
+	var failures []error
 	for i := len(moved) - 1; i >= 0; i-- {
 		entry := moved[i]
 		if entry.installed {
-			if _, err := os.Stat(entry.target); err == nil {
+			if _, err := hostFiles.Stat(entry.target); err == nil {
 				switch entry.kind {
 				case managedFamily:
-					_ = os.RemoveAll(entry.target)
+					if err := hostFiles.RemoveAll(entry.target); err != nil {
+						failures = append(failures, err)
+					}
 				case managedFile:
-					_ = os.Remove(entry.target)
+					if err := hostFiles.Remove(entry.target); err != nil {
+						failures = append(failures, err)
+					}
 				}
 			}
 		}
-		if _, err := os.Stat(entry.backup); err == nil {
-			_ = os.Rename(entry.backup, entry.target)
+		if _, err := hostFiles.Stat(entry.backup); err == nil {
+			if err := hostFiles.Rename(entry.backup, entry.target); err != nil {
+				failures = append(failures, err)
+			}
 		}
 	}
+	return errors.Join(failures...)
 }
 
 // ensureNoAdapterLinks refuses a managed path crossing a filesystem link,
@@ -220,7 +221,7 @@ func ensureNoAdapterLinks(root, relative string) error {
 	current := root
 	for _, segment := range strings.Split(relative, "/") {
 		current = filepath.Join(current, segment)
-		info, err := os.Lstat(current)
+		info, err := hostFiles.Lstat(current)
 		if err != nil {
 			if os.IsNotExist(err) {
 				break
@@ -373,32 +374,46 @@ func (DiskModelResolver) Resolve(launch application.ModelLaunch) (string, error)
 	if strings.TrimSpace(program) == "" || strings.HasPrefix(program, "-") {
 		return "", fmt.Errorf("the model command's executable is invalid")
 	}
-	command := exec.Command(program, launch.Arguments[1:]...)
+	command := hostCommands.Command(program, launch.Arguments[1:]...)
 	command.Dir = launch.Directory
 	// A grandchild that keeps the output open must not hold the boundary
 	// past its timeout: once the child is reaped, the copy gets this long.
 	command.WaitDelay = time.Second
 	captured := boundedCapture{limit: maxModelOutput}
 	command.Stdout = &captured
-	if err := command.Start(); err != nil {
+	if err := hostCommands.Start(command); err != nil {
 		return "", fmt.Errorf("could not start model command: %s", err.Error())
 	}
-	waited := make(chan error, 1)
-	go func() { waited <- command.Wait() }()
+	// The wait error is discarded on purpose: the exit below is read from the
+	// reaped process state, which reports a signal death and a nonzero status
+	// alike. Only the reap is signalled.
+	waited := make(chan struct{}, 1)
+	go func() { _ = command.Wait(); waited <- struct{}{} }()
 	timer := time.NewTimer(time.Duration(launch.TimeoutSeconds) * time.Second)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-		_ = command.Process.Kill()
+		if err := killFailure(command.Process.Kill()); err != nil {
+			// A child that still runs cannot be reaped here, so the failure is
+			// reported without waiting for it.
+			return "", errors.Join(fmt.Errorf("the model command exceeded its timeout"), err)
+		}
+		// The timeout is the reported failure, so only the reap is awaited.
 		<-waited
 		return "", fmt.Errorf("the model command exceeded its timeout")
-	case err := <-waited:
-		// The wait error is discarded on purpose: the exit below is read
-		// from the reaped process state, which reports a signal death and a
-		// nonzero status alike.
-		_ = err
+	case <-waited:
 		return finishModel(command, &captured)
 	}
+}
+
+// killFailure reports a failed kill of a child that outlived its timeout. A
+// child that already exited has no process to signal, so that outcome is not a
+// failure: the timeout is reported either way.
+func killFailure(err error) error {
+	if err == nil || errors.Is(err, os.ErrProcessDone) {
+		return nil
+	}
+	return err
 }
 
 func finishModel(command *exec.Cmd, captured *boundedCapture) (string, error) {

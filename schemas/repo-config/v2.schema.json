@@ -139,6 +139,58 @@
         }
       ]
     },
+    "BehaviourPolicy": {
+      "additionalProperties": false,
+      "description": "Behaviour coverage: the corpus roots, the fixture directories, the whole-file globs a `*` reference may sit in, and the test-file globs of each level.",
+      "properties": {
+        "corpus": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "levels": {
+          "additionalProperties": false,
+          "properties": {
+            "e2e": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "integration": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unit": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["e2e", "integration", "unit"],
+          "type": "object"
+        },
+        "whole-file": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["corpus", "levels"],
+      "type": "object"
+    },
     "Canonical": {
       "additionalProperties": false,
       "description": "The field vocabulary the repository uses in canonical front matter. Rhino\nreads those declared keys; it does not assume a particular catalog writes\ngrants as `capabilities` or `requires`.",
@@ -894,6 +946,16 @@
             "$ref": "#/$defs/Gate"
           },
           "type": "array"
+        },
+        "wiring": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Wiring"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "type": "object"
@@ -1475,6 +1537,16 @@
       "additionalProperties": false,
       "description": "Policies are grouped by portable concern. Each sub-group is closed so a\nspelling error cannot become an unenforced policy, yet absence still means\nthe named concern was not adopted.",
       "properties": {
+        "behaviour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BehaviourPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "conventions": {
           "anyOf": [
             {
@@ -2188,6 +2260,75 @@
           "type": "string"
         }
       ]
+    },
+    "Wiring": {
+      "additionalProperties": false,
+      "description": "Wiring: where the hook files and the workflow files live, the reason a repository without workflows gives, and the allowed list each local surface's entries are checked against.",
+      "properties": {
+        "ci": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "directory": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": ["directory"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "none": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": ["none"],
+              "type": "object"
+            }
+          ]
+        },
+        "hooks": {
+          "additionalProperties": false,
+          "properties": {
+            "directory": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": ["directory"],
+          "type": "object"
+        },
+        "local-surfaces": {
+          "additionalProperties": false,
+          "properties": {
+            "commit-msg": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "pre-commit": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "pre-push": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": ["hooks", "ci"],
+      "type": "object"
     },
     "WordBudget": {
       "additionalProperties": false,

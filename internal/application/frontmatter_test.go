@@ -195,7 +195,7 @@ func TestExecuteFrontmatterKindsInJSON(t *testing.T) {
 	status := strings.Index(outcome.Stdout, "outside its declared set")
 	date := strings.Index(outcome.Stdout, "ISO calendar date")
 	legacy := strings.Index(outcome.Stdout, "this surface forbids")
-	if status < 0 || date < 0 || legacy < 0 || !(status < date && date < legacy) {
+	if status < 0 || date < 0 || legacy < 0 || (status >= date || date >= legacy) {
 		t.Fatalf("violations out of file order: %+v", outcome)
 	}
 }

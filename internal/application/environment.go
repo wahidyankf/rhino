@@ -596,12 +596,12 @@ func isEnvironmentKey(key string) bool {
 		return false
 	}
 	head := key[0]
-	if !(head == '_' || head >= 'a' && head <= 'z' || head >= 'A' && head <= 'Z') {
+	if head != '_' && (head < 'a' || head > 'z') && (head < 'A' || head > 'Z') {
 		return false
 	}
 	for i := 1; i < len(key); i++ {
 		c := key[i]
-		if !(c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') {
+		if c != '_' && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
 			return false
 		}
 	}
@@ -733,7 +733,7 @@ func isKeyByte(c byte) bool {
 func isUpperKey(key string) bool {
 	for i := 0; i < len(key); i++ {
 		c := key[i]
-		if !(c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_') {
+		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' {
 			return false
 		}
 	}

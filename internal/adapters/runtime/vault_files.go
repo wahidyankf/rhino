@@ -1,9 +1,9 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 
 	"github.com/wahidyankf/rhino/internal/application"
@@ -35,7 +35,7 @@ const (
 
 // Write installs file under root. It refuses an existing target unless
 // file.Replace is set, and a target that is a directory always.
-func (s DiskVaultFileStore) Write(root string, file application.VaultFile) error {
+func (s DiskVaultFileStore) Write(root string, file application.VaultFile) (err error) {
 	if _, err := environmentRoot(root); err != nil {
 		return err
 	}
@@ -47,10 +47,10 @@ func (s DiskVaultFileStore) Write(root string, file application.VaultFile) error
 	}
 	target := filepath.Join(root, filepath.FromSlash(file.Path))
 	parent := filepath.Dir(target)
-	if err := os.MkdirAll(parent, 0o700); err != nil {
+	if err := hostFiles.MkdirAll(parent, 0o700); err != nil {
 		return fmt.Errorf("cannot create the parent of `%s`: %s", file.Path, err.Error())
 	}
-	if info, err := os.Lstat(target); err == nil {
+	if info, err := hostFiles.Lstat(target); err == nil {
 		if info.IsDir() {
 			return fmt.Errorf("`%s` is a directory", file.Path)
 		}
@@ -61,7 +61,7 @@ func (s DiskVaultFileStore) Write(root string, file application.VaultFile) error
 	if err := s.step(stepStage); err != nil {
 		return fmt.Errorf("cannot stage `%s`: %s", file.Path, err.Error())
 	}
-	staged, err := os.CreateTemp(parent, ".rhino-vault-*")
+	staged, err := hostFiles.CreateTemp(parent, ".rhino-vault-*")
 	if err != nil {
 		return fmt.Errorf("cannot stage `%s`: %s", file.Path, err.Error())
 	}
@@ -69,16 +69,14 @@ func (s DiskVaultFileStore) Write(root string, file application.VaultFile) error
 	installed := false
 	defer func() {
 		if !installed {
-			_ = os.Remove(stagedName)
+			err = finishStagedFile(err, stagedName)
 		}
 	}()
 	if err := s.stageContents(staged, file); err != nil {
-		_ = staged.Close()
-		return err
+		return errors.Join(err, staged.Close())
 	}
 	if err := s.step(stepClose); err != nil {
-		_ = staged.Close()
-		return fmt.Errorf("cannot close `%s`: %s", file.Path, err.Error())
+		return errors.Join(fmt.Errorf("cannot close `%s`: %s", file.Path, err.Error()), staged.Close())
 	}
 	if err := staged.Close(); err != nil {
 		return fmt.Errorf("cannot close `%s`: %s", file.Path, err.Error())
@@ -86,7 +84,7 @@ func (s DiskVaultFileStore) Write(root string, file application.VaultFile) error
 	if err := s.step(stepRename); err != nil {
 		return fmt.Errorf("cannot install `%s`: %s", file.Path, err.Error())
 	}
-	if err := os.Rename(stagedName, target); err != nil {
+	if err := hostFiles.Rename(stagedName, target); err != nil {
 		return fmt.Errorf("cannot install `%s`: %s", file.Path, err.Error())
 	}
 	installed = true
@@ -97,7 +95,7 @@ func (s DiskVaultFileStore) Write(root string, file application.VaultFile) error
 }
 
 // stageContents writes the bytes, sets the mode, and syncs the temporary file.
-func (s DiskVaultFileStore) stageContents(staged *os.File, file application.VaultFile) error {
+func (s DiskVaultFileStore) stageContents(staged stagedFile, file application.VaultFile) error {
 	if err := s.step(stepWrite); err != nil {
 		return fmt.Errorf("cannot write `%s`: %s", file.Path, err.Error())
 	}
@@ -129,13 +127,12 @@ func (s DiskVaultFileStore) step(name string) error {
 
 // syncDirectory makes the rename durable by syncing the directory that holds it.
 func syncDirectory(directory string) error {
-	handle, err := os.Open(directory)
+	handle, err := hostFiles.Open(directory)
 	if err != nil {
 		return fmt.Errorf("cannot open %s to sync it: %s", filepath.Base(directory), err.Error())
 	}
 	if err := handle.Sync(); err != nil {
-		_ = handle.Close()
-		return fmt.Errorf("cannot sync %s: %s", filepath.Base(directory), err.Error())
+		return errors.Join(fmt.Errorf("cannot sync %s: %s", filepath.Base(directory), err.Error()), handle.Close())
 	}
 	return handle.Close()
 }

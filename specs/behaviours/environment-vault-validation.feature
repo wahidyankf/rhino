@@ -4,6 +4,7 @@ Feature: Environment vault manifest validation
   environment.vault. env validate reports what that manifest leaves unclassified. It reads names from Git. From tracked workflows it reads only the
   secret and variable references in their expressions and if: values. It never opens an ignored file.
 
+  # Behaviour: RB-20
   Scenario: Reject an unclassified ignored secret file
     Given the repository declares this environment configuration:
       """
@@ -1209,3 +1210,36 @@ Feature: Environment vault manifest validation
     And the output names "vault-manifest-invalid"
     And the output names "infra/example/.env.prod"
     And the output does not name "vault-name-grammar"
+
+  Scenario: An environment allowlist entry without an owner or expiry is refused with exit 2
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        allowlists:
+          - rule: staged-environment-file
+            path: .env.staging
+            key: TOKEN
+            reason: local fixture
+            owner: platform
+      """
+    When I run environment validation
+    Then the command exits 2
+    And the output names "names no rule, path, key, reason, owner, and expiry"
+
+  Scenario: An environment allowlist entry whose expiry is not an ISO date is refused with exit 2
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        allowlists:
+          - rule: staged-environment-file
+            path: .env.staging
+            key: TOKEN
+            reason: local fixture
+            owner: platform
+            expiry: next week
+      """
+    When I run environment validation
+    Then the command exits 2
+    And the output names "ISO expiry"

@@ -9,6 +9,20 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
+## [Unreleased]
+
+### Added
+
+- `gate wiring validate` checks the declared lifecycle against the hook and workflow files. Rules W01 to W07 report
+  findings with exit `1`. An undeclared `gates.wiring` section exits `2` with `rhino.config.undeclared`, and an
+  unusable one exits `2` with `rhino.config.unusable`. The new `gates.wiring` section names `hooks.directory`, a `ci`
+  that is a `directory` or a `none` reason, and an optional `local-surfaces` map of allowed lists.
+- `behaviour coverage validate` checks that every scenario in a declared corpus has a unit `@scenario` reference, and
+  an integration and an e2e reference or a valid exemption. Rules B01 to B09 are static: the command reads text and
+  runs no test. `--rules <id,...>` runs only the named rules. The new `policies.behaviour` section declares the corpus,
+  fixtures, whole-file globs, and per-level test globs.
+- Finding kinds W01 to W07 and B01 to B09, listed in the findings reference.
+
 ## [v0.18.0] — 2026-11-14
 
 A minor release: an `environment.vault` key may set an optional `env` to read the vault item another entry owns, so a

@@ -78,10 +78,12 @@ Feature: Quality-gate structure
       The plan fixer.
       """
 
+  # Behaviour: RB-15
   Scenario: A repository whose gates follow the declared structure passes
     When I invoke the CLI with "governance|quality-gates|validate"
     Then the exit code is 0
 
+  # Behaviour: RB-71
   Scenario: A repository that declares no quality-gate policy is refused
     Given the configuration file is this text:
       """
@@ -575,3 +577,26 @@ Feature: Quality-gate structure
     When I invoke the CLI with "governance|quality-gates|validate|--output|json"
     Then the exit code is 1
     And the first stdout JSON violation kind is "unnecessary-workflow-split"
+
+  Scenario: A gate family whose subject is not a string is refused with exit 2
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        governance:
+          quality-gates:
+            root: workflows
+            agents: agents
+            groups: [plan, quality]
+            gate-group: quality
+            gate-headings: [Entry, Inputs, Cycle, Verdict]
+            verdict-heading: Verdict
+            verdicts: [PASS, FAIL]
+            retired-inputs: [max-iterations]
+            propagation-headings: [Contract, Scope, Executor]
+            gates:
+              - {family: plan, subject: 7}
+      """
+    When I invoke the CLI with "governance|quality-gates|validate"
+    Then the exit code is 2
+    And stderr contains "quality-gates.gates.subject names no subject"

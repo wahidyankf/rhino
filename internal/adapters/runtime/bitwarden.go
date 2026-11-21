@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -91,7 +89,7 @@ func (item bwItem) toVault() application.VaultItem {
 // unlocked, and it serves the declared server. Those checks run before any call
 // that could change the vault.
 func (v BitwardenVault) Status(server string) *application.VaultFault {
-	if os.Getenv("BW_SESSION") == "" {
+	if hostEnv.Getenv("BW_SESSION") == "" {
 		return vaultUnavailable(reasonNoSession)
 	}
 	executable, fault := bitwardenPath()
@@ -192,6 +190,8 @@ func (v BitwardenVault) UpdateLogin(item application.VaultItem, password string)
 	if err := decodeStrict(raw, &current); err != nil || current == nil {
 		return vaultRefused(reasonAnswer)
 	}
+	// A login that is absent or not an object is replaced by one that holds the
+	// new password. The type check is the decision, not a discarded error.
 	login, _ := current["login"].(map[string]any)
 	if login == nil {
 		login = map[string]any{}
@@ -210,7 +210,7 @@ func (v BitwardenVault) UpdateLogin(item application.VaultItem, password string)
 
 // AddAttachment uploads contents under fileName, staged in a 0700 temporary
 // directory. The file name must be a plain name; a path is never uploaded.
-func (v BitwardenVault) AddAttachment(itemID, fileName string, contents []byte) (application.VaultAttachment, *application.VaultFault) {
+func (v BitwardenVault) AddAttachment(itemID, fileName string, contents []byte) (_ application.VaultAttachment, fault *application.VaultFault) {
 	executable, fault := bitwardenPath()
 	if fault != nil {
 		return application.VaultAttachment{}, fault
@@ -218,13 +218,19 @@ func (v BitwardenVault) AddAttachment(itemID, fileName string, contents []byte) 
 	if fileName == "" || strings.ContainsAny(fileName, `/\`) || fileName == "." || fileName == ".." {
 		return application.VaultAttachment{}, vaultRefused(reasonStaging)
 	}
-	dir, err := os.MkdirTemp("", "rhino-vault-attachment-")
+	dir, err := hostFiles.MkdirTemp("", "rhino-vault-attachment-")
 	if err != nil {
 		return application.VaultAttachment{}, vaultUnavailable(reasonStaging)
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		// The staged copy holds the attachment's contents, so a leftover
+		// is reported as a failure rather than left behind silently.
+		if removal := hostFiles.RemoveAll(dir); removal != nil && fault == nil {
+			fault = vaultUnavailable(reasonStaging)
+		}
+	}()
 	staged := filepath.Join(dir, fileName)
-	if err := os.WriteFile(staged, contents, 0o600); err != nil {
+	if err := hostFiles.WriteFile(staged, contents, 0o600); err != nil {
 		return application.VaultAttachment{}, vaultUnavailable(reasonStaging)
 	}
 	out, err := v.call(executable, nil, "create", "attachment", "--file", staged, "--itemid", itemID)
@@ -251,25 +257,31 @@ func (v BitwardenVault) AddAttachment(itemID, fileName string, contents []byte) 
 // ReadAttachment downloads one attachment into a 0700 temporary directory and
 // returns its bytes. The provider names the file, so the directory must hold
 // exactly one regular file.
-func (v BitwardenVault) ReadAttachment(itemID, attachmentID string) ([]byte, *application.VaultFault) {
+func (v BitwardenVault) ReadAttachment(itemID, attachmentID string) (data []byte, fault *application.VaultFault) {
 	executable, fault := bitwardenPath()
 	if fault != nil {
 		return nil, fault
 	}
-	dir, err := os.MkdirTemp("", "rhino-vault-attachment-")
+	dir, err := hostFiles.MkdirTemp("", "rhino-vault-attachment-")
 	if err != nil {
 		return nil, vaultUnavailable(reasonStaging)
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		// The downloaded copy holds the attachment's contents, so a leftover
+		// is reported as a failure rather than left behind silently.
+		if removal := hostFiles.RemoveAll(dir); removal != nil && fault == nil {
+			data, fault = nil, vaultUnavailable(reasonStaging)
+		}
+	}()
 	if _, err := v.call(executable, nil, "get", "attachment", attachmentID, "--itemid", itemID,
 		"--output", dir+string(filepath.Separator)); err != nil {
 		return nil, vaultUnavailable(reasonCallFailed)
 	}
-	entries, err := os.ReadDir(dir)
+	entries, err := hostFiles.ReadDir(dir)
 	if err != nil || len(entries) != 1 || !entries[0].Type().IsRegular() {
 		return nil, vaultRefused(reasonAnswer)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+	data, err = hostFiles.ReadFile(filepath.Join(dir, entries[0].Name()))
 	if err != nil {
 		return nil, vaultUnavailable(reasonStaging)
 	}
@@ -309,12 +321,12 @@ func (v BitwardenVault) call(executable string, stdin []byte, argv ...string) ([
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	command := exec.CommandContext(ctx, executable, append(argv, "--nointeraction")...)
-	command.Env = childEnvironment(os.Environ())
+	command := hostCommands.CommandContext(ctx, executable, append(argv, "--nointeraction")...)
+	command.Env = childEnvironment(hostEnv.Environ())
 	command.Stdin = bytes.NewReader(stdin)
 	var stdout bytes.Buffer
 	command.Stdout = &stdout
-	if err := command.Run(); err != nil {
+	if err := hostCommands.Run(command); err != nil {
 		return nil, err
 	}
 	return bytes.TrimSuffix(stdout.Bytes(), []byte("\n")), nil
@@ -325,7 +337,7 @@ func (v BitwardenVault) call(executable string, stdin []byte, argv ...string) ([
 // RHINO gives every child it requires; both keep the unavailable code. Any other
 // lookup failure stays a refusal with status 2.
 func bitwardenPath() (string, *application.VaultFault) {
-	executable, err := exec.LookPath(bitwardenExecutable)
+	executable, err := hostCommands.LookPath(bitwardenExecutable)
 	if err == nil {
 		return executable, nil
 	}
@@ -344,7 +356,7 @@ func bitwardenPath() (string, *application.VaultFault) {
 // its own path instead, where the operating system reports the permission
 // failure that startStatus maps to 126.
 func bitwardenNotExecutableOnPath() bool {
-	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+	for _, dir := range filepath.SplitList(hostEnv.Getenv("PATH")) {
 		if dir == "" {
 			dir = "."
 		}
@@ -352,7 +364,7 @@ func bitwardenNotExecutableOnPath() bool {
 		if !strings.ContainsRune(candidate, filepath.Separator) {
 			candidate = "." + string(filepath.Separator) + candidate
 		}
-		if _, err := exec.LookPath(candidate); startStatus(err) == statusChildNotExecutable {
+		if _, err := hostCommands.LookPath(candidate); startStatus(err) == statusChildNotExecutable {
 			return true
 		}
 	}

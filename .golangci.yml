@@ -1,0 +1,78 @@
+# golangci-lint configuration for RHINO, pinned as a go tool in go.mod.
+#
+# Lint Strictness: every finding fails the gate. golangci-lint exits non-zero
+# on any reported issue, and no linter here is advisory, so the gate fails at
+# warning severity and above.
+#
+# Hermetic unit tests (C21, Go stack standard): forbidigo and depguard ban the
+# clock, file system, environment, process, signal, random, and network calls
+# in unit-test files. Integration tests carry the `integration` build tag, which
+# the default lint run omits, so they are linted only by the integration target.
+version: "2"
+
+# No cap: every finding is reported, so the backlog is never hidden by a limit.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: standard
+  enable:
+    - depguard
+    - forbidigo
+  settings:
+    depguard:
+      rules:
+        unit-tests-hermetic:
+          files:
+            - "$test"
+          deny:
+            - pkg: "net"
+              desc: a unit test makes no network call; inject a double instead
+            - pkg: "net/http"
+              desc: a unit test makes no network call; inject a double instead
+            - pkg: "os/exec"
+              desc: a unit test starts no child process; inject a runner double instead
+            - pkg: "database/sql"
+              desc: a unit test opens no database; inject a double instead
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: '^time\.(Now|Since|Sleep|After|NewTimer|Tick|NewTicker)$'
+          msg: a unit test reads no clock; inject a clock double
+        - pattern: '^os\.(Getenv|Setenv|LookupEnv|Unsetenv|Clearenv|Environ)$'
+          msg: a unit test reads no environment; inject the value
+        - pattern: '^os\.(MkdirTemp|MkdirAll|Mkdir|WriteFile|ReadFile|ReadDir|Stat|Lstat|Symlink|Link|Readlink|Remove|RemoveAll|Rename|Chmod|OpenFile|Create|Open|Truncate|Chdir|Getwd|Executable|Hostname|Getpid|Getppid|Getuid|UserHomeDir|DirFS|CopyFS)$'
+          msg: a unit test touches no file system or host; inject a double
+        - pattern: '^os\.(FindProcess|Kill)$'
+          msg: a unit test signals no process; inject a double
+        - pattern: '^filepath\.(Walk|WalkDir|Glob)$'
+          msg: a unit test walks no file system; inject a double
+        - pattern: '^\(\*testing\.T\)\.(Setenv|TempDir|Chdir)$'
+          msg: a unit test uses no environment, temporary directory, or working directory; inject a double
+        - pattern: '^exec\.(Command|CommandContext|LookPath)$'
+          msg: a unit test starts no process; inject a runner double
+        - pattern: '^signal\.(Notify|Stop|Ignore|Reset|NotifyContext)$'
+          msg: a unit test registers no signal handler; inject the signal source
+        - pattern: '^(math/rand|math/rand/v2|crypto/rand)\.'
+          msg: a unit test reads no randomness; inject a deterministic source
+  # Only unit-test files are checked: non-test code legitimately uses the file
+  # system, environment, and processes behind its adapters, and the tests/ trees
+  # are the integration and end-to-end suites.
+  exclusions:
+    rules:
+      - linters:
+          - forbidigo
+          - depguard
+        path-except: '_test\.go$'
+      - linters:
+          - forbidigo
+          - depguard
+        path: "^tests/"
+      # Integration files carry the integration build tag, and each is named
+      # *_integration_test.go, so this path scope matches the tag scope: they
+      # may use the real host, and the hermetic rules apply to unit files only.
+      - linters:
+          - forbidigo
+          - depguard
+        path: '_integration_test\.go$'

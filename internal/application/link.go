@@ -195,7 +195,7 @@ func hasLinkScheme(destination string) bool {
 	}
 	for i := 0; i < len(scheme); i++ {
 		character := scheme[i]
-		if !isAlpha(character) && !(character >= '0' && character <= '9') && character != '+' && character != '.' && character != '-' {
+		if !isAlpha(character) && (character < '0' || character > '9') && character != '+' && character != '.' && character != '-' {
 			return false
 		}
 	}

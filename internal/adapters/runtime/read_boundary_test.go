@@ -95,9 +95,9 @@ func scanAdapter(t *testing.T, name string, source any) adapterScan {
 				return true
 			}
 			switch {
-			case pkg.Name == "os" && osWriteFunctions[selector.Sel.Name]:
+			case (pkg.Name == "os" || pkg.Name == "hostFiles") && osWriteFunctions[selector.Sel.Name]:
 				scan.writes[owner] = append(scan.writes[owner], selector.Sel.Name)
-			case pkg.Name == "exec" && selector.Sel.Name == "Command":
+			case (pkg.Name == "exec" || pkg.Name == "hostCommands") && selector.Sel.Name == "Command":
 				scan.gitVerbs[owner] = append(scan.gitVerbs[owner], gitVerb(call.Args))
 			}
 			return true
@@ -148,7 +148,12 @@ func TestTreeAdapterWritesOnlyInTheEnvironmentTransaction(t *testing.T) {
 	if len(scan.writes) == 0 {
 		t.Fatal("control: disk.go shows no write call at all")
 	}
+	// finishStage removes the transaction's own staging directory, and
+	// finishStagedFile removes its own temporary file, so each is a writer of the
+	// same transaction, not a new one.
 	want := []string{
+		"finishStage",
+		"finishStagedFile",
 		"installEnvironmentFiles",
 		"removeEnvironmentFiles",
 		"restoreEnvironmentFiles",

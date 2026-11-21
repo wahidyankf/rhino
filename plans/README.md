@@ -17,6 +17,7 @@ A plan moves through four stage folders, from a rough idea through two formal st
 ```mermaid
 flowchart LR
     accTitle: Plan lifecycle stages
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: A plan moves one way through ideas, backlog, in-progress, then done.
     Ideas["Ideas"] --> Backlog["Backlog"]
     Backlog --> InProgress["In progress"]
@@ -61,6 +62,7 @@ is updated in the same change that moves, adds, or removes a plan, per
 ```mermaid
 flowchart LR
     accTitle: Plan order
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: One live backlog plan with no dependencies.
     Live["🔜 harden-rhino-<br/>validation-edge-cases"]
     classDef backlog fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px

@@ -16,6 +16,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"time"
 )
@@ -24,15 +25,47 @@ import (
 // archives carried when GNU tar on the Linux release runner wrote them.
 const unixOS = 3
 
-func main() {
-	if err := run(os.Args[1:]); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "release-archive:", err)
-		os.Exit(1)
-	}
+// sourceFile is an open file the archive reads and measures.
+type sourceFile interface {
+	io.ReadCloser
+	Stat() (fs.FileInfo, error)
 }
 
-func run(arguments []string) error {
+// fileSystem is the file access the archive uses. Tests substitute a double.
+type fileSystem interface {
+	Open(name string) (sourceFile, error)
+	Create(name string) (io.WriteCloser, error)
+}
+
+// osFiles forwards each call to the operating system.
+type osFiles struct{}
+
+func (osFiles) Open(name string) (sourceFile, error) { return os.Open(name) }
+
+func (osFiles) Create(name string) (io.WriteCloser, error) {
+	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+}
+
+// hostFiles is the file access production uses.
+var hostFiles fileSystem = osFiles{}
+
+func main() {
+	os.Exit(execute(os.Args[1:], os.Stderr))
+}
+
+// execute runs the archive for arguments, reports a failure on stderr, and
+// returns the exit status.
+func execute(arguments []string, stderr io.Writer) int {
+	if err := run(arguments, stderr); err != nil {
+		_, _ = fmt.Fprintln(stderr, "release-archive:", err)
+		return 1
+	}
+	return 0
+}
+
+func run(arguments []string, stderr io.Writer) error {
 	flags := flag.NewFlagSet("release-archive", flag.ContinueOnError)
+	flags.SetOutput(stderr)
 	binary := flags.String("binary", "", "the binary to archive as rhino")
 	modified := flags.Int64("mtime", -1, "the member's modification time, in Unix seconds")
 	output := flags.String("output", "", "the .tar.gz file to write")
@@ -49,7 +82,7 @@ func run(arguments []string) error {
 // write archives the binary as the single member rhino: a regular file, mode
 // 0755, owned by root, in the ustar format every tar implementation reads.
 func write(binary string, modified time.Time, output string) (err error) {
-	source, err := os.Open(binary)
+	source, err := hostFiles.Open(binary)
 	if err != nil {
 		return err
 	}
@@ -60,7 +93,7 @@ func write(binary string, modified time.Time, output string) (err error) {
 		return err
 	}
 
-	destination, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	destination, err := hostFiles.Create(output)
 	if err != nil {
 		return err
 	}

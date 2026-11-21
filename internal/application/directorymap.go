@@ -308,7 +308,7 @@ func directoryMapIsScheme(prefix string) bool {
 	for index, character := range prefix {
 		switch {
 		case index == 0:
-			if !(character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z') {
+			if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') {
 				return false
 			}
 		case character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' ||

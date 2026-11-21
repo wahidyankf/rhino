@@ -20,6 +20,10 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
 # scenario in specs/behaviours under -race and fails on any skipped scenario.
 go test -race -count=1 ./tests/bdd/
 
+# The end-to-end suite: journeys that spawn the built binary from outside. It is
+# the test:e2e target, so the full gate runs it with the behaviour corpus.
+go test -race -count=1 ./tests/e2e/...
+
 # The public-safety wrapper's own suite: offline, with a stub scanner, so it
 # checks the wrapper's contract on this operating system without a download.
 bash scripts/public-safety/tests/run.sh

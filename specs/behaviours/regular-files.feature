@@ -85,7 +85,7 @@ Feature: Regular file gate inputs
       | hook-message-file |
       | push-updates      |
 
-  Scenario: Regular-files index projection uses the selected Git snapshot
+  Scenario: Regular-files check reads the snapshot the Git index selects
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -122,7 +122,7 @@ Feature: Regular file gate inputs
     Then the exit code is 0
     And the gate "format-files" received the argument vector "staged/source.md"
 
-  Scenario: Regular-files range projection uses the immutable Git snapshot
+  Scenario: Regular-files check reads the immutable snapshot of the explicit range
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -159,7 +159,7 @@ Feature: Regular file gate inputs
     Then the exit code is 0
     And the gate "format-files" received the argument vector "range/source.md"
 
-  Scenario: Regular-files projections preserve argv and environment values
+  Scenario: A regular-files gate child receives its argv and environment values unchanged
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2

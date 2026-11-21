@@ -43,6 +43,7 @@ may run in parallel.
 ```mermaid
 flowchart LR
     accTitle: Plan order
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: Plan b in progress depends on plan a in backlog.
     A["🔜 plan-a"] --> B["🏗️ plan-b"]
     classDef backlog fill:#0173B2,stroke:#000000,color:#FFFFFF,stroke-width:2px

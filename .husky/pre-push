@@ -13,8 +13,7 @@ set -e
 # `--` reach every gate on the surface, and nothing declared here takes a remote
 # name or a URL.
 #
-# The quick gate runs the test suite under -race and builds the binary, which is
-# real compute, so it carries its own HIPPO guard. HIPPO cannot guard HIPPO; RHINO
-# has no such constraint, so it does not exempt itself. Exit 124 means a limit
-# stopped the work and the reason on stderr says which: retry, never bypass.
+# This surface holds the deterministic leak scan and nothing else (C6). The test
+# suite, lint, and document checks run at the pull-request surface, so a push
+# never waits on them.
 exec go run ./cmd/rhino gate run --surface pre-push --push-updates-stdin

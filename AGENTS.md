@@ -3,18 +3,17 @@
 RHINO validates repository hygiene. Rules live in [`repo-governance/`](repo-governance/README.md). Related repositories:
 [`ose-projects`](docs/README.md#project-context).
 
-Use clear, simple, natural English that non-native speakers can understand, including replies. Follow
-[Language](repo-governance/conventions/language.md) for repository writing.
+Use clear, simple, natural English that non-native speakers understand, including replies. Follow
+[Language](repo-governance/conventions/language.md) for writing.
 
 ## The Product
 
 - Ship no repository-specific defaults, repository, harness, or organization names in product code;
   [vision](repo-governance/vision/README.md) draws the policy/behaviour line.
 - Exit codes, `version --json`, commands, flags, and configuration keys are
-  [a public contract](repo-governance/development/public-contract.md); moving is major-version work (minor version while
-  0.x).
+  [a public contract](repo-governance/development/public-contract.md); moving is major-version work (minor while 0.x).
 - Tree validators are read-only, network-free, path-contained, and start no process except read-only Git queries; the
-  vision names their explicit boundaries.
+  vision names their boundaries.
 
 ## Specifications
 
@@ -23,17 +22,17 @@ Use clear, simple, natural English that non-native speakers can understand, incl
 - Gherkin first, prove the [red for the stated reason](repo-governance/development/test-driven-development.md), then
   implement. Write scenarios and bindings under [BDD](repo-governance/development/behaviour-driven-development.md); keep
   [the C4 model](repo-governance/development/architecture-specifications.md) true.
-- Every scenario binds at the CLI adapter without exemption;
+- Every scenario binds at unit, integration, and end-to-end level; only the last two may be exempt, with a reason;
   [review changed Gherkin](repo-governance/workflows/quality/gherkin-implementation-review.md).
 
 ## Testing
 
-- `./scripts/test-quick.sh` is [the quick gate](repo-governance/development/quality-gates.md); `./scripts/test.sh` is
-  the full gate, which CI runs.
-- Coverage: 99% over the domain, application, and config packages; the quick gate declares no exclusions.
+- Targets `test:quick`, `test:integration`, `test:e2e`, `test:behaviour:coverage`: one meaning each. `./scripts/test.sh`
+  is the full gate, which CI runs.
+- Coverage: 99% over every production package, from the unit run; no exclusions.
 - Guard local compute with [`./hippo`](repo-governance/development/resource-aware-development.md), never bypassed: `124`
   read its reason, `125` replan or drain, `2` fix the call. Route
-  [HIPPO and FERRET defects](repo-governance/development/upstream-tool-defects.md) to their owners.
+  [HIPPO and FERRET defects](repo-governance/development/upstream-tool-defects.md) to owners.
 
 ## Change Discipline
 
@@ -53,8 +52,8 @@ Use clear, simple, natural English that non-native speakers can understand, incl
   [compaction](repo-governance/principles/governance-continuity.md),
   [ask last](repo-governance/conventions/last-resort-questions.md), and name files in
   [lowercase kebab-case](repo-governance/conventions/file-naming.md).
-- Plans are working records under [`plans/`](plans/README.md), never architecture. Follow the
-  [plans convention](repo-governance/conventions/plans.md) and its companions.
+- Plans are working records under [`plans/`](plans/README.md), never architecture; follow the
+  [plans convention](repo-governance/conventions/plans.md).
 - [Quality gates](repo-governance/development/workflow/quality-gate-contract.md) need explicit request or a listed
   caller; the [execution check](repo-governance/workflows/plan/plan-execution-check.md) blocks archival.
 

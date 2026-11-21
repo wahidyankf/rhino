@@ -58,7 +58,8 @@ A catalog owner with no local counterpart stays named in the adopted text withou
   [release cut](../../../workflows/maintenance/release-cut.md).
 - **software quality enforcement**
   - Decision: coverage floor
-  - Choice: policy 99% over the domain, application, and config packages; the quick gate pins 99%
+  - Choice: policy 99% over every production package (`cmd`, `internal`, and `scripts/release-archive`); the quick gate
+    pins 99%
   - Reason: the floor is stated in [software quality enforcement](../../software-quality-enforcement.md)
 - **quality gates**
   - Decision: task runner
@@ -66,7 +67,8 @@ A catalog owner with no local counterpart stays named in the adopted text withou
   - Reason: no task graph
 - `golang`
   - Decision: formatting, vet, and race detection
-  - Choice: `gofmt`, `go vet ./...`, and `go test -race -count=1 ./...` in the quick gate
+  - Choice: `gofmt`, `go vet ./...`, and `go test -race -count=1` over the unit packages in the quick gate; the
+    integration suite runs in `test:integration`
   - Reason: a race in this tool is a finding, not a flake
 - `golang`
   - Decision: unit test placement

@@ -203,7 +203,7 @@ func TestStructuralFindingsBreakColumnAndFieldTies(t *testing.T) {
 	if first < 0 || second < 0 || narrow < 0 || wide < 0 {
 		t.Fatalf("findings missing: %q", outcome.Stderr)
 	}
-	if !(narrow < first && first < second && second < wide) {
+	if narrow >= first || first >= second || second >= wide {
 		t.Fatalf("column and field ties out of order: %q", outcome.Stderr)
 	}
 	json := report.Render(application.JSON)

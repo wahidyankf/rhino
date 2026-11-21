@@ -5,6 +5,8 @@ set -e
 root=$(git rev-parse --show-toplevel)
 export PATH="$root/node_modules/.bin:$PATH"
 
-# The surface declares the order, and the order is the point: the safety gate
-# runs before the formatter, so a staged leak is refused rather than tidied.
+# What runs here, and in what order, is declared in `repo-config.yml`. The
+# surface holds staged-file formatting only (C6): the formatter rewrites the
+# staged files and restages them. Every check, test, and scan runs at the
+# pull-request surface, and the leak scan runs at pre-push over the range.
 exec go run ./cmd/rhino gate run --surface pre-commit
