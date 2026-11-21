@@ -5,13 +5,13 @@ to pass — passed, with the output.
 
 ## Coverage
 
-The policy floor is 99% line coverage over the deterministic core: the domain, application, and config packages, the
-exact `-coverpkg` list in `scripts/test-quick.sh`.
+The policy floor is 99% line coverage over every production package: `./cmd/...`, `./internal/...`, and
+`./scripts/release-archive`, the exact `-coverpkg` list in `scripts/test-quick.sh`.
 
-The gate pins 99%, so a regression below 99% fails the quick gate. New deterministic-core code needs its own tests to
-keep the floor.
+The gate pins 99%, so a regression below 99% fails the quick gate. New production code needs its own tests to keep the
+floor.
 
-The Go gate declares no exclusions. A package outside that list, such as the command adapter, is not measured.
+The Go gate declares no exclusions.
 
 The floor is a floor. Lowering it, widening an exclusion, or excluding a module that became hard to test is a change to
 what this repository is willing to ship, not a test-infrastructure adjustment.

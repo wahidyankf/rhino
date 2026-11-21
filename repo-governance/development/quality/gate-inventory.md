@@ -56,5 +56,6 @@ These run in the pull-request workflow, outside the registry, because their inpu
 - **Scenario exemptions**: a scenario may skip the integration or end-to-end level, but only with a reason in a
   `# Exemption(<level>): <reason>; alternative-proof: <target>` comment. `behaviour coverage validate` checks each one.
   The unit level is never exempt.
-- **Network denial**: `test:quick` does not deny the network. The host that runs it refuses user namespaces, so
-  `unshare -rn` cannot deny the network there.
+- **Network denial**: `test:quick` runs its unit suite under `unshare -rn`, which denies the network, where the host
+  allows user namespaces. Where the host refuses them, the suite runs without denial, and the static lint ban on network
+  packages still applies.

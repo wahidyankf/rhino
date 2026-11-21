@@ -14,7 +14,8 @@ before any repository material is read.
 ## Local Hooks
 
 Each hook calls `rhino gate run` with its surface, and `repo-config.yml` declares what each surface holds. The allowed
-lists live under `gates.wiring.local-surfaces`, and `rhino gate wiring validate` refuses an entry outside them (W07):
+lists live under `gates.wiring.local-surfaces`, and `rhino gate wiring validate` reports an entry outside them as
+finding W07:
 
 - `pre-commit` runs the staged-file formatter only (`format-staged`);
 - `commit-msg` runs the commit-message format lint only (`commit-message`);
