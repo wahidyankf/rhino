@@ -41,6 +41,32 @@ protect. Raw scanner output never becomes evidence.
 Evidence that cannot be recorded safely is summarized structurally — how many findings, of what class, in what surface —
 and the unsafe detail stays out.
 
+## Current Behaviour Over Past Proof
+
+When a plan-execution check, quality gate, audit, or delivery checklist asks for past proof that can no longer be
+produced, or that would only add complexity to rebuild, such as a red run never captured or a baseline from a removed
+worktree, do not reconstruct it. Observe current behaviour instead: run the current suites on the current head, read the
+live state, or read the current files. Record that observation as an ordinary evidence record, plus one line naming the
+past proof it replaces and why it is unavailable.
+
+A rebuilt record documents the rebuilding, not the event, and costs effort without adding certainty. The criterion is
+about how the work behaves now, and that can be observed.
+
+- This substitutes evidence and never waives it: the current observation must establish the criterion on its own.
+- A check that can still run today runs today. Only proof tied to a past moment is substituted.
+- A check whose purpose is a current property still runs, even when it repeats a past step: a test still fails for its
+  stated reason before it counts, per [Test-Driven Development](../../development/test-driven-development.md).
+- Never re-stage a past state, back-date a record, or present a new run as an old one.
+- When the behaviour itself can no longer be observed, use the **accepted as permanently unmet** disposition
+  [instead][resolution].
+
+Followed: the record holds a current command, commit, time, and result that establish the criterion, plus the
+substitution line. Violated: a past artefact is rebuilt or back-dated; a verdict blocks only on unrecoverable history
+while current behaviour establishes the criterion; or a check that can still run is skipped under this rule.
+
+**Enforcement: unenforced by decision.** Whether proof is unrecoverable and an observation sufficient are judgements no
+mechanical check settles; the execution check makes them from the record.
+
 ## Manual Verification
 
 Some claims cannot be established by automation, and a green pipeline does not become sufficient because it is
@@ -56,3 +82,5 @@ exit code, the two streams, and the state of the tree afterwards. Every one of t
 repository routes through have nothing here to route. A RHINO plan records them as not applicable and says which of the
 two owns the claim instead. That is a disposition with a reason, not an omission — the canonical rule already refuses
 silence.
+
+[resolution]: 008-knowledge-capture-and-archival.md#resolution-is-not-a-tick
