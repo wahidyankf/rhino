@@ -7,7 +7,8 @@ both.
 
 ## Directory Map
 
-- [Checks](checks/README.md) — the threshold and waiver rule every lint gate follows.
+- [Checks](checks/README.md) — the threshold and waiver rule every lint gate follows, and the test and gate contract.
+- [Gate inventory](gate-inventory.md) — every check this repository runs, with its surface, scope, command, and tests.
 - [Code](code/README.md) — language-neutral rules for type safety at boundaries and for shell scripts.
 - [Stacks](stacks/README.md) — the adopted stack standards and the repository adapter.
 - [Testing](testing/README.md) — what a coverage number may measure.

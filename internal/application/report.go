@@ -229,8 +229,8 @@ func (r *Report) finish() Outcome {
 			checked = fmt.Sprintf("%d findings", len(r.Findings))
 		}
 	}
-	summary.WriteString(fmt.Sprintf("[%s] checked %d %s, %s\n",
-		r.Category, r.Inspected, plural(r.Subject, r.Inspected), checked))
+	fmt.Fprintf(&summary, "[%s] checked %d %s, %s\n",
+		r.Category, r.Inspected, plural(r.Subject, r.Inspected), checked)
 	for _, note := range r.Notes {
 		summary.WriteString("[" + r.Category + "] " + note + "\n")
 	}

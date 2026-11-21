@@ -4,6 +4,7 @@ Feature: Rhino v0.4 contracts
   the observable contracts for v0.4. Their status follows the current
   implementation and test results; the specification does not presume they are RED.
 
+  # Behaviour: RB-01
   Scenario: A grouped v0.4 configuration is accepted
     Given the configuration file is this text:
       """
@@ -25,6 +26,8 @@ Feature: Rhino v0.4 contracts
     When I run the "repo-config" validator
     Then the exit code is 0
 
+  # Behaviour: RB-36
+  # Behaviour: RB-68
   Scenario: A grouped configuration retains each live documentation validator
     Given the configuration file is this text:
       """
@@ -88,6 +91,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "unknown core key"
 
+  # Behaviour: RB-79
   Scenario: An extension owner outside the portable namespace is refused
     Given the configuration file is this text:
       """
@@ -108,6 +112,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "no longer accepts predecessor configuration"
 
+  # Behaviour: RB-05
   Scenario: The RC-only migration command is unknown after stable retirement
     Given the configuration file is this text:
       """
@@ -117,6 +122,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "unrecognized command"
 
+  # Behaviour: RB-57
   Scenario Outline: A retired legacy command is unknown after stable retirement
     Given the configuration file is this text:
       """
@@ -134,8 +140,11 @@ Feature: Rhino v0.4 contracts
       | plan\|validate                     |
       | harness\|parity\|validate          |
       | md\|word-count\|inspect            |
+      | gate\|emit                         |
+      | gate\|audit                        |
 
-  Scenario: Lifecycle identities are listed declaratively
+  # Behaviour: RB-08
+  Scenario: gate list reports no gates for each surface when none is declared
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -143,7 +152,11 @@ Feature: Rhino v0.4 contracts
       """
     When I invoke the CLI with "gate|list"
     Then the exit code is 0
+    And stdout contains "pre-commit: no gates"
+    And stdout contains "pull-request: no gates"
+    And stdout contains "manual: no gates"
 
+  # Behaviour: RB-09
   Scenario: Each declared lifecycle membership uses one closed surface
     Given the configuration file is this text:
       """
@@ -319,6 +332,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "nx-affected"
 
+  # Behaviour: RB-53
   Scenario: A pull-request file input declares an explicit immutable range
     Given the configuration file is this text:
       """
@@ -347,7 +361,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|validate"
     Then the exit code is 0
 
-  Scenario: Typed argv and environment projections name resolved range fields
+  Scenario: Gate children name the resolved range fields in their argv and environment
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -409,6 +423,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|validate"
     Then the exit code is 0
 
+  # Behaviour: RB-52
   Scenario: A pre-push run reads its update records when a global flag precedes the command
     Given the configuration file is this text:
       """
@@ -441,7 +456,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "--root|.|gate|run|--surface|pre-push|--push-updates-stdin|--output|json"
     Then the exit code is 0
 
-  Scenario: A pre-push gate projects its base into the environment
+  Scenario: A pre-push gate child receives its base commit in its environment
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -735,6 +750,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "no adapter profiles are declared"
 
+  # Behaviour: RB-21
   Scenario: Environment backup starts with an explicit destination plan
     Given the configuration file is this text:
       """
@@ -744,6 +760,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|backup|--dir|safe-backups"
     Then the exit code is 0
 
+  # Behaviour: RB-47
   Scenario: Environment backup refuses a destination outside its repository
     Given the configuration file is this text:
       """
@@ -754,6 +771,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "backup destination leaves the repository root"
 
+  # Behaviour: RB-23
   Scenario: Environment restore with no declared target completes with a zero count
     Given the configuration file is this text:
       """
@@ -766,6 +784,7 @@ Feature: Rhino v0.4 contracts
     And stdout JSON property "count" is 0
     And the repository is unchanged by the inspection
 
+  # Behaviour: RB-22
   Scenario: Environment initialization reports the targets it created
     Given the configuration file is this text:
       """
@@ -823,26 +842,6 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 0
     And stdout JSON property "schemaVersion" is 1
 
-  Scenario: Retired gate aliases are unknown
-    Given the configuration file is this text:
-      """
-      schema: rhino/repo-config/v2
-      gates: {}
-      """
-    When I invoke the CLI with "gate|emit"
-    Then the exit code is 2
-    And stderr contains "unrecognized command"
-
-  Scenario: Retired gate audit alias is unknown
-    Given the configuration file is this text:
-      """
-      schema: rhino/repo-config/v2
-      gates: {}
-      """
-    When I invoke the CLI with "gate|audit"
-    Then the exit code is 2
-    And stderr contains "unrecognized command"
-
   Scenario: Conventional Commit input follows the commit-message lifecycle
     Given the configuration file is this text:
       """
@@ -871,6 +870,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|validate"
     Then the exit code is 0
 
+  # Behaviour: RB-51
   Scenario: Hook message input is exclusive to Git's hook boundary
     Given the configuration file is this text:
       """
@@ -942,6 +942,130 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "gate|run|--surface|pre-commit"
     Then the exit code is 0
 
+  Scenario: A gate run narrowed to one entry runs only that gate
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: entry-one
+            type: check
+            command:
+              executable: ./check-pass
+            run-on:
+              pull-request:
+                reason: runs in the narrowed pull-request job
+          - id: entry-two
+            type: check
+            command:
+              executable: ./check-fail
+            run-on:
+              pull-request:
+                reason: runs in the other pull-request job
+        composition:
+          pull-request:
+            relation: at-least
+      """
+    And the repository contains:
+      | path       | content             |
+      | README.md  | # Entry selection   |
+      | check-pass | #!/bin/sh\nexit 0\n |
+      | check-fail | #!/bin/sh\nexit 1\n |
+    When I invoke the CLI with "gate|run|--surface|pull-request|--entry|entry-one"
+    Then the exit code is 0
+    And stdout contains "[gate] entry-one passed"
+
+  Scenario: A gate run given several entries runs each named gate
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: entry-one
+            type: check
+            command:
+              executable: ./check-pass
+            run-on:
+              pull-request:
+                reason: runs in the first pull-request job
+          - id: entry-two
+            type: check
+            command:
+              executable: ./check-pass
+            run-on:
+              pull-request:
+                reason: runs in the second pull-request job
+          - id: entry-three
+            type: check
+            command:
+              executable: ./check-fail
+            run-on:
+              pull-request:
+                reason: runs in the third pull-request job
+        composition:
+          pull-request:
+            relation: at-least
+      """
+    And the repository contains:
+      | path       | content             |
+      | README.md  | # Entry selection   |
+      | check-pass | #!/bin/sh\nexit 0\n |
+      | check-fail | #!/bin/sh\nexit 1\n |
+    When I invoke the CLI with "gate|run|--surface|pull-request|--entry|entry-two|--entry|entry-one"
+    Then the exit code is 0
+    And stdout contains "[gate] entry-two passed"
+    And stdout contains "[gate] entry-one passed"
+
+  Scenario: A gate run refuses an entry that the surface does not declare
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: entry-one
+            type: check
+            command:
+              executable: ./check-pass
+            run-on:
+              pull-request:
+                reason: runs in the narrowed pull-request job
+        composition:
+          pull-request:
+            relation: at-least
+      """
+    And the repository contains:
+      | path       | content             |
+      | README.md  | # Entry selection   |
+      | check-pass | #!/bin/sh\nexit 0\n |
+    When I invoke the CLI with "gate|run|--surface|pull-request|--entry|no-such-gate"
+    Then the exit code is 2
+    And stderr contains "names no gate declared on surface `pull-request`"
+
+  Scenario: A gate run refuses an entry that another surface declares
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      gates:
+        entries:
+          - id: pull-request-only
+            type: check
+            command:
+              executable: ./check-pass
+            run-on:
+              pull-request:
+                reason: runs only in the pull-request job
+        composition:
+          pull-request:
+            relation: at-least
+      """
+    And the repository contains:
+      | path       | content             |
+      | README.md  | # Entry selection   |
+      | check-pass | #!/bin/sh\nexit 0\n |
+    When I invoke the CLI with "gate|run|--surface|pre-commit|--entry|pull-request-only"
+    Then the exit code is 2
+    And stderr contains "names no gate declared on surface `pre-commit`"
+
   Scenario Outline: An omitted lifecycle group is refused rather than read as empty
     Given the configuration file is this text:
       """
@@ -977,6 +1101,7 @@ Feature: Rhino v0.4 contracts
     And stderr contains "--harness"
 
 
+  # Behaviour: RB-76
   Scenario: One declared harness profile generates and validates its adapter
     Given the configuration file is this text:
       """
@@ -1242,7 +1367,7 @@ Feature: Rhino v0.4 contracts
     And the generated adapter at "CLAUDE.md" contains "@AGENTS.md"
     And the file "adapters/gamma/opencode.json" still contains "user-owned"
 
-  Scenario: A canonical denial removes native member projections
+  Scenario: A canonical denial removes the member from every native adapter
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -1322,7 +1447,7 @@ Feature: Rhino v0.4 contracts
     And stderr contains "profile `beta` cannot represent required capability `write`"
     And the repository is unchanged by the inspection
 
-  Scenario: Agent adapters project a declared canonical list
+  Scenario: Agent adapters render a declared canonical list
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -1791,7 +1916,7 @@ Feature: Rhino v0.4 contracts
     And stderr contains "m-2-x"
     And the generated adapter at "adapters/alpha/agents/runner.md" contains "model: m-2-x"
 
-  Scenario: A never-resolved tier uses the seed fallback
+  Scenario: A tier whose model never resolves uses its declared fallback model
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -1821,7 +1946,7 @@ Feature: Rhino v0.4 contracts
     And stderr contains "m-0-x"
     And the generated adapter at "adapters/alpha/agents/runner.md" contains "model: m-0-x"
 
-  Scenario: Validate never runs the resolver
+  Scenario: Harness validation starts no model command
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2182,6 +2307,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 0
     And the generated adapter at "adapters/alpha/agents/lead.md" contains "Agent(writer)"
 
+  # Behaviour: RB-35
   Scenario: An agent's dispatch list passes metadata validation
     Given the configuration file is this text:
       """
@@ -2199,6 +2325,7 @@ Feature: Rhino v0.4 contracts
     When I run the "metadata" validator
     Then the exit code is 0
 
+  # Behaviour: RB-18
   Scenario: Harness adapter validation reports a generated marker no adapter writes
     Given the configuration file is this text:
       """
@@ -2224,6 +2351,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And stderr contains ".codex/config.toml: stale-marker"
 
+  # Behaviour: RB-19
   Scenario: Harness adapter generation writes its adapters and refuses a generated marker it does not own
     Given the configuration file is this text:
       """
@@ -2453,6 +2581,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "harness|adapters|generate"
     Then the exit code is 0
 
+  # Behaviour: RB-48
   Scenario: Toolchain provisioning requires an explicit apply contract
     Given the configuration file is this text:
       """
@@ -2462,6 +2591,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "toolchain|provision|--apply"
     Then the exit code is 0
 
+  # Behaviour: RB-28
   Scenario: Toolchain provisioning plans before an explicit mutation
     Given the configuration file is this text:
       """
@@ -2534,6 +2664,7 @@ Feature: Rhino v0.4 contracts
     And stdout JSON property "count" is 1
     And stdout contains "planned-tool"
 
+  # Behaviour: RB-27
   Scenario: Toolchain validation reports a required unavailable probe without output bytes
     Given the configuration file is this text:
       """
@@ -2549,7 +2680,8 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And stderr contains "unavailable"
 
-  Scenario: Curated environment detection accepts a declared Rust key
+  # Behaviour: RB-78
+  Scenario: Environment validation accepts a declared Rust key
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2567,7 +2699,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|validate"
     Then the exit code is 0
 
-  Scenario: Curated environment detection accepts a declared TypeScript schema key
+  Scenario: Environment validation accepts a declared TypeScript schema key
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2585,7 +2717,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|validate"
     Then the exit code is 0
 
-  Scenario: Curated environment detection accepts an injected Go lookup key
+  Scenario: Environment validation accepts an injected Go lookup key
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2603,7 +2735,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "env|validate"
     Then the exit code is 0
 
-  Scenario: Curated environment detection redacts a dynamic injected Go lookup
+  Scenario: Environment validation redacts a dynamic injected Go lookup
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2619,7 +2751,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And stderr contains "unsupported-dynamic-access"
 
-  Scenario: Curated environment detection redacts unsupported dynamic access
+  Scenario: Environment validation redacts unsupported dynamic access
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2687,7 +2819,9 @@ Feature: Rhino v0.4 contracts
     And stdout contains ".env.generated"
     And the repository is unchanged by the inspection
 
-  Scenario: License policy is repository-configured rather than OSE-defined
+  # Behaviour: RB-37
+  # Behaviour: RB-73
+  Scenario: License policy comes only from the repository's configuration
     Given the configuration file is this text:
       """
       schema: rhino/repo-config/v2
@@ -2740,6 +2874,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And the first stdout JSON violation kind is "license-digest-mismatch"
 
+  # Behaviour: RB-34
   Scenario: README index requires only declared direct-child links and annotations
     Given the configuration file is this text:
       """
@@ -2938,6 +3073,8 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "exact paths"
 
+  # Behaviour: RB-16
+  # Behaviour: RB-69
   Scenario: Grouped governance word budgets retain declared scan exclusions
     Given the configuration file is this text:
       """
@@ -2977,6 +3114,8 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "md|internal-link|validate"
     Then the exit code is 0
 
+  # Behaviour: RB-30
+  # Behaviour: RB-63
   Scenario: Grouped scan exclusions silence the heading-hierarchy validator
     Given the configuration file is this text:
       """
@@ -2998,6 +3137,8 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "md|heading-hierarchy|validate"
     Then the exit code is 0
 
+  # Behaviour: RB-17
+  # Behaviour: RB-70
   Scenario: Grouped governance directory maps retain their declared trees
     Given the configuration file is this text:
       """
@@ -3015,6 +3156,7 @@ Feature: Rhino v0.4 contracts
     When I invoke the CLI with "governance|directory-map|validate"
     Then the exit code is 0
 
+  # Behaviour: RB-12
   Scenario: Vendor policy permits only an exact declared vocabulary exception
     Given the configuration file is this text:
       """
@@ -3073,6 +3215,8 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "exact repository-relative paths"
 
+  # Behaviour: RB-13
+  # Behaviour: RB-72
   Scenario: Layer policy validates only the declared layer order and categories
     Given the configuration file is this text:
       """
@@ -3148,6 +3292,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "simple names"
 
+  # Behaviour: RB-14
   Scenario: Traceability policy validates a declared artifact relationship
     Given the configuration file is this text:
       """
@@ -3210,6 +3355,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And the first stdout JSON violation kind is "missing-traceability-artifact"
 
+  # Behaviour: RB-29
   Scenario: Frontmatter policy accepts a declared required key
     Given the configuration file is this text:
       """
@@ -3245,6 +3391,8 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 1
     And the first stdout JSON violation kind is "missing-frontmatter-key"
 
+  # Behaviour: RB-31
+  # Behaviour: RB-64
   Scenario: Internal-link policy accepts a declared local target
     Given the configuration file is this text:
       """
@@ -3330,6 +3478,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 2
     And stderr contains "rhino.file.unreadable"
 
+  # Behaviour: RB-46
   Scenario: A selected directory that does not exist is refused as missing
     Given the configuration file is this text:
       """
@@ -3805,6 +3954,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 0
     And stdout JSON property "inspected" is 0
 
+  # Behaviour: RB-32
   Scenario: Mermaid policy accepts a declared plain-text repository with no diagrams
     Given the configuration file is this text:
       """
@@ -3925,6 +4075,7 @@ Feature: Rhino v0.4 contracts
     Then the exit code is 0
     And stdout JSON property "inspected" is 0
 
+  # Behaviour: RB-65
   Scenario: A required default class is refused where a flowchart omits it and ignored for a state diagram
     Given the configuration file is this text:
       """
@@ -4256,3 +4407,178 @@ Feature: Rhino v0.4 contracts
       | command                     |
       | harness\|adapters\|generate |
       | harness\|adapters\|validate |
+
+  # Behaviour: RB-33
+  Scenario: A path-prefixed naming surface accepts a file that carries its directory prefix
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          naming:
+            surfaces:
+              - glob: "areas/**/*.md"
+                style: path-prefixed
+                separator: "--"
+            exempt: []
+      """
+    And the repository contains:
+      | path                        | content  |
+      | areas/billing/bi--ledger.md | # Ledger |
+    When I run the "naming" validator
+    Then the exit code is 0
+
+  Scenario: A path-prefixed naming surface reports a file whose prefix names another directory
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          naming:
+            surfaces:
+              - glob: "areas/**/*.md"
+                style: path-prefixed
+                separator: "--"
+            exempt: []
+      """
+    And the repository contains:
+      | path                              | content    |
+      | areas/billing/ledger--overview.md | # Overview |
+    When I run the "naming" validator
+    Then the exit code is 1
+    And stderr contains "path-prefixed style"
+    And stderr contains "prefix=bi"
+
+  # Behaviour: RB-66
+  Scenario: A kebab-case naming surface that declares a separator is refused with exit 2
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          naming:
+            surfaces:
+              - glob: "docs/**/*.md"
+                style: kebab-case
+                separator: "--"
+            exempt: []
+      """
+    When I run the "naming" validator
+    Then the exit code is 2
+    And stderr contains "separator"
+
+  Scenario: A path-prefixed naming surface that declares no separator is refused with exit 2
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          naming:
+            surfaces:
+              - glob: "areas/**/*.md"
+                style: path-prefixed
+            exempt: []
+      """
+    When I run the "naming" validator
+    Then the exit code is 2
+    And stderr contains "declares no separator"
+
+  Scenario: A frontmatter iso-date key that is not a calendar date is reported
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          frontmatter:
+            surfaces:
+              - glob: "notes/*.md"
+                require: [title]
+                iso-date: [published]
+      """
+    And the repository contains:
+      | path       | content                                    |
+      | notes/a.md | ---\ntitle: A\npublished: yesterday\n---\n# A |
+    When I invoke the CLI with "md|frontmatter|validate"
+    Then the exit code is 1
+    And stderr contains "published"
+
+  # Behaviour: RB-67
+  Scenario: A frontmatter enum key outside its permitted values is reported
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      policies:
+        markdown:
+          frontmatter:
+            surfaces:
+              - glob: "notes/*.md"
+                require: [title]
+                enum:
+                  status: [draft, final]
+      """
+    And the repository contains:
+      | path       | content                           |
+      | notes/a.md | ---\ntitle: A\nstatus: maybe\n---\n# A |
+    When I invoke the CLI with "md|frontmatter|validate"
+    Then the exit code is 1
+    And stderr contains "status"
+
+  # Behaviour: RB-77
+  Scenario: A toolchain probe whose first output line matches its declared version passes
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: probe-tool
+            executable: tools/probe
+            probe: [--version]
+            parser: first-line
+            version: "1.2.3"
+            required: true
+      """
+    And the repository contains an executable "tools/probe" with the body:
+      """
+      #!/bin/sh
+      echo 1.2.3
+      """
+    When I invoke the CLI with "toolchain|validate"
+    Then the exit code is 0
+
+  Scenario: A toolchain probe whose first output line differs from its declared version is reported
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: probe-tool
+            executable: tools/probe
+            probe: [--version]
+            parser: first-line
+            version: "1.2.3"
+            required: true
+      """
+    And the repository contains an executable "tools/probe" with the body:
+      """
+      #!/bin/sh
+      echo 1.2.4
+      """
+    When I invoke the CLI with "toolchain|validate"
+    Then the exit code is 1
+    And stderr contains "probe-tool"
+
+  Scenario: A toolchain probe that declares a parser without a version is refused with exit 2
+    Given the configuration file is this text:
+      """
+      schema: rhino/repo-config/v2
+      toolchains:
+        entries:
+          - id: probe-tool
+            executable: tools/probe
+            probe: [--version]
+            parser: first-line
+            required: true
+      """
+    When I invoke the CLI with "toolchain|validate"
+    Then the exit code is 2
+    And stderr contains "must declare both parser and version, or neither"

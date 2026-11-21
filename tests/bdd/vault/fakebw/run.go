@@ -28,23 +28,23 @@ import (
 func Run(argv []string, stdin io.Reader, stdout, stderr io.Writer, environ []string) int {
 	statePath, logPath, words, err := splitWrapperArgs(argv)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		diagnose(stderr, err)
 		return 2
 	}
 	env := environmentNames(environ)
 	if err := appendRecord(logPath, words, env); err != nil {
-		fmt.Fprintln(stderr, err)
+		diagnose(stderr, err)
 		return 2
 	}
 	vault, err := Load(statePath)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		diagnose(stderr, err)
 		return 2
 	}
 	outcome := dispatch(vault, words, env, stdin)
 	if outcome.changed {
 		if err := vault.Save(statePath); err != nil {
-			fmt.Fprintln(stderr, err)
+			diagnose(stderr, err)
 			return 2
 		}
 	}
@@ -52,7 +52,7 @@ func Run(argv []string, stdin io.Reader, stdout, stderr io.Writer, environ []str
 		if _, cleanExit := env["BW_CLEANEXIT"]; cleanExit {
 			return 0
 		}
-		fmt.Fprintln(stderr, outcome.message)
+		diagnose(stderr, outcome.message)
 		return outcome.code
 	}
 	answer := outcome.stdout
@@ -73,6 +73,13 @@ type outcome struct {
 }
 
 func fail(message string) outcome { return outcome{code: 1, message: message} }
+
+// diagnose writes one line to the caller's standard error. The exit code that
+// Run returns carries the failure, so a stream that refuses the line leaves
+// the caller nothing it could act on.
+func diagnose(stderr io.Writer, message any) {
+	_, _ = fmt.Fprintln(stderr, message)
+}
 
 // dispatch answers one bw call against the vault. Every call carries
 // --nointeraction. Only status answers without a session key, as the real bw does.

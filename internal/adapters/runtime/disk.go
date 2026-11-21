@@ -26,7 +26,7 @@ type DiskTree struct {
 
 // AtCurrentDirectory opens the working directory.
 func AtCurrentDirectory() (*DiskTree, error) {
-	dir, err := os.Getwd()
+	dir, err := hostFiles.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("repository root could not be established: %w", err)
 	}
@@ -51,13 +51,13 @@ func (t *DiskTree) RootedAt(path string) (application.Tree, error) {
 		// system resolves it, and a lexical fold would climb from the spelling.
 		candidate = t.Dir + string(filepath.Separator) + path
 	}
-	info, err := os.Stat(candidate)
+	info, err := hostFiles.Stat(candidate)
 	if err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("`--root %s` names nothing usable", path)
 	}
 	// The resolved directory is the repository the run reads, so every later
 	// path is relative to it, whatever link or spelling named it.
-	resolved, err := filepath.EvalSymlinks(candidate)
+	resolved, err := hostFiles.EvalSymlinks(candidate)
 	if err != nil {
 		return nil, fmt.Errorf("`--root %s` names nothing usable", path)
 	}
@@ -67,7 +67,9 @@ func (t *DiskTree) RootedAt(path string) (application.Tree, error) {
 // Files lists repository-relative regular files, excluding symlinks.
 func (t *DiskTree) Files() []string {
 	var out []string
-	_ = filepath.WalkDir(t.Dir, func(path string, entry fs.DirEntry, err error) error {
+	// An entry the walk cannot read is left out of the list: the port returns no
+	// error here, and Read names an unreadable path when it is asked for one.
+	walked := hostFiles.WalkDir(t.Dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -85,11 +87,16 @@ func (t *DiskTree) Files() []string {
 		}
 		rel, err := filepath.Rel(t.Dir, path)
 		if err != nil {
-			return nil
+			return err
 		}
 		out = append(out, filepath.ToSlash(rel))
 		return nil
 	})
+	// The callback accepts every entry it can name, so a failed walk means the
+	// walk produced a path outside t.Dir. That is a broken invariant: fail loudly.
+	if walked != nil {
+		panic("listing the tree broke its invariant: " + walked.Error())
+	}
 	sort.Strings(out)
 	return out
 }
@@ -106,7 +113,7 @@ func (t *DiskTree) Read(path string) (string, *TreeError) {
 		return "", &TreeError{Kind: "escapes", Reason: "`" + path + "` passes through a filesystem link"}
 	}
 	full := filepath.Join(t.Dir, filepath.FromSlash(path))
-	if _, err := os.Lstat(full); err != nil {
+	if _, err := hostFiles.Lstat(full); err != nil {
 		if os.IsNotExist(err) {
 			return "", &TreeError{Kind: "missing", Reason: path + ": no such file"}
 		}
@@ -114,7 +121,7 @@ func (t *DiskTree) Read(path string) (string, *TreeError) {
 		// parent, a denied component. Only an absent path is missing.
 		return "", &TreeError{Kind: "unreadable", Reason: path + ": " + err.Error()}
 	}
-	data, err := os.ReadFile(full)
+	data, err := hostFiles.ReadFile(full)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", &TreeError{Kind: "missing", Reason: path + ": no such file"}
@@ -133,7 +140,7 @@ func (t *DiskTree) FileMode(path string) (uint32, *TreeError) {
 	if leavesRoot(path) || t.PassesThroughLink(path) {
 		return 0, &TreeError{Kind: "escapes", Reason: "`" + path + "` passes through a filesystem link"}
 	}
-	info, err := os.Lstat(filepath.Join(t.Dir, filepath.FromSlash(path)))
+	info, err := hostFiles.Lstat(filepath.Join(t.Dir, filepath.FromSlash(path)))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, &TreeError{Kind: "missing", Reason: path + ": no such file"}
@@ -146,20 +153,23 @@ func (t *DiskTree) FileMode(path string) (uint32, *TreeError) {
 // Links lists every filesystem link under the root, with where its target
 // lies. The walk finds links by their type and never follows one.
 func (t *DiskTree) Links() []application.TreeLink {
-	realRoot, err := filepath.EvalSymlinks(t.Dir)
+	realRoot, err := hostFiles.EvalSymlinks(t.Dir)
 	if err != nil {
 		return nil
 	}
 	var out []application.TreeLink
-	_ = filepath.WalkDir(t.Dir, func(path string, entry fs.DirEntry, err error) error {
+	// An entry the walk cannot read is left out of the list, for the same reason
+	// as Files: the port has no error to return.
+	walked := hostFiles.WalkDir(t.Dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if entry.Type()&fs.ModeSymlink != 0 {
 			rel, relErr := filepath.Rel(t.Dir, path)
-			if relErr == nil {
-				out = append(out, classifyLink(filepath.ToSlash(rel), path, realRoot))
+			if relErr != nil {
+				return relErr
 			}
+			out = append(out, classifyLink(filepath.ToSlash(rel), path, realRoot))
 			return nil
 		}
 		if entry.IsDir() && entry.Name() == ".git" {
@@ -167,6 +177,9 @@ func (t *DiskTree) Links() []application.TreeLink {
 		}
 		return nil
 	})
+	if walked != nil {
+		panic("listing the links broke its invariant: " + walked.Error())
+	}
 	sort.Slice(out, func(left, right int) bool { return out[left].Path < out[right].Path })
 	return out
 }
@@ -174,14 +187,14 @@ func (t *DiskTree) Links() []application.TreeLink {
 // classifyLink resolves one link's target and names where it lies: inside the
 // root with its repository-relative path, outside it, or nowhere.
 func classifyLink(rel, full, realRoot string) application.TreeLink {
-	target, err := os.Readlink(full)
+	target, err := hostFiles.Readlink(full)
 	if err != nil {
 		return application.TreeLink{Path: rel, Kind: application.LinkUnresolved}
 	}
 	if !filepath.IsAbs(target) {
 		target = filepath.Join(filepath.Dir(full), target)
 	}
-	resolved, err := filepath.EvalSymlinks(target)
+	resolved, err := hostFiles.EvalSymlinks(target)
 	if err != nil {
 		return application.TreeLink{Path: rel, Kind: application.LinkUnresolved}
 	}
@@ -219,7 +232,7 @@ func (t *DiskTree) Exists(path string) bool {
 		return false
 	}
 	full := filepath.Join(t.Dir, filepath.FromSlash(path))
-	info, err := os.Lstat(full)
+	info, err := hostFiles.Lstat(full)
 	if err != nil || !info.IsDir() {
 		return false
 	}
@@ -246,7 +259,7 @@ func (t *DiskTree) PassesThroughLink(path string) bool {
 			continue
 		}
 		current = filepath.Join(current, segment)
-		info, err := os.Lstat(current)
+		info, err := hostFiles.Lstat(current)
 		if err != nil {
 			return false
 		}
@@ -261,11 +274,11 @@ func (t *DiskTree) PassesThroughLink(path string) bool {
 // working tree. A tree with no Git snapshot capability must refuse rather
 // than fall back to the file walk.
 func (t *DiskTree) IndexedFiles() ([]string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "diff", "--cached", "--name-only", "-z", "--").Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "diff", "--cached", "--name-only", "-z", "--"))
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return nil, fmt.Errorf("Git refused the index query with status %d", exit.ExitCode())
+			return nil, fmt.Errorf("git refused the index query with status %d", exit.ExitCode())
 		}
 		return nil, fmt.Errorf("could not read the Git index: %s", err.Error())
 	}
@@ -295,7 +308,7 @@ func (t *DiskTree) IndexedFiles() ([]string, error) {
 // TrackedFiles lists every path the Git index tracks. It is a read-only name
 // query: no content is read, and the working tree is never consulted.
 func (t *DiskTree) TrackedFiles() ([]string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "ls-files", "-z", "--").Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "ls-files", "-z", "--"))
 	if err != nil {
 		return nil, gitNameQueryError("tracked", err)
 	}
@@ -305,7 +318,7 @@ func (t *DiskTree) TrackedFiles() ([]string, error) {
 // IgnoredFiles lists every path under the repository that Git ignores. It is a
 // read-only name query: an ignored file is named, never opened.
 func (t *DiskTree) IgnoredFiles() ([]string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--").Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--"))
 	if err != nil {
 		return nil, gitNameQueryError("ignored", err)
 	}
@@ -316,7 +329,7 @@ func (t *DiskTree) IgnoredFiles() ([]string, error) {
 func gitNameQueryError(what string, err error) error {
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
-		return fmt.Errorf("Git refused the %s name query with status %d", what, exit.ExitCode())
+		return fmt.Errorf("git refused the %s name query with status %d", what, exit.ExitCode())
 	}
 	return fmt.Errorf("could not read the %s names from Git: %s", what, err.Error())
 }
@@ -351,12 +364,12 @@ func gitNamePaths(what string, output []byte) ([]string, error) {
 // snapshot. Raw Git metadata decides: destination modes 100644 and 100755
 // are included, while symlinks, gitlinks, and deletions are excluded.
 func (t *DiskTree) IndexedRegularFiles() ([]string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "diff", "--cached", "--raw",
-		"-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--").Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "diff", "--cached", "--raw",
+		"-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--"))
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return nil, fmt.Errorf("Git refused the regular-file index query with status %d", exit.ExitCode())
+			return nil, fmt.Errorf("git refused the regular-file index query with status %d", exit.ExitCode())
 		}
 		return nil, fmt.Errorf("could not read regular files from the Git index: %s", err.Error())
 	}
@@ -367,16 +380,16 @@ func (t *DiskTree) IndexedRegularFiles() ([]string, error) {
 // already validated immutable commits. A pull-request gate receives only
 // that reviewed selection, never the complete checkout.
 func (t *DiskTree) ChangedFiles(base, head string) ([]string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "diff", "--name-only", "-z",
-		"--no-renames", "--end-of-options", base+".."+head).Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "diff", "--name-only", "-z",
+		"--no-renames", "--end-of-options", base+".."+head))
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("Git refused the declared changed-file range")
+			return nil, fmt.Errorf("git refused the declared changed-file range")
 		}
 		return nil, fmt.Errorf("could not read changed files for the declared range: %s", err.Error())
 	}
 	if !utf8.Valid(output) {
-		return nil, fmt.Errorf("Git returned a non-UTF-8 changed path")
+		return nil, fmt.Errorf("git returned a non-UTF-8 changed path")
 	}
 	var paths []string
 	for _, raw := range strings.Split(string(output), "\x00") {
@@ -384,7 +397,7 @@ func (t *DiskTree) ChangedFiles(base, head string) ([]string, error) {
 			continue
 		}
 		if !gitRepositoryPath(raw) {
-			return nil, fmt.Errorf("Git returned an escaping changed path `%s`", raw)
+			return nil, fmt.Errorf("git returned an escaping changed path `%s`", raw)
 		}
 		paths = append(paths, raw)
 	}
@@ -402,12 +415,12 @@ func (t *DiskTree) ChangedFiles(base, head string) ([]string, error) {
 // already validated immutable commits, by the same recorded-mode rule the
 // index snapshot uses.
 func (t *DiskTree) ChangedRegularFiles(base, head string) ([]string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "diff", "--raw", "-z",
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "diff", "--raw", "-z",
 		"--no-renames", "--no-ext-diff", "--no-textconv",
-		"--end-of-options", base+".."+head, "--").Output()
+		"--end-of-options", base+".."+head, "--"))
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("Git refused the declared regular-file range")
+			return nil, fmt.Errorf("git refused the declared regular-file range")
 		}
 		return nil, fmt.Errorf("could not read regular files for the declared Git range: %s", err.Error())
 	}
@@ -423,8 +436,8 @@ func (t *DiskTree) ResolveGitRef(reference string) (string, error) {
 	}) {
 		return "", fmt.Errorf("the declared fallback ref is invalid")
 	}
-	output, err := exec.Command("git", "-C", t.Dir, "rev-parse", "--verify",
-		"--end-of-options", reference+"^{commit}").Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "rev-parse", "--verify",
+		"--end-of-options", reference+"^{commit}"))
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
 			return "", fmt.Errorf("the declared fallback ref does not resolve to a commit")
@@ -432,7 +445,7 @@ func (t *DiskTree) ResolveGitRef(reference string) (string, error) {
 		return "", fmt.Errorf("could not resolve the declared fallback ref: %s", err.Error())
 	}
 	if !utf8.Valid(output) {
-		return "", fmt.Errorf("Git returned a non-UTF-8 fallback commit")
+		return "", fmt.Errorf("git returned a non-UTF-8 fallback commit")
 	}
 	commit := strings.TrimSpace(string(output))
 	for i := 0; i < len(commit); i++ {
@@ -440,7 +453,7 @@ func (t *DiskTree) ResolveGitRef(reference string) (string, error) {
 		if character >= '0' && character <= '9' || character >= 'a' && character <= 'f' || character >= 'A' && character <= 'F' {
 			continue
 		}
-		return "", fmt.Errorf("Git returned an invalid fallback commit")
+		return "", fmt.Errorf("git returned an invalid fallback commit")
 	}
 	return commit, nil
 }
@@ -449,16 +462,16 @@ func (t *DiskTree) ResolveGitRef(reference string) (string, error) {
 // validated immutable range. A pull-request gate consumes the same semantic
 // message input as the commit-msg hook, from the reviewed range instead.
 func (t *DiskTree) CommitMessages(base, head string) (string, error) {
-	output, err := exec.Command("git", "-C", t.Dir, "log", "--format=%B",
-		"--no-merges", "--end-of-options", base+".."+head).Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "log", "--format=%B",
+		"--no-merges", "--end-of-options", base+".."+head))
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("Git refused the declared commit-message range")
+			return "", fmt.Errorf("git refused the declared commit-message range")
 		}
 		return "", fmt.Errorf("could not read commit messages for the declared range: %s", err.Error())
 	}
 	if !utf8.Valid(output) {
-		return "", fmt.Errorf("Git returned non-UTF-8 commit-message text")
+		return "", fmt.Errorf("git returned non-UTF-8 commit-message text")
 	}
 	return string(output), nil
 }
@@ -467,8 +480,8 @@ func (t *DiskTree) CommitMessages(base, head string) (string, error) {
 // commit-msg hook. The supplied path must be Git's canonical
 // COMMIT_EDITMSG; any other path is refused, never followed elsewhere.
 func (t *DiskTree) HookMessageFile(path string) (string, *TreeError) {
-	output, err := exec.Command("git", "-C", t.Dir, "rev-parse",
-		"--path-format=absolute", "--git-path", "COMMIT_EDITMSG").Output()
+	output, err := hostCommands.Output(hostCommands.Command("git", "-C", t.Dir, "rev-parse",
+		"--path-format=absolute", "--git-path", "COMMIT_EDITMSG"))
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
 			return "", &TreeError{Kind: "unreadable", Reason: "the Git hook message-file boundary is unavailable"}
@@ -489,7 +502,7 @@ func (t *DiskTree) HookMessageFile(path string) (string, *TreeError) {
 	if supplied != canonical {
 		return "", &TreeError{Kind: "unreadable", Reason: "the supplied path is not Git's canonical COMMIT_EDITMSG"}
 	}
-	data, err := os.ReadFile(canonical)
+	data, err := hostFiles.ReadFile(canonical)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", &TreeError{Kind: "missing", Reason: path + ": no such file"}
@@ -558,7 +571,7 @@ type restoreDesired struct {
 }
 
 func environmentRoot(root string) (string, error) {
-	info, err := os.Lstat(root)
+	info, err := hostFiles.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("cannot inspect environment root: %s", err.Error())
 	}
@@ -568,7 +581,7 @@ func environmentRoot(root string) (string, error) {
 	return root, nil
 }
 
-func installEnvironmentFiles(root string, files map[string]string) error {
+func installEnvironmentFiles(root string, files map[string]string) (err error) {
 	if _, err := environmentRoot(root); err != nil {
 		return err
 	}
@@ -582,11 +595,11 @@ func installEnvironmentFiles(root string, files map[string]string) error {
 			return fmt.Errorf("invalid environment target `%s`", path)
 		}
 	}
-	stage, err := os.MkdirTemp(root, ".rhino-environment-transaction-*")
+	stage, err := hostFiles.MkdirTemp(root, ".rhino-environment-transaction-*")
 	if err != nil {
 		return fmt.Errorf("cannot stage environment transaction: %s", err.Error())
 	}
-	defer os.RemoveAll(stage)
+	defer func() { err = finishStage(err, stage) }()
 	for _, path := range ordered {
 		if err := stageEnvironmentFile(stage, path, files[path]); err != nil {
 			return err
@@ -595,28 +608,57 @@ func installEnvironmentFiles(root string, files map[string]string) error {
 	var installed []string
 	for _, path := range ordered {
 		target := filepath.Join(root, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			removeEnvironmentFiles(root, installed)
-			return fmt.Errorf("cannot create environment parent `%s`: %s", path, err.Error())
+		if err := hostFiles.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return failWithRollback(fmt.Errorf("cannot create environment parent `%s`: %s", path, err.Error()),
+				removeEnvironmentFiles(root, installed))
 		}
 		if err := ensureEnvironmentPathIsSafe(root, path); err != nil {
-			removeEnvironmentFiles(root, installed)
-			return err
+			return failWithRollback(err, removeEnvironmentFiles(root, installed))
 		}
-		if _, err := os.Lstat(target); err == nil {
-			removeEnvironmentFiles(root, installed)
-			return fmt.Errorf("environment target `%s` already exists", path)
+		if _, err := hostFiles.Lstat(target); err == nil {
+			return failWithRollback(fmt.Errorf("environment target `%s` already exists", path),
+				removeEnvironmentFiles(root, installed))
 		}
-		if err := os.Rename(filepath.Join(stage, filepath.FromSlash(path)), target); err != nil {
-			removeEnvironmentFiles(root, installed)
-			return fmt.Errorf("cannot install environment target `%s`: %s", path, err.Error())
+		if err := hostFiles.Rename(filepath.Join(stage, filepath.FromSlash(path)), target); err != nil {
+			return failWithRollback(fmt.Errorf("cannot install environment target `%s`: %s", path, err.Error()),
+				removeEnvironmentFiles(root, installed))
 		}
 		installed = append(installed, path)
 	}
 	return nil
 }
 
-func restoreEnvironmentFiles(root string, files map[string]restoreDesired) error {
+// finishStage removes the staging directory a transaction created. A failed
+// removal is joined to the transaction's result, so a leftover is never silent.
+func finishStage(failure error, stage string) error {
+	removal := hostFiles.RemoveAll(stage)
+	if removal == nil {
+		return failure
+	}
+	return errors.Join(failure, fmt.Errorf("cannot remove staging directory `%s`: %w", stage, removal))
+}
+
+// finishStagedFile removes a temporary file that was not installed. A file that
+// is already gone is the outcome the removal wants, so only a failed removal of
+// a file that is still there is joined to the failure that left it behind.
+func finishStagedFile(failure error, name string) error {
+	removal := hostFiles.Remove(name)
+	if removal == nil || errors.Is(removal, fs.ErrNotExist) {
+		return failure
+	}
+	return errors.Join(failure, fmt.Errorf("cannot remove staging file `%s`: %w", name, removal))
+}
+
+// failWithRollback reports a failed transaction. A rollback that did not finish
+// leaves the environment partly changed, so its failure is joined to the report.
+func failWithRollback(failure, rollback error) error {
+	if rollback == nil {
+		return failure
+	}
+	return errors.Join(failure, fmt.Errorf("rollback incomplete, so the tree may be partly changed: %w", rollback))
+}
+
+func restoreEnvironmentFiles(root string, files map[string]restoreDesired) (err error) {
 	if _, err := environmentRoot(root); err != nil {
 		return err
 	}
@@ -630,13 +672,13 @@ func restoreEnvironmentFiles(root string, files map[string]restoreDesired) error
 			return fmt.Errorf("invalid environment target `%s`", path)
 		}
 	}
-	stage, err := os.MkdirTemp(root, ".rhino-environment-transaction-*")
+	stage, err := hostFiles.MkdirTemp(root, ".rhino-environment-transaction-*")
 	if err != nil {
 		return fmt.Errorf("cannot stage environment transaction: %s", err.Error())
 	}
-	defer os.RemoveAll(stage)
+	defer func() { err = finishStage(err, stage) }()
 	desired := filepath.Join(stage, "desired")
-	if err := os.Mkdir(desired, 0o755); err != nil {
+	if err := hostFiles.Mkdir(desired, 0o755); err != nil {
 		return fmt.Errorf("cannot stage environment restore: %s", err.Error())
 	}
 	for _, path := range ordered {
@@ -645,7 +687,7 @@ func restoreEnvironmentFiles(root string, files map[string]restoreDesired) error
 		}
 	}
 	backups := filepath.Join(stage, "backups")
-	if err := os.Mkdir(backups, 0o755); err != nil {
+	if err := hostFiles.Mkdir(backups, 0o755); err != nil {
 		return fmt.Errorf("cannot prepare environment rollback: %s", err.Error())
 	}
 	type installed struct {
@@ -653,48 +695,50 @@ func restoreEnvironmentFiles(root string, files map[string]restoreDesired) error
 		backup string
 	}
 	var done []installed
-	rollback := func() {
+	rollback := func() error {
+		var failures []error
 		for i := len(done) - 1; i >= 0; i-- {
-			os.Remove(done[i].target)
+			if err := hostFiles.Remove(done[i].target); err != nil {
+				failures = append(failures, err)
+			}
 			if done[i].backup != "" {
-				os.Rename(done[i].backup, done[i].target)
+				if err := hostFiles.Rename(done[i].backup, done[i].target); err != nil {
+					failures = append(failures, err)
+				}
 			}
 		}
+		return errors.Join(failures...)
 	}
 	for index, path := range ordered {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		parent := filepath.Dir(target)
-		if err := os.MkdirAll(parent, 0o755); err != nil {
-			rollback()
-			return fmt.Errorf("cannot create environment parent `%s`: %s", path, err.Error())
+		if err := hostFiles.MkdirAll(parent, 0o755); err != nil {
+			return failWithRollback(fmt.Errorf("cannot create environment parent `%s`: %s", path, err.Error()), rollback())
 		}
 		if err := ensureEnvironmentPathIsSafe(root, path); err != nil {
-			rollback()
-			return err
+			return failWithRollback(err, rollback())
 		}
 		backup := ""
-		if _, err := os.Lstat(target); err == nil {
-			info, err := os.Lstat(target)
+		if _, err := hostFiles.Lstat(target); err == nil {
+			info, err := hostFiles.Lstat(target)
 			if err == nil && (info.Mode()&fs.ModeSymlink != 0 || info.IsDir()) {
-				rollback()
-				return fmt.Errorf("environment target `%s` is not a regular non-link file", path)
+				return failWithRollback(fmt.Errorf("environment target `%s` is not a regular non-link file", path), rollback())
 			}
 			if !files[path].replace {
-				rollback()
-				return fmt.Errorf("environment target `%s` already exists", path)
+				return failWithRollback(fmt.Errorf("environment target `%s` already exists", path), rollback())
 			}
 			backup = filepath.Join(backups, fmt.Sprintf("%d", index))
-			if err := os.Rename(target, backup); err != nil {
-				rollback()
-				return fmt.Errorf("cannot preserve environment target `%s`: %s", path, err.Error())
+			if err := hostFiles.Rename(target, backup); err != nil {
+				return failWithRollback(fmt.Errorf("cannot preserve environment target `%s`: %s", path, err.Error()), rollback())
 			}
 		}
-		if err := os.Rename(filepath.Join(desired, filepath.FromSlash(path)), target); err != nil {
+		if err := hostFiles.Rename(filepath.Join(desired, filepath.FromSlash(path)), target); err != nil {
+			var undo error
 			if backup != "" {
-				os.Rename(backup, target)
+				undo = hostFiles.Rename(backup, target)
 			}
-			rollback()
-			return fmt.Errorf("cannot restore environment target `%s`: %s", path, err.Error())
+			return failWithRollback(fmt.Errorf("cannot restore environment target `%s`: %s", path, err.Error()),
+				errors.Join(undo, rollback()))
 		}
 		done = append(done, installed{target: target, backup: backup})
 	}
@@ -703,28 +747,30 @@ func restoreEnvironmentFiles(root string, files map[string]restoreDesired) error
 
 func stageEnvironmentFile(stage, path, contents string) error {
 	staged := filepath.Join(stage, filepath.FromSlash(path))
-	if err := os.MkdirAll(filepath.Dir(staged), 0o755); err != nil {
+	if err := hostFiles.MkdirAll(filepath.Dir(staged), 0o755); err != nil {
 		return fmt.Errorf("cannot stage environment target `%s`: %s", path, err.Error())
 	}
-	file, err := os.OpenFile(staged, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := hostFiles.OpenFile(staged, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return fmt.Errorf("cannot create environment stage `%s`: %s", path, err.Error())
 	}
 	if _, err := file.WriteString(contents); err != nil {
-		file.Close()
-		return fmt.Errorf("cannot write environment stage `%s`: %s", path, err.Error())
+		return errors.Join(fmt.Errorf("cannot write environment stage `%s`: %s", path, err.Error()), file.Close())
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
-		return fmt.Errorf("cannot sync environment stage `%s`: %s", path, err.Error())
+		return errors.Join(fmt.Errorf("cannot sync environment stage `%s`: %s", path, err.Error()), file.Close())
 	}
 	return file.Close()
 }
 
-func removeEnvironmentFiles(root string, installed []string) {
+func removeEnvironmentFiles(root string, installed []string) error {
+	var failures []error
 	for i := len(installed) - 1; i >= 0; i-- {
-		os.Remove(filepath.Join(root, filepath.FromSlash(installed[i])))
+		if err := hostFiles.Remove(filepath.Join(root, filepath.FromSlash(installed[i]))); err != nil {
+			failures = append(failures, err)
+		}
 	}
+	return errors.Join(failures...)
 }
 
 // ensureEnvironmentPathIsSafe refuses a target crossing a filesystem link,
@@ -733,7 +779,7 @@ func ensureEnvironmentPathIsSafe(root, relative string) error {
 	current := root
 	for _, segment := range strings.Split(relative, "/") {
 		current = filepath.Join(current, segment)
-		if info, err := os.Lstat(current); err == nil && info.Mode()&fs.ModeSymlink != 0 {
+		if info, err := hostFiles.Lstat(current); err == nil && info.Mode()&fs.ModeSymlink != 0 {
 			return fmt.Errorf("environment target `%s` crosses a symbolic link", relative)
 		}
 	}

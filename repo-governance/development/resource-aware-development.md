@@ -65,7 +65,8 @@ the rest.
 
 Three gaps stay open and recorded: a verb reached through an interpreter or Makefile target passes, since text matching
 cannot close that in principle; enforcement reaches only what a harness exposes; and the table names no `go` verb, so a
-direct `go test` or `go run` passes the hook unguarded. The `pre-push` gate still runs the quick gate under HIPPO.
+direct `go test` or `go run` passes the hook unguarded. The `pre-push` gate runs only the leak scan, which needs no
+HIPPO guard; the quick gate runs at the pull-request gate under HIPPO.
 
 ## Related
 

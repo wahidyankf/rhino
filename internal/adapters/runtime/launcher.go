@@ -52,7 +52,7 @@ func (launcher OSLauncher) Launch(launch application.GateLaunch) application.Lau
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	command := exec.CommandContext(ctx, launch.Argv[0], launch.Argv[1:]...)
+	command := hostCommands.CommandContext(ctx, launch.Argv[0], launch.Argv[1:]...)
 	command.Dir = launch.Directory
 	// A push surface hands its update records to every child unmodified;
 	// any other surface leaves the child with empty standard input.
@@ -62,7 +62,7 @@ func (launcher OSLauncher) Launch(launch application.GateLaunch) application.Lau
 	command.Stdout = nil
 	command.Stderr = nil
 	command.Env = gateEnvironment(launch)
-	if err := command.Run(); err != nil {
+	if err := hostCommands.Run(command); err != nil {
 		// Cancellation wins over every other classification: a child the
 		// boundary stopped is a protocol failure, never a finding and never
 		// a code the child chose.
@@ -90,7 +90,7 @@ func (launcher OSLauncher) Launch(launch application.GateLaunch) application.Lau
 // never reaches the child. The result is sorted for deterministic dispatch.
 func gateEnvironment(launch application.GateLaunch) []string {
 	merged := make(map[string]string)
-	for _, entry := range os.Environ() {
+	for _, entry := range hostEnv.Environ() {
 		name, value, _ := strings.Cut(entry, "=")
 		merged[name] = value
 	}

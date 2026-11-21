@@ -12,6 +12,7 @@ store, the vault file store (`env pull`), the adapter store, and the apply step 
 ```mermaid
 flowchart TD
     accTitle: System context
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: Developers, hooks, and CI jobs run a static binary against a repository, Git, gate children, and a vault.
     Dev["Developer or hook"] --> Rhino["RHINO<br/>one static binary"]
     CI["CI job"] --> Rhino
@@ -35,6 +36,7 @@ refusal, not a silent pass.
 ```mermaid
 flowchart LR
     accTitle: Runtime containers
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: The rhino command wires adapters around use cases, release tooling and the corpus stay outside.
     Cmd["cmd/rhino<br/>process boundary<br/>exit status"] --> Boot["internal/bootstrap<br/>wires adapters"]
     Boot --> App["internal/application<br/>use cases, ports"]
@@ -71,10 +73,11 @@ document carries one of them. The package has no behaviour beyond naming and cla
 
 ### internal/application
 
-The use cases and the ports they need. `cli.go` holds the closed command table: 28 leaves, each with its path, category,
+The use cases and the ports they need. `cli.go` holds the closed command table: 33 leaves, each with its path, category,
 accepted flags, and summary. `Parse` in `cli.go` checks an invocation against that table; `execute.go` dispatches it and
 renders a result. Validator cores (`naming.go`, `heading.go`, `frontmatter.go`, `metadata.go`, `link.go`, and the
-others) are pure over a `Tree` and the parsed configuration.
+others, and `wiring.go` with `behaviourcoverage.go` and `gherkin.go` for the wiring and behaviour rules) are pure over a
+`Tree` and the parsed configuration. The behaviour rules read feature and test files as text and start no process.
 
 `surfaces.go` is the one place a declared surface glob follows a filesystem link. It follows a link only when the link's
 target lies inside the root. It refuses a link that leads outside with `rhino.path.escapes-root`, and a link that loops

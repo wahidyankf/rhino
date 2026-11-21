@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/wahidyankf/rhino/internal/adapters/config"
 	"github.com/wahidyankf/rhino/internal/domain"
@@ -288,11 +289,8 @@ func declaration(line int, text string) (frontmatterEntry, bool) {
 	if text == "" {
 		return frontmatterEntry{}, false
 	}
-	for _, first := range text {
-		if unicode.IsSpace(first) {
-			return frontmatterEntry{}, false
-		}
-		break
+	if first, _ := utf8.DecodeRuneInString(text); unicode.IsSpace(first) {
+		return frontmatterEntry{}, false
 	}
 	if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "#") {
 		return frontmatterEntry{}, false

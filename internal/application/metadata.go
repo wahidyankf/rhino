@@ -504,7 +504,7 @@ func isPortableName(value string) bool {
 			return false
 		}
 		for _, character := range word {
-			if !(character >= 'a' && character <= 'z') && !(character >= '0' && character <= '9') {
+			if (character < 'a' || character > 'z') && (character < '0' || character > '9') {
 				return false
 			}
 		}
@@ -622,7 +622,7 @@ func readMetadata(text string) (entries []metaEntry, malformed []int, block int,
 		// content is supposed to be declarations.
 		var key, rest string
 		var declared bool
-		if !startsWithSpace(raw) && !(len(raw) > 0 && raw[0] == '-') {
+		if !startsWithSpace(raw) && (len(raw) <= 0 || raw[0] != '-') {
 			key, rest, declared = strings.Cut(raw, ":")
 		}
 		if !declared {

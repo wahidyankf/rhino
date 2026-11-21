@@ -16,6 +16,7 @@ One cycle is one full audit followed by one repair. Every arrow back to an earli
 ```mermaid
 flowchart TD
     accTitle: Quality gate sequence
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: Entry checks, a full audit, ledger freeze, propagation repair, then progress, ceiling, exit checks.
     Freeze["Freeze subject<br/>commit plus scope"] --> Entry["Entry tooling run"]
     Entry -- red --> Root["Root-cause pre-step<br/>at most 3 attempts"]

@@ -45,12 +45,12 @@ anything to would pass by default.
 
 ## Where it runs here
 
-| Surface      | Screened                                                    |
-| ------------ | ----------------------------------------------------------- |
-| `commit-msg` | the commit message, before commitlint                       |
-| `pre-commit` | the staged content and names, before format                 |
-| `pre-push`   | the tracked tree and the branch name, then the pushed range |
-| pull request | the tree, the range, the branch, the title and body         |
+| Surface      | Screened                                                          |
+| ------------ | ----------------------------------------------------------------- |
+| `pre-commit` | nothing; this surface holds staged formatting only                |
+| `commit-msg` | nothing; this surface holds the commit-message format lint        |
+| `pre-push`   | the pushed range, commit by commit                                |
+| pull request | the tree, the range, the messages, the branch, the title and body |
 
 A range is screened commit by commit, never as its final files: a value one commit adds and the next deletes is still in
 every clone. `check.sh` reads it from `PUBLIC_SAFETY_BASE` and `PUBLIC_SAFETY_HEAD`, which `repo-config.yml` binds to
@@ -60,9 +60,9 @@ what it resolved beyond the automatic merge. Content the range did not add is no
 shapes; the [leak review](../../repo-governance/workflows/quality/pr-leak-review.md) reads context, and neither replaces
 the other.
 
-The tracked tree is screened at `pre-push` and in CI rather than at `pre-commit`. A full-tree credential scan costs
-about twenty seconds; paid on every commit it buys nothing that is not already paid before anything leaves the machine,
-and a gate that slow on the most frequent surface teaches people to skip it.
+The tracked tree is screened in the pull-request gate, not at `pre-push`. A full-tree credential scan costs about twenty
+seconds. Paying it before every push buys nothing, because the pushed range already holds every line the push adds, and
+a gate that slow on each push teaches people to skip it.
 
 ## The pinned scanner
 

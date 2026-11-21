@@ -549,6 +549,14 @@ policies:
       fill-colors: ["#0173B2", "#DE8F05", "#029E73", "#CA9161"]
       edge-colors: ["#0173B2", "#000000"]
       text-colors: ["#000000", "#FFFFFF"]
+      require-default-class: true
+      exclude:
+        [
+          "**/.git/**",
+          "**/node_modules/**",
+          "**/local-tmp/**",
+          "**/worktrees/**",
+        ]
     naming:
       surfaces:
         - { glob: "repo-governance/**/*.md", style: kebab-case }
@@ -608,10 +616,43 @@ policies:
         - { glob: "**/*.json" }
         - { glob: "**/*.toml" }
         - { glob: "**/*.yml" }
+  behaviour:
+    corpus:
+      - specs/behaviours
+    fixtures:
+      - specs/fixtures
+      - scripts/public-safety
+    levels:
+      unit:
+        - internal/**/*_test.go
+        - cmd/**/*_test.go
+        - scripts/**/*_test.go
+      integration:
+        - tests/bdd/**/*_test.go
+      e2e:
+        - tests/e2e/**/*_test.go
+    # The test files of a runner that executes whole feature files, so a
+    # `<feature>: *` reference in them covers every scenario of the file (B05).
+    whole-file:
+      - tests/bdd/**/*_test.go
+      - tests/e2e/**/*_test.go
+      - internal/application/environment_vault_behaviour_test.go
+      - internal/adapters/cli/unit_corpus_test.go
 
 gates:
   composition:
     pull-request: { relation: at-least }
+  # The C6 placement: each local surface holds only the work its allowed list
+  # names (W07), and every other check runs at the pull-request surface.
+  wiring:
+    hooks:
+      directory: .husky
+    ci:
+      directory: .github/workflows
+    local-surfaces:
+      pre-commit: [format-staged]
+      commit-msg: [commit-message]
+      pre-push: [public-safety-range]
   entries:
     - id: public-safety-tree
       type: check
@@ -620,9 +661,8 @@ gates:
         args:
           - { literal: scripts/public-safety/check.sh }
       run-on:
-        pre-commit: {}
-        pre-push: {}
-        pull-request: {}
+        pull-request:
+          reason: "C11: the tree scan runs at pull-request; pre-push screens the pushed range alone."
     - id: public-safety-range
       type: check
       inputs:
@@ -652,10 +692,8 @@ gates:
         environment:
           RHINO_GATE_MESSAGE: { input: message.text }
       run-on:
-        commit-msg:
-          bind:
-            message: { source: hook-message-file }
         pull-request:
+          reason: "C11: messages are screened at pull-request and again at pre-push over the range."
           bind:
             message: { source: explicit-range, range: explicit }
     - id: remote-dispatch-refusal
@@ -664,7 +702,13 @@ gates:
         executable: bash
         args:
           - { literal: scripts/check-remote-dispatch-refusal.sh }
-      run-on: { pre-commit: {}, pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: commit-message
       type: check
       inputs:
@@ -729,8 +773,30 @@ gates:
           - { literal: -- }
           - { literal: ./scripts/test-quick.sh }
       run-on:
-        pre-push: {}
-        pull-request: {}
+        pull-request:
+          reason: "C6: the quick gate runs at pull-request and on the scheduled surface, never before a push."
+        scheduled:
+          reason: "C17: the scheduled surface re-runs the quick gate daily, unfiltered."
+    - id: test-integration
+      type: check
+      command:
+        executable: npm
+        args:
+          - { literal: run }
+          - { literal: test:integration }
+      run-on:
+        pull-request:
+          reason: "C17: the integration target runs on every pull request. The target carries its own HIPPO guard, so it is not wrapped again."
+    - id: test-e2e
+      type: check
+      command:
+        executable: npm
+        args:
+          - { literal: run }
+          - { literal: test:e2e }
+      run-on:
+        scheduled:
+          reason: "C17: the end-to-end target runs in the scheduled workflow, never per pull request. The target carries its own HIPPO guard."
     - id: public-safety-tests
       type: check
       command:
@@ -753,7 +819,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: word-budget
       type: check
       command:
@@ -768,7 +840,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: directory-map
       type: check
       command:
@@ -783,7 +861,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: quality-gates
       type: check
       command:
@@ -798,15 +882,36 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: harness-adapters
       type: check
       command:
         executable: bash
         args:
           - literal: -c
-          - literal: "go run ./cmd/rhino harness adapters validate && bash .muse/hooks/run-policy-hook.test.sh && bash .commandcode/hooks/agent-policy-selector.test.sh && exec bash .commandcode/hooks/git-fixture-isolation.test.sh"
-      run-on: { pre-push: {}, pull-request: {} }
+          - literal: "go run ./cmd/rhino harness adapters validate && bash .muse/hooks/run-policy-hook.test.sh && bash .commandcode/hooks/agent-policy-selector.test.sh && bash scripts/agent-hippo-guard.test.sh && exec bash .commandcode/hooks/git-fixture-isolation.test.sh"
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
+    - id: check-hippo-consumer-tests
+      type: check
+      command:
+        executable: bash
+        args:
+          - { literal: scripts/check-hippo-consumer.test.sh }
+      run-on:
+        pull-request:
+          reason: "C2 and C6: the regression test of the Hippo consumer check runs at pull-request, where that check is wired."
     - id: internal-link
       type: check
       command:
@@ -821,7 +926,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: mermaid
       type: check
       command:
@@ -836,14 +947,26 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: markdown-line-length
       type: check
       command:
         executable: bash
         args:
           - { literal: scripts/check-markdown-line-length.sh }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: md-naming
       type: check
       command:
@@ -858,7 +981,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: heading-hierarchy
       type: check
       command:
@@ -873,7 +1002,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
     - id: convention-emoji
       type: check
       command:
@@ -888,7 +1023,13 @@ gates:
               { literal: validate },
             ],
         }
-      run-on: { pre-push: {}, pull-request: {} }
+      run-on:
+        {
+          pull-request:
+            {
+              reason: "C6: a check outside the local hooks' allowed lists runs at pull-request only.",
+            },
+        }
 
 extensions:
   # Owner: repo-governance/development/quality/stacks/repository-adapter.md

@@ -244,11 +244,9 @@ func isDigits(value string) bool {
 }
 
 func inspectName(path string, surface namingSurface, root string) (Finding, bool) {
-	directory, file := path, path
+	directory, file := "", path
 	if index := strings.LastIndex(path, "/"); index >= 0 {
 		directory, file = path[:index], path[index+1:]
-	} else {
-		directory = ""
 	}
 	stem := file
 	if dot := strings.LastIndex(stem, "."); dot >= 0 {

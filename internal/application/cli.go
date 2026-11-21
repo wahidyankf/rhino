@@ -33,6 +33,8 @@ const (
 	AcceptJSON
 	AcceptEntry
 	AcceptOverwrite
+	AcceptRules
+	AcceptGateEntry
 )
 
 // Leaf is one command path plus its output category and flags.
@@ -46,9 +48,11 @@ type Leaf struct {
 // Leaves is the closed command table. Adding is free; moving is not.
 var Leaves = []Leaf{
 	{Path: []string{"repo-config", "validate"}, Category: "repo-config", Accepts: []Accepts{}, Summary: "Check that repo-config.yml is complete and usable."},
-	{Path: []string{"gate", "run"}, Category: "gate", Accepts: []Accepts{AcceptSurface, AcceptMessageFile, AcceptPushUpdatesStdin, AcceptRange}, Summary: "Run the gates the declared surface selects, in declaration order."},
+	{Path: []string{"gate", "run"}, Category: "gate", Accepts: []Accepts{AcceptSurface, AcceptMessageFile, AcceptPushUpdatesStdin, AcceptRange, AcceptGateEntry}, Summary: "Run the gates the declared surface selects, in declaration order."},
 	{Path: []string{"gate", "list"}, Category: "gate-list", Accepts: []Accepts{}, Summary: "List the declared v0.4 lifecycle gates for each closed surface."},
 	{Path: []string{"gate", "validate"}, Category: "gate-validate", Accepts: []Accepts{}, Summary: "Validate v0.4 lifecycle membership and pull-request composition."},
+	{Path: []string{"behaviour", "coverage", "validate"}, Category: "behaviour-coverage", Accepts: []Accepts{AcceptRules}, Summary: "Check that every corpus scenario is bound to a unit test and bound or exempt at the integration and e2e levels."},
+	{Path: []string{"gate", "wiring", "validate"}, Category: "gate-wiring", Accepts: []Accepts{}, Summary: "Check that hook files, workflow files, and the declared registry agree on surfaces and local entries."},
 	{Path: []string{"governance", "vendor", "validate"}, Category: "vendor", Accepts: []Accepts{}, Summary: "Check declared roots for declared vendor terms and exact exceptions."},
 	{Path: []string{"governance", "layers", "validate"}, Category: "layers", Accepts: []Accepts{}, Summary: "Check the declared governance layer and category structure."},
 	{Path: []string{"governance", "traceability", "validate"}, Category: "traceability", Accepts: []Accepts{}, Summary: "Check declared artifacts and their declared local links."},
@@ -95,6 +99,7 @@ type Invocation struct {
 	Force            bool
 	Entries          []string
 	Overwrite        bool
+	Rules            *string
 }
 
 // Help is a usage answer.
@@ -129,6 +134,7 @@ func Parse(args []string) (Parsed, *Refusal) {
 	var wantsHelp, wantsVersion bool
 	var root, format, directory, backupDir, surface, messageFile, base, head *string
 	var files, entries []string
+	var rules *string
 	var pushStdin, apply, force, overwrite, jsonFlag bool
 
 	set := func(name string, held **string, rest []string, i *int, seen Format) *Refusal {
@@ -187,6 +193,10 @@ func Parse(args []string) (Parsed, *Refusal) {
 			apply = true
 		case "--force":
 			force = true
+		case "--rules":
+			if refusal := set("--rules", &rules, args, &i, seen); refusal != nil {
+				return Parsed{}, refusal
+			}
 		case "--overwrite":
 			overwrite = true
 		case "--entry":
@@ -280,8 +290,11 @@ func Parse(args []string) (Parsed, *Refusal) {
 		{jsonFlag, AcceptJSON, "--json"},
 		{apply, AcceptApply, "--apply"},
 		{force, AcceptForce, "--force"},
-		{len(entries) > 0, AcceptEntry, "--entry"},
+		// `gate run` takes gate identifiers under its own flag, so the vault
+		// entry check applies only to a leaf that does not accept them.
+		{len(entries) > 0 && !accepted[AcceptGateEntry], AcceptEntry, "--entry"},
 		{overwrite, AcceptOverwrite, "--overwrite"},
+		{rules != nil, AcceptRules, "--rules"},
 	}
 	for _, check := range checks {
 		if check.given && !accepted[check.flag] {
@@ -348,7 +361,7 @@ func Parse(args []string) (Parsed, *Refusal) {
 		Directory: directory, BackupDirectory: backupDir, Surface: surface,
 		MessageFile: messageFile, PushUpdatesStdin: pushStdin,
 		Base: base, Head: head, Apply: apply, Force: force,
-		Entries: entries, Overwrite: overwrite,
+		Entries: entries, Overwrite: overwrite, Rules: rules,
 	}}, nil
 }
 
@@ -391,7 +404,7 @@ func HelpFor(segments []string) (string, bool) {
 	}
 	out.WriteString("Commands:\n")
 	for _, leaf := range matching {
-		out.WriteString(fmt.Sprintf("  rhino %-38s%s\n", strings.Join(leaf.Path, " "), leaf.Summary))
+		fmt.Fprintf(&out, "  rhino %-38s%s\n", strings.Join(leaf.Path, " "), leaf.Summary)
 	}
 	out.WriteString("\nOptions:\n")
 	out.WriteString("  --root <path>          The repository to inspect. Defaults to the working directory.\n")
@@ -407,7 +420,7 @@ func HelpFor(segments []string) (string, bool) {
 			union[flag] = true
 		}
 	}
-	order := []Accepts{AcceptFile, AcceptDirectory, AcceptBackupDirectory, AcceptApply, AcceptForce, AcceptSurface, AcceptMessageFile, AcceptPushUpdatesStdin, AcceptRange, AcceptJSON, AcceptEntry, AcceptOverwrite}
+	order := []Accepts{AcceptFile, AcceptDirectory, AcceptBackupDirectory, AcceptApply, AcceptForce, AcceptSurface, AcceptMessageFile, AcceptPushUpdatesStdin, AcceptRange, AcceptJSON, AcceptEntry, AcceptGateEntry, AcceptOverwrite}
 	texts := map[Accepts]string{
 		AcceptFile:             "  --file <path>          Inspect these paths instead of the declared surface.\n                         Repeatable; `-` reads standard input.\n",
 		AcceptDirectory:        "  --directory <path>     Inspect this directory instead of the declared trees.\n",
@@ -415,6 +428,7 @@ func HelpFor(segments []string) (string, bool) {
 		AcceptApply:            "  --apply                Authorize this declared mutation.\n",
 		AcceptForce:            "  --force                Replace an existing target. Environment restore plans a backup first.\n",
 		AcceptEntry:            "  --entry <path>         Narrow the run to one declared entry. Repeatable.\n",
+		AcceptGateEntry:        "  --entry <id>           Run only this declared gate on the surface, in declaration\n                         order. Repeatable; an id the surface does not declare is refused.\n",
 		AcceptOverwrite:        "  --overwrite            Replace a differing vault value. Only a file entry keeps\n                         its previous generation.\n",
 		AcceptSurface:          "  --surface <name>       Which closed lifecycle surface is dispatching.\n",
 		AcceptMessageFile:      "  --message-file <path>  Exact commit-msg hook path, read only for that surface.\n",

@@ -47,7 +47,7 @@ type fileDigest [sha256.Size]byte
 
 // ApplyIndex runs the declared mutator against a snapshot of the Git index
 // and writes back only the selected paths it changed.
-func (DiskMutationRunner) ApplyIndex(launch application.MutationLaunch) (application.MutationOutcome, error) {
+func (DiskMutationRunner) ApplyIndex(launch application.MutationLaunch) (_ application.MutationOutcome, err error) {
 	root := launch.Directory
 	if _, err := gitRun(root, "rev-parse", "--is-inside-work-tree"); err != nil {
 		return application.MutationOutcome{}, errors.New(errNoIndexBoundary)
@@ -61,11 +61,11 @@ func (DiskMutationRunner) ApplyIndex(launch application.MutationLaunch) (applica
 		}
 	}
 
-	snapshot, err := os.MkdirTemp("", "rhino-index-")
+	snapshot, err := hostFiles.MkdirTemp("", "rhino-index-")
 	if err != nil {
 		return application.MutationOutcome{}, fmt.Errorf("could not create index snapshot: %s", err.Error())
 	}
-	defer os.RemoveAll(snapshot)
+	defer func() { err = finishStage(err, snapshot) }()
 	if _, err := gitRun(root, "checkout-index", "--prefix="+snapshot+string(filepath.Separator), "-a"); err != nil {
 		return application.MutationOutcome{}, err
 	}
@@ -116,7 +116,7 @@ func (DiskMutationRunner) ApplyIndex(launch application.MutationLaunch) (applica
 			return application.MutationOutcome{}, err
 		}
 		if digestMatches(before, path, root) {
-			if err := os.Remove(filepath.Join(root, filepath.FromSlash(path))); err != nil {
+			if err := hostFiles.Remove(filepath.Join(root, filepath.FromSlash(path))); err != nil {
 				return application.MutationOutcome{}, fmt.Errorf("could not synchronize deleted `%s`: %s", path, err.Error())
 			}
 		} else {
@@ -129,16 +129,16 @@ func (DiskMutationRunner) ApplyIndex(launch application.MutationLaunch) (applica
 // VerifyClean replays the candidate revision in a disposable worktree, runs the
 // mutator there, and reports every path the replay changed. A clean replay
 // exits 0; any change makes it a finding.
-func (DiskMutationRunner) VerifyClean(launch application.MutationLaunch) (application.MutationOutcome, error) {
+func (DiskMutationRunner) VerifyClean(launch application.MutationLaunch) (_ application.MutationOutcome, err error) {
 	if launch.Revision == "" {
 		return application.MutationOutcome{}, errors.New(errNoReplayBoundary)
 	}
 	root := launch.Directory
-	parent, err := os.MkdirTemp("", "rhino-pull-request-")
+	parent, err := hostFiles.MkdirTemp("", "rhino-pull-request-")
 	if err != nil {
 		return application.MutationOutcome{}, fmt.Errorf("could not create pull-request snapshot: %s", err.Error())
 	}
-	defer os.RemoveAll(parent)
+	defer func() { err = finishStage(err, parent) }()
 	checkout := filepath.Join(parent, "checkout")
 	if _, err := gitRun(root, "worktree", "add", "--detach", "--force", checkout, launch.Revision); err != nil {
 		return application.MutationOutcome{}, err
@@ -202,7 +202,7 @@ func runMutator(dir string, launch application.MutationLaunch) (int, error) {
 		Dir:  dir,
 		Env:  mutatorEnvironment(launch.Surface, launch.Environment, pathValue, normalized),
 	}
-	if err := command.Run(); err != nil {
+	if err := hostCommands.Run(command); err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
 			if exit.ExitCode() == -1 {
@@ -220,7 +220,7 @@ func runMutator(dir string, launch application.MutationLaunch) (int, error) {
 // entries overwrite inherited ones by name, as they do for a check child.
 func mutatorEnvironment(surface string, projected map[string]string, pathValue string, normalized bool) []string {
 	merged := make(map[string]string)
-	for _, entry := range os.Environ() {
+	for _, entry := range hostEnv.Environ() {
 		name, value, _ := strings.Cut(entry, "=")
 		merged[name] = value
 	}
@@ -252,14 +252,14 @@ func resolveProgram(program, dir, pathValue string, normalized bool) (string, er
 	}
 	search := pathValue
 	if !normalized {
-		search = os.Getenv("PATH")
+		search = hostEnv.Getenv("PATH")
 	}
 	for _, entry := range strings.Split(search, ":") {
 		if entry == "" {
 			entry = dir
 		}
 		candidate := filepath.Join(entry, program)
-		info, err := os.Stat(candidate)
+		info, err := hostFiles.Stat(candidate)
 		if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
 			return candidate, nil
 		}
@@ -275,11 +275,11 @@ func resolveProgram(program, dir, pathValue string, normalized bool) (string, er
 func mutatorPath(root string, environment map[string]string) (string, bool, error) {
 	path, present := environment["PATH"]
 	if !present {
-		path, present = os.LookupEnv("PATH")
+		path, present = hostEnv.LookupEnv("PATH")
 	}
 	var entries []string
 	tools := filepath.Join(root, "node_modules", ".bin")
-	if info, err := os.Stat(tools); err == nil && info.IsDir() {
+	if info, err := hostFiles.Stat(tools); err == nil && info.IsDir() {
 		entries = append(entries, tools)
 	}
 	if present {
@@ -309,7 +309,7 @@ func ensureSelectedNotLinked(snapshot string, selected []string) error {
 		current := snapshot
 		for index, part := range parts {
 			current = filepath.Join(current, part)
-			info, err := os.Lstat(current)
+			info, err := hostFiles.Lstat(current)
 			if err != nil {
 				if os.IsNotExist(err) {
 					break
@@ -332,7 +332,7 @@ func ensureSelectedNotLinked(snapshot string, selected []string) error {
 // outside the snapshot.
 func snapshotDigests(root string) (map[string]fileDigest, error) {
 	digests := make(map[string]fileDigest)
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	err := hostFiles.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("could not read snapshot: %s", err.Error())
 		}
@@ -362,7 +362,7 @@ func snapshotDigests(root string) (map[string]fileDigest, error) {
 
 // digestOf fingerprints one file. A missing file is absent, not an error.
 func digestOf(path string) (fileDigest, bool, error) {
-	data, err := os.ReadFile(path)
+	data, err := hostFiles.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fileDigest{}, false, nil
@@ -438,21 +438,21 @@ func updateIndexBlob(root, source, path string) error {
 // replaceWorkingFile installs the snapshot's bytes at the working-tree path
 // through a temporary file in the same directory, so a reader never sees a
 // partial file. The snapshot's mode is kept.
-func replaceWorkingFile(root, snapshot, path string) error {
+func replaceWorkingFile(root, snapshot, path string) (err error) {
 	target := filepath.Join(root, filepath.FromSlash(path))
 	if err := ensureNoLinkedParents(root, path); err != nil {
 		return err
 	}
 	source := filepath.Join(snapshot, filepath.FromSlash(path))
-	data, err := os.ReadFile(source)
+	data, err := hostFiles.ReadFile(source)
 	if err != nil {
 		return fmt.Errorf("could not read snapshot replacement: %s", err.Error())
 	}
-	info, err := os.Stat(source)
+	info, err := hostFiles.Stat(source)
 	if err != nil {
 		return fmt.Errorf("could not read snapshot replacement: %s", err.Error())
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(target), ".rhino-index-*")
+	temporary, err := hostFiles.CreateTemp(filepath.Dir(target), ".rhino-index-*")
 	if err != nil {
 		return fmt.Errorf("could not create atomic replacement: %s", err.Error())
 	}
@@ -460,24 +460,22 @@ func replaceWorkingFile(root, snapshot, path string) error {
 	installed := false
 	defer func() {
 		if !installed {
-			_ = os.Remove(name)
+			err = finishStagedFile(err, name)
 		}
 	}()
 	if _, err := temporary.Write(data); err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("could not write atomic replacement: %s", err.Error())
+		return errors.Join(fmt.Errorf("could not write atomic replacement: %s", err.Error()), temporary.Close())
 	}
 	if err := temporary.Sync(); err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("could not flush atomic replacement: %s", err.Error())
+		return errors.Join(fmt.Errorf("could not flush atomic replacement: %s", err.Error()), temporary.Close())
 	}
 	if err := temporary.Close(); err != nil {
 		return fmt.Errorf("could not flush atomic replacement: %s", err.Error())
 	}
-	if err := os.Chmod(name, info.Mode().Perm()); err != nil {
+	if err := hostFiles.Chmod(name, info.Mode().Perm()); err != nil {
 		return fmt.Errorf("could not set atomic replacement mode: %s", err.Error())
 	}
-	if err := os.Rename(name, target); err != nil {
+	if err := hostFiles.Rename(name, target); err != nil {
 		return fmt.Errorf("could not replace working-tree file: %s", err.Error())
 	}
 	installed = true
@@ -491,7 +489,7 @@ func ensureNoLinkedParents(root, path string) error {
 	parts := strings.Split(path, "/")
 	for _, part := range parts[:len(parts)-1] {
 		current = filepath.Join(current, part)
-		info, err := os.Lstat(current)
+		info, err := hostFiles.Lstat(current)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
@@ -508,14 +506,14 @@ func ensureNoLinkedParents(root, path string) error {
 // gitRun runs one Git command in root and returns its standard output. A
 // nonzero status is a refusal naming only the status, never the child's text.
 func gitRun(root string, arguments ...string) ([]byte, error) {
-	command := exec.Command("git", append([]string{"-C", root}, arguments...)...)
-	output, err := command.Output()
+	command := hostCommands.Command("git", append([]string{"-C", root}, arguments...)...)
+	output, err := hostCommands.Output(command)
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return nil, fmt.Errorf("Git command failed with status %d", exit.ExitCode())
+			return nil, fmt.Errorf("git command failed with status %d", exit.ExitCode())
 		}
-		return nil, fmt.Errorf("Git could not start: %s", err.Error())
+		return nil, fmt.Errorf("git could not start: %s", err.Error())
 	}
 	return output, nil
 }
@@ -532,7 +530,7 @@ func gitPaths(root string, arguments ...string) ([]string, error) {
 			continue
 		}
 		if !gitRepositoryPath(record) {
-			return nil, fmt.Errorf("Git returned an escaping changed path `%s`", record)
+			return nil, fmt.Errorf("git returned an escaping changed path `%s`", record)
 		}
 		paths = append(paths, record)
 	}

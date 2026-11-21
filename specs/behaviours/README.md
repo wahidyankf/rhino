@@ -1,12 +1,13 @@
 # Stable Behaviours
 
 The stable corpus is the grouped-v2 contract, the validators that later releases added to it, and the command-line
-surface. Every scenario binds at the CLI adapter: the `tests/bdd` suite drives the built `rhino` binary as a child
-process, in an isolated temporary repository, and asserts on its exit code, its streams, its JSON, and the repository
-state it leaves behind. The environment-vault feature also binds at the unit adapter (an in-process in-memory tree) and
-at the integration adapter (a real temporary Git repository). Those two runners and the CLI runner share one step
-registry, `tests/bdd/vault`, and its compliance check fails on any unbound step, unused binding, or ambiguous step. No
-scenario is skipped. A scenario that cannot run hermetically is reported with a proposed, reviewed exemption.
+surface. Every scenario binds at unit level, and at integration and end-to-end level unless it carries a reasoned
+exemption. The `tests/bdd` suite drives the built `rhino` binary as a child process, in an isolated temporary
+repository, and asserts on its exit code, its streams, its JSON, and the repository state it leaves behind. The
+environment-vault feature also binds at the unit adapter (an in-process in-memory tree) and at the integration adapter
+(a real temporary Git repository). Those two runners and the CLI runner share one step registry, `tests/bdd/vault`, and
+its compliance check fails on any unbound step, unused binding, or ambiguous step. No scenario is skipped. A scenario
+that cannot run hermetically is reported with a proposed, reviewed exemption.
 
 The corpus declares only policy owned by `rhino/repo-config/v2`. Predecessor schemas survive only as rejection fixtures.
 
@@ -28,3 +29,7 @@ Run the corpus with `go test ./tests/bdd`.
 - [environment-vault.feature](environment-vault.feature) — `env pull`, `env push`, and `env diff`: restore, seed,
   compare, and overwrite with recovery points; refusal of an unusable vault; exact-name matching; a per-key reference
   that reads another entry's item and that push never writes; and no printed value.
+- [wiring.feature](wiring.feature) — `gate wiring validate`: the registry, hook, and workflow wiring rules W01–W07 and
+  the `gates.wiring.local-surfaces` allowed list.
+- [behaviour-coverage.feature](behaviour-coverage.feature) — `behaviour coverage validate`: the bound corpus rules
+  B01–B09, the exemption semantics, the `--rules` selection, and the whole-file glob check.

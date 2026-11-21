@@ -6,13 +6,15 @@
     "prepare": "husky",
     "check:hippo-consumer": "./hippo run --class ephemeral --resource-tier light --disk-path . -- ./scripts/check-hippo-consumer.sh",
     "check:complete": "npm run check:hippo-consumer && npm run test:quick",
-    "test:quick": "./hippo run --class ephemeral --resource-tier heavy --disk-path . -- ./scripts/test-quick.sh"
+    "test:quick": "./hippo run --class ephemeral --resource-tier heavy --disk-path . -- ./scripts/test-quick.sh",
+    "test:integration": "./hippo run --class ephemeral --resource-tier standard --disk-path . -- ./scripts/test-integration.sh",
+    "test:e2e": "./hippo run --class ephemeral --resource-tier standard --disk-path . -- go test -race -count=1 ./tests/e2e/...",
+    "test:behaviour:coverage": "./hippo run --class ephemeral --resource-tier light --disk-path . -- go run ./cmd/rhino behaviour coverage validate"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
     "husky": "^9.0.0",
-    "lint-staged": "^15.0.0",
     "markdownlint-cli2": "^0.24.0",
     "prettier": "^3.0.0"
   },

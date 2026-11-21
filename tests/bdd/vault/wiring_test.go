@@ -16,7 +16,7 @@ import (
 // proves each runner uses the registry on every corpus and cannot skip it.
 var suiteRunners = []string{
 	"../../../internal/application/environment_vault_behaviour_test.go",
-	"../../../internal/adapters/runtime/environment_vault_behaviour_test.go",
+	"../../../internal/adapters/runtime/environment_vault_behaviour_integration_test.go",
 }
 
 // suiteCorpora are the constants each runner passes to vault.RunSuite as the
@@ -29,8 +29,8 @@ var textWiring = []struct {
 	file     string
 	required []string
 }{
-	{file: "../behaviours_test.go", required: []string{"vault.WithDriver("}},
-	{file: "../steps_test.go", required: []string{"vault.Bindings()"}},
+	{file: "../corpus.go", required: []string{"vault.WithDriver("}},
+	{file: "../steps.go", required: []string{"vault.Bindings()"}},
 }
 
 // missingText returns every required text the source lacks.

@@ -5,6 +5,7 @@ Feature: Move declared secrets between a vault and the repository
   without writing. Every command reads the vault through one provider boundary, refuses an unusable session before it
   writes anything, and reports names only, never a value.
 
+  # Behaviour: RB-24
   Scenario: Restore every declared secret file on a fresh checkout
     Given the repository declares this environment configuration:
       """
@@ -89,6 +90,7 @@ Feature: Move declared secrets between a vault and the repository
     And no run output contains "marker-alpha-one"
     And no run output contains "marker-local-other"
 
+  # Behaviour: RB-49
   Scenario: Replace a different local file with force
     Given the repository declares this environment configuration:
       """
@@ -124,6 +126,7 @@ Feature: Move declared secrets between a vault and the repository
     And no run output contains "marker-alpha-one"
     And no run output contains "marker-local-other"
 
+  # Behaviour: RB-25
   Scenario: Seed missing items and refuse differences
     Given the repository declares this environment configuration:
       """
@@ -168,7 +171,7 @@ Feature: Move declared secrets between a vault and the repository
     And no run output contains "marker-beta-vault"
     And no run output contains "marker-alpha-local"
 
-  Scenario: Overwrite keeps recovery points
+  Scenario: Overwrite keeps the replaced password in the login item history
     Given the repository declares this environment configuration:
       """
       schema: rhino/repo-config/v2
@@ -186,6 +189,33 @@ Feature: Move declared secrets between a vault and the repository
               env: local
               mode: "0600"
               keys: [ALPHA_KEY, BETA_KEY]
+      """
+    And the vault session is unlocked for the declared server
+    And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-old"
+    And the vault holds a login item "example/fixture/web/local/beta-key" with the password "marker-beta-old"
+    And the repository holds the local file "config/app.env" with this content:
+      """
+      ALPHA_KEY=marker-alpha-old
+      BETA_KEY=marker-beta-new
+      """
+    When I run environment push with overwrite
+    Then the command exits 0
+    And the vault holds the login item "example/fixture/web/local/beta-key" with the password "marker-beta-new"
+    And the login item "example/fixture/web/local/beta-key" keeps the password "marker-beta-old" in its history
+    And no run output contains "marker-beta-new"
+    And no run output contains "marker-beta-old"
+
+  Scenario: Overwrite keeps the previous file generation as a recovery point
+    Given the repository declares this environment configuration:
+      """
+      schema: rhino/repo-config/v2
+      environment:
+        vault:
+          provider: bitwarden
+          server: https://vault.example.com
+          prefix: example/fixture
+          environments: [local, stag, prod]
+          entries:
             - path: config/service.json
               class: vault
               form: file
@@ -195,27 +225,17 @@ Feature: Move declared secrets between a vault and the repository
               mode: "0600"
       """
     And the vault session is unlocked for the declared server
-    And the vault holds a login item "example/fixture/web/local/alpha-key" with the password "marker-alpha-old"
-    And the vault holds a login item "example/fixture/web/local/beta-key" with the password "marker-beta-old"
     And the vault holds the secure note "example/fixture/api/local/service-config" with the attachment "service.json.g0001" holding the content "marker-service-first"
     And the vault holds the secure note "example/fixture/api/local/service-config" with the attachment "service.json.g0002" holding the content "marker-service-second"
-    And the repository holds the local file "config/app.env" with this content:
-      """
-      ALPHA_KEY=marker-alpha-old
-      BETA_KEY=marker-beta-new
-      """
     And the repository holds the local file "config/service.json" with the content "marker-service-new"
     When I run environment push with overwrite
     Then the command exits 0
-    And the vault holds the login item "example/fixture/web/local/beta-key" with the password "marker-beta-new"
-    And the login item "example/fixture/web/local/beta-key" keeps the password "marker-beta-old" in its history
     And the secure note "example/fixture/api/local/service-config" holds the attachment "service.json.g0002"
     And the secure note "example/fixture/api/local/service-config" holds the attachment "service.json.g0003" with the content "marker-service-new"
     And the secure note "example/fixture/api/local/service-config" does not hold the attachment "service.json.g0001"
-    And no run output contains "marker-beta-new"
-    And no run output contains "marker-beta-old"
     And no run output contains "marker-service-new"
 
+  # Behaviour: RB-26
   Scenario: Report differences by name only
     Given the repository declares this environment configuration:
       """
@@ -263,6 +283,7 @@ Feature: Move declared secrets between a vault and the repository
     And no run output contains "marker-beta-local"
     And no run output contains "marker-service-vault"
 
+  # Behaviour: RB-80
   Scenario Outline: Refuse an unusable vault before any write
     Given the repository declares this environment configuration:
       """
@@ -667,6 +688,7 @@ Feature: Move declared secrets between a vault and the repository
       """
     And no run output contains "marker-alpha-one"
 
+  # Behaviour: RB-55
   Scenario: Narrow a run to one declared entry with --entry
     Given the repository declares this environment configuration:
       """

@@ -1,7 +1,7 @@
-// Package bdd_test executes the Gherkin corpus under specs/behaviours against
+// Package bdd executes the Gherkin corpus under specs/behaviours against
 // the real rhino binary. Every scenario is a command-line scenario, so one
 // adapter drives the compiled executable in an isolated temporary repository.
-package bdd_test
+package bdd
 
 import (
 	"fmt"
@@ -36,7 +36,11 @@ func runWithBinary(m *testing.M) int {
 		fmt.Fprintf(os.Stderr, "create binary directory: %v\n", err)
 		return 2
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			fmt.Fprintf(os.Stderr, "remove binary directory: %v\n", err)
+		}
+	}()
 
 	name := "rhino"
 	if runtime.GOOS == "windows" {

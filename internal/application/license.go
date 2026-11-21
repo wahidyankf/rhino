@@ -212,7 +212,7 @@ func isLicenseDigest(value string) bool {
 	}
 	for i := 0; i < len(value); i++ {
 		byte := value[i]
-		if !(byte >= '0' && byte <= '9') && !(byte >= 'a' && byte <= 'f') {
+		if (byte < '0' || byte > '9') && (byte < 'a' || byte > 'f') {
 			return false
 		}
 	}

@@ -19,11 +19,34 @@ $ rhino gate validate
 The command refuses an incomplete lifecycle before any child process starts. Use `gate list` to inspect the resolved
 membership for each surface.
 
+Once the hooks and workflows call the surfaces, run `gate wiring validate`. It checks the declaration against those
+files: each surface that holds entries is called by a hook or a workflow step, no caller hides a failed `gate run`, and
+each local surface holds only the entries its allowed list names. The command reads the `gates.wiring` section, which
+names the hook directory and the workflow directory. The rules are listed in
+[Findings](../reference/findings.md#gate-wiring).
+
+```console
+$ rhino gate wiring validate
+```
+
 ## 2. Call one surface from each caller
 
-The pre-commit and pull-request caller sequences below were not exercised during this documentation pass.
+Each caller starts one surface and nothing else. The declaration decides what that surface runs. The local surfaces
+(`pre-commit`, `commit-msg`, and `pre-push`) hold only the entries that their allowed list names, and rule W07 refuses
+any other entry. Keep the hooks thin for that reason: a hook that runs a test or a scan slows every commit or push.
 
-They start the children declared by the target repository. Source-test evidence does not establish that lifecycle.
+- `pre-commit` holds staged-file formatting, which rewrites and restages the files.
+- `commit-msg` holds the commit-message format lint.
+- `pre-push` holds the leak scan over the pushed range.
+- `pull-request` holds every other check. A workflow step calls it on each pull request, so the checks run in parallel
+  on a runner, not on one author's machine.
+- `scheduled` or `main` holds the work that no pull request should wait for, such as an end-to-end suite. A workflow
+  with the matching trigger calls it (rule W01).
+
+A caller must not hide a failure. A line that ends the `gate run` call in `|| true`, or a workflow step with
+`continue-on-error` around it, is refused (rule W05).
+
+The examples below show the shape of each caller. Replace the executable with the one your repository declares.
 
 ```sh
 #!/bin/sh
@@ -47,6 +70,9 @@ For `commit-msg`, pass Git's hook path with `--message-file`. Rhino confirms it 
 given, and then also hands the records, unmodified, to each gate child's standard input. Without it, Rhino never reads
 or waits on standard input, and each child's standard input is empty. The command refuses the wrong surface/input
 combination with exit `2`.
+
+The complete placement of one repository's gates, with each check's scope and test level, is in
+[the gate inventory](../../repo-governance/development/quality/gate-inventory.md) of RHINO itself.
 
 ## 3. Select regular Git destinations
 
@@ -108,6 +134,22 @@ likewise require their own reviewed plan and explicit `--apply` authorization.
 
 RHINO prints only a gate identifier and sanitized status. It never repeats a child stream that could contain material
 unsafe to publish.
+
+## 6. Check behaviour bindings
+
+`behaviour coverage validate` checks that each scenario in the declared corpus has a unit `@scenario` reference, and
+that it has an integration and an e2e reference or a valid exemption. It reads the feature files and the test files as
+text: it runs no test and starts no process, so it is cheap enough for every pull request. A passing check proves the
+bindings exist, not that the tests pass; the test runs prove that.
+
+```console
+$ rhino behaviour coverage validate
+$ rhino behaviour coverage validate --rules B04,B05,B06,B07,B08
+```
+
+The second form runs only the named rules, which suits a spec review before any binding exists. The configuration is
+`policies.behaviour`; see [the reference](../reference/v0-4-configuration.md#behaviour-policy) and the
+[rules](../reference/findings.md#behaviour-coverage).
 
 ## Related
 

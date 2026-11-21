@@ -56,8 +56,8 @@ to relax.
 ## Prohibited Data Enforced by a Gate
 
 [Public repository data safety](../conventions/public-repository-data-safety.md) used to rest entirely on review. It now
-has a gate: `scripts/public-safety/` runs first on every hook surface and in CI, screening credential patterns with a
-scanner pinned by digest and generic private-metadata shapes with a tracked pattern set.
+has a gate: `scripts/public-safety/` screens the pushed range at `pre-push` and the tree and messages in the
+pull-request gate, for credential patterns (pinned scanner) and private-metadata shapes (tracked set).
 
 Say what it proves and no more. It proves that no pattern it holds appeared in what it was handed, and that the scanner
 it used detected a credential generated moments earlier without reproducing it. It does not prove that a value is safe

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -29,7 +30,7 @@ func (DiskToolchainRunner) Run(launch application.ToolchainLaunch) (application.
 	if strings.TrimSpace(launch.Executable) == "" || strings.HasPrefix(launch.Executable, "-") {
 		return application.ToolchainResult{}, fmt.Errorf("the declared executable is invalid")
 	}
-	command := exec.Command(launch.Executable, launch.Arguments...)
+	command := hostCommands.Command(launch.Executable, launch.Arguments...)
 	command.Stdin = nil
 	command.Stderr = nil
 	// Wait owns the copy from the child's output into the capture, so reaping
@@ -38,15 +39,18 @@ func (DiskToolchainRunner) Run(launch application.ToolchainLaunch) (application.
 	command.WaitDelay = time.Second
 	captured := boundedCapture{limit: maxToolchainOutput}
 	command.Stdout = &captured
-	if err := command.Start(); err != nil {
+	if err := hostCommands.Start(command); err != nil {
 		err = fmt.Errorf("could not start declared toolchain: %w", err)
 		if status := startStatus(err); status != 0 {
 			return application.ToolchainResult{}, &application.ChildStartError{Status: status, Err: err}
 		}
 		return application.ToolchainResult{}, err
 	}
-	waited := make(chan error, 1)
-	go func() { waited <- command.Wait() }()
+	// The wait error is discarded on purpose: the exit below is read from the
+	// reaped process state, which reports a signal death and a nonzero status
+	// alike. Only the reap is signalled.
+	waited := make(chan struct{}, 1)
+	go func() { _ = command.Wait(); waited <- struct{}{} }()
 	var timeout <-chan time.Time
 	if launch.TimeoutSeconds != nil {
 		timer := time.NewTimer(time.Duration(*launch.TimeoutSeconds) * time.Second)
@@ -55,14 +59,15 @@ func (DiskToolchainRunner) Run(launch application.ToolchainLaunch) (application.
 	}
 	select {
 	case <-timeout:
-		_ = command.Process.Kill()
+		if err := killFailure(command.Process.Kill()); err != nil {
+			// A child that still runs cannot be reaped here, so the failure is
+			// reported without waiting for it.
+			return application.ToolchainResult{}, errors.Join(fmt.Errorf("the declared toolchain exceeded its timeout"), err)
+		}
+		// The timeout is the reported failure, so only the reap is awaited.
 		<-waited
 		return application.ToolchainResult{}, fmt.Errorf("the declared toolchain exceeded its timeout")
-	case err := <-waited:
-		// The wait error is discarded on purpose: the exit below is read
-		// from the reaped process state, which reports a signal death and a
-		// nonzero status alike.
-		_ = err
+	case <-waited:
 		return finishToolchain(command, &captured)
 	}
 }

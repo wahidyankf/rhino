@@ -14,6 +14,13 @@ import (
 	"github.com/wahidyankf/rhino/tests/bdd/vault/fakebw"
 )
 
+// The unit runners execute both vault feature files in full, in process, against
+// an in-memory tree and an in-memory fake vault, so each file's scenarios are
+// covered at the unit level by the whole-file references below.
+//
+// @scenario specs/behaviours/environment-vault-validation.feature: *
+// @scenario specs/behaviours/environment-vault.feature: *
+
 // environmentVaultCorpus is the vault validation feature, relative to this package.
 const environmentVaultCorpus = "../../specs/behaviours/environment-vault-validation.feature"
 
@@ -170,7 +177,10 @@ func (d *unitVaultDriver) localDigest() string {
 	sort.Strings(paths)
 	hash := sha256.New()
 	for _, path := range paths {
-		fmt.Fprintf(hash, "%s %o %q\n", path, d.tree.modes[path], d.tree.files[path])
+		// A hash never fails a write, so a failure here is a broken invariant.
+		if _, err := fmt.Fprintf(hash, "%s %o %q\n", path, d.tree.modes[path], d.tree.files[path]); err != nil {
+			panic(err)
+		}
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }

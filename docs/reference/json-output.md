@@ -177,7 +177,8 @@ Count violations by kind across every validator:
 
 ```sh
 for cmd in "repo-config validate" "md internal-link validate" \
-           "md mermaid validate"; do
+           "md mermaid validate" "gate wiring validate" \
+           "behaviour coverage validate"; do
   rhino $cmd --output json
 done | jq -r '.violations[].kind' | sort | uniq -c | sort -rn
 ```

@@ -26,7 +26,7 @@ is a configuration error. Beyond that, the binary refuses an unknown key only wh
 - Each validator named here refuses an unknown key inside the policy group it reads. The validators are the seven
   `policies.markdown` sub-policies (`frontmatter`, `heading-hierarchy`, `internal-link`, `mermaid`, `naming`,
   `readme-index`, and `metadata`), the six `policies.governance` sub-policies (`word-budget`, `directory-map`,
-  `quality-gates`, `layers`, `traceability`, and `vendor`), and `policies.conventions.license`.
+  `quality-gates`, `layers`, `traceability`, and `vendor`), `policies.conventions.license`, and `policies.behaviour`.
 - `policies.conventions.emoji` is the exception. The emoji validator reads the group, but it accepts an extra key on the
   group and on a `prohibited` entry, with no error and no finding.
 - The umbrella keys `policies`, `policies.markdown`, `policies.governance`, `policies.conventions`, and `policies.plans`
@@ -252,6 +252,24 @@ policies:
 
 A tree that omits the key, or sets `true` or `false`, is checked exactly as before. The findings are in
 [the findings reference](findings.md#readme-index).
+
+### Behaviour policy
+
+`policies.behaviour` configures `behaviour coverage validate`. The command is static: it reads the corpus and the test
+files as text, and it runs no test, starts no process, and reaches no network. `corpus` lists the roots that hold
+feature files. `fixtures` lists directories whose feature files are inputs rather than specifications. `whole-file`
+lists the test-file globs of a runner that executes whole feature files, and it is empty by default. `levels` maps
+`unit`, `integration`, and `e2e` to test-file globs. `corpus` and every level key are required; an empty level list
+matches nothing, so B09 reports it. An omitted `policies.behaviour` refuses the run with `rhino.config.undeclared`, and
+an unusable one exits `2`.
+
+A test covers a scenario with a comment line `@scenario <feature-path>: <scenario name>`. A `*` name covers the whole
+file, and only from a test file that a `whole-file` glob matches. A scenario that needs no integration or e2e test
+carries `@integration-exempt` or `@e2e-exempt`, and the line directly above that tag is a comment of the form
+`# Exemption(<level>): <reason>; alternative-proof: <target>`. The reason may not name a difficulty, runtime, flakiness,
+cost, or unfinished work. The rules are listed in [Findings](./findings.md#behaviour-coverage).
+
+`--rules <id,...>` runs only the named rules, so a spec review can run B04 to B08 before any binding exists.
 
 ## Canonical adapter profiles
 
@@ -672,6 +690,13 @@ typed argv mappings, and explicit environment projections; they are never a shel
 seven surfaces and `gate validate` to check declaration, composition, binding, and projection without starting a child.
 An omitted `gates` group makes `gate list`, `gate validate`, and `gate run` exit `2`; `gates: {}` says this repository
 runs no gate, so `gate run` exits `0` (JSON reports `"result":"clean"`; text prints nothing).
+
+`gates.wiring` configures `gate wiring validate`, which checks the registry against the hook and workflow files. Its
+`hooks.directory` holds the hook files. Its `ci` names either a `directory` of workflow files or a `none` reason, which
+must not be empty and says why the repository hosts no workflows. An optional `local-surfaces` map gives each local
+surface (`pre-commit`, `commit-msg`, or `pre-push`) an allowed list of entry IDs or kinds, which rule W07 reads. The
+section and its keys refuse an unknown key, and an omitted section refuses the run with `rhino.config.undeclared`. The
+rules are listed in [Findings](./findings.md#gate-wiring).
 
 A `files` input binds `git-index` for a local mutation or `explicit-range` with `range: explicit` for a pull-request
 replay. The latter resolves only changed repository-relative paths from the immutable `base..head` pair; it never turns

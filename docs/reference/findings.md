@@ -439,6 +439,46 @@ the verdict: `1` when a check child exits non-zero or ends by a signal, when a m
 `pull-request` replay of a mutation changes a selected file; `2` when a mutation child ends by a signal; `127` when a
 child was not found; and `126` when one was found and could not be executed. A child's own streams are never repeated.
 
+## Gate wiring
+
+`gate wiring validate` prints one finding per line, sorted by path, line, and kind, in this shape:
+
+```text
+[gate-wiring] <path>[:<line>] <kind>[ <field>]: <message>
+```
+
+- `W01` — A surface that holds gate entries is called by no hook and no workflow step. A surface a trigger starts
+  (`main`, `scheduled`, or `manual`) needs a workflow with that trigger to make the call.
+- `W02` — A hook or workflow step calls `gate run --surface <name>` for a surface the registry does not declare.
+- `W03` — The `pull-request` surface holds entries, the repository has a workflow directory, and no workflow step calls
+  `gate run --surface pull-request`.
+- `W04` — A local surface (`pre-commit`, `commit-msg`, or `pre-push`) holds entries, and the hook directory holds no
+  file of that name.
+- `W05` — A failure is hidden: a `gate run` call ends in `|| true` or `|| :`, a hook turns errexit off with `set +e`
+  around one, or a workflow step that calls one continues on error.
+- `W06` — A workflow step names a release (`vX.Y.Z`) of a tool whose root `<tool>.lock` file records another `version=`.
+- `W07` — The `pull-request` surface holds entries, and a local surface holds an entry that its allowed list does not
+  name. Without `local-surfaces`, the lists are `format-staged` on `pre-commit`, `commit-message-lint` on `commit-msg`,
+  and `leak-scan` on `pre-push`.
+
+## Behaviour coverage
+
+`behaviour coverage validate` uses the same shape. Its rules read the corpus and the test files as text.
+
+- `B01` — A scenario has no `@scenario` reference from a unit-level test file.
+- `B02` — A scenario has no integration-level reference and no valid `@integration-exempt`.
+- `B03` — A scenario has no e2e-level reference and no valid `@e2e-exempt`.
+- `B04` — An exemption tag is invalid. The comment directly above it is missing or names another level, the reason or
+  target is empty, the reason is on the deny list, the tag is unknown (`@unit-exempt`, for example), or the tag sits on
+  a `Feature`, `Rule`, or `Background`.
+- `B05` — A reference names a feature that is not a corpus feature or a scenario that feature does not hold, or a `*`
+  reference sits in a test file that no `whole-file` glob matches.
+- `B06` — A scenario is exempt at a level and also referenced at that level. The message is
+  `stale exemption — remove the tag`.
+- `B07` — A feature file sits outside the corpus roots and the fixtures roots.
+- `B08` — Two scenarios of one feature file share a name.
+- `B09` — A corpus root holds no scenario, or a level's globs match no test file. Nothing inspected is not a pass.
+
 ## Not findings
 
 Some situations look like findings and are not.

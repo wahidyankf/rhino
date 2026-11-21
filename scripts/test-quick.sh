@@ -2,12 +2,13 @@
 set -eu
 
 # The quick gate for the Go port: formatting, compilation, strict vet, unit
-# tests with -race, deterministic-core coverage, and a binary smoke run.
+# tests with -race, unit coverage, and a binary smoke run.
 # Documentation hygiene is dispatched elsewhere, as in the hippo template.
 #
-# Coverage floor: the repository floor is 99% on the deterministic core
-# (domain, application, config). The gate below pins that floor, so any
-# regression below 99% fails the quick gate.
+# Coverage floor: the repository floor is 99% over every authored production
+# package: cmd, internal, and scripts/release-archive. No package is excluded;
+# only generated and test-support code sits outside the measured set. The gate
+# below pins that floor, so any regression below 99% fails the quick gate.
 
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
@@ -23,26 +24,61 @@ fi
 
 go vet ./...
 
-# Module gates and the unit suite run with -race on the untouched behaviour
-# first: a data race is a finding in this tool, not a flake to retry.
-# The behaviour corpus is part of ./... and runs here under -race. It is a few
-# seconds of work that builds the binary once, so the quick gate runs the whole
-# corpus rather than a subset.
-go test -race -count=1 ./...
+# Lint is a gate. The pinned golangci-lint (go.mod tool directive) fails on
+# any finding, so warning severity and above fail this gate. Its forbidigo and
+# depguard rules keep the unit tests hermetic (C21); integration files carry the
+# integration build tag, which this default run omits.
+go tool golangci-lint run ./...
+
+# Network denial (C21). The unit suite runs in a fresh network namespace when
+# the host allows one. A host that refuses the namespace prints why, and the
+# suite runs without it; the static network ban in the lint rules still applies.
+if probe=$(unshare -rn true 2>&1); then
+	deny="unshare -rn"
+	echo "network denial: unit suite runs under: unshare -rn"
+else
+	deny=""
+	echo "network denial: unavailable here, unshare -rn refused: ${probe}" >&2
+	echo "network denial: unit suite runs without it; the lint rules still ban network packages" >&2
+fi
+
+# The unit suite runs with -race: a data race is a finding in this tool, not a
+# flake to retry. The integration suite (tests/bdd) and the end-to-end suite
+# (tests/e2e) are not part of this gate; they are the test:integration and
+# test:e2e targets, so this gate means quick and nothing slower.
+echo "+ ${deny:+$deny }go test -race -count=1 ./cmd/... ./internal/... ./scripts/release-archive"
+${deny:+$deny} go test -race -count=1 ./cmd/... ./internal/... ./scripts/release-archive
 
 mkdir -p coverage
-go test -count=1 \
-	-coverpkg=./internal/domain,./internal/application,./internal/adapters/config \
-	-coverprofile=coverage/unit.out \
-	./internal/domain ./internal/application ./internal/adapters/config \
-	./internal/adapters/cli ./internal/adapters/runtime >/dev/null
-total=$(go tool cover -func=coverage/unit.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
+${deny:+$deny} go test -count=1 \
+	-coverpkg=./cmd/...,./internal/...,./scripts/release-archive \
+	-coverprofile=coverage/unit.raw.out \
+	./cmd/... ./internal/... ./scripts/release-archive >/dev/null
+
+# Every test binary records each measured block, so the raw profile repeats a
+# block once per binary. Keep one line per block, with the highest count any
+# binary recorded, so a block counts once and is covered if any run covered it.
+awk 'NR == 1 { print; next }
+{
+	key = $1 " " $2
+	if (!(key in count) || $3 + 0 > count[key] + 0) count[key] = $3
+	if (!(key in order)) { order[key] = ++n; keys[n] = key }
+}
+END {
+	for (i = 1; i <= n; i++) print keys[i] " " count[keys[i]]
+}' coverage/unit.raw.out >coverage/unit.out
+
+# The floor is compared on the exact percentage. go tool cover rounds its total
+# to one decimal, so a 98.99% total would print as 99.0% and pass a whole-number
+# comparison; the floor is therefore computed here from the statement counts.
+total=$(awk 'NR > 1 { statements += $2; if ($3 > 0) covered += $2 }
+END { printf "%.4f", 100 * covered / statements }' coverage/unit.out)
 minimum=99
-if [ "${total%.*}" -lt "$minimum" ]; then
-	echo "deterministic-core coverage ${total}% is below the pinned ${minimum}%" >&2
+if awk -v total="$total" -v minimum="$minimum" 'BEGIN { exit !(total + 0 < minimum + 0) }'; then
+	echo "unit coverage ${total}% is below the pinned ${minimum}%" >&2
 	exit 1
 fi
-echo "deterministic-core coverage ${total}% (pinned floor ${minimum}%, repository floor 99%)"
+echo "unit coverage ${total}% (pinned floor ${minimum}%, repository floor 99%)"
 
 # Binary smoke: the stamped binary answers the public contract on a fixture.
 smoke=$(mktemp -d "${TMPDIR:-/tmp}/rhino-smoke.XXXXXX")
@@ -63,3 +99,7 @@ if (cd "$smoke/repo" && "$smoke/rhino" convention emoji validate 2>/dev/null); t
 fi
 trap - EXIT HUP INT TERM
 rm -rf -- "$smoke"
+
+# The static behaviour check runs last, as test:quick requires (C14). It reads
+# the corpus and its bindings, and runs no test.
+go run ./cmd/rhino behaviour coverage validate

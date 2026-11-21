@@ -700,8 +700,8 @@ func classDefinition(line int, rest string, rules mermaidRules) []Finding {
 		if isSixDigitHex(*fill) && !declares(rules.fillColors, *fill) {
 			refuse(fmt.Sprintf("fill `%s` is not a declared fill color", *fill))
 		}
-		switch {
-		case stroke == nil:
+		switch stroke {
+		case nil:
 			refuse("a filled class has no stroke, so its boundary disappears against the background")
 		default:
 			if isSixDigitHex(*stroke) && !declares(rules.edgeColors, *stroke) {
@@ -711,8 +711,8 @@ func classDefinition(line int, rest string, rules mermaidRules) []Finding {
 				refuse(fmt.Sprintf("fill and stroke are both `%s`, so the shape has no visible boundary", *fill))
 			}
 		}
-		switch {
-		case textColor == nil:
+		switch textColor {
+		case nil:
 			refuse("a filled class declares no text color, so its label inherits an unknown one")
 		default:
 			if isSixDigitHex(*textColor) && !declares(rules.textColors, *textColor) {
@@ -839,7 +839,7 @@ func isSixDigitHex(value string) bool {
 	}
 	for i := 0; i < len(digits); i++ {
 		character := digits[i]
-		if !(character >= '0' && character <= '9' || character >= 'a' && character <= 'f' || character >= 'A' && character <= 'F') {
+		if (character < '0' || character > '9') && (character < 'a' || character > 'f') && (character < 'A' || character > 'F') {
 			return false
 		}
 	}
@@ -1183,7 +1183,7 @@ func entityLabels(line string) []labeledText {
 	for _, token := range strings.Fields(head) {
 		plain := true
 		for _, character := range token {
-			if !(unicode.IsLetter(character) || unicode.IsDigit(character) || character == '_' || character == '-') {
+			if !unicode.IsLetter(character) && !unicode.IsDigit(character) && character != '_' && character != '-' {
 				plain = false
 				break
 			}
@@ -1250,9 +1250,9 @@ func between(line string, open, close rune) []string {
 func labelSegments(label string) []string {
 	normalised := label
 	for _, separator := range []string{"<br/>", "<br />", "<br>", "\\n"} {
-		normalised = strings.ReplaceAll(normalised, separator, "")
+		normalised = strings.ReplaceAll(normalised, separator, "\x01")
 	}
-	parts := strings.Split(normalised, "")
+	parts := strings.Split(normalised, "\x01")
 	visible := make([]string, 0, len(parts))
 	for _, part := range parts {
 		visible = append(visible, decodeEntities(stripMarkup(part)))

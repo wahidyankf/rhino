@@ -143,7 +143,7 @@ func validateGateCommand(gate Gate) error {
 			if err != nil {
 				return err
 			}
-			if arg.Expand == "repeat" && !((kind == "files" || kind == "regular-files") && field == "paths") {
+			if arg.Expand == "repeat" && ((kind != "files" && kind != "regular-files") || field != "paths") {
 				return fail(arg.Input, "uses `expand: repeat` for a field that is not a file-path sequence")
 			}
 			projected[name] = true

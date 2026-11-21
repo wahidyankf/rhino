@@ -198,6 +198,10 @@ func ExecuteWithVault(tree Tree, args []string, stdin *string, launcher Launcher
 		return gateList(document, invocation.Format)
 	case "gate-validate":
 		return gateValidate(document, invocation.Format)
+	case "gate-wiring":
+		return gateWiringValidate(document, current, invocation.Format)
+	case "behaviour-coverage":
+		return behaviourCoverageValidate(document, current, invocation.Rules, invocation.Format)
 	case "gate":
 		return gateRun(document, invocation, current, stdin, launcher, mutations)
 	case "emoji":
@@ -329,7 +333,10 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		return RefuseWith(invocation.Format, code,
 			"`--surface` must name one of "+strings.Join(Surfaces, ", "))
 	}
-	selected := document.GatesOn(surface)
+	selected, unnamed := narrowGates(document.GatesOn(surface), surface, invocation.Entries)
+	if unnamed != "" {
+		return gateRefused(invocation.Format, 2, domain.ConfigUndeclared, unnamed)
+	}
 	var report strings.Builder
 	var completed []string
 	var changed []string
@@ -445,6 +452,33 @@ func gateRun(document *config.Document, invocation *Invocation, tree Tree, stdin
 		return Outcome{ExitCode: 0, Stdout: gateRunDocument("clean", 0, surface, completed, changed)}
 	}
 	return Clean(report.String())
+}
+
+// narrowGates keeps the gates that `--entry` names, in declaration order. With no
+// name it keeps every gate on the surface. A name the surface does not declare
+// is refused and never skipped, so a run cannot pass over a gate it was asked to
+// run; the second result is that refusal, or empty.
+func narrowGates(gates []config.Gate, surface string, entries []string) ([]config.Gate, string) {
+	if len(entries) == 0 {
+		return gates, ""
+	}
+	named := map[string]bool{}
+	for _, entry := range entries {
+		named[entry] = false
+	}
+	var kept []config.Gate
+	for _, gate := range gates {
+		if _, ok := named[gate.ID]; ok {
+			named[gate.ID] = true
+			kept = append(kept, gate)
+		}
+	}
+	for _, entry := range entries {
+		if !named[entry] {
+			return nil, "`--entry " + entry + "` names no gate declared on surface `" + surface + "`"
+		}
+	}
+	return kept, ""
 }
 
 // gateRunDocument renders the `gate run` document the JSON reference

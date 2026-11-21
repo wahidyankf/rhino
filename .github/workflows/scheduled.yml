@@ -1,6 +1,7 @@
-# The daily re-run of the quick gate, kept out of every Git hook on purpose:
+# The daily run of the scheduled surface, kept out of every Git hook on purpose:
 # even a fast suite trains a maintainer into bypassing the hook that runs it
-# when the machine is busy.
+# when the machine is busy. The surface holds the quick gate, re-run unfiltered,
+# and the end-to-end target (C17), which no pull request waits on.
 #
 # A failure here means the main line drifted red outside any pull request.
 name: Scheduled
@@ -19,17 +20,38 @@ permissions:
   contents: read
 
 jobs:
-  daily-quick-gate:
+  scheduled-surface:
+    name: Scheduled surface
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      # The end-to-end target runs through npm, so Node is pinned as the
+      # pull-request workflow pins it: to the resolved patch release.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.22.3"
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
       - name: Install the pinned toolchain
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: true
-      - name: Quick gate, unfiltered
-        # No name filter, no skips, nothing selected by hand.
-        # A scheduled run that quietly narrowed itself would report a green
-        # suite for a subset nobody chose.
-        run: ./scripts/test-quick.sh
+
+      - name: Build RHINO
+        run: |
+          ./hippo run --class ephemeral --resource-tier standard --disk-path . -- \
+            go build -o "${RUNNER_TEMP}/rhino" ./cmd/rhino
+
+      # The surface runs every declared scheduled gate, in declaration order,
+      # and nothing is filtered or skipped by hand. A scheduled run that quietly
+      # narrowed itself would report a green suite for a subset nobody chose.
+      - name: Run the scheduled surface
+        run: |
+          set -eu
+          export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
+          "${RUNNER_TEMP}/rhino" gate run --surface scheduled

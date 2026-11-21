@@ -4,6 +4,20 @@ repository: {}
 scan: {}
 harness: {}
 policies:
+  behaviour:
+    corpus:
+      - specs/behaviours
+    fixtures:
+      - test/fixtures
+    whole-file:
+      - internal/**/*_test.go
+    levels:
+      unit:
+        - internal/**/*_test.go
+      integration:
+        - tests/integration/**
+      e2e:
+        - tests/e2e/**
   markdown: {}
   governance:
     quality-gates:
@@ -106,4 +120,11 @@ gates:
   composition:
     pull-request:
       relation: exact
+  wiring:
+    hooks:
+      directory: .husky
+    ci:
+      directory: .github/workflows
+    local-surfaces:
+      pre-commit: [format-files]
 extensions: {}

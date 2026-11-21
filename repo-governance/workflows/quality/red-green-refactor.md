@@ -22,6 +22,7 @@ The cycle runs red, then green, then refactor, and returns to red for the next b
 ```mermaid
 flowchart LR
     accTitle: Red-green-refactor cycle
+    classDef default fill:#CA9161,stroke:#000000,color:#000000,stroke-width:2px
     accDescr: The cycle runs red, then green, then refactor, and returns to red for the next behaviour.
     Red["Red<br/>Expected test failure"] --> Green["Green<br/>Minimum change passes"]
     Green --> Refactor["Refactor<br/>Improve design<br/>Keep tests green"]

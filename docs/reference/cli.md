@@ -7,7 +7,7 @@ it; RHINO does not invent a policy or route an old command through a replacement
 ## Grouped v0.4 leaves
 
 - **Configuration** — `repo-config validate`
-- **Lifecycle gates** — `gate list`, `gate validate`, `gate run --surface <name>`
+- **Lifecycle gates** — `gate list`, `gate validate`, `gate wiring validate`, `gate run --surface <name>`
 - **Harness adapters** — `harness adapters validate`, `harness adapters generate`
 - **Environment** — `env validate`, `env init --apply`, `env backup --dir <path>`, `env restore --dir <path> [--force]`,
   `env pull [--entry <path>] [--force]`, `env push [--entry <path>] [--overwrite]`, `env diff [--entry <path>]`
@@ -15,6 +15,7 @@ it; RHINO does not invent a policy or route an old command through a replacement
 - **Markdown** — `md frontmatter validate`, `md heading-hierarchy validate`, `md internal-link validate`,
   `md mermaid validate`, `md naming validate`, `md readme-index validate`
 - **Metadata** — `metadata validate`
+- **Behaviour** — `behaviour coverage validate [--rules <id,...>]`
 - **Governance** — `governance word-budget validate`, `governance directory-map validate`, `governance vendor validate`,
   `governance layers validate`, `governance traceability validate`, `governance quality-gates validate`
 - **Conventions** — `convention emoji validate`, `convention license validate`
@@ -85,6 +86,16 @@ gate execution, environment operations, and toolchain provision use their own ex
 - `--base <sha> --head <sha>`
   - Accepted by: `gate run` at `pull-request`
   - Meaning: Supply the immutable pull-request range.
+- `--entry <id>`
+  - Accepted by: `gate run`
+  - Meaning: Run only the named gate on the surface, in declaration order. Repeatable, and a single flag is enough. With
+    no `--entry`, the run takes every gate on the surface. A gate id the surface does not declare refuses the run with
+    exit `2`, so a named gate is never skipped. The pull-request workflow uses it to run each level as its own parallel
+    job.
+- `--rules <id,...>`
+  - Accepted by: `behaviour coverage validate`
+  - Meaning: Run only the named rules, separated by commas, from B01 to B09. Without the flag every rule runs. A name
+    that is not a rule refuses the run with exit `2`.
 - `--json`
   - Accepted by: `version`
   - Meaning: Shorthand for `--output json`.

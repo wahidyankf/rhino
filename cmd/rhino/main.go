@@ -9,12 +9,14 @@ import (
 	"github.com/wahidyankf/rhino/internal/bootstrap"
 )
 
-func run() int {
-	ctx, stop := cli.SignalContext(context.Background())
+// run executes args under the context signals returns, and returns the exit
+// status. The context is stopped once execute returns.
+func run(args []string, signals func(context.Context) (context.Context, context.CancelFunc), execute func(context.Context, []string) int) int {
+	ctx, stop := signals(context.Background())
 	defer stop()
-	return bootstrap.Execute(ctx, os.Args[1:])
+	return execute(ctx, args)
 }
 
 func main() {
-	os.Exit(run())
+	os.Exit(run(os.Args[1:], cli.SignalContext, bootstrap.Execute))
 }

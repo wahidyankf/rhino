@@ -20,10 +20,11 @@ the built binary and observes it from outside.
 
 ## Where It Runs
 
-Never in a Git hook and never in the quick gate. The end-to-end and integration adapters run on a schedule, because a
-gate slow enough to be worked around is a gate that will be. Run the full E2E suite on its scheduled CI workflow (CRON)
-by default in every repository that has E2E; keep local E2E selective to the touched flow. The daily `Scheduled`
-workflow runs integration first and E2E unfiltered, second.
+Never in a Git hook and never in the quick gate. The integration target runs in the pull-request gate, because it stays
+on the machine. The end-to-end target runs in a scheduled or `main` workflow, because a gate slow enough to be worked
+around is a gate that will be (C17 of the
+[contract](quality/checks/test-and-gate-contract/004-test-levels-and-targets.md)). Keep local E2E runs selective to the
+touched flow. The daily `Scheduled` workflow runs the scheduled surface: the quick gate and this end-to-end target.
 
 That placement is itself asserted: the static check verifies that no gate file invokes a slow adapter, and it reads that
 list by filename — so renaming a gate file without telling the check is caught rather than silently ignored.

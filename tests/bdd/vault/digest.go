@@ -30,14 +30,18 @@ func DigestTree(root string) (string, error) {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(hash, "%s %s\n", filepath.ToSlash(rel), info.Mode())
+		if _, err := fmt.Fprintf(hash, "%s %s\n", filepath.ToSlash(rel), info.Mode()); err != nil {
+			return err
+		}
 		switch {
 		case info.Mode()&fs.ModeSymlink != 0:
 			target, err := os.Readlink(path)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(hash, "link %s\n", target)
+			if _, err := fmt.Fprintf(hash, "link %s\n", target); err != nil {
+				return err
+			}
 		case info.Mode().IsRegular():
 			data, err := os.ReadFile(path)
 			if err != nil {

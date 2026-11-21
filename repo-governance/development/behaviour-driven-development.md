@@ -28,9 +28,11 @@ shared but means something different per adapter is two steps with one name, whi
 
 ## The Three Adapters
 
-- **Unit** — in-process, against an in-memory tree. Every scenario binds here.
-- **Integration** — a real temporary filesystem, built and removed per case.
-- **End-to-end** — a spawned process, observing only argv, exit code, and streams.
+- **Unit** — in-process, against an in-memory tree. Every scenario binds here, and none is exempt.
+- **Integration** — a real temporary filesystem, built and removed per case. Every scenario binds here, or carries a
+  reasoned exemption.
+- **End-to-end** — a spawned process, observing only argv, exit code, and streams. Every scenario binds here, or carries
+  a reasoned exemption.
 
 ## Related
 
