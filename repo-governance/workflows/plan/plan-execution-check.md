@@ -20,6 +20,10 @@ produces findings that contradict each other.
    `delivery.md` until every delivery unit using the checkout, including archival, has landed?
 6. **Knowledge capture.** Is every `learnings.md` entry resolved to a durable owner or discarded with a reason?
 
+Where a step asks for past proof that can no longer be produced, judge the recorded observation of current behaviour
+that replaces it, per [Current Behaviour Over Past Proof][current-behaviour]. A missing past record alone is not a
+finding.
+
 ## Exit
 
 One archive-readiness verdict is recorded. Archival proceeds only on a verdict that permits it. It does not claim
@@ -38,3 +42,5 @@ prove it before the task is complete.
 
 Resolve a blocking item and re-run the check. There is no partial archival and no archival with an unresolved acceptance
 criterion, pre-archive cleanup, or unrouted learning.
+
+[current-behaviour]: ../../conventions/plans/007-evidence-and-quality.md#current-behaviour-over-past-proof
