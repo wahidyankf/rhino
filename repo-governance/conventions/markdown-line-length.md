@@ -20,5 +20,5 @@ Exempt: `CHANGELOG.md`, archived plans under `plans/done/`, and fixture bytes un
 ## Enforcement
 
 `markdownlint-cli2` runs rule `MD013` alone, configured in [`.markdownlint-cli2.jsonc`](../../.markdownlint-cli2.jsonc),
-as the `markdown-line-length` gate on `pre-push` and `pull-request`. Prettier's Markdown settings live in
+as the `markdown-line-length` gate on `pull-request`. Prettier's Markdown settings live in
 [`.prettierrc.json`](../../.prettierrc.json).

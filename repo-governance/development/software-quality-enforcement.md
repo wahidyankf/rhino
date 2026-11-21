@@ -5,13 +5,13 @@ to pass — passed, with the output.
 
 ## Coverage
 
-The policy floor is 99% line coverage over the deterministic core: the domain, application, and config packages, the
-exact `-coverpkg` list in `scripts/test-quick.sh`.
+The policy floor is 99% line coverage over every production package: `./cmd/...`, `./internal/...`, and
+`./scripts/release-archive`, the exact `-coverpkg` list in `scripts/test-quick.sh`.
 
-The gate pins 99%, so a regression below 99% fails the quick gate. New deterministic-core code needs its own tests to
-keep the floor.
+The gate pins 99%, so a regression below 99% fails the quick gate. New production code needs its own tests to keep the
+floor.
 
-The Go gate declares no exclusions. A package outside that list, such as the command adapter, is not measured.
+The Go gate declares no exclusions.
 
 The floor is a floor. Lowering it, widening an exclusion, or excluding a module that became hard to test is a change to
 what this repository is willing to ship, not a test-infrastructure adjustment.
@@ -21,7 +21,7 @@ what this repository is willing to ship, not a test-infrastructure adjustment.
 Tree validators read files and write nothing. The validator cores (the domain, application, and config packages) import
 no `os`, `os/exec`, `net`, `syscall`, `unsafe`, `plugin`, or cgo package, so they cannot open, write, or start anything
 directly. The binary's dependency graph has no `net` package, and no product source imports `net`, `unsafe`, or cgo.
-`internal/bootstrap/boundary_test.go` enforces these, with a positive control per finder.
+`internal/bootstrap/boundary_integration_test.go` enforces these; `boundary_test.go` holds the positive controls.
 
 The remaining reach is confined, and each confinement is a test unless noted:
 
@@ -43,8 +43,8 @@ The remaining reach is confined, and each confinement is a test unless noted:
   (`internal/application/harness_validate_resolver_test.go`).
 - Explicit boundaries fail closed when missing, never falling back to the read port: environment and harness refuse
   (`environment_test.go`, `harness_test.go`); toolchain reports findings (`toolchain_faults_test.go`).
-- A path that leaves the root, or passes through a link, is refused (`disk_links_test.go`, `mutation_test.go`,
-  `environment_faults_test.go`).
+- A path that leaves the root, or passes through a link, is refused (`disk_links_integration_test.go`,
+  `mutation_integration_test.go`, `environment_faults_test.go`).
 
 Named tests enforce these rather than documentation, because a documented invariant is an intention. The no-loopback
 rule is stricter than the integration layer, which permits an owned socket, deliberately, for the reason the

@@ -50,9 +50,10 @@ operation here states its own bound.
   gate. Each gate's Entry lists only these callers.
 - **Entry and exit check.** The `pull-request` surface in `repo-config.yml`, run by
   `go run ./cmd/rhino gate run --surface pull-request --base <sha> --head <sha>` with full commit SHAs. The PR Quality
-  Gate workflow does not replay that surface yet, so CI runs only its public-safety, quick, and bootstrap jobs.
-- **Structure.** `rhino governance quality-gates validate`, on the pre-push and pull-request surfaces, checks every gate
-  and propagation for its headings, verdicts, retired inputs, and cycle bound against `repo-config.yml`.
+  Gate workflow replays that surface in parallel jobs (`test-quick`, `test-integration`, `pull-request-checks`), so CI
+  runs every pull-request entry.
+- **Structure.** `rhino governance quality-gates validate`, on the pull-request surface, checks every gate and
+  propagation for its headings, verdicts, retired inputs, and cycle bound against `repo-config.yml`.
 - **Deterministic Boundary.** Each gate's last column names the tools that surface runs. No validator checks front
   matter here, so that row left every table and front matter is judgeable.
 - **Review surface.** A hosted pull request, under the merge preconditions.

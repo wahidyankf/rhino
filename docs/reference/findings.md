@@ -140,8 +140,8 @@ reporting on them is what "internal link" excludes.
 - `diagram-authoring-rule` — A repository declaring `authoring-rule: plain-text` carries a Mermaid diagram.
 
 `mermaid-legibility` details: `segment` (`node` or `edge`), `measured`, and `limit`. A label is measured **as it is
-seen**: HTML entities are decoded, markup is stripped, and a `<br>` splits a label into segments measured separately,
-because two short lines are legible where one long line is not.
+seen**: HTML entities are decoded, markup is stripped, and a line break (`<br>`, `<br/>`, `<br />`, or a literal `\n`)
+splits a label into segments measured separately, because two short lines are legible where one long line is not.
 
 `mermaid-accessibility` covers colour and description. Colour may be set only inside a `classDef`; a `style`,
 `linkStyle`, or inline colour is reported wherever it appears. Every colour a `classDef` sets must be a six-digit hex

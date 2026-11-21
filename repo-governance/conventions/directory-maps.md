@@ -44,6 +44,6 @@ link to it rather than compressing a neighbour to make room.
   go run ./cmd/rhino governance directory-map validate
 ```
 
-The `directory-map` gate in [`repo-config.yml`](../../repo-config.yml) declares this check on the `pre-push` and
-`pull-request` surfaces, so the `pre-push` hook runs it. The
-[pull-request quality gate](../../.github/workflows/pr-quality-gate.yml) workflow does not replay that surface yet.
+The `directory-map` gate in [`repo-config.yml`](../../repo-config.yml) declares this check on the `pull-request` surface
+only, so the `pre-push` hook does not run it. The
+[pull-request quality gate](../../.github/workflows/pr-quality-gate.yml) workflow runs it in `pull-request-checks`.

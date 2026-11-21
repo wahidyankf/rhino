@@ -27,7 +27,7 @@ The checker reports none of these properties. The entry and exit checks run thei
 | ----------------------------------------- | ------------------------ | -------------------------------------------- |
 | Every scenario bound at every adapter     | the coverage check       | `./scripts/test-quick.sh`                    |
 | Scenario syntax                           | the corpus parser        | `./scripts/test-quick.sh`                    |
-| Scenarios pass against the implementation | the test suites          | `./scripts/test-quick.sh`, the scheduled run |
+| Scenarios pass against the implementation | the test suites          | `test:quick`, `test:integration`, `test:e2e` |
 | Markdown formatting                       | the formatter and linter | `prettier`, `markdownlint-cli2`              |
 | Internal links                            | the link validator       | `rhino md internal-link validate`            |
 | Directory maps                            | the map validator        | `rhino governance directory-map validate`    |

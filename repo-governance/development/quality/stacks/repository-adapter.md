@@ -109,7 +109,7 @@ A catalog owner with no local counterpart stays named in the adopted text withou
 
 - [rhino](../../../../README.md) — the binary in `cmd/rhino` and its `internal/` packages;
   [quality gates](../../quality-gates.md) names its commands.
-- `scripts/release-archive` — the Go archiver that `scripts/build-release.sh` runs; outside the coverage floor.
+- `scripts/release-archive` — the Go archiver that `scripts/build-release.sh` runs; inside the coverage floor.
 - [public-safety](../../../../scripts/public-safety/README.md) — the adopted outbound scanner and its case suite.
 - repo-scripts — the hook helpers in `scripts/` and the guard in `.claude/hooks/`, named in quality gates and tested by
   their own runners; no coverage, per Meaningful Coverage.

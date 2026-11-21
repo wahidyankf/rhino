@@ -275,9 +275,9 @@ func runValidationIn(ctx context.Context, format string) error {
 // Proofs that stand beside this step, and do not depend on it:
 //   - internal/adapters/runtime/read_boundary_test.go pins the Git verbs that
 //     disk.go may start, and which functions may write.
-//   - internal/bootstrap/boundary_test.go pins the validator cores' imports, the
-//     binary's dependency graph to hold no network package, and process
-//     spawning to the runtime adapter.
+//   - internal/bootstrap/boundary_integration_test.go (integration build tag)
+//     pins the validator cores' imports, the binary's dependency graph to hold
+//     no network package, and process spawning to the runtime adapter.
 func startedOnlyReadOnlyQueries(ctx context.Context) error {
 	current, err := scenarioFrom(ctx)
 	if err != nil {
