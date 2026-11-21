@@ -10,9 +10,10 @@ without a shell or reported output, `env validate` runs one `git diff --cached` 
 boundary when they are invoked, and adapter generation replaces only declared adapter families and exact adapter files
 after planning every output in memory, starting at most a tier's declared `model-resolve` argv. The validator boundaries
 are enforced as tests, not incidental properties of the current implementation: the import and dependency rules live in
-`internal/bootstrap/boundary_test.go`, and the tree adapter's write and Git rules live in
-`internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of `gate run`, the `bw` argv of the
-vault commands, or the Git plumbing of the mutation boundary; behaviour tests check their outcomes.
+`internal/bootstrap/boundary_test.go` and `internal/bootstrap/boundary_integration_test.go`, and the tree adapter's
+write and Git rules live in `internal/adapters/runtime/read_boundary_test.go`. No boundary test pins the argv of
+`gate run`, the `bw` argv of the vault commands, or the Git plumbing of the mutation boundary; behaviour tests check
+their outcomes.
 
 ## The four boundaries
 
@@ -42,8 +43,8 @@ they cannot touch the file system except through the tree port the entry point s
 ## Why they are tests rather than prose
 
 A README that says "RHINO does not reach the network" is a promise. A test that fails when a network package appears in
-the binary's dependency graph is a mechanism. `internal/bootstrap/boundary_test.go` is one, and it also fails when a
-validator core imports a process or file package. The rule predicates each have a positive control in
+the binary's dependency graph is a mechanism. `internal/bootstrap/boundary_integration_test.go` is one, and it also
+fails when a validator core imports a process or file package. The rule predicates each have a positive control in
 `TestImportRulesClassifyEachPathAsDeclared`, and the process searches each check a known case, so an empty result is a
 real result and not a search that found nothing.
 

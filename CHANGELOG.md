@@ -9,7 +9,17 @@ finding kinds, configuration keys, and output. They are not a commit list. For
 the commits behind any release, see its
 [comparison on GitHub](https://github.com/wahidyankf/rhino/releases).
 
-## [Unreleased]
+## [v0.19.0] — 2026-11-21
+
+A minor release: `gate wiring validate` checks a repository's registry against its hook and workflow files,
+`behaviour coverage validate` checks that every scenario has its test bindings or a valid exemption, and
+`gate run --entry <id>` (repeatable) runs only the named gates of a surface, so each CI level can run as its own job.
+A repository's registry now keeps hooks to staged-file formatting at `pre-commit`, commit-message lint at `commit-msg`,
+and the leak scan at `pre-push`, which scans the pushed range only. Everything else (tests, lint, document checks, and
+the tree scan) runs at the pull-request surface. `scripts/test-quick.sh` now also runs lint and prints the unit coverage
+percentage. No existing command, flag, finding kind, or configuration key is removed or renamed, and no exit
+code changes meaning. A stricter `md mermaid validate` and the moved hooks can still change what a pinned repository
+sees, so read **Changed** before upgrading.
 
 ### Added
 
@@ -21,7 +31,24 @@ the commits behind any release, see its
   an integration and an e2e reference or a valid exemption. Rules B01 to B09 are static: the command reads text and
   runs no test. `--rules <id,...>` runs only the named rules. The new `policies.behaviour` section declares the corpus,
   fixtures, whole-file globs, and per-level test globs.
+- `gate run --entry <id>` runs only the named gates of a surface, in declaration order. The flag repeats. Without it, a
+  run takes every gate on the surface. An id that the surface does not declare exits `2` with `rhino.config.undeclared`,
+  so a named gate is never skipped.
 - Finding kinds W01 to W07 and B01 to B09, listed in the findings reference.
+
+### Changed
+
+- The `pre-commit`, `commit-msg`, and `pre-push` hooks now hold only `format-staged`, `commit-message`, and
+  `public-safety-range`. `pre-push` used to run the quick gate and the repository and document checks, `pre-commit` the
+  tree screen and the remote-dispatch refusal, and `commit-msg` the message screen. Those checks now run at the
+  pull-request surface.
+- `test:quick` (`scripts/test-quick.sh`) now runs `golangci-lint` at warning severity and ends with
+  `behaviour coverage validate`. Its race run covers `cmd`, `internal`, and `scripts/release-archive`, so `tests/bdd`
+  and `tests/e2e` no longer run there: `tests/bdd` runs at `test:integration` on pull requests, and `tests/e2e` at
+  `test:e2e` on the schedule. Its coverage line now reads `unit coverage N%` (was `deterministic-core coverage N%`).
+- `md mermaid validate` measures each line of a label separately, split at line breaks such as `<br>` and `\n`, as the
+  findings reference describes. It used to measure one character at a time, so a label longer than its limit was never
+  reported. A label that passed before can now report `mermaid-legibility`.
 
 ## [v0.18.0] — 2026-11-14
 

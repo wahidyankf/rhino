@@ -29,6 +29,7 @@ finding rather than a flake:
 
 - `gofmt -l cmd internal` prints nothing;
 - `go vet ./...` is clean;
+- `go tool golangci-lint run ./...` is clean;
 - `go test -race -count=1` passes over the unit packages: `cmd`, `internal`, and `scripts/release-archive`;
 - unit coverage meets its pinned floor, read from that unit run;
 - the built binary prints the `version --json` shape with `schemaVersion` 1 and reports one emoji finding on a fixture;
@@ -36,14 +37,14 @@ finding rather than a flake:
 
 ## The Integration and End-to-End Targets
 
-`test:integration` runs `go test -race -count=1 ./tests/bdd/...`. Every scenario in `specs/behaviours` runs against the
-built binary in a subprocess, and a skipped scenario fails the run. `test:e2e` runs the end-to-end suite under
-`tests/e2e/`. Neither target is part of the quick gate. The pull-request gate runs `test:integration` on every pull
-request (C17). The scheduled surface runs `test:e2e`, so no pull request waits on it.
+`test:integration` runs the tagged suites of `scripts/test-integration.sh`. Every scenario in `specs/behaviours` runs
+against the built binary in a subprocess, and a skipped scenario fails the run. `test:e2e` runs the end-to-end suite
+under `tests/e2e/`. Neither target is part of the quick gate. The scheduled surface runs `test:e2e`, so no pull request
+waits on it.
 
 ## The Full Gate
 
-`./scripts/test.sh` runs the quick gate, the integration and end-to-end targets, the public-safety wrapper's suite, and
+`./scripts/test.sh` runs the quick gate, the `tests/bdd` and `tests/e2e` suites, the public-safety wrapper's suite, and
 then `go tool govulncheck ./...`. The vulnerability tool is pinned in `go.mod`, so it needs no install step, but it
 needs network access to the vulnerability database. The full gate is not a hook. It runs in the
 [Main Test workflow](../../.github/workflows/main-test.yml) on every push to `main`, on both operating systems pinned
@@ -53,9 +54,9 @@ below.
 
 - **Commit and push:** the local hooks above.
 - **Pull request:** the [PR Quality Gate](../../.github/workflows/pr-quality-gate.yml), which runs the `pull-request`
-  surface: the quick gate, the integration target, and every document and repository check. Its aggregate `Quality gate`
-  job is the only required check. A skipped or cancelled dependency is a failure there, because a skipped required check
-  never reports at all.
+  surface: the quick gate, the integration target (C17), and every document and repository check. Its aggregate
+  `Quality gate` job is the only required check. A skipped or cancelled dependency is a failure there, because a skipped
+  required check never reports at all.
 - **Every push to `main`:** [Main Test](../../.github/workflows/main-test.yml), with the full gate on both operating
   systems, a Linux release build, and a macOS rebuild whose checksums must match the Linux ones byte for byte.
 - **Daily:** the [Scheduled](../../.github/workflows/scheduled.yml) workflow, which runs the `scheduled` surface

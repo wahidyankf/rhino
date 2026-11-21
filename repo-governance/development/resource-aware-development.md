@@ -7,8 +7,8 @@ workstation across every repository the maintainer runs; a dispatched node's one
 ./hippo run --class ephemeral --resource-tier heavy --disk-path . -- ./scripts/test-quick.sh
 ```
 
-The `pre-push` hook already does this. Runs of `prettier` and `markdownlint-cli2`, in any mode over any files, need no
-HIPPO admission; all other compute stays guarded.
+The pull-request gate already runs `quick` under HIPPO. Runs of `prettier` and `markdownlint-cli2`, in any mode over any
+files, need no HIPPO admission; all other compute stays guarded.
 
 Such passes are bounded and restartable, so queueing them behind heavy runs wastes time for no resource gain. Nothing
 enforces this exemption. The boundary hook and guard allow exactly two launcher spellings, `npx --no-install <tool>` and
@@ -52,7 +52,7 @@ ordering or copy a release number into the rule.
 
 ## Enforcement
 
-The `pre-push` hook covers the push path. It does not cover an agent typing a build command directly, and that gap is
+The `pre-push` hook runs no build or test. It does not cover an agent typing a build command directly, and that gap is
 not theoretical: an unguarded fan-out once forced a restart of the shared workstation under severe memory pressure.
 HIPPO cannot defer or shed work it was never told about, so it still reported `normal`.
 

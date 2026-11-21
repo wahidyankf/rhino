@@ -21,7 +21,7 @@ what this repository is willing to ship, not a test-infrastructure adjustment.
 Tree validators read files and write nothing. The validator cores (the domain, application, and config packages) import
 no `os`, `os/exec`, `net`, `syscall`, `unsafe`, `plugin`, or cgo package, so they cannot open, write, or start anything
 directly. The binary's dependency graph has no `net` package, and no product source imports `net`, `unsafe`, or cgo.
-`internal/bootstrap/boundary_test.go` enforces these, with a positive control per finder.
+`internal/bootstrap/boundary_integration_test.go` enforces these; `boundary_test.go` holds the positive controls.
 
 The remaining reach is confined, and each confinement is a test unless noted:
 
@@ -43,8 +43,8 @@ The remaining reach is confined, and each confinement is a test unless noted:
   (`internal/application/harness_validate_resolver_test.go`).
 - Explicit boundaries fail closed when missing, never falling back to the read port: environment and harness refuse
   (`environment_test.go`, `harness_test.go`); toolchain reports findings (`toolchain_faults_test.go`).
-- A path that leaves the root, or passes through a link, is refused (`disk_links_test.go`, `mutation_test.go`,
-  `environment_faults_test.go`).
+- A path that leaves the root, or passes through a link, is refused (`disk_links_integration_test.go`,
+  `mutation_integration_test.go`, `environment_faults_test.go`).
 
 Named tests enforce these rather than documentation, because a documented invariant is an intention. The no-loopback
 rule is stricter than the integration layer, which permits an owned socket, deliberately, for the reason the
