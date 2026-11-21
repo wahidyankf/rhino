@@ -36,10 +36,10 @@ each push and for the exact head being [merged](pull-request-merge.md).
 
 ## What Enforces It
 
-[`scripts/public-safety/`](../../scripts/public-safety/README.md) screens the pushed range at `pre-push`, commit by
-commit, and the tree and commit messages in the pull-request gate (C11). It screens credential patterns with a pinned
-scanner and generic private-metadata shapes with a tracked pattern set, and it refuses rather than reports: exit `1` is
-a finding, exit `2` is a scan it could not trust, and both block. There is no allowlist and no bypass.
+[`scripts/public-safety/`](../../scripts/public-safety/README.md) screens the pushed range at `pre-push` and the tree
+and messages in the pull-request gate (C11), for credential patterns (a pinned scanner) and generic private-metadata
+shapes (a tracked pattern set). It refuses rather than reports: exit `1` is a finding, exit `2` is a scan it could not
+trust, and both block. There is no allowlist and no bypass.
 
 What it cannot decide is which values are _deliberately_ public. This repository's own GitHub URL and the owner's
 configured commit identity are allowed by this convention and are invisible to a pattern. That judgement is why the
