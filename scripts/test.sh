@@ -12,8 +12,9 @@ cd "$root"
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
 	GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_NAMESPACE GIT_PREFIX
 
-# Formatting, vet, the full unit suite under -race, deterministic-core coverage,
-# and a binary smoke run. The -race run over every package is part of that gate.
+# Formatting, vet, the full unit suite under -race, unit coverage over cmd,
+# internal, and scripts/release-archive, and a binary smoke run. The -race run
+# over every package is part of that gate.
 ./scripts/test-quick.sh
 
 # The behaviour corpus is named here too: `go test ./tests/bdd` runs every
