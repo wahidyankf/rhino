@@ -1,8 +1,8 @@
 # Dev Artifact Clean-Up
 
 Removing exactly the development artifacts one piece of work created, and bringing the primary checkout's `main` back
-level with `origin/main`. The obligations are stated in [integration path](../../conventions/integration-path.md); this
-is the order, and the checks that make deleting safe.
+level with `origin/main`. The obligations are in [integration path](../../conventions/integration-path.md); this is the
+order, and the checks that make deleting safe.
 
 ## Scope
 
@@ -10,8 +10,8 @@ Seven things, and nothing else: the worktree this work provisioned, its local br
 regenerable build output this work produced, the `local-tmp/` scratch it wrote, the containers, volumes, and networks
 its runs leaked, and the primary checkout's `main` ref.
 
-Build output means `target/` and the build caches a documented command rebuilds — in the worktree, and the same output
-in the primary checkout. It never means a `.env*` file or any other local secret, in any location.
+Build output means `target/` and the build caches a documented command rebuilds, in the worktree and the primary
+checkout alike. It never means a `.env*` file or any other local secret, in any location.
 
 Leaked containers are removed per [leaked test containers](dev-artifact-clean-up/002-leaked-test-containers.md).
 
@@ -23,10 +23,11 @@ another repository's state — even when they look abandoned.
 
 ## When
 
-Once every delivery unit that used the worktree has landed, or once the work is deliberately abandoned. Not between
-units, because the worktree is reused. Never as a periodic sweep.
+Once every delivery unit using the worktree has landed, or the work is deliberately abandoned. Not between units,
+because the worktree is reused, except on a remote host
+([Remote Dispatch](../../development/resource-aware-development/003-remote-dispatch.md)). Never as a periodic sweep.
 
-Retain the worktree of a run that failed, and say so, rather than deleting the evidence.
+Retain the worktree of a failed run, and say so, rather than deleting the evidence.
 
 ## Before Deleting Anything
 
@@ -37,8 +38,8 @@ Retain the worktree of a run that failed, and say so, rather than deleting the e
 
 ## Procedure
 
-Run from the primary checkout, never from inside the directory being removed: a shell holding a deleted working
-directory resolves the next relative path somewhere unintended.
+Run from the primary checkout, never from inside the directory being removed: a shell holding a deleted directory
+resolves the next relative path somewhere unintended.
 
 ```sh
 git fetch origin --prune
@@ -49,8 +50,8 @@ git branch -d worktree/<name>
 git push origin --delete worktree/<name>
 ```
 
-Purge the build output this work produced, and its own scratch, once delivery has landed and nothing uses it. Retain
-logs, traces, and any other non-regenerable evidence a failure would need.
+Purge the build output this work produced, and its scratch, once delivery has landed and nothing uses it. Retain logs,
+traces, and any other non-regenerable evidence a failure would need.
 
 The count must read `0 0`. `--prune` drops the remote-tracking ref for a branch the forge deleted on merge; without it
 the deleted branch lingers in `git branch -a`. Delete on `origin` only if merging did not. A clone with no primary
@@ -73,7 +74,7 @@ its `origin` copy goes only after that. Otherwise `-D` discards work: retain the
 ## Verification
 
 `git worktree list` no longer names the path, `git branch --list` no longer prints the branch, the branch is gone from
-`origin`, the purged build output and this work's scratch are gone, and the count above reads `0 0`.
+`origin`, the purged output and scratch are gone, and the count above reads `0 0`.
 
 ## Never
 
